@@ -1,0 +1,279 @@
+export interface HeroSlide {
+  id: number;
+  image: string;
+  title: string;
+  description: string;
+  cta: string;
+  cta2: string;
+  link: string;
+}
+
+export const heroSlides: HeroSlide[] = [
+  {
+    id: 1,
+    title: "Discover African-Owned Businesses & Events",
+    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    image: "/images/backgroundImages/hero1.jpg",
+    cta: "Join as a vendor",
+    cta2: "Explore listing",
+    link: ""
+  },
+  {
+    id: 2,
+    title: "Discover African-Owned Businesses & Events",
+    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    image: "/images/backgroundImages/hero2.jpg",
+    cta: "Join as a vendor",
+    cta2: "Explore listing",
+    link: ""
+  },
+  {
+    id: 3,
+    title: "Discover African-Owned Businesses & Events",
+    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    image: "/images/backgroundImages/hero3.jpg",
+    cta: "Join as a vendor",
+    cta2: "Explore listing",
+    link: ""
+  },
+];
+
+
+export type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  image: string;
+  createdAt: Date;
+  popularity: number;
+};
+
+export const categories: Category[] = [
+  {
+    id: "1",
+    name: "Events",
+    slug: "events",
+    image: "/images/backgroundImages/categories/event.jpg",
+    createdAt: new Date("2024-01-15"),
+    popularity: 850,
+  },
+  {
+    id: "2",
+    name: "Cultural Services",
+    slug: "cultural-services",
+    image: "/images/backgroundImages/categories/culture.jpg",
+    createdAt: new Date("2024-02-20"),
+    popularity: 720,
+  },
+  {
+    id: "3",
+    name: "Fashion & Lifestyle",
+    slug: "fashion-lifestyle",
+    image: "/images/backgroundImages/categories/fashion.jpg",
+    createdAt: new Date("2024-03-10"),
+    popularity: 950,
+  },
+  {
+    id: "4",
+    name: "Food & Hospitality",
+    slug: "food-hospitality",
+    image: "/images/backgroundImages/categories/food.jpg",
+    createdAt: new Date("2024-01-25"),
+    popularity: 1100,
+  },
+  {
+    id: "5",
+    name: "Education & Learning",
+    slug: "education-learning",
+    image: "/images/backgroundImages/categories/education.jpg",
+    createdAt: new Date("2024-02-05"),
+    popularity: 680,
+  },
+  {
+    id: "6",
+    name: "Financial Services",
+    slug: "financial-services",
+    image: "/images/backgroundImages/categories/finance.jpg",
+    createdAt: new Date("2024-03-15"),
+    popularity: 890,
+  },
+  {
+    id: "7",
+    name: "Shipping & Logistics",
+    slug: "shipping-logistics",
+    image: "/images/backgroundImages/categories/logistics.jpg",
+    createdAt: new Date("2024-01-30"),
+    popularity: 620,
+  },
+  {
+    id: "8",
+    name: "Property Relocation",
+    slug: "property-relocation",
+    image: "/images/backgroundImages/categories/property.jpg",
+    createdAt: new Date("2024-02-28"),
+    popularity: 750,
+  },
+];
+
+export type Business = {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  rating: number;
+  reviewCount: string;
+  location: string;
+  verified?: boolean;
+  slug: string;
+};
+
+export const featuredBusinesses: Business[] = [
+  {
+    id: "1",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    category: "Clothing",
+    image: "/images/backgroundImages/business/tailor.jpg",
+    rating: 4,
+    reviewCount: "2.2k",
+    location: "South London, United Kingdom",
+    verified: false,
+    slug: "kente-tailor-bespoke-mens-wedding-attire",
+  },
+  {
+    id: "2",
+    name: "Beaded Heritage Necklace & Bracelets",
+    category: "Jewelry",
+    image: "/images/backgroundImages/business/beads.jpg",
+    rating: 4.5,
+    reviewCount: "2.2k",
+    location: "South London, United Kingdom",
+    verified: true,
+    slug: "beaded-heritage-necklace-bracelets",
+  },
+  {
+    id: "3",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    category: "Art & Craft",
+    image: "/images/backgroundImages/business/sculpture.jpg",
+    rating: 5,
+    reviewCount: "2.2k",
+    location: "South London, United Kingdom",
+    verified: true,
+    slug: "kente-tailor-craft",
+  },
+  {
+    id: "4",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    category: "Art & Craft",
+    image: "/images/backgroundImages/business/pottery.jpg",
+    rating: 5,
+    reviewCount: "2.2k",
+    location: "South London, United Kingdom",
+    verified: true,
+    slug: "kente-tailor-pottery",
+  },
+  {
+    id: "5",
+    name: "African Cuisine Restaurant",
+    category: "Food & Hospitality",
+    image: "/images/backgroundImages/business/food.jpg",
+    rating: 3,
+    reviewCount: "3.1k",
+    location: "East London, United Kingdom",
+    verified: true,
+    slug: "african-cuisine-restaurant",
+  },
+  {
+    id: "6",
+    name: "Traditional Fabric Store",
+    category: "Fashion & Lifestyle",
+    image: "/images/backgroundImages/business/fabric-store.jpg",
+    rating: 4.1,
+    reviewCount: "1.8k",
+    location: "West London, United Kingdom",
+    verified: false,
+    slug: "traditional-fabric-store",
+  },
+];
+
+
+export type Event = {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  location: string;
+  description: string;
+  slug: string;
+  startDate: string;
+  endDate: string;
+};
+
+export const Events: Event[] = [
+  {
+    id: "1",
+    name: "TGMA 2026...",
+    category: "Concert",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    image: "/images/backgroundImages/business/tailor.jpg",
+    location: "Virtual",
+    slug: "tgma-2026",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+  {
+    id: "2",
+    name: "African Heritage Festival",
+    category: "Festival",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    image: "/images/backgroundImages/business/beads.jpg",
+    location: "Virtual",
+    slug: "african-heritage-festival",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+  {
+    id: "3",
+    name: "Art & Culture Exhibition",
+    category: "Art & Craft",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    image: "/images/backgroundImages/business/sculpture.jpg",
+    location: "Virtual",
+    slug: "art-culture-exhibition",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+  {
+    id: "4",
+    name: "Traditional Pottery Workshop",
+    category: "Art & Craft",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    image: "/images/backgroundImages/business/pottery.jpg",
+    location: "Virtual",
+    slug: "traditional-pottery-workshop",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+  {
+    id: "5",
+    name: "African Cuisine Festival",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    category: "Food & Hospitality",
+    image: "/images/backgroundImages/business/food.jpg",
+    location: "Virtual",
+    slug: "african-cuisine-festival",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+  {
+    id: "6",
+    name: "Fashion & Lifestyle Expo",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    category: "Fashion & Lifestyle",
+    image: "/images/backgroundImages/business/fabric-store.jpg",
+    location: "Virtual",
+    slug: "fashion-lifestyle-expo",
+    startDate: "Nov 20",
+    endDate: "Dec 3, 2025",
+  },
+];

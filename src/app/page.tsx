@@ -1,65 +1,145 @@
+"use client";
+import { useState, useMemo } from "react";
+import HeroSlider from "@/components/landing-page/hero-slider";
+import { Sort, SortOption } from "@/components/sort";
+import { BusinessCarousel } from "@/components/landing-page/business-carousel";
+import { EventCarousel } from "@/components/landing-page/event-carousel";
 import Image from "next/image";
+import Link from "next/link";
+import { categories, Events, featuredBusinesses } from "@/lib/data";
 
 export default function Home() {
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+
+  const sortedCategories = useMemo(() => {
+    const sorted = [...categories];
+
+    switch (sortBy) {
+      case "name-asc":
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case "name-desc":
+        return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      case "newest":
+        return sorted.sort(
+          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+        );
+      case "oldest":
+        return sorted.sort(
+          (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+        );
+      case "popular":
+        return sorted.sort((a, b) => b.popularity - a.popularity);
+      default:
+        return sorted;
+    }
+  }, [sortBy]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <HeroSlider />
+
+      {/* Explore by Category */}
+      <div className="py-16 px-4 lg:px-16 mt-6">
+        <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-8">
+          <div className="flex flex-col space-y-2">
+            <h2 className="font-semibold text-xl md:text-4xl">
+              Explore by Category
+            </h2>
+            <p className="font-normal text-sm md:text-base">
+              Find exactly what you&apos;re looking for
+            </p>
+          </div>
+          <div>
+            <Sort value={sortBy} onChange={setSortBy} />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Category Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {sortedCategories.map((category) => (
+            <Link
+              key={category.id}
+              href={`/categories/${category.slug}`}
+              className="group relative overflow-hidden rounded-2xl w-[173px] h-[114px] md:w-[310px] md:h-[204px] aspect-4/3 hover:shadow-xl transition-all duration-300"
+            >
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent z-10" />
+              <Image
+                src={category.image}
+                alt={category.name}
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-300"
+              />
+              <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
+                <h3 className="text-white font-medium text-base md:text-xl">
+                  {category.name}
+                </h3>
+              </div>
+            </Link>
+          ))}
         </div>
-      </main>
+      </div>
+
+      {/* Featured Businesses */}
+      <div className="py-16 px-4 lg:py-20 lg:px-16 mt-6">
+        <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+          <div className="flex flex-col space-y-2">
+            <h2 className="font-semibold text-xl md:text-4xl">
+              Featured Businesses
+            </h2>
+            <p className="font-normal text-sm md:text-base">
+              Discover top-rated businesses near you
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/businesses"
+              className="text-[#275782] font-medium hidden lg:block"
+            >
+              Explore Businesses
+            </Link>
+            <Link
+              href="/businesses"
+              className="text-[#275782] font-medium lg:hidden"
+            >
+              Explore all
+            </Link>
+          </div>
+        </div>
+
+        {/* Businesses Carousel */}
+        <BusinessCarousel businesses={featuredBusinesses} />
+      </div>
+
+      {/* Upcoming Events */}
+      <div className="py-16 px-4 lg:py-20 lg:px-16 mt-6">
+        <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+          <div className="flex flex-col space-y-2">
+            <h2 className="font-semibold text-xl md:text-4xl">
+              Upcoming Events
+            </h2>
+            <p className="font-normal text-sm md:text-base">
+              Don&apos;t miss these amazing cultural events
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/events"
+              className="text-[#275782] font-medium hidden lg:block"
+            >
+              Explore Events
+            </Link>
+            <Link
+              href="/events"
+              className="text-[#275782] font-medium lg:hidden"
+            >
+              Explore all
+            </Link>
+          </div>
+        </div>
+
+        {/* Businesses Carousel */}
+        <EventCarousel events={Events} />
+      </div>
     </div>
   );
 }
