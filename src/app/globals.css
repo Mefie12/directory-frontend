@@ -76,7 +76,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --background-secondary: oklab(28.866999999999997% -0.01925 -0.04514);
+  --background-secondary: #152d42;
   --accent-primary: #93c01f;
   --accent-secondary: #1c3c59;
   --accent-tertiary: #f1f5f9;

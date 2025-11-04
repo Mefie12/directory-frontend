@@ -12,32 +12,34 @@ export const heroSlides: HeroSlide[] = [
   {
     id: 1,
     title: "Discover African-Owned Businesses & Events",
-    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    description:
+      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero1.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: ""
+    link: "",
   },
   {
     id: 2,
     title: "Discover African-Owned Businesses & Events",
-    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    description:
+      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero2.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: ""
+    link: "",
   },
   {
     id: 3,
     title: "Discover African-Owned Businesses & Events",
-    description: "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    description:
+      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero3.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: ""
+    link: "",
   },
 ];
-
 
 export type Category = {
   id: string;
@@ -196,7 +198,6 @@ export const featuredBusinesses: Business[] = [
   },
 ];
 
-
 export type Event = {
   id: string;
   name: string;
@@ -214,8 +215,9 @@ export const Events: Event[] = [
     id: "1",
     name: "TGMA 2026...",
     category: "Concert",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
-    image: "/images/backgroundImages/business/tailor.jpg",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    image: "/images/backgroundImages/business/event.jpg",
     location: "Virtual",
     slug: "tgma-2026",
     startDate: "Nov 20",
@@ -225,7 +227,8 @@ export const Events: Event[] = [
     id: "2",
     name: "African Heritage Festival",
     category: "Festival",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
     image: "/images/backgroundImages/business/beads.jpg",
     location: "Virtual",
     slug: "african-heritage-festival",
@@ -236,7 +239,8 @@ export const Events: Event[] = [
     id: "3",
     name: "Art & Culture Exhibition",
     category: "Art & Craft",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
     image: "/images/backgroundImages/business/sculpture.jpg",
     location: "Virtual",
     slug: "art-culture-exhibition",
@@ -247,7 +251,8 @@ export const Events: Event[] = [
     id: "4",
     name: "Traditional Pottery Workshop",
     category: "Art & Craft",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
     image: "/images/backgroundImages/business/pottery.jpg",
     location: "Virtual",
     slug: "traditional-pottery-workshop",
@@ -257,7 +262,8 @@ export const Events: Event[] = [
   {
     id: "5",
     name: "African Cuisine Festival",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
     category: "Food & Hospitality",
     image: "/images/backgroundImages/business/food.jpg",
     location: "Virtual",
@@ -268,7 +274,8 @@ export const Events: Event[] = [
   {
     id: "6",
     name: "Fashion & Lifestyle Expo",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
+    description:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...",
     category: "Fashion & Lifestyle",
     image: "/images/backgroundImages/business/fabric-store.jpg",
     location: "Virtual",
@@ -276,4 +283,71 @@ export const Events: Event[] = [
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
   },
+];
+
+// communities
+export type Community = {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  link: string;
+};
+export const communities: Community[] = [
+  {
+    id: "1",
+    title: "Faith & Values",
+    description:
+      "Connect with local business owners, artists, freelancers, and professionals making an impact. Exchange ideas, promote your services, and find collaborators who share your drive.",
+    image: "/images/faith.jpg",
+    link: "faith-values",
+  },
+  {
+    id: "2",
+    title: "Creators & Entrepreneurs",
+    description:
+      "Connect with local business owners, artists, freelancers, and professionals making an impact. Exchange ideas, promote your services, and find collaborators who share your drive.",
+    image: "/images/creators.jpg",
+    link: "creators-entrepreneurs",
+  },
+];
+
+
+// faqs
+export type Faq = {
+  id: string;
+  question: string;
+  answer: string;
+};
+export const faqs: Faq[] = [
+  {
+    id: "1",
+    question: "What is Mefie Directory?",
+    answer: "Mefie Directory is a platform that connects local businesses, artists, freelancers, and professionals making an impact. Exchange ideas, promote your services, and find collaborators who share your drive.",
+  },
+  {
+    id: "2",
+    question: "How do I join Mefie Directory?",
+    answer: "To join Mefie, simply create an account and start exploring the platform. You can connect with local businesses, artists, freelancers, and professionals making an impact. Exchange ideas, promote your services, and find collaborators who share your drive.",
+  },
+  {
+    id: "3",
+    question: "How do I list my business?",
+    answer: "To list your business on Mefie Directory, simply create an account and start exploring the platform. You can connect with local businesses, artists, freelancers, and professionals making an impact. Exchange ideas, promote your services, and find collaborators who share your drive.",
+  },
+  {
+    id: "4",
+    question: "Is there a fee to join?",
+    answer: "No, there is no fee to join Mefie Directory.",
+  },
+  {
+    id: "5",
+    question: "What additional features do i get with the premium plan?",
+    answer: "With the premium plan, you get access to additional features such as a dedicated account manager, priority support, and exclusive discounts.",
+  },
+  {
+    id: "6",
+    question: "How do customers find my business?",
+    answer: "Customers find your business through search, social media, and referrals.",
+  }
 ];
