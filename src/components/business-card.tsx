@@ -1,6 +1,8 @@
+
 import Image from "next/image";
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { Star, Bookmark } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export type Business = {
   id: string;
@@ -12,6 +14,7 @@ export type Business = {
   location: string;
   verified?: boolean;
   slug: string;
+  discount?: string;
 };
 
 type BusinessCardProps = {
@@ -22,7 +25,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
   return (
     <Link
       href={`/businesses/${business.slug}`}
-      className="group block bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 border border-[#E2E8F0]"
+      className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 border border-[#E2E8F0]"
     >
       {/* Image Container */}
       <div className="relative w-full aspect-4/3 overflow-hidden ">
@@ -30,8 +33,30 @@ export function BusinessCard({ business }: BusinessCardProps) {
           src={business.image}
           alt={business.name}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
+        
+        {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
+        <button
+          // onClick={(e) => {
+          //   e.preventDefault();
+          //   // Add bookmark logic here
+          // }}
+          className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white transition-colors md:opacity-0 md:group-hover:opacity-100"
+          aria-label="Bookmark business"
+        >
+          <Bookmark className="w-4 h-4 text-gray-700" />
+        </button>
+
+        {/* Discount Badge */}
+        {business.discount && (
+          <div className="absolute top-1 left-1">
+            <Badge variant="destructive" className="bg-red-500 text-white font-normal">
+              {business.discount}
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Content */}

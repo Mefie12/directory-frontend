@@ -12,6 +12,7 @@ export type Event = {
   slug: string;
   startDate: string;
   endDate: string;
+  verified: boolean;
 };
 
 type EventCardProps = {
@@ -20,52 +21,60 @@ type EventCardProps = {
 
 export function EventCard({ event }: EventCardProps) {
   return (
-    <div className="group bg-white rounded-3xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-[#E2E8F0] h-full">
-      {/* Image Container */}
-      <div className="relative w-full h-[280px] md:h-[320px] overflow-hidden">
+    <Link
+      href={`/events/${event.slug}`}
+      className="group block rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full"
+    >
+      {/* Image Container with Gradient Overlay */}
+      <div className="relative w-full h-[280px] overflow-hidden">
         <Image
           src={event.image}
           alt={event.name}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
         {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-b from-black/60 via-black/40 to-black/70" />
+        <div className="absolute inset-0 bg-linear-to-b  from-transparent via-black/30 to-black/80" />
 
-        {/* Bookmark Icon */}
+        {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
         <button
-          className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors"
+          // onClick={(e) => {
+          //   e.preventDefault();
+          //   // Add bookmark logic here
+          // }}
+          className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
           aria-label="Bookmark event"
         >
-          <Bookmark className="w-5 h-5 text-white" />
+          <Bookmark className="w-4 h-4 text-white" />
         </button>
 
-        {/* Event Title Overlay */}
-        <div className="absolute bottom-4 left-4 right-4">
-          <h3 className="font-bold text-2xl md:text-3xl text-white leading-tight">
+        {/* Event Title and Category at Bottom */}
+        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+          <h3 className="font-bold text-xl text-white leading-tight">
             {event.name}
           </h3>
-        </div>
 
-        {/* Category Badge with Verification */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F8FAFC] text-xs font-medium text-gray-700">
-            {event.category}
-          </span>
-          <div className="w-6 h-6  flex items-center justify-center">
-            <Image
-              src="/images/icons/verify.svg"
-              alt="Verified"
-              width={20}
-              height={20}
-            />
+          {/* Category Badge with Verification */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center px-4 py-1 rounded-full bg-white text-xs font-normal text-gray-700">
+              {event.category}
+            </span>
+            {event.verified && (
+              <Image
+                src="/images/icons/verify.svg"
+                alt="Verified"
+                width={20}
+                height={20}
+              />
+            )}
           </div>
         </div>
       </div>
 
       {/* Card Content */}
-      <Link href={`/events/${event.slug}`} className="block p-5 space-y-3">
+      <div className="p-4 space-y-3">
         {/* Description */}
         <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
           {event.description}
@@ -86,15 +95,15 @@ export function EventCard({ event }: EventCardProps) {
         <div className="flex items-center gap-2 text-gray-500">
           <Image
             src="/images/icons/calendar.svg"
-            alt="Verified"
-            width={20}
-            height={20}
+            alt="Calendar"
+            width={16}
+            height={16}
           />
           <span className="text-xs">
             {event.startDate} - {event.endDate}
           </span>
         </div>
-      </Link>
-    </div>
+      </div>
+    </Link>
   );
 }

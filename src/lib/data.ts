@@ -120,81 +120,112 @@ export const categories: Category[] = [
 export type Business = {
   id: string;
   name: string;
+  description: string;
   category: string;
+  country: string;
   image: string;
   rating: number;
   reviewCount: string;
   location: string;
   verified?: boolean;
   slug: string;
+  type: "business";
+  createdAt: string;
+  discount?: string;
 };
 
 export const featuredBusinesses: Business[] = [
   {
     id: "1",
     name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    description: "Expert bespoke tailoring for traditional African wedding attire and formal wear",
     category: "Clothing",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/tailor.jpg",
     rating: 4,
     reviewCount: "2.2k",
     location: "South London, United Kingdom",
     verified: false,
     slug: "kente-tailor-bespoke-mens-wedding-attire",
+    type: "business",
+    createdAt: "2024-01-15T00:00:00Z",
   },
   {
     id: "2",
     name: "Beaded Heritage Necklace & Bracelets",
+    description: "Handcrafted traditional African beaded jewelry and accessories",
     category: "Jewelry",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/beads.jpg",
     rating: 4.5,
     reviewCount: "2.2k",
     location: "South London, United Kingdom",
     verified: true,
     slug: "beaded-heritage-necklace-bracelets",
+    type: "business",
+    createdAt: "2024-02-01T00:00:00Z",
+    discount: "-20%",
   },
   {
     id: "3",
     name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    description: "Traditional African sculptures and handcrafted art pieces",
     category: "Art & Craft",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/sculpture.jpg",
     rating: 5,
     reviewCount: "2.2k",
     location: "South London, United Kingdom",
     verified: true,
     slug: "kente-tailor-craft",
+    type: "business",
+    createdAt: "2024-02-10T00:00:00Z",
   },
   {
     id: "4",
     name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    description: "Authentic African pottery and ceramic art workshops",
     category: "Art & Craft",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/pottery.jpg",
     rating: 5,
     reviewCount: "2.2k",
     location: "South London, United Kingdom",
     verified: true,
     slug: "kente-tailor-pottery",
+    type: "business",
+    createdAt: "2024-02-15T00:00:00Z",
   },
   {
     id: "5",
     name: "African Cuisine Restaurant",
+    description: "Authentic African dishes and traditional cuisine experience",
     category: "Food & Hospitality",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/food.jpg",
     rating: 3,
     reviewCount: "3.1k",
     location: "East London, United Kingdom",
     verified: true,
     slug: "african-cuisine-restaurant",
+    type: "business",
+    createdAt: "2024-03-01T00:00:00Z",
+    discount: "-15%",
   },
   {
     id: "6",
     name: "Traditional Fabric Store",
+    description: "Premium African fabrics, textiles, and fashion materials",
     category: "Fashion & Lifestyle",
+    country: "United Kingdom",
     image: "/images/backgroundImages/business/fabric-store.jpg",
     rating: 4.1,
     reviewCount: "1.8k",
     location: "West London, United Kingdom",
     verified: false,
     slug: "traditional-fabric-store",
+    type: "business",
+    createdAt: "2024-03-10T00:00:00Z",
   },
 ];
 
@@ -208,6 +239,11 @@ export type Event = {
   slug: string;
   startDate: string;
   endDate: string;
+  verified: boolean;
+  type: "event";
+  date: string;
+  country: string;
+  createdAt: string;
 };
 
 export const Events: Event[] = [
@@ -222,6 +258,11 @@ export const Events: Event[] = [
     slug: "tgma-2026",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: true,
+    type: "event",
+    date: "2025-11-20",
+    country: "Ghana",
+    createdAt: "2024-10-01T00:00:00Z",
   },
   {
     id: "2",
@@ -234,6 +275,11 @@ export const Events: Event[] = [
     slug: "african-heritage-festival",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: true,
+    type: "event",
+    date: "2025-11-20",
+    country: "Nigeria",
+    createdAt: "2024-10-05T00:00:00Z",
   },
   {
     id: "3",
@@ -246,6 +292,11 @@ export const Events: Event[] = [
     slug: "art-culture-exhibition",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: true,
+    type: "event",
+    date: "2025-11-20",
+    country: "Kenya",
+    createdAt: "2024-10-10T00:00:00Z",
   },
   {
     id: "4",
@@ -258,6 +309,11 @@ export const Events: Event[] = [
     slug: "traditional-pottery-workshop",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: false,
+    type: "event",
+    date: "2025-11-20",
+    country: "South Africa",
+    createdAt: "2024-10-15T00:00:00Z",
   },
   {
     id: "5",
@@ -270,6 +326,11 @@ export const Events: Event[] = [
     slug: "african-cuisine-festival",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: false,
+    type: "event",
+    date: "2025-11-20",
+    country: "Ethiopia",
+    createdAt: "2024-10-20T00:00:00Z",
   },
   {
     id: "6",
@@ -282,6 +343,11 @@ export const Events: Event[] = [
     slug: "fashion-lifestyle-expo",
     startDate: "Nov 20",
     endDate: "Dec 3, 2025",
+    verified: false,
+    type: "event",
+    date: "2025-11-20",
+    country: "Senegal",
+    createdAt: "2024-10-25T00:00:00Z",
   },
 ];
 

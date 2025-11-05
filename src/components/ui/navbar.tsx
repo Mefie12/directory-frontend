@@ -2,7 +2,7 @@
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Menu, X, Search } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
 
 export default function Navbar() {
@@ -47,9 +47,9 @@ export default function Navbar() {
             <div className="hidden lg:flex lg:items-center lg:space-x-8 flex-1 justify-center">
               <Link
                 href="/discover"
-                className={`text-base font-normal transition-colors ${
+                className={`relative text-base font-normal transition-colors ${
                   isActive("/discover")
-                    ? "text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
                     : "text-white/80 hover:text-white"
                 }`}
               >
@@ -57,9 +57,9 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/businesses"
-                className={`text-base font-normal transition-colors ${
+                className={`relative text-base font-normal transition-colors ${
                   isActive("/businesses")
-                    ? "text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
                     : "text-white/80 hover:text-white"
                 }`}
               >
@@ -67,9 +67,9 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/events"
-                className={`text-base font-normal transition-colors ${
+                className={`relative text-base font-normal transition-colors ${
                   isActive("/events")
-                    ? "text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
                     : "text-white/80 hover:text-white"
                 }`}
               >
@@ -77,9 +77,9 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/communities"
-                className={`text-base font-normal transition-colors ${
+                className={`relative text-base font-normal transition-colors ${
                   isActive("/communities")
-                    ? "text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
                     : "text-white/80 hover:text-white"
                 }`}
               >
@@ -87,9 +87,9 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/about"
-                className={`text-base font-normal transition-colors ${
+                className={`relative text-base font-normal transition-colors ${
                   isActive("/about")
-                    ? "text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
                     : "text-white/80 hover:text-white"
                 }`}
               >
@@ -100,13 +100,13 @@ export default function Navbar() {
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
-            {/* Search Icon */}
+            {/* Search Icon
             <button
               className="p-2 rounded-full bg-[#F8FAFC80] hover:bg-white/20 transition-colors"
               aria-label="Search"
             >
               <Search className="h-5 w-5 text-white" />
-            </button>
+            </button> */}
 
             {/* Auth Buttons */}
             <Link

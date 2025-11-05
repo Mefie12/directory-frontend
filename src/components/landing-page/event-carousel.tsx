@@ -51,7 +51,7 @@ export function EventCarousel({ events }: EventCarouselProps) {
   return (
     <div className="relative">
       {/* Carousel Container */}
-      <div className="overflow-hidden" ref={emblaRef}>
+      <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-6">
           {events.map((event) => (
             <div

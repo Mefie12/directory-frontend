@@ -1,15 +1,20 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { BusinessCard, type Business } from "../business-card";
+import type { Business } from "@/lib/api";
+import { BusinessCard } from "../business-card";
 import { Button } from "../ui/button";
 
-type BusinessCarouselProps = {
+interface BusinessBestCarouselProps {
   businesses: Business[];
-};
+  title?: string;
+}
 
-export function BusinessCarousel({ businesses }: BusinessCarouselProps) {
+export default function BusinessBestCarousel({
+  businesses,
+  title = "Today’s best deals just for you!",
+}: BusinessBestCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "center",
     loop: false,
@@ -49,7 +54,34 @@ export function BusinessCarousel({ businesses }: BusinessCarouselProps) {
   }, [emblaApi]);
 
   return (
-    <div className="relative">
+    <div className="py-8 px-4 lg:px-16">
+      {/* Header with Title and Navigation Buttons */}
+      <div className="flex flex-row justify-between items-center mb-5">
+        <h2 className="font-semibold text-2xl md:text-3xl">{title}</h2>
+
+        {/* Navigation Buttons */}
+        <div className="hidden md:flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={scrollPrev}
+            disabled={!canScrollPrev}
+            className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={scrollNext}
+            disabled={!canScrollNext}
+            className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
+          >
+            <ChevronRight className="w-5 h-5 text-[#275782]" />
+          </Button>
+        </div>
+      </div>
+
       {/* Carousel Container */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
@@ -63,29 +95,6 @@ export function BusinessCarousel({ businesses }: BusinessCarouselProps) {
           ))}
         </div>
       </div>
-
-      {/* Navigation Buttons */}
-      {canScrollPrev && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={scrollPrev}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 rounded-full bg-white shadow-lg hover:bg-gray-50 hidden md:flex"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-      )}
-
-      {canScrollNext && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={scrollNext}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 rounded-full bg-white shadow-lg hover:bg-gray-50 hidden md:flex"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </Button>
-      )}
     </div>
   );
 }
