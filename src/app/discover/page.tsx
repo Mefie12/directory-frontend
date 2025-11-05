@@ -25,7 +25,7 @@ export default async function Discover() {
       </div>
 
       {/* content */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         <BusinessCardCarousel businesses={businesses} />
         <EventCardCarousel events={events} />
 
@@ -157,7 +157,7 @@ export default async function Discover() {
         </div> */}
 
         {/* CTA */}
-        <div className="py-16 px-4 lg:px-16">
+        <div className="py-12 px-4 lg:px-16">
           <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
             {/* Background patterns */}
             <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">

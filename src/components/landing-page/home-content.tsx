@@ -52,7 +52,7 @@ export default function HomeContent({
       <HeroSlider />
 
       {/* Explore by Category */}
-      <div className="py-16 px-4 lg:px-16">
+      <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -94,7 +94,7 @@ export default function HomeContent({
       </div>
 
       {/* Featured Businesses */}
-      <div className="py-16 px-4 lg:py-20 lg:px-16">
+      <div className="py-12 px-4 lg:py-20 lg:px-16">
         <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -125,7 +125,7 @@ export default function HomeContent({
       </div>
 
       {/* Upcoming Events */}
-      <div className="py-16 px-4 lg:py-20 lg:px-16">
+      <div className="py-12 px-4 lg:py-20 lg:px-16">
         <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -156,7 +156,7 @@ export default function HomeContent({
       </div>
 
       {/* Ready to grow your business section */}
-      <div className="py-16 px-4 lg:px-16">
+      <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
           {/* Left: Image */}
           <div className="relative w-full lg:w-1/2 h-[320px] lg:h-auto">
@@ -188,7 +188,7 @@ export default function HomeContent({
       </div>
 
       {/* Community you can explore section */}
-      <div className="py-16 px-4 lg:px-16">
+      <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-10">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -244,7 +244,7 @@ export default function HomeContent({
       </div>
 
       {/* FAQs */}
-      <div className="py-16 px-4 lg:px-16">
+      <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-row justify-center items-center md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2 text-center">
             <h2 className="font-semibold text-xl md:text-4xl capitalize">
@@ -266,7 +266,7 @@ export default function HomeContent({
       </div>
 
       {/* CTA */}
-      <div className="py-16 px-4 lg:px-16">
+      <div className="py-12 px-4 lg:px-16">
         <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
           {/* Background patterns */}
           <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
