@@ -1,0 +1,95 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ listing_slug: string }> }
+) {
+  try {
+    const { listing_slug } = await params;
+    const authHeader = request.headers.get('Authorization');
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/listing/${listing_slug}/opening_hours`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(authHeader && { Authorization: authHeader }),
+        },
+        next: { revalidate: 60 },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: errorData.message || 'Failed to fetch opening hours' },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching opening hours:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch opening hours' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ listing_slug: string }> }
+) {
+  try {
+    const { listing_slug } = await params;
+    const body = await request.json();
+    const authHeader = request.headers.get('Authorization');
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/listing/${listing_slug}/opening_hours`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(authHeader && { Authorization: authHeader }),
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: errorData.message || 'Failed to create opening hours' },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+
+    return NextResponse.json(data, {
+      status: response.status,
+    });
+  } catch (error) {
+    console.error('Error creating opening hours:', error);
+    return NextResponse.json(
+      { error: 'Failed to create opening hours' },
+      { status: 500 }
+    );
+  }
+}
+
+
