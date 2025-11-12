@@ -20,6 +20,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
+import Link from "next/link";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
@@ -64,6 +65,50 @@ const priceRanges = [
   { label: "$500+", value: "500+" },
 ];
 
+const categories = [
+  {
+    label: "All categories",
+    value: "all",
+    link: "/discover",
+  },
+  {
+    label: "Cultural Services",
+    value: "cultural-services",
+    link: "/categories/cultural-services",
+  },
+  {
+    label: "Education & Learning",
+    value: "education-learning",
+    link: "/categories/education-learning",
+  },
+  {
+    label: "Food & Hospitality",
+    value: "food-hospitality",
+    link: "/categories/food-hospitality",
+  },
+  {
+    label: "Health & Wellness",
+    value: "health-wellness",
+    link: "/categories/health-wellness",
+  },
+  { label: "Events", value: "events", link: "/categories/events" },
+  {
+    label: "Financial Services",
+    value: "financial-services",
+    link: "/categories/financial-services",
+  },
+  {
+    label: "Shipping & Logistics",
+    value: "shipping-logistics",
+    link: "/categories/shipping-logistics",
+  },
+  {
+    label: "Property Relocation",
+    value: "property-relocation",
+    link: "/categories/property-relocation",
+  },
+];
+
 export default function SearchHeader({
   context = "discover",
 }: SearchHeaderProps) {
@@ -80,7 +125,7 @@ export default function SearchHeader({
     }
     router.push(`${pathname}?${params.toString()}`);
   };
-  
+
   const updateSearchParamsBatch = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
     Object.entries(updates).forEach(([key, value]) => {
@@ -101,6 +146,13 @@ export default function SearchHeader({
     updateSearchParams("country", value === "All countries" ? "" : value);
   };
 
+  const handleCategoryChange = (value: string) => {
+    const selectedCategory = categories.find((c) => c.value === value);
+    if (selectedCategory) {
+      router.push(selectedCategory.link);
+    }
+  };
+
   const handleDateRangeSelect = (range: DateRange | undefined) => {
     const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
     const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
@@ -115,6 +167,7 @@ export default function SearchHeader({
   };
 
   const showCountry = true;
+  const showCategories = true;
   const showDate = context === "discover" || context === "events";
   const showPrice = context === "discover" || context === "businesses";
 
@@ -129,6 +182,10 @@ export default function SearchHeader({
         }
       : undefined;
   const currentPrice = searchParams.get("price") || "all";
+ // Determine current category based on pathname
+  const currentCategory = categories.find((cat) => 
+    cat.link !== "/discover" && pathname.includes(cat.link)
+  )?.value || "all";
 
   return (
     <div className="w-full bg-transparent">
@@ -154,7 +211,6 @@ export default function SearchHeader({
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-gray-600" />
                     <SelectValue className="text-gray-600" />
-                    {/* <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" /> */}
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -180,8 +236,14 @@ export default function SearchHeader({
                     <Calendar className="h-5 w-5 mr-2 text-gray-600" />
                     {currentRange?.from
                       ? currentRange.to
-                        ? `${format(currentRange.from, "MMM dd, yyyy")} - ${format(currentRange.to, "MMM dd, yyyy")}`
-                        : `${format(currentRange.from, "MMM dd, yyyy")} - End date`
+                        ? `${format(
+                            currentRange.from,
+                            "MMM dd, yyyy"
+                          )} - ${format(currentRange.to, "MMM dd, yyyy")}`
+                        : `${format(
+                            currentRange.from,
+                            "MMM dd, yyyy"
+                          )} - End date`
                       : "Dates"}
                     <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" />
                   </Button>
@@ -216,7 +278,6 @@ export default function SearchHeader({
                       {priceRanges.find((p) => p.value === currentPrice)
                         ?.label || "Price"}
                     </span>
-                    {/* <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" /> */}
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -224,6 +285,34 @@ export default function SearchHeader({
                     <SelectItem key={price.value} value={price.value}>
                       {price.label}
                     </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Category Select */}
+          {showCategories && (
+            <div className="md:w-auto min-w-[140px]">
+              <Select
+                value={currentCategory}
+                onValueChange={handleCategoryChange}
+              >
+                <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">
+                      {categories.find((c) => c.value === currentCategory)
+                        ?.label || "All categories"}
+                    </span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <Link href={category.link} key={category.value}>
+                      <SelectItem value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    </Link>
                   ))}
                 </SelectContent>
               </Select>
