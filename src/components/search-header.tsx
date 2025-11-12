@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
+import type { DateRange } from "react-day-picker";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
@@ -79,6 +80,18 @@ export default function SearchHeader({
     }
     router.push(`${pathname}?${params.toString()}`);
   };
+  
+  const updateSearchParamsBatch = (updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   const handleSearchChange = (value: string) => {
     updateSearchParams("q", value);
@@ -88,8 +101,13 @@ export default function SearchHeader({
     updateSearchParams("country", value === "All countries" ? "" : value);
   };
 
-  const handleDateSelect = (date: Date | undefined) => {
-    updateSearchParams("date", date ? format(date, "yyyy-MM-dd") : "");
+  const handleDateRangeSelect = (range: DateRange | undefined) => {
+    const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
+    const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
+    updateSearchParamsBatch({
+      startDate: start,
+      endDate: end,
+    });
   };
 
   const handlePriceChange = (value: string) => {
@@ -101,7 +119,15 @@ export default function SearchHeader({
   const showPrice = context === "discover" || context === "businesses";
 
   const currentCountry = searchParams.get("country") || "All countries";
-  const currentDate = searchParams.get("date");
+  const currentStart = searchParams.get("startDate");
+  const currentEnd = searchParams.get("endDate");
+  const currentRange: DateRange | undefined =
+    currentStart || currentEnd
+      ? {
+          from: currentStart ? new Date(currentStart) : undefined,
+          to: currentEnd ? new Date(currentEnd) : undefined,
+        }
+      : undefined;
   const currentPrice = searchParams.get("price") || "all";
 
   return (
@@ -142,7 +168,7 @@ export default function SearchHeader({
             </div>
           )}
 
-          {/* Date Picker */}
+          {/* Date Range Picker */}
           {showDate && (
             <div className="md:w-auto min-w-[140px]">
               <Popover>
@@ -152,17 +178,20 @@ export default function SearchHeader({
                     className="h-9 w-full rounded-full border-[#E2E8F0] px-4 justify-start text-gray-600 font-normal hover:bg-gray-50"
                   >
                     <Calendar className="h-5 w-5 mr-2 text-gray-600" />
-                    {currentDate
-                      ? format(new Date(currentDate), "MMM dd, yyyy")
-                      : "Date"}
+                    {currentRange?.from
+                      ? currentRange.to
+                        ? `${format(currentRange.from, "MMM dd, yyyy")} - ${format(currentRange.to, "MMM dd, yyyy")}`
+                        : `${format(currentRange.from, "MMM dd, yyyy")} - End date`
+                      : "Dates"}
                     <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
                   <CalendarComponent
-                    mode="single"
-                    selected={currentDate ? new Date(currentDate) : undefined}
-                    onSelect={handleDateSelect}
+                    mode="range"
+                    numberOfMonths={2}
+                    selected={currentRange}
+                    onSelect={handleDateRangeSelect}
                     initialFocus
                   />
                 </PopoverContent>

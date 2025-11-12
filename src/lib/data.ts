@@ -151,6 +151,8 @@ export type Business = {
   type: "business";
   createdAt: string;
   discount?: string;
+  availableFrom?: string;
+  availableTo?: string;
 };
 
 export const featuredBusinesses: Business[] = [
@@ -169,13 +171,15 @@ export const featuredBusinesses: Business[] = [
     slug: "kente-tailor-bespoke-mens-wedding-attire",
     type: "business",
     createdAt: "2024-01-15T00:00:00Z",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-12-31",
   },
   {
     id: "2",
     name: "Ankara Fashion House",
     description: "Contemporary African fashion with modern designs and traditional prints",
     category: "Clothing",
-    country: "United Kingdom",
+    country: "United States",
     image: "/images/clothing/clothing2.jpg",
     rating: 4.6,
     reviewCount: "1.8k",
@@ -185,13 +189,15 @@ export const featuredBusinesses: Business[] = [
     type: "business",
     createdAt: "2024-01-20T00:00:00Z",
     discount: "-15%",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "3",
     name: "Heritage Clothing Boutique",
     description: "Authentic African clothing and accessories for all occasions",
     category: "Clothing",
-    country: "United Kingdom",
+    country: "Canada",
     image: "/images/clothing/clothing3.jpg",
     rating: 4.7,
     reviewCount: "1.5k",
@@ -200,13 +206,15 @@ export const featuredBusinesses: Business[] = [
     slug: "heritage-clothing-boutique",
     type: "business",
     createdAt: "2024-01-25T00:00:00Z",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
   },
   {
     id: "4",
     name: "Afrocentric Styles",
     description: "Bold and vibrant African-inspired fashion for the modern wardrobe",
     category: "Clothing",
-    country: "United Kingdom",
+    country: "Ghana",
     image: "/images/clothing/clothing4.jpg",
     rating: 4.5,
     reviewCount: "1.3k",
@@ -215,6 +223,8 @@ export const featuredBusinesses: Business[] = [
     slug: "afrocentric-styles",
     type: "business",
     createdAt: "2024-02-01T00:00:00Z",
+    availableFrom: "2025-10-01",
+    availableTo: "2025-12-31",
   },
 
   // Jewellery Category
@@ -223,7 +233,7 @@ export const featuredBusinesses: Business[] = [
     name: "Beaded Heritage Necklaces",
     description: "Handcrafted traditional African beaded jewelry and accessories",
     category: "Jewellery",
-    country: "United Kingdom",
+    country: "Nigeria",
     image: "/images/jewellery/jewellery1.jpg",
     rating: 4.9,
     reviewCount: "2.5k",
@@ -233,13 +243,15 @@ export const featuredBusinesses: Business[] = [
     type: "business",
     createdAt: "2024-02-05T00:00:00Z",
     discount: "-20%",
+    availableFrom: "2025-02-01",
+    availableTo: "2025-05-31",
   },
   {
     id: "6",
     name: "Golden Adornments",
     description: "Exquisite African-inspired gold and silver jewelry pieces",
     category: "Jewellery",
-    country: "United Kingdom",
+    country: "South Africa",
     image: "/images/jewellery/jewellery2.jpg",
     rating: 4.8,
     reviewCount: "2.1k",
@@ -248,13 +260,15 @@ export const featuredBusinesses: Business[] = [
     slug: "golden-adornments",
     type: "business",
     createdAt: "2024-02-10T00:00:00Z",
+    availableFrom: "2025-06-01",
+    availableTo: "2025-08-31",
   },
   {
     id: "7",
     name: "Tribal Treasures Jewelry",
     description: "Unique handmade jewelry celebrating African tribal heritage",
     category: "Jewellery",
-    country: "United Kingdom",
+    country: "Kenya",
     image: "/images/jewellery/jewellery3.jpg",
     rating: 4.7,
     reviewCount: "1.9k",
@@ -263,13 +277,15 @@ export const featuredBusinesses: Business[] = [
     slug: "tribal-treasures-jewelry",
     type: "business",
     createdAt: "2024-02-15T00:00:00Z",
+    availableFrom: "2025-03-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "8",
     name: "Cowrie Shell Creations",
     description: "Traditional cowrie shell jewelry and modern African accessories",
     category: "Jewellery",
-    country: "United Kingdom",
+    country: "Senegal",
     image: "/images/jewellery/jewellery4.jpg",
     rating: 4.6,
     reviewCount: "1.7k",
@@ -279,6 +295,8 @@ export const featuredBusinesses: Business[] = [
     type: "business",
     createdAt: "2024-02-20T00:00:00Z",
     discount: "-10%",
+    availableFrom: "2025-08-01",
+    availableTo: "2025-11-30",
   },
 
   // Art & Crafts Category
@@ -287,7 +305,7 @@ export const featuredBusinesses: Business[] = [
     name: "African Sculpture Gallery",
     description: "Traditional African sculptures and handcrafted art pieces",
     category: "Art & Crafts",
-    country: "United Kingdom",
+    country: "Ethiopia",
     image: "/images/art/art1.jpg",
     rating: 5.0,
     reviewCount: "2.8k",
@@ -296,13 +314,15 @@ export const featuredBusinesses: Business[] = [
     slug: "african-sculpture-gallery",
     type: "business",
     createdAt: "2024-02-25T00:00:00Z",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-03-31",
   },
   {
     id: "10",
     name: "Heritage Pottery Studio",
     description: "Authentic African pottery and ceramic art workshops",
     category: "Art & Crafts",
-    country: "United Kingdom",
+    country: "Tanzania",
     image: "/images/art/art2.jpg",
     rating: 4.9,
     reviewCount: "2.3k",
@@ -311,13 +331,15 @@ export const featuredBusinesses: Business[] = [
     slug: "heritage-pottery-studio",
     type: "business",
     createdAt: "2024-03-01T00:00:00Z",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "11",
     name: "Afro Arts & Crafts",
     description: "Handmade African crafts, paintings, and decorative items",
     category: "Art & Crafts",
-    country: "United Kingdom",
+    country: "United States",
     image: "/images/art/art3.jpg",
     rating: 4.8,
     reviewCount: "2.0k",
@@ -326,13 +348,15 @@ export const featuredBusinesses: Business[] = [
     slug: "afro-arts-crafts",
     type: "business",
     createdAt: "2024-03-05T00:00:00Z",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
   },
   {
     id: "12",
     name: "Tribal Masks & Carvings",
     description: "Authentic African masks, wood carvings, and tribal art",
     category: "Art & Crafts",
-    country: "United Kingdom",
+    country: "Canada",
     image: "/images/art/art4.jpg",
     rating: 4.7,
     reviewCount: "1.8k",
@@ -342,6 +366,8 @@ export const featuredBusinesses: Business[] = [
     type: "business",
     createdAt: "2024-03-10T00:00:00Z",
     discount: "-15%",
+    availableFrom: "2025-10-01",
+    availableTo: "2025-12-31",
   },
 
   // Caterer Category
@@ -350,7 +376,7 @@ export const featuredBusinesses: Business[] = [
     name: "Mama's African Catering",
     description: "Authentic African catering services for weddings and events",
     category: "Caterer",
-    country: "United Kingdom",
+    country: "Ghana",
     image: "/images/backgroundImages/categories/food.jpg",
     rating: 4.8,
     reviewCount: "3.2k",
@@ -360,13 +386,15 @@ export const featuredBusinesses: Business[] = [
     type: "business",
     createdAt: "2024-03-15T00:00:00Z",
     discount: "-10%",
+    availableFrom: "2025-02-01",
+    availableTo: "2025-05-31",
   },
   {
     id: "14",
     name: "Jollof Kitchen Catering",
     description: "Specializing in West African cuisine for all your special occasions",
     category: "Caterer",
-    country: "United Kingdom",
+    country: "Nigeria",
     image: "/images/backgroundImages/business/food.jpg",
     rating: 4.7,
     reviewCount: "2.9k",
@@ -375,6 +403,8 @@ export const featuredBusinesses: Business[] = [
     slug: "jollof-kitchen-catering",
     type: "business",
     createdAt: "2024-03-20T00:00:00Z",
+    availableFrom: "2025-06-01",
+    availableTo: "2025-08-31",
   },
 
   // Dancers Category
@@ -383,7 +413,7 @@ export const featuredBusinesses: Business[] = [
     name: "African Dance Troupe",
     description: "Professional African dancers for events and cultural celebrations",
     category: "Dancers",
-    country: "United Kingdom",
+    country: "South Africa",
     image: "/images/backgroundImages/categories/culture.jpg",
     rating: 4.9,
     reviewCount: "1.8k",
@@ -392,13 +422,15 @@ export const featuredBusinesses: Business[] = [
     slug: "african-dance-troupe",
     type: "business",
     createdAt: "2024-03-25T00:00:00Z",
+    availableFrom: "2025-03-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "16",
     name: "Afrobeat Dance Academy",
     description: "Learn traditional and contemporary African dance styles",
     category: "Dancers",
-    country: "United Kingdom",
+    country: "Kenya",
     image: "/images/backgroundImages/business/event.jpg",
     rating: 4.6,
     reviewCount: "1.4k",
@@ -407,6 +439,8 @@ export const featuredBusinesses: Business[] = [
     slug: "afrobeat-dance-academy",
     type: "business",
     createdAt: "2024-03-30T00:00:00Z",
+    availableFrom: "2025-08-01",
+    availableTo: "2025-11-30",
   },
 
   // Cultural Attire Stylist Category
@@ -415,7 +449,7 @@ export const featuredBusinesses: Business[] = [
     name: "Heritage Attire Styling",
     description: "Expert styling for traditional African cultural attire and ceremonies",
     category: "Cultural Attire Stylist",
-    country: "United Kingdom",
+    country: "Senegal",
     image: "/images/backgroundImages/categories/fashion.jpg",
     rating: 4.8,
     reviewCount: "1.6k",
@@ -424,6 +458,8 @@ export const featuredBusinesses: Business[] = [
     slug: "heritage-attire-styling",
     type: "business",
     createdAt: "2024-04-01T00:00:00Z",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-03-31",
   },
 
   // Drummers & Cultural Performers Category
@@ -432,7 +468,7 @@ export const featuredBusinesses: Business[] = [
     name: "Djembe Masters",
     description: "Traditional African drummers and cultural performers for all occasions",
     category: "Drummers & Cultural Performers",
-    country: "United Kingdom",
+    country: "Ethiopia",
     image: "/images/backgroundImages/business/event.jpg",
     rating: 4.9,
     reviewCount: "1.5k",
@@ -441,6 +477,8 @@ export const featuredBusinesses: Business[] = [
     slug: "djembe-masters",
     type: "business",
     createdAt: "2024-04-05T00:00:00Z",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
   },
 
   // Toys & Games Category
@@ -449,7 +487,7 @@ export const featuredBusinesses: Business[] = [
     name: "African Toy Emporium",
     description: "Educational toys and games celebrating African culture and heritage",
     category: "Toys & Games",
-    country: "United Kingdom",
+    country: "Tanzania",
     image: "/images/backgroundImages/business/vendor.jpg",
     rating: 4.5,
     reviewCount: "1.2k",
@@ -458,6 +496,8 @@ export const featuredBusinesses: Business[] = [
     slug: "african-toy-emporium",
     type: "business",
     createdAt: "2024-04-10T00:00:00Z",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
   },
 
   // Books & Magazines Category
@@ -466,7 +506,7 @@ export const featuredBusinesses: Business[] = [
     name: "African Literature Hub",
     description: "Books and magazines about African history, culture, and contemporary life",
     category: "Books & Magazines",
-    country: "United Kingdom",
+    country: "United States",
     image: "/images/backgroundImages/categories/education.jpg",
     rating: 4.7,
     reviewCount: "1.9k",
@@ -475,6 +515,8 @@ export const featuredBusinesses: Business[] = [
     slug: "african-literature-hub",
     type: "business",
     createdAt: "2024-04-15T00:00:00Z",
+    availableFrom: "2025-10-01",
+    availableTo: "2025-12-31",
   },
 ];
 
@@ -514,6 +556,8 @@ export type Event = {
   time?: string;
   country: string;
   createdAt: string;
+  availableFrom?: string;
+  availableTo?: string;
 };
 
 export const Events: Event[] = [
@@ -534,6 +578,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-10-01T00:00:00Z",
+    availableFrom: "2025-11-01",
+    availableTo: "2025-12-15",
   },
   {
     id: "2",
@@ -552,6 +598,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Nigeria",
     createdAt: "2024-10-05T00:00:00Z",
+    availableFrom: "2025-10-15",
+    availableTo: "2025-12-10",
   },
   {
     id: "3",
@@ -570,6 +618,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Kenya",
     createdAt: "2024-10-10T00:00:00Z",
+    availableFrom: "2025-09-01",
+    availableTo: "2025-11-30",
   },
   {
     id: "4",
@@ -588,6 +638,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "South Africa",
     createdAt: "2024-10-15T00:00:00Z",
+    availableFrom: "2025-08-01",
+    availableTo: "2025-10-31",
   },
   {
     id: "5",
@@ -606,6 +658,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ethiopia",
     createdAt: "2024-10-20T00:00:00Z",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
   },
   {
     id: "6",
@@ -624,6 +678,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Senegal",
     createdAt: "2024-10-25T00:00:00Z",
+    availableFrom: "2025-06-01",
+    availableTo: "2025-08-31",
   },
   {
     id: "7",
@@ -642,6 +698,8 @@ export const Events: Event[] = [
     time: "11:00",
     country: "Ghana",
     createdAt: "2024-10-26T00:00:00Z",
+    availableFrom: "2025-05-01",
+    availableTo: "2025-07-31",
   },
   {
     id: "8",
@@ -660,6 +718,8 @@ export const Events: Event[] = [
     time: "11:00",
     country: "Ghana",
     createdAt: "2024-10-27T00:00:00Z",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "9",
@@ -678,6 +738,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Nigeria",
     createdAt: "2024-10-28T00:00:00Z",
+    availableFrom: "2025-03-01",
+    availableTo: "2025-05-31",
   },
   {
     id: "10",
@@ -696,6 +758,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Kenya",
     createdAt: "2024-10-29T00:00:00Z",
+    availableFrom: "2025-02-01",
+    availableTo: "2025-04-30",
   },
   {
     id: "11",
@@ -714,6 +778,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-10-30T00:00:00Z",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-03-31",
   },
   {
     id: "12",
@@ -732,6 +798,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-10-31T00:00:00Z",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "13",
@@ -750,6 +818,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-01T00:00:00Z",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
   },
   {
     id: "14",
@@ -768,6 +838,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-02T00:00:00Z",
+    availableFrom: "2025-10-01",
+    availableTo: "2025-12-31",
   },
   {
     id: "15",
@@ -786,6 +858,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-03T00:00:00Z",
+    availableFrom: "2025-02-01",
+    availableTo: "2025-05-31",
   },
   {
     id: "16",
@@ -804,6 +878,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-04T00:00:00Z",
+    availableFrom: "2025-06-01",
+    availableTo: "2025-08-31",
   },
   {
     id: "17",
@@ -822,6 +898,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-05T00:00:00Z",
+    availableFrom: "2025-03-01",
+    availableTo: "2025-06-30",
   },
   {
     id: "18",
@@ -840,6 +918,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-06T00:00:00Z",
+    availableFrom: "2025-08-01",
+    availableTo: "2025-11-30",
   },
   {
     id: "19",
@@ -858,6 +938,8 @@ export const Events: Event[] = [
     time: "10:00 AM",
     country: "Ghana",
     createdAt: "2024-11-07T00:00:00Z",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-04-30",
   },
 ];
 
@@ -1271,5 +1353,966 @@ export const testimonials: Testimonial[] = [
       "Mefie isn't just a directory, it's a community. I've made meaningful connections and discovered opportunities I wouldn't have found elsewhere.",
     stars: 5,
     role: "Fashion Designer",
+  },
+];
+
+// ============================================================================
+// Mock data for Categories single-page layout preview
+// ============================================================================
+
+// export type PopularStylist = {
+//   id: string;
+//   name: string;
+//   role: string;
+//   location: string;
+//   rating: number;
+//   reviews: string;
+//   avatar: string;
+//   slug: string;
+// };
+
+// export const popularStylists: PopularStylist[] = [
+//   {
+//     id: "ps-1",
+//     name: "Kente Tailor",
+//     role: "Bespoke Mens Wedding Attire",
+//     location: "South London, UK",
+//     rating: 4.8,
+//     reviews: "2.2k",
+//     avatar: "/images/clothing/clothing1.jpg",
+//     slug: "kente-tailor-bespoke-mens-wedding-attire",
+//   },
+//   {
+//     id: "ps-2",
+//     name: "Ankara Fashion",
+//     role: "Bespoke Attire",
+//     location: "West London, UK",
+//     rating: 4.6,
+//     reviews: "1.8k",
+//     avatar: "/images/clothing/clothing2.jpg",
+//     slug: "ankara-fashion-house",
+//   },
+//   {
+//     id: "ps-3",
+//     name: "Heritage Boutique",
+//     role: "Wedding Attire",
+//     location: "Central London, UK",
+//     rating: 4.7,
+//     reviews: "1.5k",
+//     avatar: "/images/clothing/clothing3.jpg",
+//     slug: "heritage-clothing-boutique",
+//   },
+//   {
+//     id: "ps-4",
+//     name: "Afrocentric Styles",
+//     role: "Mens Wedding Attire",
+//     location: "North London, UK",
+//     rating: 4.5,
+//     reviews: "1.3k",
+//     avatar: "/images/clothing/clothing4.jpg",
+//     slug: "afrocentric-styles",
+//   },
+//   {
+//     id: "ps-5",
+//     name: "Beaded Heritage",
+//     role: "Accessories",
+//     location: "South London, UK",
+//     rating: 4.9,
+//     reviews: "2.5k",
+//     avatar: "/images/jewellery/jewellery1.jpg",
+//     slug: "beaded-heritage-necklaces-bracelets",
+//   },
+// ];
+
+// export type CultureServiceCard = {
+//   id: string;
+//   title: string;
+//   tag: string;
+//   image: string;
+//   location: string;
+//   rating: number;
+//   reviews: string;
+//   slug: string;
+// };
+
+// export const cultureServices: CultureServiceCard[] = [
+//   {
+//     id: "cs-1",
+//     title: "Adowa Heritage Troupe",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/events3.jpg",
+//     location: "Memphis",
+//     rating: 4.7,
+//     reviews: "2.2k",
+//     slug: "adowa-heritage-troupe",
+//   },
+//   {
+//     id: "cs-2",
+//     title: "Kente Elegance Stylists",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/categories/fashion.jpg",
+//     location: "Memphis",
+//     rating: 4.6,
+//     reviews: "2.3k",
+//     slug: "kente-elegance-stylists",
+//   },
+//   {
+//     id: "cs-3",
+//     title: "Rhythms of Africa Ensemble",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/events2.jpg",
+//     location: "Memphis",
+//     rating: 4.8,
+//     reviews: "2.1k",
+//     slug: "rhythms-of-africa-ensemble",
+//   },
+//   {
+//     id: "cs-4",
+//     title: "Forever Yours Events",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/event.jpg",
+//     location: "Memphis",
+//     rating: 4.6,
+//     reviews: "2.2k",
+//     slug: "forever-yours-events",
+//   },
+//   {
+//     id: "cs-5",
+//     title: "Kente Elegance Stylists",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/events4.jpg",
+//     location: "Memphis",
+//     rating: 4.5,
+//     reviews: "2.0k",
+//     slug: "kente-elegance-stylists-2",
+//   },
+//   {
+//     id: "cs-6",
+//     title: "Adowa Heritage Troupe",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/events3.jpg",
+//     location: "Memphis",
+//     rating: 4.7,
+//     reviews: "2.1k",
+//     slug: "adowa-heritage-troupe-2",
+//   },
+//   {
+//     id: "cs-7",
+//     title: "Forever Yours Events",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/event.jpg",
+//     location: "Memphis",
+//     rating: 4.6,
+//     reviews: "2.2k",
+//     slug: "forever-yours-events-2",
+//   },
+//   {
+//     id: "cs-8",
+//     title: "Rhythms of Africa Ensemble",
+//     tag: "Concert",
+//     image: "/images/backgroundImages/business/events2.jpg",
+//     location: "Memphis",
+//     rating: 4.8,
+//     reviews: "2.1k",
+//     slug: "rhythms-of-africa-ensemble-2",
+//   },
+// ];
+
+export type DealCard = {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  location: string;
+  rating: number;
+  reviews: string;
+  slug: string;
+  category: string;
+  subcategory?: string;
+  badge?: string;
+  verified?: boolean;
+  country?: string;
+  availableFrom?: string;
+  availableTo?: string;
+};
+
+export const bestDeals: DealCard[] = [
+  {
+    id: "dl-1",
+    title: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Wedding Attire",
+    image: "/images/clothing/clothing1.jpg",
+    location: "South London, United Kingdom",
+    rating: 4.8,
+    reviews: "2.2k",
+    slug: "kente-tailor-bespoke-mens-wedding-attire",
+    category: "cultural-services",
+    subcategory: "cultural-attire-stylist",
+    badge: "-25%",
+    country: "United Kingdom",
+    availableFrom: "2025-01-01",
+    availableTo: "2025-03-31",
+  },
+  {
+    id: "dl-2",
+    title: "Beaded Heritage Necklace & Bracelets",
+    subtitle: "Accessories",
+    image: "/images/jewellery/jewellery2.jpg",
+    location: "South London, United Kingdom",
+    rating: 4.7,
+    reviews: "2.3k",
+    slug: "beaded-heritage-necklaces-bracelets",
+    category: "fashion-lifestyle",
+    subcategory: "jewellery",
+    badge: "-30%",
+    country: "Nigeria",
+    availableFrom: "2025-04-01",
+    availableTo: "2025-06-30",
+  },
+  {
+    id: "dl-3",
+    title: "Afrocentric Styles",
+    subtitle: "Clothing",
+    image: "/images/clothing/clothing4.jpg",
+    location: "West London, United Kingdom",
+    rating: 4.6,
+    reviews: "1.8k",
+    slug: "afrocentric-styles",
+    category: "fashion-lifestyle",
+    subcategory: "clothing",
+    badge: "Free Delivery within USA",
+    country: "United States",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-09-30",
+  },
+  {
+    id: "dl-4",
+    title: "Heritage Clothing Boutique",
+    subtitle: "Clothing",
+    image: "/images/clothing/clothing3.jpg",
+    location: "South London, United Kingdom",
+    rating: 4.7,
+    reviews: "1.5k",
+    slug: "heritage-clothing-boutique",
+    category: "fashion-lifestyle",
+    subcategory: "clothing",
+    country: "Canada",
+    availableFrom: "2025-10-01",
+    availableTo: "2025-12-31",
+  },
+  {
+    id: "dl-5",
+    title: "Golden Adornments",
+    subtitle: "Jewellery",
+    image: "/images/jewellery/jewellery2.jpg",
+    location: "Central London, United Kingdom",
+    rating: 4.8,
+    reviews: "2.1k",
+    slug: "golden-adornments",
+    category: "fashion-lifestyle",
+    subcategory: "jewellery",
+    country: "South Africa",
+    availableFrom: "2025-02-01",
+    availableTo: "2025-05-31",
+  },
+];
+
+// Category Service Providers
+export interface ServiceProvider {
+  id: string;
+  name: string;
+  subtitle: string;
+  category: string;
+  subcategory?: string;
+  image: string;
+  rating: number;
+  reviews: string;
+  verified: boolean;
+  location?: string;
+  slug: string;
+  country?: string;
+  availableFrom?: string;
+  availableTo?: string;
+}
+
+export const categorySubcategories: Record<
+  string,
+  { label: string; value: string }[]
+> = {
+  "cultural-services": [
+    { label: "All Cultural Services", value: "all" },
+    { label: "Dancers", value: "dancers" },
+    { label: "Cultural Attire Stylists", value: "cultural-attire-stylist" },
+    {
+      label: "Drummers & Performers",
+      value: "drummers-cultural-performers",
+    },
+  ],
+  "fashion-lifestyle": [
+    { label: "All Fashion & Lifestyle", value: "all" },
+    { label: "Clothing", value: "clothing" },
+    { label: "Jewellery", value: "jewellery" },
+    { label: "Art & Crafts", value: "art-crafts" },
+  ],
+  "food-hospitality": [
+    { label: "All Food & Hospitality", value: "all" },
+    { label: "Caterers", value: "caterer" },
+    { label: "Restaurants", value: "restaurant" },
+    { label: "Street Food", value: "street-food" },
+  ],
+};
+
+export const categoryPageContentByMain: Record<
+  string,
+  {
+    default: CategoryPageContent;
+    subcategories?: Record<string, Partial<CategoryPageContent>>;
+  }
+> = {
+  events: {
+    default: {
+      heroTitle: "Discover culture-rich events near and far",
+      heroDescription:
+        "Track festivals, pop-ups, and curated gatherings celebrating African culture worldwide.",
+      cultureTitle: "Events with a heartbeat",
+      cultureDescription:
+        "From intimate workshops to city-wide celebrations, find experiences crafted for community.",
+      dealsTitle: "Featured events and ticket offers",
+      dealsDescription:
+        "Grab early-bird specials and curated event bundles before they sell out.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All upcoming cultural events",
+        heroDescription:
+          "Browse every celebration, performance, and meetup in one feed.",
+      },
+    },
+  },
+  "cultural-services": {
+    default: {
+      heroTitle: "Cultural services crafted for every celebration",
+      heroDescription:
+        "Discover performers, stylists, and heritage experts ready to bring authentic culture to your event.",
+      cultureTitle: "Culture in every detail",
+      cultureDescription:
+        "Explore curated cultural talents—dancers, stylists, and storytellers preserving tradition.",
+      dealsTitle: "Today's best cultural offers",
+      dealsDescription: "Limited-time cultural experiences tailor-made for you.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All cultural services near you",
+        heroDescription:
+          "Browse the full spectrum of cultural experts—from ceremonial styling to live performances.",
+      },
+      dancers: {
+        heroTitle: "Book energetic cultural dancers",
+        heroDescription:
+          "Find professional dance troupes to elevate festivals, weddings, and community moments.",
+        cultureTitle: "Dance-led celebrations",
+        cultureDescription:
+          "Celebrate heritage through choreographed performances and storytelling in motion.",
+        dealsTitle: "Dance acts with special offers",
+        dealsDescription:
+          "Reserve vibrant troupes with packages crafted for every occasion.",
+      },
+      "cultural-attire-stylist": {
+        heroTitle: "Connect with cultural attire stylists",
+        heroDescription:
+          "Partner with stylists who tailor authentic garments for weddings, festivals, and ceremonies.",
+        cultureTitle: "Style that honours tradition",
+        cultureDescription:
+          "Curated attire, accessories, and fittings inspired by Africa's vibrant cultures.",
+      },
+      "drummers-cultural-performers": {
+        heroTitle: "Hire drummers & cultural performers",
+        heroDescription:
+          "Create an unforgettable atmosphere with master drummers, poets, and storytellers.",
+        dealsTitle: "Performance bundles available",
+        dealsDescription:
+          "Secure drumming ensembles with flexible packages and early-booking perks.",
+      },
+    },
+  },
+  "education-learning": {
+    default: {
+      heroTitle: "Learning rooted in African perspectives",
+      heroDescription:
+        "Connect with tutors, schools, and programs championing culturally aware education.",
+      cultureTitle: "Knowledge with heritage",
+      cultureDescription:
+        "Discover language schools, history programs, and skill workshops led by experts.",
+      dealsTitle: "Featured learning opportunities",
+      dealsDescription:
+        "Explore scholarships, discounted classes, and limited-time enrolment perks.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All education & learning partners",
+        heroDescription:
+          "Browse institutions, mentors, and programs tailored for every learner.",
+      },
+    },
+  },
+  "fashion-lifestyle": {
+    default: {
+      heroTitle: "Fashion & lifestyle brands redefining heritage",
+      heroDescription:
+        "Shop designers and artisans blending contemporary style with African inspiration.",
+      cultureTitle: "Style in every stitch",
+      cultureDescription:
+        "Discover clothing, jewellery, and lifestyle pieces that tell cultural stories.",
+      dealsTitle: "Fresh looks, exclusive deals",
+      dealsDescription: "Grab limited-time discounts from standout designers.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All fashion & lifestyle picks",
+        heroDescription:
+          "From ready-to-wear to artisan crafts, explore every lifestyle listing in one view.",
+      },
+      clothing: {
+        heroTitle: "Signature clothing collections",
+        heroDescription:
+          "Browse bold prints, bespoke tailoring, and relaxed fits from diaspora designers.",
+        cultureTitle: "Wear heritage proudly",
+        cultureDescription:
+          "Tailored pieces crafted with symbolism, craftsmanship, and pride.",
+      },
+      jewellery: {
+        heroTitle: "Handcrafted jewellery & adornments",
+        heroDescription:
+          "Layers of beads, metals, and gems inspired by ancestral craftsmanship.",
+        dealsTitle: "Jewellery offers you’ll love",
+        dealsDescription:
+          "Shop curated jewellery drops with seasonal price cuts.",
+      },
+      "art-crafts": {
+        heroTitle: "Art & crafts for inspired living",
+        heroDescription:
+          "Decor, sculpture, and collectibles bringing African artistry into your space.",
+        cultureTitle: "Decor with a story",
+        cultureDescription:
+          "Celebrate artisans preserving tradition through contemporary pieces.",
+      },
+    },
+  },
+  "financial-services": {
+    default: {
+      heroTitle: "Financial partners empowering the diaspora",
+      heroDescription:
+        "Work with advisors, lenders, and fintech brands designed for cross-border living.",
+      cultureTitle: "Money matters, culturally tuned",
+      cultureDescription:
+        "From remittances to business funding, discover services built on trust and transparency.",
+      dealsTitle: "Current financial offers",
+      dealsDescription:
+        "See promotions on remittance rates, business packages, and advisory sessions.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "Every financial service listed",
+        heroDescription:
+          "Compare providers helping diaspora communities plan, invest, and grow.",
+      },
+    },
+  },
+  "food-hospitality": {
+    default: {
+      heroTitle: "Food & hospitality with authentic flavours",
+      heroDescription:
+        "Discover chefs, caterers, and culinary hosts ready to bring Africa to your table.",
+      cultureTitle: "Taste the diaspora",
+      cultureDescription:
+        "Celebrate regional dishes, pop-up kitchens, and gourmet experiences around the world.",
+      dealsTitle: "Today's best food deals",
+      dealsDescription: "Seasonal offers on catering, tastings, and pop-up bookings.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "Every food & hospitality listing",
+        heroDescription:
+          "Explore caterers, restaurants, and culinary creatives in one feed.",
+      },
+      caterer: {
+        heroTitle: "Caterers for unforgettable gatherings",
+        heroDescription:
+          "Book full-service catering with menus rooted in African cuisine.",
+        dealsDescription:
+          "Tap seasonal tasting menus and group booking discounts.",
+      },
+      restaurant: {
+        heroTitle: "Restaurants serving soulful experiences",
+        heroDescription:
+          "Find dine-in and delivery spots offering authentic plates from across Africa.",
+        cultureTitle: "A seat at the table",
+        cultureDescription:
+          "Family-owned restaurants and modern eateries preserving culinary heritage.",
+      },
+      "street-food": {
+        heroTitle: "Street food & pop-up sensations",
+        heroDescription:
+          "Discover grills, food trucks, and festival vendors packed with flavour.",
+        dealsTitle: "Street bites, special prices",
+        dealsDescription:
+          "Limited-time combos and pop-up promotions near you.",
+      },
+    },
+  },
+  "property-relocation": {
+    default: {
+      heroTitle: "Property & relocation made simple",
+      heroDescription:
+        "Find realtors, relocation experts, and housing services bridging continents.",
+      cultureTitle: "Move anywhere with confidence",
+      cultureDescription:
+        "Support for home searches, relocations, and settlement tailored for diaspora journeys.",
+      dealsTitle: "Relocation deals & services",
+      dealsDescription:
+        "Access moving packages, discounted consultations, and new-home promotions.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All property & relocation services",
+        heroDescription:
+          "Browse specialists assisting with relocation, rentals, and property management.",
+      },
+    },
+  },
+  "shipping-logistics": {
+    default: {
+      heroTitle: "Shipping & logistics you can trust",
+      heroDescription:
+        "Partner with freight forwarders and delivery services connecting Africa and the diaspora.",
+      cultureTitle: "Moving goods, sustaining ties",
+      cultureDescription:
+        "From personal cargo to commercial shipments, explore reliable logistics partners.",
+      dealsTitle: "Logistics offers and bundles",
+      dealsDescription:
+        "Secure discounted shipping lanes, group rates, and seasonal promotions.",
+    },
+    subcategories: {
+      all: {
+        heroTitle: "All shipping & logistics providers",
+        heroDescription:
+          "Compare delivery specialists and freight partners ready to move what matters.",
+      },
+    },
+  },
+};
+
+export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
+  "cultural-services": [
+    {
+      id: "cs-1",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "cultural-attire-stylist",
+      image: "/images/clothing/clothing1.jpg",
+      rating: 4.8,
+      reviews: "2.2k",
+      verified: true,
+      location: "South London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire",
+      country: "United Kingdom",
+      availableFrom: "2025-05-01",
+      availableTo: "2025-05-31",
+    },
+    {
+      id: "cs-2",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "cultural-attire-stylist",
+      image: "/images/clothing/clothing2.jpg",
+      rating: 4.7,
+      reviews: "1.8k",
+      verified: true,
+      location: "West London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire-2",
+      country: "United Kingdom",
+      availableFrom: "2025-06-05",
+      availableTo: "2025-06-28",
+    },
+    {
+      id: "cs-3",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "dancers",
+      image: "/images/clothing/clothing3.jpg",
+      rating: 4.6,
+      reviews: "1.5k",
+      verified: false,
+      location: "Central London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire-3",
+      country: "United Kingdom",
+      availableFrom: "2025-07-01",
+      availableTo: "2025-07-31",
+    },
+    {
+      id: "cs-4",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "dancers",
+      image: "/images/clothing/clothing4.jpg",
+      rating: 4.9,
+      reviews: "2.5k",
+      verified: true,
+      location: "North London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire-4",
+      country: "United Kingdom",
+      availableFrom: "2025-08-10",
+      availableTo: "2025-09-05",
+    },
+    {
+      id: "cs-5",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "drummers-cultural-performers",
+      image: "/images/art/art1.jpg",
+      rating: 4.5,
+      reviews: "1.3k",
+      verified: true,
+      location: "East London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire-5",
+      country: "United Kingdom",
+      availableFrom: "2025-09-15",
+      availableTo: "2025-10-12",
+    },
+    {
+      id: "cs-6",
+      name: "Kente Tailor — Bespoke Mens Wedding Attire",
+      subtitle: "Traditional Wedding Attire",
+      category: "cultural-services",
+      subcategory: "drummers-cultural-performers",
+      image: "/images/art/art2.jpg",
+      rating: 4.8,
+      reviews: "2.0k",
+      verified: false,
+      location: "South London, United Kingdom",
+      slug: "kente-tailor-bespoke-mens-wedding-attire-6",
+      country: "United Kingdom",
+      availableFrom: "2025-10-20",
+      availableTo: "2025-11-15",
+    },
+  ],
+  "fashion-lifestyle": [
+    {
+      id: "fl-1",
+      name: "Free the Youth",
+      subtitle: "Contemporary African Fashion",
+      category: "fashion-lifestyle",
+      subcategory: "clothing",
+      image: "/images/lf/lf1.jpg",
+      rating: 4.7,
+      reviews: "1.9k",
+      verified: true,
+      location: "West London, United Kingdom",
+      slug: "free-the-youth",
+      country: "United Kingdom",
+      availableFrom: "2025-05-12",
+      availableTo: "2025-06-15",
+    },
+    {
+      id: "fl-2",
+      name: "Heritage Clothing Boutique",
+      subtitle: "Authentic African Clothing",
+      category: "fashion-lifestyle",
+      subcategory: "clothing",
+      image: "/images/lf/lf2.jpg",
+      rating: 4.6,
+      reviews: "1.6k",
+      verified: true,
+      location: "Central London, United Kingdom",
+      slug: "heritage-clothing-boutique",
+      country: "United Kingdom",
+      availableFrom: "2025-06-20",
+      availableTo: "2025-07-18",
+    },
+    {
+      id: "fl-3",
+      name: "Afrocentric Styles",
+      subtitle: "Bold African Fashion",
+      category: "fashion-lifestyle",
+      subcategory: "clothing",
+      image: "/images/lf/lf3.jpg",
+      rating: 4.8,
+      reviews: "2.1k",
+      verified: false,
+      location: "North London, United Kingdom",
+      slug: "afrocentric-styles",
+      country: "United Kingdom",
+      availableFrom: "2025-07-25",
+      availableTo: "2025-08-30",
+    },
+    {
+      id: "fl-4",
+      name: "Beaded Heritage Necklaces",
+      subtitle: "Handcrafted Jewelry",
+      category: "fashion-lifestyle",
+      subcategory: "jewellery",
+      image: "/images/lf/lf4.jpg",
+      rating: 4.9,
+      reviews: "2.4k",
+      verified: true,
+      location: "South London, United Kingdom",
+      slug: "beaded-heritage-necklaces",
+      country: "United Kingdom",
+      availableFrom: "2025-09-05",
+      availableTo: "2025-10-02",
+    },
+    {
+      id: "fl-5",
+      name: "Golden Adornments",
+      subtitle: "African-Inspired Jewelry",
+      category: "fashion-lifestyle",
+      subcategory: "jewellery",
+      image: "/images/lf/lf5.jpg",
+      rating: 4.7,
+      reviews: "1.8k",
+      verified: true,
+      location: "East London, United Kingdom",
+      slug: "golden-adornments",
+      country: "United Kingdom",
+      availableFrom: "2025-10-08",
+      availableTo: "2025-11-20",
+    },
+    {
+      id: "fl-6",
+      name: "Tribal Treasures Jewelry",
+      subtitle: "Handmade Tribal Jewelry",
+      category: "fashion-lifestyle",
+      subcategory: "art-crafts",
+      image: "/images/lf/lf6.jpg",
+      rating: 4.5,
+      reviews: "1.4k",
+      verified: false,
+      location: "West London, United Kingdom",
+      slug: "tribal-treasures-jewelry",
+      country: "United Kingdom",
+      availableFrom: "2025-11-01",
+      availableTo: "2025-12-15",
+    },
+  ],
+  "food-hospitality": [
+    {
+      id: "fh-1",
+      name: "Mama's African Catering",
+      subtitle: "Traditional African Cuisine",
+      category: "food-hospitality",
+      subcategory: "caterer",
+      image: "/images/backgroundImages/business/food.jpg",
+      rating: 4.9,
+      reviews: "3.2k",
+      verified: true,
+      location: "South London, United Kingdom",
+      slug: "mamas-african-catering",
+      country: "United Kingdom",
+      availableFrom: "2025-05-04",
+      availableTo: "2025-05-28",
+    },
+    {
+      id: "fh-2",
+      name: "Jollof Palace Restaurant",
+      subtitle: "West African Delicacies",
+      category: "food-hospitality",
+      subcategory: "restaurant",
+      image: "/images/food/food2.jpg",
+      rating: 4.8,
+      reviews: "2.8k",
+      verified: true,
+      location: "Central London, United Kingdom",
+      slug: "jollof-palace-restaurant",
+      country: "United Kingdom",
+      availableFrom: "2025-06-10",
+      availableTo: "2025-07-05",
+    },
+    {
+      id: "fh-3",
+      name: "Suya Spot",
+      subtitle: "Nigerian Street Food",
+      category: "food-hospitality",
+      subcategory: "street-food",
+      image: "/images/food/food3.jpg",
+      rating: 4.7,
+      reviews: "2.3k",
+      verified: false,
+      location: "North London, United Kingdom",
+      slug: "suya-spot",
+      country: "United Kingdom",
+      availableFrom: "2025-07-12",
+      availableTo: "2025-08-20",
+    },
+    {
+      id: "fh-4",
+      name: "Ethiopian Flavors",
+      subtitle: "Authentic Ethiopian Cuisine",
+      category: "food-hospitality",
+      subcategory: "restaurant",
+      image: "/images/food/food4.jpg",
+      rating: 4.6,
+      reviews: "1.9k",
+      verified: true,
+      location: "East London, United Kingdom",
+      slug: "ethiopian-flavors",
+      country: "United Kingdom",
+      availableFrom: "2025-08-25",
+      availableTo: "2025-09-30",
+    },
+    {
+      id: "fh-5",
+      name: "Afro Fusion Bistro",
+      subtitle: "Modern African Cuisine",
+      category: "food-hospitality",
+      subcategory: "restaurant",
+      image: "/images/food/food1.jpg",
+      rating: 4.8,
+      reviews: "2.5k",
+      verified: true,
+      location: "West London, United Kingdom",
+      slug: "afro-fusion-bistro",
+      country: "United Kingdom",
+      availableFrom: "2025-10-05",
+      availableTo: "2025-11-10",
+    },
+    {
+      id: "fh-6",
+      name: "Plantain Paradise",
+      subtitle: "Caribbean-African Fusion",
+      category: "food-hospitality",
+      subcategory: "street-food",
+      image: "/images/food/food2.jpg",
+      rating: 4.5,
+      reviews: "1.7k",
+      verified: false,
+      location: "South London, United Kingdom",
+      slug: "plantain-paradise",
+      country: "United Kingdom",
+      availableFrom: "2025-11-15",
+      availableTo: "2025-12-20",
+    },
+  ],
+};
+
+// Category Page Content Configuration
+export interface CategoryPageContent {
+  heroTitle: string;
+  heroDescription: string;
+  cultureTitle: string;
+  cultureDescription: string;
+  dealsTitle: string;
+  dealsDescription: string;
+}
+
+export const categoryPageContent: CategoryPageContent = {
+  heroTitle: "Most popular attire stylists around you",
+  heroDescription: "Discover top-rated stylists ready to help you integrate your cultural expressions, fashion, and more",
+  cultureTitle: "Culture in every detail",
+  cultureDescription: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+  dealsTitle: "Today's best deals for you",
+  dealsDescription: "Handpicked offers you won't want to miss",
+};
+
+// Popular service providers (for "Most popular attire stylists around you" section)
+export const popularStylists: ServiceProvider[] = [
+  {
+    id: "ps-1",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    subcategory: "cultural-attire-stylist",
+    image: "/images/clothing/clothing1.jpg",
+    rating: 4.8,
+    reviews: "2.2k",
+    verified: true,
+    location: "South London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire",
+    country: "United Kingdom",
+    availableFrom: "2025-05-01",
+    availableTo: "2025-05-31",
+  },
+  {
+    id: "ps-2",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    subcategory: "cultural-attire-stylist",
+    image: "/images/clothing/clothing2.jpg",
+    rating: 4.7,
+    reviews: "1.8k",
+    verified: true,
+    location: "West London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire-2",
+    country: "United Kingdom",
+    availableFrom: "2025-06-05",
+    availableTo: "2025-06-28",
+  },
+  {
+    id: "ps-3",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    subcategory: "dancers",
+    image: "/images/clothing/clothing3.jpg",
+    rating: 4.6,
+    reviews: "1.5k",
+    verified: false,
+    location: "Central London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire-3",
+    country: "United Kingdom",
+    availableFrom: "2025-07-01",
+    availableTo: "2025-07-31",
+  },
+  {
+    id: "ps-4",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    subcategory: "dancers",
+    image: "/images/clothing/clothing4.jpg",
+    rating: 4.9,
+    reviews: "2.5k",
+    verified: true,
+    location: "North London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire-4",
+    country: "United Kingdom",
+    availableFrom: "2025-08-10",
+    availableTo: "2025-09-05",
+  },
+  {
+    id: "ps-5",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    subcategory: "drummers-cultural-performers",
+    image: "/images/art/art1.jpg",
+    rating: 4.5,
+    reviews: "1.3k",
+    verified: true,
+    location: "East London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire-5",
+    country: "United Kingdom",
+    availableFrom: "2025-09-15",
+    availableTo: "2025-10-12",
+  },
+  {
+    id: "ps-6",
+    name: "Kente Tailor — Bespoke Mens Wedding Attire",
+    subtitle: "Traditional Wedding Attire",
+    category: "cultural-services",
+    image: "/images/art/art2.jpg",
+    rating: 4.8,
+    reviews: "2.0k",
+    verified: false,
+    location: "South London, United Kingdom",
+    slug: "kente-tailor-bespoke-mens-wedding-attire-6",
+    country: "United Kingdom",
+    availableFrom: "2025-10-20",
+    availableTo: "2025-11-15",
   },
 ];

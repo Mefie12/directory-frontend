@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // TODO: Replace with your actual backend API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk/";
 
 export async function GET(request: NextRequest) {
   try {
