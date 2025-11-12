@@ -8,7 +8,7 @@ type PageProps = {
   params: Promise<{ categorySlug: string }>;
 };
 
-export default async function CategorySlugPage({ params }: PageProps) {
+export default async function CategoryPage({ params }: PageProps) {
   const { categorySlug } = await params;
 
   // Get category data

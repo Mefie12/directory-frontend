@@ -1,4 +1,4 @@
-export default async function CategorySlug() {
+export default async function CategorySlugPage() {
     return(
         <div>Slug</div>
     )
