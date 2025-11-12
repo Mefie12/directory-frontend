@@ -1618,6 +1618,14 @@ export const bestDeals: DealCard[] = [
 ];
 
 // Category Service Providers
+export type SocialLinks = {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  tiktok?: string;
+  youtube?: string;
+};
+
 export interface ServiceProvider {
   id: string;
   name: string;
@@ -1633,6 +1641,12 @@ export interface ServiceProvider {
   country?: string;
   availableFrom?: string;
   availableTo?: string;
+  // Newly added optional fields for listing detail page
+  description: string;
+  phone: string;
+  email: string;
+  website: string;
+  socials?: SocialLinks;
 }
 
 export const categorySubcategories: Record<
@@ -1902,6 +1916,297 @@ export const categoryPageContentByMain: Record<
   },
 };
 
+export type CategoryDetailMedia =
+  | string
+  | {
+      type: "image" | "video";
+      src: string;
+      poster?: string;
+      label?: string;
+    };
+
+export type CategoryDetailContent = {
+  gallery: CategoryDetailMedia[];
+  services: string[];
+  pricing: { label: string; price: string }[];
+  experience: { title: string; description: string }[];
+  faqs: { question: string; answer: string }[];
+  reviews: {
+    author: string;
+    rating: number;
+    date: string;
+    comment: string;
+  }[];
+  mapImage?: string;
+  bookingNote?: string;
+};
+
+const defaultDetailContent: CategoryDetailContent = {
+  gallery: [
+    "/images/backgroundImages/categories/event.jpg",
+    "/images/backgroundImages/categories/food.jpg",
+    "/images/backgroundImages/categories/fashion.jpg",
+  ],
+  services: [
+    "Tailored consultation for your event or booking",
+    "Flexible scheduling to suit your availability",
+    "Trusted professionals with verified experience",
+  ],
+  pricing: [
+    { label: "Standard engagement", price: "Contact for pricing" },
+    { label: "Custom package", price: "Built around your needs" },
+  ],
+  experience: [
+    {
+      title: "Built on community trust",
+      description:
+        "Every listing is reviewed by our community to keep quality high and experiences authentic.",
+    },
+    {
+      title: "Flexible partnership options",
+      description:
+        "Book by the hour, per project, or retain on a longer schedule depending on your goals.",
+    },
+  ],
+  faqs: [
+    {
+      question: "How do I confirm availability?",
+      answer:
+        "Send a booking request with your preferred dates and the team will confirm within 24 hours.",
+    },
+    {
+      question: "Can I customise the offering?",
+      answer:
+        "Yes. Most providers tailor their services to your brief—share as many details as possible when enquiring.",
+    },
+  ],
+  reviews: [
+    {
+      author: "Community Member",
+      rating: 5,
+      date: "February 2025",
+      comment:
+        "Responsive, professional, and a delight to collaborate with. We’re already planning our next booking.",
+    },
+  ],
+  mapImage: "/assets/map-thumb.png",
+  bookingNote: "Share event dates, audience size, and any special requests when booking.",
+};
+
+export const defaultCategoryDetailContent = defaultDetailContent;
+
+export const categoryDetailContent: Record<string, CategoryDetailContent> = {
+  "cultural-services": {
+    gallery: [
+      {
+        type: "video",
+        src: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+        poster: "/images/clothing/clothing1.jpg",
+        label: "Showreel",
+      },
+      "/images/clothing/clothing2.jpg",
+      "/images/art/art1.jpg",
+      "/images/art/art2.jpg",
+      "/images/backgroundImages/categories/culture.jpg",
+    ],
+    services: [
+      "Traditional performances tailored for weddings and festivals",
+      "Interactive cultural workshops and storytelling",
+      "Custom choreography and ceremonial planning",
+      "Costume sourcing, styling, and fittings",
+    ],
+    pricing: [
+      { label: "Per hour", price: "£175" },
+      { label: "Wedding package", price: "From £1,200" },
+      { label: "Workshop or masterclass", price: "From £450" },
+    ],
+    experience: [
+      {
+        title: "Performing across the diaspora",
+        description:
+          "Teams regularly tour Europe and North America, showcasing Ghanaian, Nigerian, and pan-African traditions.",
+      },
+      {
+        title: "Collaborations with major festivals",
+        description:
+          "Featured at Notting Hill Carnival, AfroNation pop-ups, and cultural weeks hosted by embassies.",
+      },
+    ],
+    faqs: [
+      {
+        question: "How many performers are included?",
+        answer:
+          "A standard booking includes 4–6 performers. Larger ensembles can be arranged with at least three weeks’ notice.",
+      },
+      {
+        question: "Do you travel outside the UK?",
+        answer:
+          "Yes. Travel and accommodation are quoted separately and added to the final invoice.",
+      },
+      {
+        question: "Can performances be adapted for schools?",
+        answer:
+          "Absolutely. We offer age-appropriate cultural education sessions alongside the performance.",
+      },
+    ],
+    reviews: [
+      {
+        author: "Adjoa Mensah",
+        rating: 5,
+        date: "April 2025",
+        comment:
+          "The ensemble electrified our wedding reception—professional, punctual, and full of joy.",
+      },
+      {
+        author: "Richmond D.",
+        rating: 4.8,
+        date: "March 2025",
+        comment:
+          "They customised choreography for our corporate heritage day and it was a huge success.",
+      },
+    ],
+    mapImage: "/assets/map-thumb.png",
+    bookingNote:
+      "Provide venue details, stage dimensions, and audience size to tailor the performance.",
+  },
+  "fashion-lifestyle": {
+    gallery: [
+      "/images/lf/lf1.jpg",
+      "/images/lf/lf2.jpg",
+      "/images/lf/lf3.jpg",
+      "/images/lf/lf4.jpg",
+      "/images/lf/lf5.jpg",
+    ],
+    services: [
+      "Bespoke tailoring with fittings in-person or virtual",
+      "Ready-to-wear collections with global shipping",
+      "Styling for weddings, red carpet, and media shoots",
+      "Custom textile sourcing and design consultation",
+    ],
+    pricing: [
+      { label: "Made-to-measure outfits", price: "From £220" },
+      { label: "Bridal or ceremonial package", price: "From £1,350" },
+      { label: "Wardrobe styling session", price: "£95 / hour" },
+    ],
+    experience: [
+      {
+        title: "Featured in diaspora fashion weeks",
+        description:
+          "Collections have walked the runways in London, Accra, and New York African Fashion Weeks.",
+      },
+      {
+        title: "Ethical production partners",
+        description:
+          "Working with artisan cooperatives across West Africa to ensure fair trade and high craftsmanship.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Do you offer international shipping?",
+        answer:
+          "Yes, with tracked delivery options. Duties and taxes depend on your destination.",
+      },
+      {
+        question: "How long do custom orders take?",
+        answer:
+          "Turnaround ranges from 3–6 weeks depending on complexity and fabric sourcing.",
+      },
+      {
+        question: "Can you design matching outfits for groups?",
+        answer:
+          "Absolutely. Share your concept mood board and the team will sketch options for approval.",
+      },
+    ],
+    reviews: [
+      {
+        author: "Nana P.",
+        rating: 5,
+        date: "February 2025",
+        comment:
+          "My kente-inspired suit was flawless. Measurements taken virtually and delivered ahead of schedule.",
+      },
+      {
+        author: "Lisa O.",
+        rating: 4.9,
+        date: "January 2025",
+        comment:
+          "Loved the jewellery curation—they helped me style pieces for my engagement shoot.",
+      },
+    ],
+    mapImage: "/assets/map-thumb.png",
+    bookingNote:
+      "Include your event date and preferred colour palette to receive fabric suggestions.",
+  },
+  "food-hospitality": {
+    gallery: [
+      "/images/food/food1.jpg",
+      "/images/food/food2.jpg",
+      "/images/food/food3.jpg",
+      "/images/backgroundImages/categories/food.jpg",
+      "/images/food/food4.jpg",
+    ],
+    services: [
+      "Full-service catering for weddings, galas, and private dining",
+      "Pop-up dining experiences and chef’s table menus",
+      "Meal prep and delivery within Greater London",
+      "Corporate lunch drops with vegan and halal options",
+    ],
+    pricing: [
+      { label: "Private chef experience", price: "From £85 / guest" },
+      { label: "Buffet catering (50 guests)", price: "From £1,850" },
+      { label: "Street food stall hire", price: "From £650" },
+    ],
+    experience: [
+      {
+        title: "Award-winning kitchen teams",
+        description:
+          "Chefs have been featured on diaspora food networks and host regular sold-out supper clubs.",
+      },
+      {
+        title: "Sustainable sourcing",
+        description:
+          "Produce is sourced from Black-owned farms and fair-trade suppliers whenever possible.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Do you cater to dietary restrictions?",
+        answer:
+          "Yes. Vegan, vegetarian, gluten-free, and halal menus can be prepared with advance notice.",
+      },
+      {
+        question: "Can you provide serving staff?",
+        answer:
+          "Professional serving teams, mixologists, and event managers can be added to any booking.",
+      },
+      {
+        question: "Is tasting available?",
+        answer:
+          "Menu tastings are available for large events and are redeemable against the final invoice.",
+      },
+    ],
+    reviews: [
+      {
+        author: "Kwame D.",
+        rating: 5,
+        date: "May 2025",
+        comment:
+          "The jollof trio and suya skewers were the talk of our anniversary celebration.",
+      },
+      {
+        author: "Frances M.",
+        rating: 4.7,
+        date: "March 2025",
+        comment:
+          "Exceptional service and they handled our dietary requirements flawlessly.",
+      },
+    ],
+    mapImage: "/assets/map-thumb.png",
+    bookingNote:
+      "Share your guest count, venue facilities, and menu preferences to receive a tailored quote.",
+  },
+};
+
 export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
   "cultural-services": [
     {
@@ -1919,6 +2224,15 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       country: "United Kingdom",
       availableFrom: "2025-05-01",
       availableTo: "2025-05-31",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
     {
       id: "cs-2",
@@ -1933,8 +2247,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "West London, United Kingdom",
       slug: "kente-tailor-bespoke-mens-wedding-attire-2",
       country: "United Kingdom",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
       availableFrom: "2025-06-05",
       availableTo: "2025-06-28",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
     {
       id: "cs-3",
@@ -1949,8 +2272,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "Central London, United Kingdom",
       slug: "kente-tailor-bespoke-mens-wedding-attire-3",
       country: "United Kingdom",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
       availableFrom: "2025-07-01",
       availableTo: "2025-07-31",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
     {
       id: "cs-4",
@@ -1965,8 +2297,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "North London, United Kingdom",
       slug: "kente-tailor-bespoke-mens-wedding-attire-4",
       country: "United Kingdom",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
       availableFrom: "2025-08-10",
       availableTo: "2025-09-05",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
     {
       id: "cs-5",
@@ -1981,8 +2322,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "East London, United Kingdom",
       slug: "kente-tailor-bespoke-mens-wedding-attire-5",
       country: "United Kingdom",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
       availableFrom: "2025-09-15",
       availableTo: "2025-10-12",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
     {
       id: "cs-6",
@@ -1997,8 +2347,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "South London, United Kingdom",
       slug: "kente-tailor-bespoke-mens-wedding-attire-6",
       country: "United Kingdom",
+      description: "Expert bespoke tailoring for traditional African wedding attire and formal wear.",
       availableFrom: "2025-10-20",
       availableTo: "2025-11-15",
+      phone: "+44 20 7123 4567",
+      email: "hello@kentetailor.co.uk",
+      website: "https://kentetailor.co.uk",
+      socials: {
+        instagram: "https://instagram.com/kentetailor",
+        facebook: "https://facebook.com/kentetailor",
+        twitter: "https://x.com/kentetailor",
+      },
     },
   ],
   "fashion-lifestyle": [
@@ -2017,6 +2376,14 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       country: "United Kingdom",
       availableFrom: "2025-05-12",
       availableTo: "2025-06-15",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
     {
       id: "fl-2",
@@ -2031,8 +2398,16 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "Central London, United Kingdom",
       slug: "heritage-clothing-boutique",
       country: "United Kingdom",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-06-20",
       availableTo: "2025-07-18",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
     {
       id: "fl-3",
@@ -2047,8 +2422,16 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "North London, United Kingdom",
       slug: "afrocentric-styles",
       country: "United Kingdom",
+       description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-07-25",
       availableTo: "2025-08-30",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
     {
       id: "fl-4",
@@ -2063,8 +2446,16 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "South London, United Kingdom",
       slug: "beaded-heritage-necklaces",
       country: "United Kingdom",
+       description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-09-05",
       availableTo: "2025-10-02",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
     {
       id: "fl-5",
@@ -2079,8 +2470,16 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "East London, United Kingdom",
       slug: "golden-adornments",
       country: "United Kingdom",
+       description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-10-08",
       availableTo: "2025-11-20",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
     {
       id: "fl-6",
@@ -2095,8 +2494,16 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "West London, United Kingdom",
       slug: "tribal-treasures-jewelry",
       country: "United Kingdom",
+       description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-11-01",
       availableTo: "2025-12-15",
+      phone: "+44 20 7890 1234",
+      email: "contact@fty.com",
+      website: "https://fty.com",
+      socials: {
+        instagram: "https://instagram.com/freetheyouth",
+        youtube: "https://youtube.com/@fty",
+      },
     },
   ],
   "food-hospitality": [
@@ -2115,6 +2522,15 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       country: "United Kingdom",
       availableFrom: "2025-05-04",
       availableTo: "2025-05-28",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
+      phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
     {
       id: "fh-2",
@@ -2129,8 +2545,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "Central London, United Kingdom",
       slug: "jollof-palace-restaurant",
       country: "United Kingdom",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-06-10",
       availableTo: "2025-07-05",
+       phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
     {
       id: "fh-3",
@@ -2145,8 +2570,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "North London, United Kingdom",
       slug: "suya-spot",
       country: "United Kingdom",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-07-12",
       availableTo: "2025-08-20",
+       phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
     {
       id: "fh-4",
@@ -2161,8 +2595,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "East London, United Kingdom",
       slug: "ethiopian-flavors",
       country: "United Kingdom",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-08-25",
       availableTo: "2025-09-30",
+       phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
     {
       id: "fh-5",
@@ -2177,8 +2620,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "West London, United Kingdom",
       slug: "afro-fusion-bistro",
       country: "United Kingdom",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-10-05",
       availableTo: "2025-11-10",
+       phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
     {
       id: "fh-6",
@@ -2193,8 +2645,17 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "South London, United Kingdom",
       slug: "plantain-paradise",
       country: "United Kingdom",
+      description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-11-15",
       availableTo: "2025-12-20",
+       phone: "+44 20 3344 5566",
+      email: "orders@mamasafrican.co.uk",
+      website: "https://mamasafrican.co.uk",
+      socials: {
+        instagram: "https://instagram.com/mamasafricancatering",
+        facebook: "https://facebook.com/mamasafricancatering",
+        tiktok: "https://tiktok.com/@mamasafricancatering",
+      },
     },
   ],
 };
@@ -2233,8 +2694,17 @@ export const popularStylists: ServiceProvider[] = [
     location: "South London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire",
     country: "United Kingdom",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-05-01",
     availableTo: "2025-05-31",
+        phone: "+44 20 3344 5566",
+        email: "orders@mamasafrican.co.uk",
+        website: "https://mamasafrican.co.uk",
+        socials: {
+          instagram: "https://instagram.com/mamasafricancatering",
+          facebook: "https://facebook.com/mamasafricancatering",
+          tiktok: "https://tiktok.com/@mamasafricancatering",
+        },
   },
   {
     id: "ps-2",
@@ -2249,8 +2719,17 @@ export const popularStylists: ServiceProvider[] = [
     location: "West London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-2",
     country: "United Kingdom",
+     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-06-05",
     availableTo: "2025-06-28",
+     phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
   },
   {
     id: "ps-3",
@@ -2265,8 +2744,17 @@ export const popularStylists: ServiceProvider[] = [
     location: "Central London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-3",
     country: "United Kingdom",
+     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-07-01",
     availableTo: "2025-07-31",
+    phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
   },
   {
     id: "ps-4",
@@ -2281,8 +2769,17 @@ export const popularStylists: ServiceProvider[] = [
     location: "North London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-4",
     country: "United Kingdom",
+     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-08-10",
     availableTo: "2025-09-05",
+    phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
   },
   {
     id: "ps-5",
@@ -2297,8 +2794,17 @@ export const popularStylists: ServiceProvider[] = [
     location: "East London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-5",
     country: "United Kingdom",
+     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-09-15",
     availableTo: "2025-10-12",
+    phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
   },
   {
     id: "ps-6",
@@ -2312,7 +2818,16 @@ export const popularStylists: ServiceProvider[] = [
     location: "South London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-6",
     country: "United Kingdom",
+     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-10-20",
     availableTo: "2025-11-15",
+    phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
   },
 ];

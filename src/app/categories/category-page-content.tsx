@@ -371,7 +371,7 @@ export default function CategoryPageContent() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {visibleProviders.length === 0 ? (
             <div className="col-span-full py-12 text-center text-gray-500">
-              We’re adding businesses for this subcategory soon. Check back in a
+              We&apos;re adding businesses for this subcategory soon. Check back in a
               bit.
             </div>
           ) : (
@@ -384,7 +384,7 @@ export default function CategoryPageContent() {
                   className="flex flex-col"
                 >
                   <Link
-                    href={`/categories/${categorySlug}`}
+                    href={`/categories/${categorySlug}/${provider.slug}`}
                     className="group relative aspect-4/3 rounded-2xl overflow-hidden shadow-sm hover:shadow-sm transition-all mb-3"
                   >
                     <Image
