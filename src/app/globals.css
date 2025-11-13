@@ -145,5 +145,12 @@
   display: none;  /* Chrome, Safari and Opera */
 }
 
+.login-bg {
+  background-image: url('/images/backgroundImages/bg-login.jpg');
+  background-size: cover;
+  background-position: center;
+  margin: 5px;
+}
+
 
 

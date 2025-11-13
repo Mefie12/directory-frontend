@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import Navbar from "@/components/ui/navbar";
-import Footer from "@/components/ui/footer";
+// import Navbar from "@/components/ui/navbar";
+// import Footer from "@/components/ui/footer";
+import LayoutWrapper from "@/components/layout-wrapper";
 
 const gilroy = localFont({
   src: [
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   },
   description:
     "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
-    keywords: [
+  keywords: [
     "Me-fie Directory",
     "African owned businesses",
     "Cultural events",
@@ -95,9 +96,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${gilroy.variable} antialiased`}>
-        <Navbar />
-        <div className="font-gilroy">{children}</div>
-        <Footer />
+        {/* <Navbar /> */}
+        <LayoutWrapper>
+          <div className="font-gilroy">{children}</div>
+        </LayoutWrapper>
+        {/* <Footer /> */}
       </body>
     </html>
   );

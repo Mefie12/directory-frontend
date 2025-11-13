@@ -110,13 +110,13 @@ export default function Navbar() {
 
             {/* Auth Buttons */}
             <Link
-              href="/login"
+              href="/auth/login"
               className="px-4 py-2 text-base font-normal text-white hover:text-white/80 transition-colors"
             >
               Login
             </Link>
             <Link
-              href="/register"
+              href="/auth/signup"
               className="px-4 py-2 text-base font-normal text-gray-900 bg-white hover:bg-white/20 hover:text-gray-100 rounded-xl transition-colors"
             >
               Sign Up

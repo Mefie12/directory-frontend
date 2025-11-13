@@ -1,0 +1,275 @@
+"use client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Signup() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+  });
+
+  // validation
+  const validateForm = () => {
+    const newErrors = { firstName: "", lastName: "", email: "", password: "" };
+    let isValid = true;
+
+    // First Name validation
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required";
+      isValid = false;
+    }
+
+    // Last Name validation
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required";
+      isValid = false;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+      isValid = false;
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = "Invalid email format";
+      isValid = false;
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+      isValid = false;
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters long";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setErrors({ firstName: "", lastName: "", email: "", password: "" }); 
+
+    if (!validateForm()) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to register");
+      }
+
+      // Handle successful registration
+      console.log("Registration successful:", data);
+
+      // Redirect to login page
+      router.push("/auth/login");
+      router.refresh()
+    } catch (error) {
+      console.error("register failed:", error);
+      setError("Failed to register");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.id]: e.target.value,
+    }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[e.target.id as keyof typeof errors]) {
+      setErrors((prev) => ({
+        ...prev,
+        [e.target.id]: "",
+      }));
+    }
+  };
+
+  return (
+    <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
+      <div className="absolute inset-0 bg-black/30 rounded-2xl" />
+      <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none ">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Image
+              src="/images/logos/login-logo.png"
+              alt="MeFie Logo"
+              width={110}
+              height={50}
+              className="object-cover"
+            />
+
+            <p className="text-sm text-gray-500">
+              Already have an account?{" "}
+              <Link
+                href="/auth/login"
+                className="text-[#93C01F] font-medium hover:underline"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
+          <div className="space-y-1 mt-0">
+            <h2 className="text-4xl font-semibold text-gray-900">
+              Let&apos;s get started
+            </h2>
+            <p className="text-gray-500 text-base">
+              Please enter your details to continue
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="space-y-2 grid grid-cols-2 space-x-4">
+                <div>
+                  <Label htmlFor="firstName" className="text-sm">
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="Enter your First Name"
+                    className="w-full"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {errors.firstName && (
+                    <p className="text-red-500 text-sm">{errors.firstName}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="lastName" className="text-sm">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Enter your Last Name"
+                    className="w-full"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {errors.lastName && (
+                    <p className="text-red-500 text-sm">{errors.lastName}</p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm">
+                  Email Address <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  className="w-full"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                />
+                {errors.email && (
+                  <p className="text-red-500 text-sm">{errors.email}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm">
+                  Password <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="w-full"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                />
+                {errors.password && (
+                  <p className="text-red-500 text-sm">{errors.password}</p>
+                )}
+              </div>
+
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full text-sm bg-[#93C01F] text-white cursor-pointer"
+              >
+                {isLoading ? "Registering..." : "Register"}
+              </Button>
+
+              {/* <div className="flex items-center justify-center gap-2 text-xs text-gray-400 my-4">
+                <span className="flex-1 border-t" />
+                OR
+                <span className="flex-1 border-t" />
+              </div> */}
+
+              {/* alternative logins */}
+              {/* <div className="flex flex-col gap-2 mt-2">
+                <Button className="w-full text-sm bg-transparent text-gray-900 border border-gray-200 hover:bg-[#93C01F] hover:text-white cursor-pointer">
+                  {" "}
+                  <span>
+                    <Image
+                      src="/images/icons/google.svg"
+                      alt="Google"
+                      width={20}
+                      height={20}
+                    />
+                  Continue with Google{" "}
+                  </span>
+                </Button>
+                <Button className="w-full text-sm bg-transparent text-gray-900 border border-gray-200 hover:bg-[#93C01F] hover:text-white cursor-pointer">
+                <span>
+                  <Image
+                    src="/images/icons/facebook-2.svg"
+                    alt="Facebook"
+                    width={20}
+                    height={20}
+                  />
+                </span>
+                  Continue with Facebook
+                </Button>
+              </div> */}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
