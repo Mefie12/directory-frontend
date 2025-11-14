@@ -69,7 +69,7 @@ export default function Signup() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    setErrors({ firstName: "", lastName: "", email: "", password: "" }); 
+    setErrors({ firstName: "", lastName: "", email: "", password: "" });
 
     if (!validateForm()) {
       setIsLoading(false);
@@ -94,7 +94,7 @@ export default function Signup() {
 
       // Redirect to login page
       router.push("/auth/login");
-      router.refresh()
+      router.refresh();
     } catch (error) {
       console.error("register failed:", error);
       setError("Failed to register");
@@ -108,7 +108,7 @@ export default function Signup() {
       ...prev,
       [e.target.id]: e.target.value,
     }));
-    
+
     // Clear error for this field when user starts typing
     if (errors[e.target.id as keyof typeof errors]) {
       setErrors((prev) => ({
@@ -124,13 +124,15 @@ export default function Signup() {
       <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none ">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-between">
-            <Image
-              src="/images/logos/login-logo.png"
-              alt="MeFie Logo"
-              width={110}
-              height={50}
-              className="object-cover"
-            />
+            <Link href="/">
+              <Image
+                src="/images/logos/login-logo.png"
+                alt="MeFie Logo"
+                width={110}
+                height={50}
+                className="object-cover"
+              />
+            </Link>
 
             <p className="text-sm text-gray-500">
               Already have an account?{" "}

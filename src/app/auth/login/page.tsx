@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+
 export default function Login() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -101,13 +102,15 @@ export default function Login() {
       <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none ">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-between">
-            <Image
-              src="/images/logos/login-logo.png"
-              alt="MeFie Logo"
-              width={110}
-              height={50}
+            <Link href="/">
+              <Image
+                src="/images/logos/login-logo.png"
+                alt="MeFie Logo"
+                width={110}
+                height={50}
               className="object-cover"
             />
+            </Link>
 
             <p className="text-sm text-gray-500">
               Don&apos;t have an account?{" "}
