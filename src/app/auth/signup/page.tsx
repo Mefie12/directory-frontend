@@ -11,34 +11,42 @@ import { useRouter } from "next/navigation";
 export default function Signup() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
+    phone: "",
     email: "",
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
+    phone: "",
     email: "",
     password: "",
   });
 
   // validation
   const validateForm = () => {
-    const newErrors = { firstName: "", lastName: "", email: "", password: "" };
+    const newErrors = {
+      first_name: "",
+      last_name: "",
+      phone: "",
+      email: "",
+      password: "",
+    };
     let isValid = true;
 
     // First Name validation
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = "First name is required";
       isValid = false;
     }
 
     // Last Name validation
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = "Last name is required";
       isValid = false;
     }
 
@@ -69,7 +77,13 @@ export default function Signup() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    setErrors({ firstName: "", lastName: "", email: "", password: "" });
+    setErrors({
+      first_name: "",
+      last_name: "",
+      phone: "",
+      email: "",
+      password: "",
+    });
 
     if (!validateForm()) {
       setIsLoading(false);
@@ -77,7 +91,12 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch("/api/register", {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+      console.log("🚀 Sending request to:", `${API_URL}/api/register`);
+    console.log("📦 Request data:", formData);
+
+      const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -158,41 +177,58 @@ export default function Signup() {
             <div className="space-y-4">
               <div className="space-y-2 grid grid-cols-2 space-x-4">
                 <div>
-                  <Label htmlFor="firstName" className="text-sm">
+                  <Label htmlFor="first_name" className="text-sm">
                     First Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="firstName"
+                    id="first_name"
                     type="text"
                     placeholder="Enter your First Name"
                     className="w-full"
-                    value={formData.firstName}
+                    value={formData.first_name}
                     onChange={handleInputChange}
                     required
                   />
-                  {errors.firstName && (
-                    <p className="text-red-500 text-sm">{errors.firstName}</p>
+                  {errors.first_name && (
+                    <p className="text-red-500 text-sm">{errors.first_name}</p>
                   )}
                 </div>
                 <div>
-                  <Label htmlFor="lastName" className="text-sm">
+                  <Label htmlFor="last_name" className="text-sm">
                     Last Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="lastName"
+                    id="last_name"
                     type="text"
                     placeholder="Enter your Last Name"
                     className="w-full"
-                    value={formData.lastName}
+                    value={formData.last_name}
                     onChange={handleInputChange}
                     required
                   />
-                  {errors.lastName && (
-                    <p className="text-red-500 text-sm">{errors.lastName}</p>
+                  {errors.last_name && (
+                    <p className="text-red-500 text-sm">{errors.last_name}</p>
                   )}
                 </div>
               </div>
               <div className="space-y-2">
+                <div>
+                  <Label htmlFor="phone" className="text-sm">
+                    Phone Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="number"
+                    placeholder="Enter your Phone Number"
+                    className="w-full"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {errors.phone && (
+                    <p className="text-red-500 text-sm">{errors.phone}</p>
+                  )}
+                </div>
                 <Label htmlFor="email" className="text-sm">
                   Email Address <span className="text-red-500">*</span>
                 </Label>
