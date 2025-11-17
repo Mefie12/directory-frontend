@@ -8,7 +8,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-
 export default function Login() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -65,7 +64,9 @@ export default function Login() {
     }
 
     try {
-      const response = await fetch("/api/login", {
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,9 +77,13 @@ export default function Login() {
       if (!response.ok) {
         throw new Error(data.message || "Failed to login");
       }
+      // store auth token for navbar
+      if (data.token) {
+        localStorage.setItem("authToken", data.token);
+      }
 
-      // handle successful login
-      console.log("login successful:", data);
+      // // handle successful login
+      // console.log("login successful:", data);
 
       router.push("/");
     } catch (error) {
@@ -108,8 +113,8 @@ export default function Login() {
                 alt="MeFie Logo"
                 width={110}
                 height={50}
-              className="object-cover"
-            />
+                className="object-cover"
+              />
             </Link>
 
             <p className="text-sm text-gray-500">

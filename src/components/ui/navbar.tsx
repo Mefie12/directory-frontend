@@ -2,16 +2,66 @@
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Bell } from "lucide-react";
 import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+
+type User = {
+  name: string;
+  role: string;
+  image?: string;
+};
 
 export default function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(`${path}/`);
   };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const res = await fetch(`${API_URL}/api/user`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const raw = data?.user ?? data?.data ?? data;
+          const mappedUser: User = {
+            name:
+              raw?.name ||
+              `${raw?.first_name ?? ""} ${raw?.last_name ?? ""}`.trim() ||
+              "User",
+             role: raw?.role || "User",
+ image: raw?.image || raw?.avatar || undefined,
+          };
+          setUser(mappedUser);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -100,33 +150,86 @@ export default function Navbar() {
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
-            {/* Search Icon
-            <button
-              className="p-2 rounded-full bg-[#F8FAFC80] hover:bg-white/20 transition-colors"
-              aria-label="Search"
-            >
-              <Search className="h-5 w-5 text-white" />
-            </button> */}
+            {loading ? null : (
+              <>
+                {!user ? (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      className="px-4 py-2 text-base font-normal text-white hover:text-white/80 transition-colors"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="px-4 py-2 text-base font-normal text-gray-900 bg-white hover:bg-white/20 hover:text-gray-100 rounded-xl transition-colors"
+                    >
+                      Sign Up
+                    </Link>
+                    <Link
+                      href="/become-vendor"
+                      className="px-4 py-2 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors"
+                    >
+                      Become a vendor
+                    </Link>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-6">
+                    <button className="relative p-3 rounded-full bg-white/10 hover:bg-white/20 transition">
+                      <Bell className="w-5 h-5 text-white" />
+                    </button>
 
-            {/* Auth Buttons */}
-            <Link
-              href="/auth/login"
-              className="px-4 py-2 text-base font-normal text-white hover:text-white/80 transition-colors"
-            >
-              Login
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="px-4 py-2 text-base font-normal text-gray-900 bg-white hover:bg-white/20 hover:text-gray-100 rounded-xl transition-colors"
-            >
-              Sign Up
-            </Link>
-            <Link
-              href="/become-vendor"
-              className="px-4 py-2 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors"
-            >
-              Become a vendor
-            </Link>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center gap-2">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={user.image} />
+                            <AvatarFallback>U</AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <p className="text-sm font-medium">{user.name}</p>
+                            <span className="text-xs px-2 py-0.5 bg-white/20 rounded-full">
+                              {user.role}
+                            </span>
+                          </div>
+                        </button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-60 bg-white text-gray-800 p-4 rounded-xl shadow-xl"
+                      >
+                        <DropdownMenuItem asChild>
+                          <Link href="/dashboard" className="flex gap-2 py-2">
+                            Dashboard
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/bookmarks" className="flex gap-2 py-2">
+                            Bookmarks
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/help" className="flex gap-2 py-2">
+                            Help / Support
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            localStorage.removeItem("authToken");
+                            setUser(null);
+                          }}
+                          className="text-red-600 py-2"
+                        >
+                          Logout
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger */}
@@ -149,68 +252,71 @@ export default function Navbar() {
       {/* Mobile Dropdown */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed left-0 right-0 z-50 bg-(--background-secondary) text-white animate-fadeIn">
-          <div className="w-full bg-[#14202b] py-4 flex justify-center">
-            <div className="flex items-center space-x-12">
-              <Link
-                href="#"
-                className="text-white hover:text-gray-300 transition-colors"
-              >
-                Login
+          <div className="py-5 flex flex-col space-y-3">
+            {!user ? (
+              <div className="flex flex-row items-center justify-center space-x-12 bg-[#14202b] py-5">
+                <Link href="/auth/login">Login</Link>
+                <Link href="/auth/signup">Sign Up</Link>
+              </div>
+            ) : (
+              <div className="space-y-4 px-6">
+                <div className="flex items-center gap-4">
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage src={user.image} />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{user.name}</p>
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                      {user.role}
+                    </span>
+                  </div>
+                </div>
+                <Link href="/dashboard">Dashboard</Link>
+                <Link href="/bookmarks">Bookmarks</Link>
+                <Link href="/help">Help/Support</Link>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("authToken");
+                    setUser(null);
+                  }}
+                  className="text-red-500"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-col space-y-5 px-6">
+              <Link href="/discover" onClick={() => setIsMobileMenuOpen(false)}>
+                Discover
               </Link>
               <Link
-                href="#"
-                className="text-white hover:text-gray-300 transition-colors"
+                href="/businesses"
+                onClick={() => setIsMobileMenuOpen(false)}
               >
-                Sign up
+                Businesses
+              </Link>
+              <Link href="/events" onClick={() => setIsMobileMenuOpen(false)}>
+                Events
+              </Link>
+              <Link
+                href="/communities"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Communities
+              </Link>
+              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)}>
+                About Us
+              </Link>
+              <Link
+                href="/become-vendor"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-center px-4 py-3 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors mt-10"
+              >
+                Become a vendor
               </Link>
             </div>
-          </div>
-
-          <div className="px-6 space-y-5 py-6 flex flex-col items-start">
-            <Link
-              href="/discover"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-normal text-white hover:text-[#A9CD4C] transition-colors"
-            >
-              Discover
-            </Link>
-            <Link
-              href="/businesses"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-normal text-white hover:text-[#A9CD4C] transition-colors"
-            >
-              Businesses
-            </Link>
-            <Link
-              href="/events"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-normal text-white hover:text-[#A9CD4C] transition-colors"
-            >
-              Events
-            </Link>
-            <Link
-              href="/communities"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-normal text-white hover:text-[#A9CD4C] transition-colors"
-            >
-              Communities
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-normal text-white hover:text-[#A9CD4C] transition-colors"
-            >
-              About Us
-            </Link>
-
-            {/* Contact button */}
-            <Link
-              href="/become-vendor"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block w-full text-center px-4 py-3 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors mt-20"
-            >
-              Become a vendor
-            </Link>
           </div>
         </div>
       )}

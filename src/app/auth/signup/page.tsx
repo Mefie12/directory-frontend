@@ -91,10 +91,7 @@ export default function Signup() {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      console.log("🚀 Sending request to:", `${API_URL}/api/register`);
-    console.log("📦 Request data:", formData);
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",

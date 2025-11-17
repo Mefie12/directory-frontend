@@ -44,7 +44,8 @@ export default function ForgotPassword() {
     }
 
     try {
-      const response = await fetch("/api/forgot-password", {
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const response = await fetch(`${API_URL}/api/reset_mail`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
