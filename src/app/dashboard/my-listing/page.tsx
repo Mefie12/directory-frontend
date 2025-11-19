@@ -64,7 +64,7 @@ export default function MyListing() {
       bookmarks: 18,
       rating: 4.7,
     },
-     {
+    {
       id: "6",
       name: "Greenbowl Restaurant",
       image: "/images/image-1.jpg",
@@ -107,7 +107,12 @@ export default function MyListing() {
       {/* Table */}
       <div>
         {/* Replace the empty array with actual listings data when available */}
-        <ListingsTable listings={listings} showPagination={true} button={false} itemsPerPage={6} />
+        <ListingsTable
+          listings={listings}
+          showPagination={true}
+          button={false}
+          itemsPerPage={6}
+        />
       </div>
     </div>
   );
