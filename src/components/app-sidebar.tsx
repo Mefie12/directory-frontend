@@ -52,11 +52,11 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar variant="inset" className="bg-[#1C3C59] text-white">
+    <Sidebar variant="inset" collapsible="icon" className="bg-[#1C3C59] text-white h-screen">
       <SidebarHeader className="bg-[#1C3C59]">
         <div className="flex items-center gap-2">
           {/* Logo */}
-          <div className="shrink-0">
+          <div className="shrink-0 group-data-[collapsible=icon]:hidden">
             <Link href="/">
               <Image
                 src="/images/logos/mefie-logo.svg"
