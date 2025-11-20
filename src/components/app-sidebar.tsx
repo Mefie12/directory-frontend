@@ -9,11 +9,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  //   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { X } from "lucide-react";
 
 // Menu items
 const items = [
@@ -46,15 +46,44 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  // Active state
+
   const isActive = (path: string) => {
     return pathname === path;
+  };
+
+  // Direct DOM manipulation - this WILL work
+  const handleCloseSidebar = () => {
+    // Method 1: Find and click the sidebar trigger button
+    const sidebarTrigger = document.querySelector('[data-sidebar="trigger"]');
+    if (sidebarTrigger) {
+      (sidebarTrigger as HTMLElement).click();
+    }
+    
+    // Method 2: Look for any button with sidebar-related attributes
+    const sidebarButtons = document.querySelectorAll('button');
+    sidebarButtons.forEach(button => {
+      if (button.getAttribute('data-state') === 'open' || 
+          button.classList.contains('sidebar-trigger') ||
+          button.getAttribute('aria-expanded') === 'true') {
+        button.click();
+      }
+    });
+    
+    // Method 3: Look for the sidebar and add collapsed class
+    const sidebar = document.querySelector('[data-sidebar="sidebar"]') || 
+                   document.querySelector('.sidebar') ||
+                   document.querySelector('[data-collapsible="icon"]');
+    
+    if (sidebar) {
+      sidebar.setAttribute('data-state', 'collapsed');
+      sidebar.classList.add('collapsed');
+    }
   };
 
   return (
     <Sidebar variant="inset" collapsible="icon" className="bg-[#1C3C59] text-white h-screen">
       <SidebarHeader className="bg-[#1C3C59]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between w-full">
           {/* Logo */}
           <div className="shrink-0 group-data-[collapsible=icon]:hidden">
             <Link href="/">
@@ -67,19 +96,27 @@ export function AppSidebar() {
               />
             </Link>
           </div>
+
+          {/* Close Button - Simple and direct */}
+          <button 
+            onClick={handleCloseSidebar}
+            className="md:hidden p-2 rounded-md hover:bg-white/10 text-white cursor-pointer transition-colors flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </SidebarHeader>
-      {/* <SidebarSeparator className="bg-white/20" /> */}
+      
       <SidebarContent className="bg-[#1C3C59]">
         <SidebarGroup className="bg-[#1C3C59]">
           <SidebarGroupContent className="bg-[#1C3C59]">
-            <SidebarMenu className="pt-10 space-y-2">
+            <SidebarMenu className="pt-4 space-y-2">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link
                       href={item.url}
-                      className={`flex items-center gap-2 px-2 py-5 rounded-lg hover:bg-white/10 text-white transition-colors ${
+                      className={`flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors ${
                         isActive(item.url) ? "bg-[#93C01F]" : ""
                       }`}
                     >

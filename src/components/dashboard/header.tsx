@@ -28,7 +28,7 @@ export default function Header() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex items-center justify-end px-10 py-1">
+    <div className="flex items-center justify-end px-4 lg:px-10 py-1">
       {user && (
         <div className="flex items-center gap-4">
           <div>
@@ -94,7 +94,7 @@ export default function Header() {
                   <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
                 </Avatar>
 
-                <div className="flex flex-col items-start">
+                <div className="hidden md:flex flex-col items-start">
                   <span className="text-xs font-semibold text-gray-900">
                     {user.name}
                   </span>

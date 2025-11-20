@@ -1,8 +1,11 @@
+"use client"
 import { ListingsTable } from "@/components/dashboard/listing-table";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function MyListing() {
+  const router = useRouter();
   const listings = [
     {
       id: "1",
@@ -96,7 +99,9 @@ export default function MyListing() {
         <div className="mb-4">
           <h4 className="text-2xl font-semibold">My Listings</h4>
         </div>
-        <Button className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer">
+        <Button
+        onClick={()=>(router.push("/dashboard/my-listing/create"))} 
+        className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer">
           <span>
             <Plus className="w-4 h-4" />
           </span>

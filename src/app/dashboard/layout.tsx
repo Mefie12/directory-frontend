@@ -15,8 +15,10 @@ export default function Layout({ children }: LayoutProps) {
 
         <main className="flex-1 flex flex-col overflow-y-auto max-w-8xl w-full">
           <div className="shrink-0">
-            <SidebarTrigger />
-            <Header />
+            <div className="flex items-center justify-between pt-4">
+              <SidebarTrigger />
+              <Header />
+            </div>
             <div className="border-b border-gray-100" />
           </div>
           <div className="flex-1  px-2 pb-2">{children}</div>
