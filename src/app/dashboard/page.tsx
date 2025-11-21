@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -12,8 +14,10 @@ import StatCard from "@/components/dashboard/stat-cards";
 import RecentActivityCard from "@/components/dashboard/recent-activity";
 import { Chart } from "@/components/dashboard/bar-chart";
 import { ListingsTable } from "@/components/dashboard/listing-table";
+import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
+  const router = useRouter();
   // const recentActivity = [
   //   {
   //     id: "1",
@@ -165,6 +169,7 @@ export default function Dashboard() {
             <div className="text-sm pr-3 cursor-pointer">
               <Button
                 variant="link"
+                onClick={()=>(router.push("/dashboard/my-listing"))}
                 className="text-[#93C01F] cursor-pointer hover:no-underline"
               >
                 View all{" "}
