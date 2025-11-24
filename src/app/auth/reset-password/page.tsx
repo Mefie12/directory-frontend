@@ -6,51 +6,57 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ChangePassword() {
+export default function ResetPassword() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [formData, setFormData] = useState({
-    // current_password: "",
-    new_password: "",
-    confirm_password: "",
+    password: "",
+    password_confirmation: "",
   });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState({
-    // current_password: "",
-    new_password: "",
-    confirm_password: "",
+    password: "",
+    password_confirmation: "",
   });
+
+  // Extract token and email from URL parameters (from reset email)
+  const token = searchParams.get('token');
+  const email = searchParams.get('email');
+
+  useEffect(() => {
+    // Validate that we have the required parameters
+    if (!token || !email) {
+      setError("Invalid or expired password reset link. Please request a new reset link.");
+    }
+  }, [token, email]);
 
   const validateForm = () => {
     const newErrors = {
-      //   current_password: "",
-      new_password: "",
-      confirm_password: "",
+      password: "",
+      password_confirmation: "",
     };
     let isValid = true;
 
-    // if (!formData.current_password) {
-    //   newErrors.current_password = "Current password is required";
-    //   isValid = false;
-    // }
-
-    if (!formData.new_password) {
-      newErrors.new_password = "New password is required";
+    if (!formData.password) {
+      newErrors.password = "Password is required";
       isValid = false;
-    } else if (formData.new_password.length < 6) {
-      newErrors.new_password = "Password must be at least 6 characters";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
       isValid = false;
     }
 
-    if (!formData.confirm_password) {
-      newErrors.confirm_password = "Please confirm your password";
+    if (!formData.password_confirmation) {
+      newErrors.password_confirmation = "Please confirm your password";
       isValid = false;
-    } else if (formData.new_password !== formData.confirm_password) {
-      newErrors.confirm_password = "Passwords do not match";
+    } else if (formData.password !== formData.password_confirmation) {
+      newErrors.password_confirmation = "Passwords do not match";
       isValid = false;
     }
 
@@ -60,13 +66,19 @@ export default function ChangePassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if token and email are available
+    if (!token || !email) {
+      setError("Invalid password reset link");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setSuccess(false);
     setErrors({
-      //   current_password: "",
-      new_password: "",
-      confirm_password: "",
+      password: "",
+      password_confirmation: "",
     });
 
     if (!validateForm()) {
@@ -75,49 +87,48 @@ export default function ChangePassword() {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // console.log("🚀 Sending request to:", `${API_URL}/api/change-password`);
+      // console.log("🚀 Sending password reset request...");
 
-      const response = await fetch(`${API_URL}/api/change-password`, {
+      const response = await fetch(`${API_URL}/api/reset_password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Add auth token if needed
-          // "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
-          //   current_password: formData.current_password,
-          new_password: formData.new_password,
-          confirm_password: formData.confirm_password,
+          token: token,
+          email: email,
+          password: formData.password,
+          password_confirmation: formData.password_confirmation,
         }),
       });
 
       const data = await response.json();
-      console.log("📥 Response:", data);
+      // console.log("📥 Response:", data);
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to change password");
+        throw new Error(data.message || data.error || "Failed to reset password");
       }
 
-      console.log("✅ Password changed successfully");
+      // console.log("✅ Password reset successfully");
       setSuccess(true);
 
       // Clear form
       setFormData({
-        // current_password: "",
-        new_password: "",
-        confirm_password: "",
+        password: "",
+        password_confirmation: "",
       });
 
-      // Redirect after 2 seconds
+      // Redirect to login after success
       setTimeout(() => {
-        router.push("/auth/login");
+        router.push("/auth/login?message=password_reset_success");
       }, 2000);
+
     } catch (error) {
-      console.error("❌ Change password failed:", error);
+      // console.error("❌ Password reset failed:", error);
       setError(
-        error instanceof Error ? error.message : "Failed to change password"
+        error instanceof Error ? error.message : "Failed to reset password. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -144,6 +155,83 @@ export default function ChangePassword() {
     }
   };
 
+  // Show error if token or email is missing
+  if (!token || !email) {
+    return (
+      <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
+        <div className="absolute inset-0 bg-black/30 rounded-2xl" />
+        <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Link href="/">
+                <Image
+                  src="/images/logos/login-logo.png"
+                  alt="MeFie Logo"
+                  width={110}
+                  height={50}
+                  className="object-cover"
+                />
+              </Link>
+            </div>
+            <div className="space-y-1 mt-0">
+              <h2 className="text-4xl font-semibold text-gray-900">
+                Invalid Reset Link
+              </h2>
+              <p className="text-gray-500 text-sm">
+                This password reset link is invalid or has expired
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0">
+                    <svg
+                      className="w-5 h-5 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800">
+                      Invalid Reset Link
+                    </h3>
+                    <p className="text-sm text-red-700 mt-1">
+                      {error || "This password reset link is invalid or has expired. Please request a new password reset link."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <Link href="/auth/forgot-password">
+                  <Button className="w-full text-sm bg-[#93C01F] text-white cursor-pointer hover:bg-[#7da519]">
+                    Request New Reset Link
+                  </Button>
+                </Link>
+                
+                <Link href="/auth/login">
+                  <Button variant="outline" className="w-full text-sm">
+                    Back to Login
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
       <div className="absolute inset-0 bg-black/30 rounded-2xl" />
@@ -162,11 +250,14 @@ export default function ChangePassword() {
           </div>
           <div className="space-y-1 mt-0">
             <h2 className="text-4xl font-semibold text-gray-900">
-              Change Password
+              Reset Password
             </h2>
             <p className="text-gray-500 text-sm">
-              Enter your current password and choose a new one
+              Create a new password for your account
             </p>
+            {/* <div className="text-xs text-gray-400 mt-1">
+              Resetting password for: {email}
+            </div> */}
           </div>
         </CardHeader>
         <CardContent>
@@ -191,10 +282,10 @@ export default function ChangePassword() {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-green-800">
-                      Password changed successfully!
+                      Password Reset Successfully!
                     </h3>
                     <p className="text-sm text-green-700 mt-1">
-                      Your password has been updated. Redirecting...
+                      Your password has been updated. Redirecting to login...
                     </p>
                   </div>
                 </div>
@@ -203,60 +294,44 @@ export default function ChangePassword() {
           ) : (
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
-                {/* <div className="space-y-2">
-                  <Label htmlFor="current_password" className="text-sm">
-                    Current Password <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="current_password"
-                    type="password"
-                    placeholder="Enter your current password"
-                    className="w-full"
-                    value={formData.current_password}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {errors.current_password && (
-                    <p className="text-red-500 text-sm">{errors.current_password}</p>
-                  )}
-                </div> */}
-
                 <div className="space-y-2">
-                  <Label htmlFor="new_password" className="text-sm">
+                  <Label htmlFor="password" className="text-sm">
                     New Password <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="new_password"
+                    id="password"
                     type="password"
                     placeholder="Enter your new password"
                     className="w-full"
-                    value={formData.new_password}
+                    value={formData.password}
                     onChange={handleInputChange}
                     required
+                    disabled={isLoading}
                   />
-                  {errors.new_password && (
+                  {errors.password && (
                     <p className="text-red-500 text-sm">
-                      {errors.new_password}
+                      {errors.password}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm_password" className="text-sm">
+                  <Label htmlFor="password_confirmation" className="text-sm">
                     Confirm New Password <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="confirm_password"
+                    id="password_confirmation"
                     type="password"
                     placeholder="Confirm your new password"
                     className="w-full"
-                    value={formData.confirm_password}
+                    value={formData.password_confirmation}
                     onChange={handleInputChange}
                     required
+                    disabled={isLoading}
                   />
-                  {errors.confirm_password && (
+                  {errors.password_confirmation && (
                     <p className="text-red-500 text-sm">
-                      {errors.confirm_password}
+                      {errors.password_confirmation}
                     </p>
                   )}
                 </div>
@@ -269,19 +344,19 @@ export default function ChangePassword() {
 
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !token || !email}
                   className="w-full text-sm bg-[#93C01F] text-white cursor-pointer hover:bg-[#7da519] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? "Changing Password..." : "Change Password"}
+                  {isLoading ? "Resetting Password..." : "Reset Password"}
                 </Button>
 
                 <div className="flex items-center justify-center">
                   <Link
-                    href="/dashboard"
+                    href="/auth/login"
                     className="text-sm text-gray-600 hover:text-[#93C01F] transition-colors flex items-center justify-center gap-2"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    Back to Log in
+                    Back to Login
                   </Link>
                 </div>
               </div>
