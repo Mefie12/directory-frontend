@@ -15,76 +15,146 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
-// Menu items
-const items = [
-  {
-    title: "Home",
-    url: "/dashboard",
-    iconUrl: "/images/icons/home.svg",
-  },
-  {
-    title: "My Listing",
-    url: "/dashboard/my-listing",
-    iconUrl: "/images/icons/listings.svg",
-  },
-  {
-    title: "Inquiries",
-    url: "/dashboard/inquiries",
-    iconUrl: "/images/icons/chat.svg",
-  },
-  {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    iconUrl: "/images/icons/curves.svg",
-  },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    iconUrl: "/images/icons/setting.svg",
-  },
-];
+type UserRole = "vendor" | "customer" | "admin";
 
-export function AppSidebar() {
+interface MenuItem {
+  title: string;
+  url: string;
+  iconUrl: string;
+}
+
+interface AppSidebarProps {
+  role: UserRole;
+}
+
+// Navigation items for each role
+const navigationItems: Record<UserRole, MenuItem[]> = {
+  vendor: [
+    {
+      title: "Home",
+      url: "/dashboard/vendor",
+      iconUrl: "/images/icons/home.svg",
+    },
+    {
+      title: "My Listing",
+      url: "/dashboard/vendor/my-listing",
+      iconUrl: "/images/icons/listings.svg",
+    },
+    {
+      title: "Inquiries",
+      url: "/dashboard/vendor/inquiries",
+      iconUrl: "/images/icons/chat.svg",
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard/vendor/analytics",
+      iconUrl: "/images/icons/curves.svg",
+    },
+    {
+      title: "Settings",
+      url: "/dashboard/vendor/settings",
+      iconUrl: "/images/icons/setting.svg",
+    },
+  ],
+  customer: [
+    {
+      title: "Overview",
+      url: "/dashboard/customer",
+      iconUrl: "/images/icons/home.svg",
+    },
+    {
+      title: "Bookmarks",
+      url: "/dashboard/customer/bookmarks",
+      iconUrl: "/images/icons/bookmark.svg",
+    },
+    {
+      title: "Inquiries",
+      url: "/dashboard/customer/inquiries",
+      iconUrl: "/images/icons/chat.svg",
+    },
+    {
+      title: "My Events",
+      url: "/dashboard/customer/my-events",
+      iconUrl: "/images/icons/d-calendar.svg",
+    },
+    {
+      title: "Settings",
+      url: "/dashboard/customer/settings",
+      iconUrl: "/images/icons/setting.svg",
+    },
+  ],
+  admin: [
+    {
+      title: "Dashboard",
+      url: "/dashboard/admin",
+      iconUrl: "/images/icons/home.svg",
+    },
+    {
+      title: "Users",
+      url: "/dashboard/admin/users",
+      iconUrl: "/images/icons/users.svg",
+    },
+    {
+      title: "Listings",
+      url: "/dashboard/admin/listings",
+      iconUrl: "/images/icons/listings.svg",
+    },
+    {
+      title: "Reviews",
+      url: "/dashboard/admin/reviews",
+      iconUrl: "/images/icons/review.svg",
+    },
+    {
+      title: "Monetization",
+      url: "/dashboard/admin/monetization",
+      iconUrl: "/images/icons/money.svg",
+    },
+  ],
+};
+
+export function AppSidebar({ role }: AppSidebarProps) {
   const pathname = usePathname();
 
-  const isActive = (path: string) => {
-    return pathname === path;
-  };
+  const isActive = (path: string) => pathname === path;
 
-  // Direct DOM manipulation - this WILL work
+  const items = navigationItems[role];
+
   const handleCloseSidebar = () => {
-    // Method 1: Find and click the sidebar trigger button
     const sidebarTrigger = document.querySelector('[data-sidebar="trigger"]');
     if (sidebarTrigger) {
       (sidebarTrigger as HTMLElement).click();
     }
-    
-    // Method 2: Look for any button with sidebar-related attributes
-    const sidebarButtons = document.querySelectorAll('button');
-    sidebarButtons.forEach(button => {
-      if (button.getAttribute('data-state') === 'open' || 
-          button.classList.contains('sidebar-trigger') ||
-          button.getAttribute('aria-expanded') === 'true') {
+
+    const sidebarButtons = document.querySelectorAll("button");
+    sidebarButtons.forEach((button) => {
+      if (
+        button.getAttribute("data-state") === "open" ||
+        button.classList.contains("sidebar-trigger") ||
+        button.getAttribute("aria-expanded") === "true"
+      ) {
         button.click();
       }
     });
-    
-    // Method 3: Look for the sidebar and add collapsed class
-    const sidebar = document.querySelector('[data-sidebar="sidebar"]') || 
-                   document.querySelector('.sidebar') ||
-                   document.querySelector('[data-collapsible="icon"]');
-    
+
+    const sidebar =
+      document.querySelector('[data-sidebar="sidebar"]') ||
+      document.querySelector(".sidebar") ||
+      document.querySelector('[data-collapsible="icon"]');
+
     if (sidebar) {
-      sidebar.setAttribute('data-state', 'collapsed');
-      sidebar.classList.add('collapsed');
+      sidebar.setAttribute("data-state", "collapsed");
+      sidebar.classList.add("collapsed");
     }
   };
 
   return (
-    <Sidebar variant="inset" collapsible="icon" className="bg-[#1C3C59] text-white h-screen">
+    <Sidebar
+      variant="inset"
+      collapsible="icon"
+      className="bg-[#1C3C59] text-white h-screen"
+    >
       <SidebarHeader className="bg-[#1C3C59]">
         <div className="flex items-center justify-between w-full">
-          {/* Logo */}
           <div className="shrink-0 group-data-[collapsible=icon]:hidden">
             <Link href="/">
               <Image
@@ -97,16 +167,16 @@ export function AppSidebar() {
             </Link>
           </div>
 
-          {/* Close Button - Simple and direct */}
-          <button 
+          <button
             onClick={handleCloseSidebar}
             className="md:hidden p-2 rounded-md hover:bg-white/10 text-white cursor-pointer transition-colors flex items-center justify-center"
+            aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       </SidebarHeader>
-      
+
       <SidebarContent className="bg-[#1C3C59]">
         <SidebarGroup className="bg-[#1C3C59]">
           <SidebarGroupContent className="bg-[#1C3C59]">
@@ -120,7 +190,12 @@ export function AppSidebar() {
                         isActive(item.url) ? "bg-[#93C01F]" : ""
                       }`}
                     >
-                      <Image src={item.iconUrl} alt={item.title} width={20} height={20} />
+                      <Image
+                        src={item.iconUrl}
+                        alt={item.title}
+                        width={20}
+                        height={20}
+                      />
                       <span className="text-sm font-medium text-white">
                         {item.title}
                       </span>

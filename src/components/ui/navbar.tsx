@@ -183,7 +183,7 @@ export default function Navbar() {
                       <Separator className="my-2" />
                       <DropdownMenuItem asChild>
                         <Link
-                          href="/dashboard"
+                          href="/dashboard/vendor"
                           className="flex items-center gap-2"
                         >
                           <Image
