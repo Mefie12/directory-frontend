@@ -1,5 +1,6 @@
+// components/landing-page/home-content.tsx
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import HeroSlider from "@/components/landing-page/hero-slider";
 import { Sort, SortOption } from "@/components/sort";
 import { BusinessCarousel } from "@/components/landing-page/business-carousel";
@@ -9,17 +10,53 @@ import Link from "next/link";
 import { categories, communities, Business, Event } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Faqs } from "@/components/landing-page/faqs";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface HomeContentProps {
-  featuredBusinesses: Business[];
-  upcomingEvents: Event[];
-}
-
-export default function HomeContent({
-  featuredBusinesses,
-  upcomingEvents,
-}: HomeContentProps) {
+export default function HomeContent() {
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch featured businesses and upcoming events in parallel
+        const [businessesResponse, eventsResponse] = await Promise.all([
+          fetch('/api/listings?featured=true&limit=8'),
+          fetch('/api/listings?type=event&upcoming=true&limit=6')
+        ]);
+
+        if (!businessesResponse.ok || !eventsResponse.ok) {
+          throw new Error('Failed to fetch home page data');
+        }
+
+        const [businessesData, eventsData] = await Promise.all([
+          businessesResponse.json(),
+          eventsResponse.json()
+        ]);
+
+        setFeaturedBusinesses(businessesData.data || []);
+        setUpcomingEvents(eventsData.data || []);
+
+      } catch (err) {
+        console.error('Error fetching home page data:', err);
+        setError('Failed to load data. Please try again later.');
+        // You can set fallback data here if needed
+        // setFeaturedBusinesses(fallbackBusinesses);
+        // setUpcomingEvents(fallbackEvents);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHomeData();
+  }, []);
 
   const sortedCategories = useMemo(() => {
     const sorted = [...categories];
@@ -43,6 +80,86 @@ export default function HomeContent({
         return sorted;
     }
   }, [sortBy]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="overflow-x-hidden">
+        <HeroSlider />
+        
+        {/* Categories Skeleton */}
+        <div className="py-12 px-4 lg:px-16">
+          <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-8">
+            <div className="flex flex-col space-y-2">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="w-full h-32 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+
+        {/* Featured Businesses Skeleton */}
+        <div className="py-12 px-4 lg:py-20 lg:px-16">
+          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+            <div className="flex flex-col space-y-2">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <div className="flex space-x-4 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="w-80 h-48 rounded-xl shrink-0" />
+            ))}
+          </div>
+        </div>
+
+        {/* Upcoming Events Skeleton */}
+        <div className="py-12 px-4 lg:py-20 lg:px-16">
+          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+            <div className="flex flex-col space-y-2">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <div className="flex space-x-4 overflow-hidden">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="w-96 h-56 rounded-xl shrink-0" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="overflow-x-hidden">
+        <HeroSlider />
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Something went wrong
+            </h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()}
+              className="bg-[#93C01F] hover:bg-[#7ca818]"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-hidden">
@@ -177,13 +294,14 @@ export default function HomeContent({
               customers, and expand your business in a thriving digital
               marketplace.
             </p>
-            <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+            <Button className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
               Join as a vendor
             </Button>
           </div>
         </div>
       </div>
 
+      {/* Rest of your existing sections remain the same */}
       {/* Community you can explore section */}
       <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-10">
@@ -226,7 +344,7 @@ export default function HomeContent({
                 <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal">
                   {item.description}
                 </p>
-                <Button className="hidden md:block bg-(--accent-secondary) hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
+                <Button className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
                   Join Community
                 </Button>
               </div>
@@ -235,7 +353,7 @@ export default function HomeContent({
         </div>
 
         {/* Button */}
-        <Button className="flex justify-center bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium w-full md:w-fit px-4 py-3 rounded-md cursor-pointer mx-auto mt-5">
+        <Button className="flex justify-center bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium w-full md:w-fit px-4 py-3 rounded-md cursor-pointer mx-auto mt-5">
           Explore more communities
         </Button>
       </div>
@@ -246,7 +364,7 @@ export default function HomeContent({
           <div className="flex flex-col space-y-2 text-center">
             <h2 className="font-semibold text-xl md:text-4xl capitalize">
               Frequently Asked Questions{" "}
-              <span className="text-(--accent-primary)">(FAQs)</span>
+              <span className="text-[#93C01F]">(FAQs)</span>
             </h2>
             <p className="font-normal text-sm md:text-base max-w-5xl">
               Here, we&apos;ve answered the most common questions to help
@@ -310,7 +428,7 @@ export default function HomeContent({
           </p>
 
           {/* CTA button */}
-          <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+          <Button className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
             List your business today
           </Button>
         </div>

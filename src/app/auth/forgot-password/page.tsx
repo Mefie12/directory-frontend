@@ -62,11 +62,11 @@ export default function ForgotPassword() {
       }
 
       // Handle successful request
-      console.log("Password reset email sent:", data);
+      // console.log("Password reset email sent:", data);
       setSuccess(true);
       setEmail(""); // Clear the form
-    } catch (error) {
-      console.error("Forgot password failed:", error);
+    } catch  {
+      // console.error("Forgot password failed:", error);
     } finally {
       setIsLoading(false);
     }

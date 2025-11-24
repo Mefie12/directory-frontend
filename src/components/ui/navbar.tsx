@@ -140,7 +140,7 @@ export default function Navbar() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2">
+                    <button className="flex items-center gap-2 cursor-pointer">
                       <Avatar className="w-10 h-10">
                         <AvatarImage src={user.image} />
                         <AvatarFallback>

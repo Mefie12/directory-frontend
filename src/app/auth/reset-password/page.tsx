@@ -77,7 +77,7 @@ export default function ChangePassword() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      console.log("🚀 Sending request to:", `${API_URL}/api/change-password`);
+      // console.log("🚀 Sending request to:", `${API_URL}/api/change-password`);
 
       const response = await fetch(`${API_URL}/api/change-password`, {
         method: "POST",
