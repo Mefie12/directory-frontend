@@ -7,9 +7,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Signup() {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -248,13 +250,25 @@ export default function Signup() {
                 </Label>
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   className="w-full placeholder:text-xs"
                   value={formData.password}
                   onChange={handleInputChange}
                   required
                 />
+<button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-10 bottom-20 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+                
                 {errors.password && (
                   <p className="text-red-500 text-sm">{errors.password}</p>
                 )}
