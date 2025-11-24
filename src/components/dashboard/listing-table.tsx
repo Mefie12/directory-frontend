@@ -152,12 +152,12 @@ export function ListingsTable({
   if (listings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-0 px-4">
-        <div className="w-20 h-20 rounded-full bg-[#F0F4FF] flex items-center justify-center">
+        <div className="w-full h-full flex items-center justify-center">
           <Image
-            src="/images/icons/empty.svg"
+            src="/images/icons/tags-empty.png"
             alt="No Activity"
-            width={40}
-            height={40}
+            width={100}
+            height={100}
           />
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mt-2">
@@ -292,22 +292,22 @@ export function ListingsTable({
             <ChevronLeft className="w-5 h-5" />
           </Button>
 
-          <div className="border rounded-full"> 
-          {getPageNumbers().map((page) => (
-            <Button
-              key={page}
-              variant={currentPage === page ? "default" : "ghost"}
-              size="icon"
-              onClick={() => handlePageChange(page)}
-              className={`h-8 w-8 rounded-full ${
-                currentPage === page
-                  ? "bg-[#93C01F] text-white hover:bg-[#93C01F]/90"
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              {page}
-            </Button>
-          ))}
+          <div className="border rounded-full">
+            {getPageNumbers().map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "ghost"}
+                size="icon"
+                onClick={() => handlePageChange(page)}
+                className={`h-8 w-8 rounded-full ${
+                  currentPage === page
+                    ? "bg-[#93C01F] text-white hover:bg-[#93C01F]/90"
+                    : "hover:bg-gray-100 text-gray-700"
+                }`}
+              >
+                {page}
+              </Button>
+            ))}
           </div>
 
           <Button

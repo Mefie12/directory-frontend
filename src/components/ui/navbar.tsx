@@ -31,6 +31,22 @@ export default function Navbar() {
   //   // console.log("Navbar Auth State:", { user, loading });
   // }, [user, loading]);
 
+  // Get dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user) return "/auth/login";
+    
+    switch (user.role?.toLowerCase()) {
+      case "vendor":
+        return "/dashboard/vendor";
+      case "admin":
+        return "/dashboard/admin";
+      case "user":
+        return "/dashboard/user";
+      default:
+        return "/dashboard";
+    }
+  };
+
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -183,7 +199,7 @@ export default function Navbar() {
                       <Separator className="my-2" />
                       <DropdownMenuItem asChild>
                         <Link
-                          href="/dashboard/vendor"
+                           href={getDashboardUrl()}
                           className="flex items-center gap-2"
                         >
                           <Image
@@ -308,7 +324,7 @@ export default function Navbar() {
                   </div>
                 </div>
                 <Link
-                  href="/dashboard"
+                  href={getDashboardUrl()}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block py-2"
                 >
