@@ -1,6 +1,12 @@
-"use client"
+"use client";
 import { ListingsTable } from "@/components/dashboard/listing-table";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -99,14 +105,41 @@ export default function MyListing() {
         <div className="mb-4">
           <h4 className="text-2xl font-semibold">My Listings</h4>
         </div>
-        <Button
-        onClick={()=>(router.push("/dashboard/my-listing/create"))} 
-        className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer">
-          <span>
-            <Plus className="w-4 h-4" />
-          </span>
-          Add new listing
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              // onClick={() => router.push("/dashboard/my-listing/create")}
+              className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer"
+            >
+              <span>
+                <Plus className="w-4 h-4" />
+              </span>
+              Add new listing
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="shadow-xs -mt-1">
+            <DropdownMenuItem
+              onClick={() =>
+                router.push("/dashboard/my-listing/create?type=business")
+              }
+            >
+              <span className="border bg-[#93C01F]/30 rounded-full px-2">
+                1
+              </span>{" "}
+              Business Listing
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push("/dashboard/my-listing/create?type=event")
+              }
+            >
+              <span className="border bg-[#93C01F]/30 rounded-full px-2">
+                2
+              </span>{" "}
+              Event Listing
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Table */}

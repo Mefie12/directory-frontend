@@ -1,5 +1,5 @@
 "use client";
-import { SidebarChoiceCard } from "@/components/dashboard/listing/sidebar-selector";
+// import { SidebarChoiceCard } from "@/components/dashboard/listing/sidebar-selector";
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
@@ -21,6 +21,9 @@ import {
 import { MediaUploadStep } from "./form-component/media";
 import { ReviewSubmitStep } from "./form-component/review";
 import { toast } from "sonner";
+import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 // Define proper type for draft data
 interface DraftData {
@@ -32,8 +35,16 @@ interface DraftData {
 }
 
 export default function ListingContent() {
-  const { listingType, setListingType, currentStep, setCurrentStep } =
-    useListing();
+  const { listingType, currentStep, setCurrentStep, setListingType } = useListing();
+
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const type = searchParams.get('type')
+    if (type === 'business' || type === 'event') {
+      setListingType(type)
+    }
+  }, [searchParams, listingType, setListingType]);
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessFormSchema),
@@ -285,7 +296,7 @@ export default function ListingContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 md:px-4 lg:px-0">
         <aside className="block shrink-0 border-r border-gray-100 h-auto lg:h-[550px]">
           <div className="sticky top-0 space-y-4 mx-8 py-6">
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h2 className="text-lg font-semibold mb-2">Choose a listing</h2>
               <p className="text-sm text-muted-foreground">
                 Choose a listing and fill out the forms
@@ -306,7 +317,14 @@ export default function ListingContent() {
               description="Promote your events with flyers, dates, and ticket links so the right audience can find you."
               isSelected={listingType === "event"}
               onClick={() => setListingType("event")}
-            />
+            /> */}
+            <div className="hidden lg:block">
+              <StepNavigation
+                currentStep={currentStep}
+                onStepClick={setCurrentStep}
+                listingType={listingType}
+              />
+            </div>
           </div>
         </aside>
 
