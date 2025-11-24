@@ -112,7 +112,7 @@ export default function ChangePassword() {
 
       // Redirect after 2 seconds
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/auth/login");
       }, 2000);
     } catch (error) {
       console.error("❌ Change password failed:", error);
@@ -281,7 +281,7 @@ export default function ChangePassword() {
                     className="text-sm text-gray-600 hover:text-[#93C01F] transition-colors flex items-center justify-center gap-2"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    Back to Dashboard
+                    Back to Log in
                   </Link>
                 </div>
               </div>
