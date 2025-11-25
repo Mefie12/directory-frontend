@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Sidebar,
@@ -36,7 +36,7 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       iconUrl: "/images/icons/home.svg",
     },
     {
-      title: "My Listing",
+      title: "My Listings",
       url: "/dashboard/vendor/my-listing",
       iconUrl: "/images/icons/listings.svg",
     },

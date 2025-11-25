@@ -73,7 +73,7 @@ export default function Layout({ children }: LayoutProps) {
               <SidebarTrigger />
               <Header />
             </div>
-            <div className="border-b border-gray-100" />
+            <div className="border-b border-gray-100 pt-2" />
           </div>
           <div className="flex-1  px-2 pb-2">{children}</div>
         </main>
