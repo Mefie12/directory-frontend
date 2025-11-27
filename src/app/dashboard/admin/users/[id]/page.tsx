@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 
-// --- Frontend Domain Interfaces (State) ---
+// --- 1. UI Types (Used for Rendering) ---
 interface ActivityItem {
   id: string;
   type: "listing" | "review" | "upgrade";
@@ -108,9 +108,9 @@ interface UserDetails {
   };
 }
 
-// --- Backend DTO Interfaces (Raw API Response) ---
-// These match the snake_case typically returned by Laravel
-interface RawListing {
+// --- 2. API Types (Reflecting Raw Backend Data) ---
+// These interface define what the JSON actually looks like (snake_case)
+interface ApiListing {
   id: number | string;
   title?: string;
   name?: string;
@@ -121,66 +121,62 @@ interface RawListing {
   bookmarks_count?: number;
   rating?: number;
   created_at?: string;
-  status?: "Published" | "Pending review" | "Drafted";
+  status?: string;
   image?: string;
 }
 
-interface RawUserReview {
-  name?: string;
-  avatar?: string;
-}
-
-interface RawReview {
+interface ApiReview {
   id: number | string;
-  user?: RawUserReview;
+  user?: {
+    name?: string;
+    avatar?: string;
+  };
   created_at?: string;
   rating?: number;
   comment?: string;
 }
 
-interface RawBilling {
+interface ApiBilling {
   id: number | string;
   plan_name?: string;
   created_at?: string;
   amount?: string | number;
-  status?: "Paid" | "Pending review";
+  status?: string;
 }
 
-interface RawActivity {
+interface ApiActivity {
   id: number | string;
   type?: "listing" | "review" | "upgrade";
   title?: string;
   description?: string;
   created_at?: string;
-  timestamp?: string; // fallback
+  timestamp?: string;
 }
 
-interface RawStats {
-  published?: number;
-  inquiries?: number;
-  reviews?: number;
-  revenue?: number;
-}
-
-interface RawUserResponse {
+interface ApiUserResponse {
   id: number | string;
   name?: string;
   email?: string;
   phone_number?: string;
-  phoneNumber?: string; // fallback
+  phoneNumber?: string; // Handle inconsistent API casing
   listings_count?: number;
-  numberOfListings?: number; // fallback
+  numberOfListings?: number;
   plan?: string;
   status?: string;
   avatar?: string;
-  profile_photo_url?: string; // fallback
+  profile_photo_url?: string;
   business_description?: string;
-  bio?: string; // fallback
-  activities?: RawActivity[];
-  stats?: RawStats;
-  listings?: RawListing[];
-  reviews?: RawReview[];
-  billing_history?: RawBilling[];
+  bio?: string;
+  activities?: ApiActivity[];
+  listings?: ApiListing[];
+  reviews?: ApiReview[];
+  billing_history?: ApiBilling[];
+  stats?: {
+    published?: number;
+    inquiries?: number;
+    reviews?: number;
+    revenue?: number;
+  };
   billing_cycle?: string;
   subscription_amount?: string | number;
   card_last_four?: string;
@@ -189,10 +185,7 @@ interface RawUserResponse {
 
 export default function UserDetailsPage() {
   const router = useRouter();
-
-  const params = useParams();
-  const id = params?.id as string;
-
+  const params = useParams(); 
   const { user: authUser, loading: authLoading } = useAuth();
 
   // State
@@ -217,9 +210,10 @@ export default function UserDetailsPage() {
 
       try {
         const token = localStorage.getItem("authToken");
+        const id = params.id;
 
         if (!id) {
-          return;
+          throw new Error("Invalid User ID");
         }
 
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -238,13 +232,14 @@ export default function UserDetailsPage() {
         }
 
         const json = await response.json();
+        
+        // TYPE CASTING: We tell TypeScript this unknown JSON matches our ApiUserResponse structure
+        const apiData = (json.data || json) as ApiUserResponse;
 
-        // Unwrap Laravel's wrapping and assert type
-        const apiData = (json.data || json) as RawUserResponse;
-
-        // --- Data Mapping ---
-
-        const mappedListings: ListingItem[] = Array.isArray(apiData.listings)
+        // --- DATA MAPPING: Converting Raw API Data to UI Types ---
+        
+        // 1. Map Listings
+        const mappedListings: ListingItem[] = Array.isArray(apiData.listings) 
           ? apiData.listings.map((item) => ({
               id: item.id?.toString(),
               name: item.title || item.name || "Untitled Listing",
@@ -254,41 +249,32 @@ export default function UserDetailsPage() {
               comments: item.comments_count || 0,
               bookmarks: item.bookmarks_count || 0,
               rating: item.rating || 0,
-              createdDate: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "N/A",
-              status: item.status || "Drafted",
-              image: item.image || "",
-            }))
+              createdDate: item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A",
+              status: (item.status as ListingItem["status"]) || "Drafted",
+              image: item.image || "", 
+            })) 
           : [];
 
+        // 2. Map Reviews
         const mappedReviews: ReviewItem[] = Array.isArray(apiData.reviews)
           ? apiData.reviews.map((item) => ({
               id: item.id?.toString(),
               reviewerName: item.user?.name || "Anonymous",
               reviewerAvatar: item.user?.avatar || "",
-              date: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "",
+              date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "",
               rating: item.rating || 5,
               comment: item.comment || "",
             }))
           : [];
 
-        const mappedBilling: BillingItem[] = Array.isArray(
-          apiData.billing_history
-        )
+        // 3. Map Billing History
+        const mappedBilling: BillingItem[] = Array.isArray(apiData.billing_history)
           ? apiData.billing_history.map((item) => ({
               id: item.id?.toString(),
               plan: item.plan_name || "Basic",
-              date: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "",
-              amount:
-                typeof item.amount === "string"
-                  ? parseFloat(item.amount)
-                  : item.amount || 0,
-              status: item.status || "Pending review",
+              date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "",
+              amount: typeof item.amount === 'string' ? parseFloat(item.amount) : (item.amount || 0),
+              status: (item.status as BillingItem["status"]) || "Pending review",
             }))
           : [];
 
@@ -297,18 +283,12 @@ export default function UserDetailsPage() {
           name: apiData.name || "Unknown User",
           email: apiData.email || "",
           phone: apiData.phone_number || apiData.phoneNumber || "N/A",
-          listings:
-            apiData.listings_count ||
-            apiData.numberOfListings ||
-            mappedListings.length,
+          listings: apiData.listings_count || apiData.numberOfListings || mappedListings.length,
           plan: apiData.plan || "Basic",
           status: apiData.status || "Active",
           avatar: apiData.avatar || apiData.profile_photo_url || "",
-          bio:
-            apiData.business_description ||
-            apiData.bio ||
-            "No description provided.",
-
+          bio: apiData.business_description || apiData.bio || "No description provided.",
+          
           recentActivity: Array.isArray(apiData.activities)
             ? apiData.activities.map((act) => ({
                 id: act.id?.toString(),
@@ -320,23 +300,20 @@ export default function UserDetailsPage() {
             : [],
 
           stats: {
-            published: apiData.stats?.published || 0,
+            published: apiData.stats?.published || mappedListings.filter(l => l.status === 'Published').length,
             inquiries: apiData.stats?.inquiries || 0,
-            reviews: apiData.stats?.reviews || 0,
+            reviews: apiData.stats?.reviews || mappedReviews.length,
             revenue: apiData.stats?.revenue || 0,
           },
 
           listingsList: mappedListings,
           reviewsList: mappedReviews,
           billingHistory: mappedBilling,
-
+          
           billingInfo: {
             currentPlan: apiData.plan || "Basic",
             cycle: apiData.billing_cycle || "N/A",
-            amount:
-              typeof apiData.subscription_amount === "string"
-                ? parseFloat(apiData.subscription_amount)
-                : apiData.subscription_amount || 0,
+            amount: typeof apiData.subscription_amount === 'string' ? parseFloat(apiData.subscription_amount) : (apiData.subscription_amount || 0),
             cardLast4: apiData.card_last_four || "••••",
             cardExpiry: apiData.card_expiry || "••/••",
           },
@@ -353,10 +330,8 @@ export default function UserDetailsPage() {
       }
     };
 
-    if (id) {
-      fetchUserData();
-    }
-  }, [id, authUser, authLoading]);
+    fetchUserData();
+  }, [params.slug, authUser, authLoading, params.id]);
 
   // --- Helpers ---
   const formatCurrency = (amount: number) => {

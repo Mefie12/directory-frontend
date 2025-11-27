@@ -3,7 +3,7 @@ import { Minus } from "lucide-react";
 
 interface StatCardProps {
   title: string;
-  icon: LucideIcon;
+  icon: LucideIcon | string; // <= can be a Lucide icon or image path
   statValue?: number | null; // <= backend value (can be null)
   trendIconUp: LucideIcon;
   trendIconDown: LucideIcon;
