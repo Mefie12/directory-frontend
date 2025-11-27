@@ -1,143 +1,446 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
+import {
+  ArrowLeft,
+  ChevronDown,
+  MoreVertical,
+  Tag,
+  MessageSquare,
+  ArrowUpCircle,
+  AlertCircle,
+  Eye,
+  Bookmark,
+  Star,
+  CreditCard,
+  MoreHorizontal,
+  CheckCircle,
+  Clock,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  ArrowLeft,
-  ChevronDown,
-//   FileText,
-  MessageSquare,
-  MoreVertical,
-  Star,
-  Tag,
-} from "lucide-react";
-import Image from "next/image";
-import { useRouter, useParams } from "next/navigation";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import Link from "next/link";
 
+// --- Frontend Domain Interfaces (State) ---
 interface ActivityItem {
   id: string;
   type: "listing" | "review" | "upgrade";
   title: string;
   description: string;
   timestamp: string;
-  icon: "listing" | "review" | "upgrade";
+}
+
+interface ListingItem {
+  id: string;
+  name: string;
+  location: string;
+  type: "Business" | "Event";
+  views: number;
+  comments: number;
+  bookmarks: number;
+  rating: number;
+  createdDate: string;
+  status: "Published" | "Pending review" | "Drafted";
+  image: string;
+}
+
+interface ReviewItem {
+  id: string;
+  reviewerName: string;
+  reviewerAvatar: string;
+  date: string;
+  rating: number;
+  comment: string;
+}
+
+interface BillingItem {
+  id: string;
+  plan: string;
+  date: string;
+  amount: number;
+  status: "Paid" | "Pending review";
 }
 
 interface UserDetails {
   id: string;
   name: string;
   email: string;
-  phoneNumber: string;
+  phone: string;
+  listings: number;
+  plan: string;
+  status: string;
   avatar: string;
-  listingsCount: number;
-  plan: "Basic" | "Premium" | "Pro";
-  status: "Active" | "Pending" | "Suspended";
-  businessDescription: string;
+  bio: string;
   recentActivity: ActivityItem[];
+  stats: {
+    published: number;
+    inquiries: number;
+    reviews: number;
+    revenue: number;
+  };
+  listingsList: ListingItem[];
+  reviewsList: ReviewItem[];
+  billingHistory: BillingItem[];
+  billingInfo: {
+    currentPlan: string;
+    cycle: string;
+    amount: number;
+    cardLast4: string;
+    cardExpiry: string;
+  };
+}
+
+// --- Backend DTO Interfaces (Raw API Response) ---
+// These match the snake_case typically returned by Laravel
+interface RawListing {
+  id: number | string;
+  title?: string;
+  name?: string;
+  location?: string;
+  type?: "Business" | "Event";
+  views_count?: number;
+  comments_count?: number;
+  bookmarks_count?: number;
+  rating?: number;
+  created_at?: string;
+  status?: "Published" | "Pending review" | "Drafted";
+  image?: string;
+}
+
+interface RawUserReview {
+  name?: string;
+  avatar?: string;
+}
+
+interface RawReview {
+  id: number | string;
+  user?: RawUserReview;
+  created_at?: string;
+  rating?: number;
+  comment?: string;
+}
+
+interface RawBilling {
+  id: number | string;
+  plan_name?: string;
+  created_at?: string;
+  amount?: string | number;
+  status?: "Paid" | "Pending review";
+}
+
+interface RawActivity {
+  id: number | string;
+  type?: "listing" | "review" | "upgrade";
+  title?: string;
+  description?: string;
+  created_at?: string;
+  timestamp?: string; // fallback
+}
+
+interface RawStats {
+  published?: number;
+  inquiries?: number;
+  reviews?: number;
+  revenue?: number;
+}
+
+interface RawUserResponse {
+  id: number | string;
+  name?: string;
+  email?: string;
+  phone_number?: string;
+  phoneNumber?: string; // fallback
+  listings_count?: number;
+  numberOfListings?: number; // fallback
+  plan?: string;
+  status?: string;
+  avatar?: string;
+  profile_photo_url?: string; // fallback
+  business_description?: string;
+  bio?: string; // fallback
+  activities?: RawActivity[];
+  stats?: RawStats;
+  listings?: RawListing[];
+  reviews?: RawReview[];
+  billing_history?: RawBilling[];
+  billing_cycle?: string;
+  subscription_amount?: string | number;
+  card_last_four?: string;
+  card_expiry?: string;
 }
 
 export default function UserDetailsPage() {
   const router = useRouter();
+
   const params = useParams();
-  const [activeTab, setActiveTab] = useState("overview");
+  const id = params?.id as string;
+
+  const { user: authUser, loading: authLoading } = useAuth();
+
+  // State
+  const [activeTab, setActiveTab] = useState("Overview");
   const [user, setUser] = useState<UserDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // --- API Integration ---
   useEffect(() => {
-    async function loadUserDetails() {
+    const fetchUserData = async () => {
+      if (authLoading) return;
+
+      if (!authUser) {
+        setError("You must be logged in to view this page.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
+      setError(null);
+
       try {
-        const res = await fetch(`/api/users/${params.id}`);
-        const data = await res.json();
-        setUser(data);
-      } catch (error) {
-        console.error("Failed to load user details:", error);
+        const token = localStorage.getItem("authToken");
+
+        if (!id) {
+          return;
+        }
+
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+        const response = await fetch(`${API_URL}/api/user/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) throw new Error("User not found");
+          throw new Error("Failed to fetch user details");
+        }
+
+        const json = await response.json();
+
+        // Unwrap Laravel's wrapping and assert type
+        const apiData = (json.data || json) as RawUserResponse;
+
+        // --- Data Mapping ---
+
+        const mappedListings: ListingItem[] = Array.isArray(apiData.listings)
+          ? apiData.listings.map((item) => ({
+              id: item.id?.toString(),
+              name: item.title || item.name || "Untitled Listing",
+              location: item.location || "Unknown Location",
+              type: item.type || "Business",
+              views: item.views_count || 0,
+              comments: item.comments_count || 0,
+              bookmarks: item.bookmarks_count || 0,
+              rating: item.rating || 0,
+              createdDate: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "N/A",
+              status: item.status || "Drafted",
+              image: item.image || "",
+            }))
+          : [];
+
+        const mappedReviews: ReviewItem[] = Array.isArray(apiData.reviews)
+          ? apiData.reviews.map((item) => ({
+              id: item.id?.toString(),
+              reviewerName: item.user?.name || "Anonymous",
+              reviewerAvatar: item.user?.avatar || "",
+              date: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "",
+              rating: item.rating || 5,
+              comment: item.comment || "",
+            }))
+          : [];
+
+        const mappedBilling: BillingItem[] = Array.isArray(
+          apiData.billing_history
+        )
+          ? apiData.billing_history.map((item) => ({
+              id: item.id?.toString(),
+              plan: item.plan_name || "Basic",
+              date: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "",
+              amount:
+                typeof item.amount === "string"
+                  ? parseFloat(item.amount)
+                  : item.amount || 0,
+              status: item.status || "Pending review",
+            }))
+          : [];
+
+        const mappedUser: UserDetails = {
+          id: apiData.id?.toString(),
+          name: apiData.name || "Unknown User",
+          email: apiData.email || "",
+          phone: apiData.phone_number || apiData.phoneNumber || "N/A",
+          listings:
+            apiData.listings_count ||
+            apiData.numberOfListings ||
+            mappedListings.length,
+          plan: apiData.plan || "Basic",
+          status: apiData.status || "Active",
+          avatar: apiData.avatar || apiData.profile_photo_url || "",
+          bio:
+            apiData.business_description ||
+            apiData.bio ||
+            "No description provided.",
+
+          recentActivity: Array.isArray(apiData.activities)
+            ? apiData.activities.map((act) => ({
+                id: act.id?.toString(),
+                type: act.type || "listing",
+                title: act.title || "Activity",
+                description: act.description || "",
+                timestamp: act.created_at || act.timestamp || "",
+              }))
+            : [],
+
+          stats: {
+            published: apiData.stats?.published || 0,
+            inquiries: apiData.stats?.inquiries || 0,
+            reviews: apiData.stats?.reviews || 0,
+            revenue: apiData.stats?.revenue || 0,
+          },
+
+          listingsList: mappedListings,
+          reviewsList: mappedReviews,
+          billingHistory: mappedBilling,
+
+          billingInfo: {
+            currentPlan: apiData.plan || "Basic",
+            cycle: apiData.billing_cycle || "N/A",
+            amount:
+              typeof apiData.subscription_amount === "string"
+                ? parseFloat(apiData.subscription_amount)
+                : apiData.subscription_amount || 0,
+            cardLast4: apiData.card_last_four || "••••",
+            cardExpiry: apiData.card_expiry || "••/••",
+          },
+        };
+
+        setUser(mappedUser);
+      } catch (err: unknown) {
+        console.error("Fetch Error:", err);
+        setError(
+          err instanceof Error ? err.message : "An unknown error occurred"
+        );
       } finally {
         setIsLoading(false);
       }
-    }
-    loadUserDetails();
-  }, [params.id]);
+    };
 
-  const getPlanBadgeColor = (plan: string) => {
-    switch (plan) {
-      case "Basic":
-        return "bg-green-500 hover:bg-green-600";
-      case "Premium":
-        return "bg-yellow-500 hover:bg-yellow-600";
-      case "Pro":
-        return "bg-blue-500 hover:bg-blue-600";
-      default:
-        return "bg-gray-500 hover:bg-gray-600";
+    if (id) {
+      fetchUserData();
     }
+  }, [id, authUser, authLoading]);
+
+  // --- Helpers ---
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-GH", {
+      style: "currency",
+      currency: "GHS",
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const getStatusBadgeColor = (status: string) => {
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating ? "fill-[#F2C94C] text-[#F2C94C]" : "text-gray-300"
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const getStatusBadgeStyles = (status: string) => {
     switch (status) {
-      case "Active":
-        return "bg-green-600 hover:bg-green-700";
-      case "Pending":
-        return "bg-yellow-500 hover:bg-yellow-600";
-      case "Suspended":
-        return "bg-red-600 hover:bg-red-700";
+      case "Published":
+        return "bg-[#548235] text-white";
+      case "Pending review":
+        return "bg-[#F2C94C] text-white";
+      case "Drafted":
+        return "bg-gray-200 text-gray-700 border border-gray-300";
       default:
-        return "bg-gray-500 hover:bg-gray-600";
+        return "bg-gray-200 text-gray-700";
     }
   };
 
-  const getActivityIcon = (type: string) => {
+  const renderActivityIcon = (type: string) => {
+    const baseClasses =
+      "w-10 h-10 rounded-full flex items-center justify-center shrink-0";
     switch (type) {
       case "listing":
         return (
-          <div className="w-12 h-12 rounded-full bg-[#93C01F] flex items-center justify-center">
-            <Tag className="w-6 h-6 text-white" />
+          <div className={`${baseClasses} bg-[#93C01F]`}>
+            <Tag className="w-5 h-5 text-white" />
           </div>
         );
       case "review":
         return (
-          <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
-            <MessageSquare className="w-6 h-6 text-white" />
+          <div className={`${baseClasses} bg-[#5D5FEF]`}>
+            <MessageSquare className="w-5 h-5 text-white" />
           </div>
         );
       case "upgrade":
         return (
-          <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
-            <Star className="w-6 h-6 text-white" />
+          <div className={`${baseClasses} bg-[#F2994A]`}>
+            <ArrowUpCircle className="w-5 h-5 text-white" />
           </div>
         );
       default:
-        return null;
+        return (
+          <div className={`${baseClasses} bg-gray-400`}>
+            <Tag className="w-5 h-5 text-white" />
+          </div>
+        );
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#93C01F] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading user details...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#93C01F]"></div>
       </div>
     );
   }
 
-  if (!user) {
+  if (error || !user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600">User not found</p>
-          <Button
-            onClick={() => router.back()}
-            className="mt-4 bg-[#93C01F] hover:bg-[#7ea919]"
-          >
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-500 mb-6">{error || "User not found"}</p>
+          <Button onClick={() => router.back()} variant="outline">
             Go Back
           </Button>
         </div>
@@ -146,82 +449,85 @@ export default function UserDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
+    <div className="min-h-screen bg-white pb-20">
+      {/* --- Header Section --- */}
+      <div className="border-b border-gray-200 bg-white pt-8 pb-0">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-start justify-between mb-8">
+            <div className="flex items-start gap-4">
+              <button
                 onClick={() => router.back()}
-                className="h-10 w-10"
+                className="mt-1 p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-
-              <div className="flex items-center gap-4">
-                <Image
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <Avatar className="w-16 h-16 border border-gray-100">
+                <AvatarImage
                   src={user.avatar}
-                  width={56}
-                  height={56}
                   alt={user.name}
-                  className="h-14 w-14 rounded-full object-cover"
+                  className="object-cover"
                 />
-                <div>
-                  <h1 className="text-2xl font-semibold">{user.name}</h1>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                    <span>
-                      Email: <span className="text-[#93C01F]">{user.email}</span>
-                    </span>
-                    <span>•</span>
-                    <span>Phone number: {user.phoneNumber}</span>
-                    <span>•</span>
-                    <span>Listings: {user.listingsCount}</span>
-                    <span>•</span>
-                    <Badge
-                      className={`${getPlanBadgeColor(user.plan)} text-white`}
-                    >
-                      {user.plan}
-                    </Badge>
-                    <span>•</span>
-                    <Badge
-                      className={`${getStatusBadgeColor(user.status)} text-white`}
-                    >
-                      {user.status}
-                    </Badge>
-                  </div>
+                <AvatarFallback className="bg-gray-200 text-gray-500 text-xl">
+                  {user.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="mt-0.5">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {user.name}
+                </h1>
+                <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 flex-wrap">
+                  <span className="text-gray-500">Email:</span>
+                  <Link
+                    href={`mailto:${user.email}`}
+                    className="text-[#93C01F] hover:underline"
+                  >
+                    {user.email}
+                  </Link>
+                  <span className="text-gray-300 mx-1">•</span>
+                  <span>Phone number: {user.phone}</span>
+                  <span className="text-gray-300 mx-1">•</span>
+                  <span>Listings: {user.listings}</span>
+                  <span className="text-gray-300 mx-1">•</span>
+                  <span className="bg-[#5ea0d6] text-white text-xs px-2.5 py-0.5 rounded-md font-medium">
+                    {user.plan}
+                  </span>
+                  <span className="text-gray-300 mx-1">•</span>
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-md font-medium ${
+                      user.status === "Active"
+                        ? "bg-[#E9F5D6] text-[#5F8B0A]"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {user.status}
+                  </span>
                 </div>
               </div>
             </div>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  More Actions
-                  <ChevronDown className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-normal gap-2 rounded-lg px-4"
+                >
+                  More Actions <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Suspend User</DropdownMenuItem>
-                <DropdownMenuItem>Send Message</DropdownMenuItem>
-                <DropdownMenuItem>Verify Account</DropdownMenuItem>
-                <DropdownMenuItem>View Listings</DropdownMenuItem>
+                <DropdownMenuItem>Edit User</DropdownMenuItem>
                 <DropdownMenuItem className="text-red-600">
-                  Delete Account
+                  Delete User
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-8 mt-6 border-b -mb-1px">
-            {["overview", "listings", "reviews", "billing"].map((tab) => (
+          <div className="flex gap-8 border-b border-gray-100">
+            {["Overview", "Listings", "Reviews", "Billing"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-3 px-1 text-sm font-medium transition-colors relative capitalize ${
+                className={`pb-4 text-sm font-medium transition-all relative ${
                   activeTab === tab
                     ? "text-[#93C01F]"
                     : "text-gray-500 hover:text-gray-700"
@@ -229,7 +535,7 @@ export default function UserDetailsPage() {
               >
                 {tab}
                 {activeTab === tab && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#93C01F]" />
+                  <div className="absolute -bottom-0.5 left-0 w-full h-[3px] bg-[#93C01F] rounded-t-full" />
                 )}
               </button>
             ))}
@@ -237,77 +543,421 @@ export default function UserDetailsPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-6">
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* Business Description */}
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-lg font-semibold mb-4">
-                  Business Description
-                </h2>
-                <p className="text-gray-600 leading-relaxed">
-                  {user.businessDescription}
-                </p>
-              </CardContent>
+      {/* --- Main Content Area --- */}
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        {/* === OVERVIEW TAB === */}
+        {activeTab === "Overview" && (
+          <>
+            <Card className="px-6 py-4 border border-gray-200 shadow-xs rounded-xl bg-white">
+              <h2 className="text-lg font-bold text-gray-900 mb-3">
+                Business Description
+              </h2>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                {user.bio}
+              </p>
             </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold">Recent Activity</h2>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </div>
-
-                <div className="space-y-6">
-                  {user.recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex gap-4">
-                      {getActivityIcon(activity.type)}
+            <Card className="border border-gray-200 shadow-xs rounded-xl bg-white overflow-hidden">
+              <div className="px-6 pb-2 pt-6 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">
+                  Recent Activity
+                </h2>
+                <button className="text-gray-400 hover:text-gray-600">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-col">
+                {user.recentActivity.length > 0 ? (
+                  user.recentActivity.map((activity, index) => (
+                    <div
+                      key={activity.id || index}
+                      className={`flex gap-4 p-6 hover:bg-gray-50 transition-colors ${
+                        index !== user.recentActivity.length - 1
+                          ? "border-b border-gray-100"
+                          : ""
+                      }`}
+                    >
+                      {renderActivityIcon(activity.type)}
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="text-gray-900 font-medium text-sm mb-1">
                           {activity.title}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-gray-500 text-sm mb-1.5">
                           {activity.description}
                         </p>
-                        <p className="text-xs text-gray-400 mt-2">
+                        <p className="text-gray-400 text-xs">
                           {activity.timestamp}
                         </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-gray-500 text-sm">
+                    No recent activity found.
+                  </div>
+                )}
+              </div>
             </Card>
+          </>
+        )}
+
+        {/* === LISTINGS TAB === */}
+        {activeTab === "Listings" && (
+          <div className="space-y-8">
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 px-4">
+              <div className="text-center md:text-left">
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {user.stats.published}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-3 h-3 rounded-full bg-gray-200" />
+                  <span className="text-gray-500 text-sm">
+                    Listings published
+                  </span>
+                </div>
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {user.stats.inquiries}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-3 h-3 rounded-full bg-[#F2994A]" />
+                  <span className="text-gray-500 text-sm">
+                    Inquires recieved
+                  </span>
+                </div>
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {user.stats.reviews}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-3 h-3 rounded-full bg-[#5ea0d6]" />
+                  <span className="text-gray-500 text-sm">
+                    Reviews received
+                  </span>
+                </div>
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {formatCurrency(user.stats.revenue)}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-3 h-3 rounded-full bg-[#548235]" />
+                  <span className="text-gray-500 text-sm">
+                    Revenue accumulated
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg text-gray-500 mb-4 px-1">
+                Listings Overview
+              </h3>
+              <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-50/50">
+                    <TableRow>
+                      <TableHead className="w-[300px]">Listing Name</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Stats Summary</TableHead>
+                      <TableHead>Created Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.listingsList.length > 0 ? (
+                      user.listingsList.map((listing) => (
+                        <TableRow
+                          key={listing.id}
+                          className="hover:bg-gray-50/50"
+                        >
+                          <TableCell className="py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gray-200" />{" "}
+                              <span className="font-medium text-gray-900">
+                                {listing.name}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-gray-600">
+                            {listing.location}
+                          </TableCell>
+                          <TableCell className="text-gray-600">
+                            {listing.type}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-4 text-gray-500 text-xs">
+                              <span className="flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" />
+                                {listing.views}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                {listing.comments}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Bookmark className="w-3.5 h-3.5" />
+                                {listing.bookmarks}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3.5 h-3.5" />
+                                {listing.rating}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-gray-600">
+                            {listing.createdDate}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-fit ${getStatusBadgeStyles(
+                                listing.status
+                              )}`}
+                            >
+                              {listing.status === "Published" && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                              )}
+                              {listing.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-8 text-gray-500"
+                        >
+                          No listings found for this user.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           </div>
         )}
 
-        {activeTab === "listings" && (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-gray-600">Listings content will go here</p>
-            </CardContent>
+        {/* === REVIEWS TAB === */}
+        {activeTab === "Reviews" && (
+          <Card className="border border-gray-200 shadow-sm rounded-xl bg-white">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Vendor Reviews
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">
+                Overall Rating: 4.6/5.0 ({user.reviewsList.length} reviews)
+              </p>
+            </div>
+
+            <div className="p-8">
+              {/* Rating Chart */}
+              <div className="flex items-center gap-8 mb-10">
+                <div className="text-5xl font-normal text-gray-900">4.6</div>
+                <div className="flex-1 space-y-2">
+                  {[
+                    { star: "5 Stars", pct: "75%", width: "75%" },
+                    { star: "4 Stars", pct: "18%", width: "18%" },
+                    { star: "3 Stars", pct: "7%", width: "7%" },
+                    { star: "2 Stars", pct: "0%", width: "0%" },
+                    { star: "1 Stars", pct: "0%", width: "0%" },
+                  ].map((row) => (
+                    <div
+                      key={row.star}
+                      className="flex items-center gap-4 text-sm"
+                    >
+                      <span className="w-12 text-gray-600">{row.star}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#93C01F] rounded-full"
+                          style={{ width: row.width }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-gray-600">
+                        {row.pct}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <hr className="border-gray-100 mb-8" />
+
+              {/* Review List */}
+              <div className="space-y-8">
+                {user.reviewsList.length > 0 ? (
+                  user.reviewsList.map((review) => (
+                    <div key={review.id} className="flex gap-4">
+                      <Avatar className="w-10 h-10 bg-[#548235] text-white">
+                        <AvatarImage src={review.reviewerAvatar} />
+                        <AvatarFallback>
+                          {review.reviewerName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {review.reviewerName}
+                        </h4>
+                        <p className="text-xs text-gray-500 mb-2">
+                          {review.date}
+                        </p>
+                        <div className="mb-2">{renderStars(review.rating)}</div>
+                        <p className="text-sm text-gray-600">
+                          {review.comment}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center">
+                    No reviews available.
+                  </p>
+                )}
+              </div>
+            </div>
           </Card>
         )}
 
-        {activeTab === "reviews" && (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-gray-600">Reviews content will go here</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* === BILLING TAB === */}
+        {activeTab === "Billing" && (
+          <div className="space-y-6">
+            {/* Top Cards */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Current Plan */}
+              <Card className="p-6 border border-gray-200 shadow-sm rounded-xl">
+                <h3 className="text-xl font-normal text-gray-900 mb-1">
+                  Current Plan
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Your billing will show here
+                </p>
 
-        {activeTab === "billing" && (
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-gray-600">Billing content will go here</p>
-            </CardContent>
-          </Card>
+                <div className="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-100">
+                  <div>
+                    <p className="text-gray-700 font-medium">
+                      Current billing cycle{" "}
+                      <span className="text-[#93C01F]">
+                        ({user.billingInfo.currentPlan})
+                      </span>
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      {user.billingInfo.cycle}
+                    </p>
+                  </div>
+                  <span className="text-[#93C01F] font-medium text-lg">
+                    ${user.billingInfo.amount.toFixed(2)}
+                  </span>
+                </div>
+              </Card>
+
+              {/* Payment Methods */}
+              <Card className="p-6 border border-gray-200 shadow-sm rounded-xl">
+                <h3 className="text-xl font-normal text-gray-900 mb-1">
+                  Payment Methods
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Manage your payment method
+                </p>
+
+                <div className="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-8 bg-white border border-gray-200 rounded flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-blue-800" />
+                    </div>
+                    <div>
+                      <p className="text-gray-900 text-sm font-medium">
+                        Visa ending {user.billingInfo.cardLast4}
+                      </p>
+                      <p className="text-gray-500 text-xs">
+                        Expires {user.billingInfo.cardExpiry}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-gray-400"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </div>
+              </Card>
+            </div>
+
+            {/* Billing History */}
+            <Card className="border border-gray-200 shadow-sm rounded-xl overflow-hidden bg-white">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-xl font-normal text-gray-900">
+                  Billing History
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  View your payments and invoices.
+                </p>
+              </div>
+
+              <Table>
+                <TableHeader className="bg-gray-50/50">
+                  <TableRow>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {user.billingHistory.length > 0 ? (
+                    user.billingHistory.map((bill) => (
+                      <TableRow key={bill.id} className="hover:bg-gray-50/50">
+                        <TableCell className="text-gray-600 py-4">
+                          {bill.plan}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {bill.date}
+                        </TableCell>
+                        <TableCell className="text-gray-900 font-medium">
+                          ${bill.amount}
+                        </TableCell>
+                        <TableCell>
+                          {bill.status === "Paid" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#548235] text-white text-xs font-medium">
+                              <CheckCircle className="w-3 h-3" /> Paid
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#F2C94C] text-white text-xs font-medium">
+                              <Clock className="w-3 h-3" /> Pending review
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-center py-8 text-gray-500"
+                      >
+                        No billing history found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
         )}
       </div>
     </div>
