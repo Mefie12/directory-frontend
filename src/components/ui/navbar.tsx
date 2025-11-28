@@ -1,5 +1,4 @@
 "use client";
-
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
@@ -39,6 +38,15 @@ interface RawNotification {
   read_at: string | null;
 }
 
+// Helper type to handle potential missing properties on user
+interface UserWithPlan {
+  name?: string;
+  email?: string;
+  image?: string;
+  role?: string;
+  subscription_plan?: string;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -46,8 +54,8 @@ export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  // Derived state for unread count
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // Define currentUser properly for dependency arrays
+  const currentUser = user as unknown as UserWithPlan;
 
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(`${path}/`);
@@ -81,6 +89,8 @@ export default function Navbar() {
     };
   }, [isMobileMenuOpen]);
 
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
   // --- Helpers ---
 
   const getAuthToken = () => {
@@ -102,11 +112,11 @@ export default function Navbar() {
   // --- API Actions ---
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!currentUser) return;
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/notifications`, {
         method: "GET",
@@ -134,19 +144,18 @@ export default function Navbar() {
     } catch (error) {
       console.error("Notification Error:", error);
     }
-  }, [user]);
+  }, [currentUser]); // Dependency fixed
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
   const handleMarkAllRead = async () => {
-    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/mark-all-read`, {
         method: "POST",
@@ -157,19 +166,18 @@ export default function Navbar() {
       });
     } catch (error) {
       console.error("Failed to mark all as read", error);
-      fetchNotifications(); // Revert on error
+      fetchNotifications();
     }
   };
 
   const handleViewInquiry = async (id: string, link?: string) => {
-    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
     );
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: "PATCH",
@@ -282,19 +290,18 @@ export default function Navbar() {
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
             {user ? (
-              // LOGGED IN STATE
+              // LOGGED IN STATE - Show user profile and bell icon
               <div className="flex items-center gap-4">
-                
                 {/* Notifications Dropdown */}
-                <div className="relative">
+                <div className="flex items-center rounded-full bg-[#E9F0F6] p-2 cursor-pointer relative">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="relative p-2 rounded-full bg-white transition hover:bg-gray-100 cursor-pointer">
-                        <Bell className="w-5 h-5 text-gray-900" />
+                      <div className="relative">
+                        <Bell className="h-5 w-5 text-gray-900" />
                         {unreadCount > 0 && (
-                          <span className="absolute top-0 right-0 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white" />
+                          <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white" />
                         )}
-                      </button>
+                      </div>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       className="rounded-lg mt-2 w-80 p-0 shadow-lg border border-gray-100"
@@ -314,15 +321,15 @@ export default function Navbar() {
                         </Button>
                       </div>
 
-                      <Separator className="bg-gray-100" />
+                      <Separator />
 
                       <div className="max-h-80 overflow-y-auto bg-white">
                         {notifications.length > 0 ? (
                           notifications.map((item) => (
                             <DropdownMenuItem
                               key={item.id}
-                              className={`flex items-start gap-3 px-4 py-3 cursor-default focus:bg-gray-50 border-b border-gray-50 last:border-0 ${
-                                !item.isRead ? "bg-blue-50/30" : ""
+                              className={`flex items-start gap-3 px-4 py-3 cursor-default border-b border-gray-50 last:border-0 focus:bg-gray-50 ${
+                                !item.isRead ? "bg-blue-50/50" : "bg-white"
                               }`}
                             >
                               <div className="w-10 h-10 rounded-lg bg-[#1e293b] flex items-center justify-center shrink-0 mt-1">
@@ -342,8 +349,9 @@ export default function Navbar() {
                                   {item.message}
                                 </p>
                                 <button
-                                  className="text-xs text-[#93C01F] hover:underline font-medium mt-1"
+                                  className="text-xs text-[#93C01F] hover:underline font-medium mt-1 cursor-pointer"
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     handleViewInquiry(item.id, item.link);
                                   }}
@@ -360,6 +368,9 @@ export default function Navbar() {
                             </div>
                             <p className="text-sm font-medium text-gray-900">
                               No new notifications
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              You&apos;re all caught up! Check back later.
                             </p>
                           </div>
                         )}
@@ -379,11 +390,10 @@ export default function Navbar() {
                   </DropdownMenu>
                 </div>
 
-                {/* User Profile */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2 cursor-pointer">
-                      <Avatar className="w-10 h-10 text-black">
+                      <Avatar className="w-10 h-10">
                         <AvatarImage src={user.image} />
                         <AvatarFallback>
                           {user.name?.charAt(0) || "U"}
@@ -528,38 +538,90 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Dropdown (Existing implementation) */}
+      {/* Mobile Dropdown */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed left-0 right-0 z-50 bg-(--background-secondary) text-white animate-fadeIn">
-           {/* ... (Rest of mobile menu logic remains unchanged) ... */}
-           {/* Just ensuring the logout/dashboard links work correctly */}
-           <div className="py-5 flex flex-col space-y-3">
+          <div className="py-5 flex flex-col space-y-3">
             {user ? (
               <div className="space-y-4 px-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="w-12 h-12">
                     <AvatarImage src={user.image} />
-                    <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+                    <AvatarFallback>
+                      {user.name?.charAt(0) || "U"}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-medium">{user.name}</p>
-                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{user.role}</span>
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                      {user.role}
+                    </span>
                   </div>
                 </div>
-                <Link href={getDashboardUrl()} onClick={() => setIsMobileMenuOpen(false)} className="block py-2">Dashboard</Link>
-                <button onClick={() => { logout(); setIsMobileMenuOpen(false); }} className="text-red-500 block py-2">Logout</button>
+                <Link
+                  href={getDashboardUrl()}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block py-2"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-red-500 block py-2"
+                >
+                  Logout
+                </button>
               </div>
             ) : (
-               <div className="flex flex-row items-center justify-center space-x-12 bg-[#14202b] py-5">
-                <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>Login</Link>
-                <Link href="/auth/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+              <div className="flex flex-row items-center justify-center space-x-12 bg-[#14202b] py-5">
+                <Link
+                  href="/auth/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Sign Up
+                </Link>
               </div>
             )}
-             <div className="flex flex-col space-y-5 px-6">
-              <Link href="/discover" onClick={() => setIsMobileMenuOpen(false)}>Discover</Link>
-              {/* ... other links ... */}
+            <div className="flex flex-col space-y-5 px-6">
+              <Link href="/discover" onClick={() => setIsMobileMenuOpen(false)}>
+                Discover
+              </Link>
+              <Link
+                href="/businesses"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Businesses
+              </Link>
+              <Link href="/events" onClick={() => setIsMobileMenuOpen(false)}>
+                Events
+              </Link>
+              <Link
+                href="/communities"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Communities
+              </Link>
+              <Link href="/about" onClick={() => setIsMobileMenuOpen(false)}>
+                About Us
+              </Link>
+              <Link
+                href="/become-vendor"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-center px-4 py-3 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors mt-10"
+              >
+                Become a vendor
+              </Link>
             </div>
-           </div>
+          </div>
         </div>
       )}
     </header>
