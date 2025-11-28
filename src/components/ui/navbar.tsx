@@ -393,7 +393,7 @@ export default function Navbar() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2 cursor-pointer">
-                      <Avatar className="w-10 h-10">
+                      <Avatar className="w-10 h-10 text-gray-800">
                         <AvatarImage src={user.image} />
                         <AvatarFallback>
                           {user.name?.charAt(0) || "U"}
@@ -545,7 +545,7 @@ export default function Navbar() {
             {user ? (
               <div className="space-y-4 px-6">
                 <div className="flex items-center gap-4">
-                  <Avatar className="w-12 h-12">
+                  <Avatar className="w-12 h-12 text-gray-800">
                     <AvatarImage src={user.image} />
                     <AvatarFallback>
                       {user.name?.charAt(0) || "U"}

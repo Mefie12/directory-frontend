@@ -444,11 +444,11 @@ export default function Listings() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-2 lg:p-6 space-y-6">
       <h1 className="text-3xl font-semibold">Listings</h1>
 
       {/* Tabs */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         {[
           { key: "all", label: "All" },
           { key: "pending", label: "Pending" },

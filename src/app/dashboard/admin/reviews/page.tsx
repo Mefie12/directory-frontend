@@ -290,7 +290,7 @@ export default function ReviewsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 min-h-screen">
+    <div className="p-2 lg:p-6 space-y-6 min-h-screen">
       <h1 className="text-3xl font-semibold text-gray-900">Reviews</h1>
 
       {/* Error Display */}
