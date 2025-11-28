@@ -9,6 +9,7 @@ import {
 } from "react";
 
 interface User {
+  email: string;
   name: string;
   role: string;
   image?: string;
@@ -109,6 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             "User",
           role: raw?.role || raw?.user_type || "User",
           image: raw?.image || raw?.avatar || raw?.profile_picture || undefined,
+
+          // 👇 ADD THIS LINE to satisfy the User interface
+          email: raw?.email || "",
         };
 
         // console.log("👤 Final mapped user:", mappedUser);

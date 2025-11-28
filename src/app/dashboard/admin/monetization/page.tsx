@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,9 +51,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
+// --- INTERFACES (Frontend) ---
 
-// --- Interfaces ---
 interface SubscriptionSummary {
   plan: string;
   vendors: number;
@@ -97,152 +98,55 @@ interface FeaturedListing {
   status: "Active" | "Pending";
 }
 
-// --- Mock Data ---
+// --- API RESPONSE INTERFACES (Raw) ---
 
-const MOCK_SUBSCRIPTION_SUMMARY: SubscriptionSummary[] = [
-  { plan: "Basic", vendors: 100, revenue: 600, color: "bg-[#548235]" },
-  { plan: "Premium", vendors: 30, revenue: 5400, color: "bg-[#F2C94C]" },
-  { plan: "Pro", vendors: 1, revenue: 1600, color: "bg-[#5ea0d6]" },
-];
+interface ApiSubscription {
+  plan_name: string;
+  vendors_count: number;
+  total_revenue: number;
+}
 
-const MOCK_PAYMENTS: VendorPayment[] = [
-  {
-    id: "1",
-    vendor: {
-      name: "Enock Hanson",
-      email: "enockhanson@gmail.com",
-      avatar: "",
-    },
-    phone: "+233 245 678 892",
-    plan: "Basic",
-    amount: 600,
-    date: "Apr 14, 2024",
-    status: "Paid",
-  },
-  {
-    id: "2",
-    vendor: { name: "Kwame Mensah", email: "kwame@catering.com", avatar: "" },
-    phone: "+44 2454 678892",
-    plan: "Premium",
-    amount: 1200,
-    date: "Mar 19, 2024",
-    status: "Pending",
-  },
-  {
-    id: "3",
-    vendor: { name: "Parry Bernard", email: "parry@music.com", avatar: "" },
-    phone: "+1(666) 245-0892",
-    plan: "Pro",
-    amount: 1600,
-    date: "Jun 14, 2024",
-    status: "Failed",
-  },
-];
+interface ApiPayment {
+  id: number | string;
+  user: { name: string; email: string; avatar?: string };
+  phone_number: string;
+  plan_name: string;
+  amount: number;
+  created_at_human: string;
+  status: string;
+}
 
-const MOCK_SLOTS: Slot[] = [
-  {
-    id: "1",
-    type: "Homepage Slot",
-    location: "Homepage",
-    price: "$100/week",
-    activeSlots: "2/5",
-  },
-  {
-    id: "2",
-    type: "Event Highlight",
-    location: "Events",
-    price: "$50/week",
-    activeSlots: "1/5",
-  },
-  {
-    id: "3",
-    type: "Community Top",
-    location: "Community",
-    price: "$20/3 days",
-    activeSlots: "5/5",
-  },
-];
+interface ApiSlot {
+  id: number | string;
+  name: string;
+  location: string;
+  price: string;
+  active_count: number;
+  total_count: number;
+}
 
-const MOCK_FEATURED_LISTINGS: FeaturedListing[] = [
-  {
-    id: "1",
-    vendor: {
-      name: "Enock Hanson",
-      email: "enockhanson@gmail.com",
-      avatar: "",
-    },
-    listingName: "Greenbowl Catering",
-    slotType: "Homepage Slot",
-    duration: "Apr 15 - Apr 30",
-    amount: 600,
-    status: "Active",
-  },
-  {
-    id: "2",
-    vendor: { name: "Kwame Mensah", email: "kwame@catering.com", avatar: "" },
-    listingName: "Accra Music Festival",
-    slotType: "Event Highlight",
-    duration: "Mar 20 - Sep 27",
-    amount: 1200,
-    status: "Active",
-  },
-  {
-    id: "3",
-    vendor: { name: "Parry Bernard", email: "parry@music.com", avatar: "" },
-    listingName: "Ama's Boutique",
-    slotType: "Homepage Slot",
-    duration: "Jun 28 - Jul 13",
-    amount: 1600,
-    status: "Pending",
-  },
-];
+interface ApiFeaturedListing {
+  id: number | string;
+  user: { name: string; email: string; avatar?: string };
+  listing_name: string;
+  slot_name: string;
+  duration_text: string;
+  amount: number;
+  status: string;
+}
 
-// --- Helper Components ---
-
-const StatusBadge = ({
-  status,
-  planColor,
-}: {
-  status?: string;
-  planColor?: string;
-}) => {
-  if (planColor) {
-    return (
-      <span
-        className={`${planColor} text-white px-3 py-1 rounded-full text-xs font-medium`}
-      >
-        {status}
-      </span>
-    );
-  }
-
-  const styles = {
-    Active: "bg-[#548235] text-white",
-    Paid: "bg-[#548235] text-white",
-    Pending: "bg-[#F2C94C] text-white",
-    Failed: "bg-[#EB5757] text-white",
+interface MonetizationApiResponse {
+  subscriptions: ApiSubscription[];
+  payments: ApiPayment[];
+  slots: ApiSlot[];
+  featured_listings: ApiFeaturedListing[];
+  stats: {
+    total_revenue: number;
+    revenue_month: number;
+    active_subs: number;
+    trends: { revenue: number; month_revenue: number; active_subs: number };
   };
-
-  const icons = {
-    Active: <CheckCircle className="w-3 h-3 mr-1" />,
-    Paid: <CheckCircle className="w-3 h-3 mr-1" />,
-    Pending: <Clock className="w-3 h-3 mr-1" />,
-    Failed: <AlertCircle className="w-3 h-3 mr-1" />,
-  };
-
-  const key = (status || "Pending") as keyof typeof styles;
-
-  return (
-    <span
-      className={`flex items-center w-fit px-2.5 py-1 rounded-md text-xs font-medium ${styles[key]}`}
-    >
-      {icons[key]}
-      {status}
-    </span>
-  );
-};
-
-// --- Main Component ---
+}
 
 export default function Monetization() {
   const { user: authUser, loading: authLoading } = useAuth();
@@ -250,92 +154,178 @@ export default function Monetization() {
     "subscription" | "featuredListings"
   >("subscription");
 
-  // --- Dialog State (Fixed: Added Missing State) ---
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isPauseOpen, setIsPauseOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-
   // --- Data State ---
+  const [subscriptions, setSubscriptions] = useState<SubscriptionSummary[]>([]);
   const [payments, setPayments] = useState<VendorPayment[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [featuredListings, setFeaturedListings] = useState<FeaturedListing[]>(
     []
   );
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    revenueMonth: 0,
+    activeSubs: 0,
+    trends: { revenue: 0, month_revenue: 0, active_subs: 0 },
+  });
 
-  // --- Filter State (Payments) ---
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Dialog State ---
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPauseOpen, setIsPauseOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+
+  // --- Filter State ---
   const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const [paymentPlanFilter, setPaymentPlanFilter] = useState("All");
-
-  // --- Filter State (Featured Listings) ---
   const [listingSearch, setListingSearch] = useState("");
   const [listingStatusFilter, setListingStatusFilter] = useState("All");
 
-  // 1. API Fetch Placeholder
+  // --- Helper: Auth Token ---
+  const getAuthToken = useCallback(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("authToken");
+    return null;
+  }, []);
+
+  // --- Helper: Data Mappers ---
+  const mapData = (data: MonetizationApiResponse) => {
+    // 1. Stats
+    setStats({
+      totalRevenue: data.stats?.total_revenue || 0,
+      revenueMonth: data.stats?.revenue_month || 0,
+      activeSubs: data.stats?.active_subs || 0,
+      trends: data.stats?.trends || {
+        revenue: 0,
+        month_revenue: 0,
+        active_subs: 0,
+      },
+    });
+
+    // 2. Subscriptions
+    const planColors: Record<string, string> = {
+      Basic: "bg-[#548235]",
+      Premium: "bg-[#F2C94C]",
+      Pro: "bg-[#5ea0d6]",
+    };
+    setSubscriptions(
+      (data.subscriptions || []).map((sub) => ({
+        plan: sub.plan_name,
+        vendors: sub.vendors_count,
+        revenue: sub.total_revenue,
+        color: planColors[sub.plan_name] || "bg-gray-400",
+      }))
+    );
+
+    // 3. Payments
+    setPayments(
+      (data.payments || []).map((p) => ({
+        id: p.id.toString(),
+        vendor: {
+          name: p.user?.name || "Unknown",
+          email: p.user?.email || "",
+          avatar: p.user?.avatar || "",
+        },
+        phone: p.phone_number,
+        plan: (p.plan_name as "Basic" | "Premium" | "Pro") || "Basic",
+        amount: p.amount,
+        date: p.created_at_human,
+        status: (p.status as "Paid" | "Pending" | "Failed") || "Pending",
+      }))
+    );
+
+    // 4. Slots
+    setSlots(
+      (data.slots || []).map((s) => ({
+        id: s.id.toString(),
+        type: s.name,
+        location: s.location,
+        price: s.price,
+        activeSlots: `${s.active_count}/${s.total_count}`,
+      }))
+    );
+
+    // 5. Featured Listings
+    setFeaturedListings(
+      (data.featured_listings || []).map((f) => ({
+        id: f.id.toString(),
+        vendor: {
+          name: f.user?.name || "Unknown",
+          email: f.user?.email || "",
+          avatar: f.user?.avatar || "",
+        },
+        listingName: f.listing_name,
+        slotType: f.slot_name,
+        duration: f.duration_text,
+        amount: f.amount,
+        status: (f.status as "Active" | "Pending") || "Pending",
+      }))
+    );
+  };
+
+  // --- API Fetch ---
   useEffect(() => {
     const fetchData = async () => {
-      // In a real scenario, fetch calls go here.
-      setPayments(MOCK_PAYMENTS);
-      setSlots(MOCK_SLOTS);
-      setFeaturedListings(MOCK_FEATURED_LISTINGS);
+      if (authLoading) return;
+      if (!authUser) return;
+
+      setIsLoading(true);
+      try {
+        const token = getAuthToken();
+        const API_URL =
+          process.env.API_URL || "https://me-fie.co.uk";
+
+        const response = await fetch(`${API_URL}/api/admin/monetization`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to load data");
+
+        const json = await response.json();
+        const apiData = (json.data || json) as MonetizationApiResponse;
+        mapData(apiData);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load monetization data");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    if (authUser) {
-      fetchData();
-    }
-  }, [authUser]);
+    fetchData();
+  }, [authUser, authLoading, getAuthToken]);
 
-  // 2. Derived State for Payments (Filtered)
+  // --- Derived State (Filtering) ---
+
   const filteredPayments = useMemo(() => {
-    let result = payments;
-
-    // Search
-    if (paymentSearch) {
-      const lowerSearch = paymentSearch.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.vendor.name.toLowerCase().includes(lowerSearch) ||
-          p.vendor.email.toLowerCase().includes(lowerSearch)
-      );
-    }
-
-    // Status
-    if (paymentStatusFilter !== "All") {
-      result = result.filter((p) => p.status === paymentStatusFilter);
-    }
-
-    // Plan
-    if (paymentPlanFilter !== "All") {
-      result = result.filter((p) => p.plan === paymentPlanFilter);
-    }
-
-    return result;
+    return payments.filter((p) => {
+      const matchesSearch =
+        p.vendor.name.toLowerCase().includes(paymentSearch.toLowerCase()) ||
+        p.vendor.email.toLowerCase().includes(paymentSearch.toLowerCase());
+      const matchesStatus =
+        paymentStatusFilter === "All" || p.status === paymentStatusFilter;
+      const matchesPlan =
+        paymentPlanFilter === "All" || p.plan === paymentPlanFilter;
+      return matchesSearch && matchesStatus && matchesPlan;
+    });
   }, [payments, paymentSearch, paymentStatusFilter, paymentPlanFilter]);
 
-  // 3. Derived State for Featured Listings (Filtered)
   const filteredListings = useMemo(() => {
-    let result = featuredListings;
-
-    // Search
-    if (listingSearch) {
-      const lowerSearch = listingSearch.toLowerCase();
-      result = result.filter(
-        (l) =>
-          l.vendor.name.toLowerCase().includes(lowerSearch) ||
-          l.listingName.toLowerCase().includes(lowerSearch)
-      );
-    }
-
-    // Status
-    if (listingStatusFilter !== "All") {
-      result = result.filter((l) => l.status === listingStatusFilter);
-    }
-
-    return result;
+    return featuredListings.filter((l) => {
+      const matchesSearch =
+        l.vendor.name.toLowerCase().includes(listingSearch.toLowerCase()) ||
+        l.listingName.toLowerCase().includes(listingSearch.toLowerCase());
+      const matchesStatus =
+        listingStatusFilter === "All" || l.status === listingStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
   }, [featuredListings, listingSearch, listingStatusFilter]);
 
-  // Handlers for Slot Actions
+  // --- Handlers ---
   const handleEditClick = (slot: Slot) => {
     setSelectedSlot(slot);
     setIsEditOpen(true);
@@ -346,11 +336,52 @@ export default function Monetization() {
     setIsPauseOpen(true);
   };
 
-  // Loading/Auth checks
-  if (authLoading)
-    return <div className="p-8 text-center text-gray-500">Loading...</div>;
-  if (!authUser)
-    return <div className="p-8 text-red-500">Please login to continue.</div>;
+  // Helper Components
+  const StatusBadge = ({
+    status,
+    planColor,
+  }: {
+    status?: string;
+    planColor?: string;
+  }) => {
+    if (planColor) {
+      return (
+        <span
+          className={`${planColor} text-white px-3 py-1 rounded-full text-xs font-medium`}
+        >
+          {status}
+        </span>
+      );
+    }
+    const styles = {
+      Paid: "bg-[#548235] text-white",
+      Active: "bg-[#548235] text-white",
+      Pending: "bg-[#F2C94C] text-white",
+      Failed: "bg-[#EB5757] text-white",
+    };
+    const icons = {
+      Paid: <CheckCircle className="w-3 h-3 mr-1" />,
+      Active: <CheckCircle className="w-3 h-3 mr-1" />,
+      Pending: <Clock className="w-3 h-3 mr-1" />,
+      Failed: <AlertCircle className="w-3 h-3 mr-1" />,
+    };
+    const key = (status || "Pending") as keyof typeof styles;
+    return (
+      <span
+        className={`flex items-center w-fit px-2.5 py-1 rounded-md text-xs font-medium ${styles[key]}`}
+      >
+        {icons[key]}
+        {status}
+      </span>
+    );
+  };
+
+  if (authLoading || isLoading)
+    return (
+      <div className="p-8 text-center text-gray-500">
+        Loading monetization data...
+      </div>
+    );
 
   return (
     <div className="p-2 lg:p-6 space-y-6">
@@ -403,24 +434,24 @@ export default function Monetization() {
               <StatCards
                 title="Total Revenue"
                 icon={DollarSign}
-                statValue={25000}
-                trend={8}
+                statValue={stats.totalRevenue} // Passed as number
+                trend={stats.trends.revenue}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
               <StatCards
                 title="Revenue This Month"
                 icon={Inbox}
-                statValue={2300}
-                trend={18}
+                statValue={stats.revenueMonth} // Passed as number
+                trend={stats.trends.month_revenue}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
               <StatCards
                 title="Active Subscriptions"
                 icon={Bookmark}
-                statValue={45}
-                trend={-5}
+                statValue={stats.activeSubs} // Passed as number
+                trend={stats.trends.active_subs}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
@@ -440,7 +471,7 @@ export default function Monetization() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {MOCK_SUBSCRIPTION_SUMMARY.map((sub) => (
+                  {subscriptions.map((sub) => (
                     <TableRow key={sub.plan}>
                       <TableCell className="py-5">
                         <StatusBadge status={sub.plan} planColor={sub.color} />
@@ -648,24 +679,24 @@ export default function Monetization() {
               <StatCards
                 title="Total Revenue"
                 icon={DollarSign}
-                statValue={25000}
-                trend={8}
+                statValue={stats.totalRevenue}
+                trend={stats.trends.revenue}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
               <StatCards
                 title="Revenue This Month"
                 icon={Inbox}
-                statValue={2300}
-                trend={18}
+                statValue={stats.revenueMonth}
+                trend={stats.trends.month_revenue}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
               <StatCards
                 title="Active Subscriptions"
                 icon={Bookmark}
-                statValue={45}
-                trend={-5}
+                statValue={stats.activeSubs}
+                trend={stats.trends.active_subs}
                 trendIconUp={TrendingUp}
                 trendIconDown={TrendingDown}
               />
