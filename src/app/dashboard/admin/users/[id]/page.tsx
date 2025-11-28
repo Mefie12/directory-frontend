@@ -14,11 +14,14 @@ import {
   Eye,
   Bookmark,
   Star,
-  CreditCard,
-  MoreHorizontal,
   CheckCircle,
   Clock,
   Download,
+  Trash2,
+  Edit,
+  CreditCard,
+  MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +31,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -39,7 +53,7 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 
-// --- 1. UI Types (Used for Rendering) ---
+// --- Types ---
 interface ActivityItem {
   id: string;
   type: "listing" | "review" | "upgrade";
@@ -108,8 +122,7 @@ interface UserDetails {
   };
 }
 
-// --- 2. API Types (Reflecting Raw Backend Data) ---
-// These interface define what the JSON actually looks like (snake_case)
+// API Types
 interface ApiListing {
   id: number | string;
   title?: string;
@@ -158,7 +171,7 @@ interface ApiUserResponse {
   name?: string;
   email?: string;
   phone_number?: string;
-  phoneNumber?: string; // Handle inconsistent API casing
+  phoneNumber?: string;
   listings_count?: number;
   numberOfListings?: number;
   plan?: string;
@@ -185,7 +198,7 @@ interface ApiUserResponse {
 
 export default function UserDetailsPage() {
   const router = useRouter();
-  const params = useParams(); 
+  const params = useParams();
   const { user: authUser, loading: authLoading } = useAuth();
 
   // State
@@ -193,6 +206,11 @@ export default function UserDetailsPage() {
   const [user, setUser] = useState<UserDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Dialog States
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [deleteCardDialogOpen, setDeleteCardDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // --- API Integration ---
   useEffect(() => {
@@ -212,9 +230,7 @@ export default function UserDetailsPage() {
         const token = localStorage.getItem("authToken");
         const id = params.id;
 
-        if (!id) {
-          throw new Error("Invalid User ID");
-        }
+        if (!id) throw new Error("Invalid User ID");
 
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
@@ -232,14 +248,10 @@ export default function UserDetailsPage() {
         }
 
         const json = await response.json();
-        
-        // TYPE CASTING: We tell TypeScript this unknown JSON matches our ApiUserResponse structure
         const apiData = (json.data || json) as ApiUserResponse;
 
-        // --- DATA MAPPING: Converting Raw API Data to UI Types ---
-        
-        // 1. Map Listings
-        const mappedListings: ListingItem[] = Array.isArray(apiData.listings) 
+        // Data Mapping
+        const mappedListings: ListingItem[] = Array.isArray(apiData.listings)
           ? apiData.listings.map((item) => ({
               id: item.id?.toString(),
               name: item.title || item.name || "Untitled Listing",
@@ -249,32 +261,42 @@ export default function UserDetailsPage() {
               comments: item.comments_count || 0,
               bookmarks: item.bookmarks_count || 0,
               rating: item.rating || 0,
-              createdDate: item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A",
+              createdDate: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "N/A",
               status: (item.status as ListingItem["status"]) || "Drafted",
-              image: item.image || "", 
-            })) 
+              image: item.image || "",
+            }))
           : [];
 
-        // 2. Map Reviews
         const mappedReviews: ReviewItem[] = Array.isArray(apiData.reviews)
           ? apiData.reviews.map((item) => ({
               id: item.id?.toString(),
               reviewerName: item.user?.name || "Anonymous",
               reviewerAvatar: item.user?.avatar || "",
-              date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "",
+              date: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "",
               rating: item.rating || 5,
               comment: item.comment || "",
             }))
           : [];
 
-        // 3. Map Billing History
-        const mappedBilling: BillingItem[] = Array.isArray(apiData.billing_history)
+        const mappedBilling: BillingItem[] = Array.isArray(
+          apiData.billing_history
+        )
           ? apiData.billing_history.map((item) => ({
               id: item.id?.toString(),
               plan: item.plan_name || "Basic",
-              date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "",
-              amount: typeof item.amount === 'string' ? parseFloat(item.amount) : (item.amount || 0),
-              status: (item.status as BillingItem["status"]) || "Pending review",
+              date: item.created_at
+                ? new Date(item.created_at).toLocaleDateString()
+                : "",
+              amount:
+                typeof item.amount === "string"
+                  ? parseFloat(item.amount)
+                  : item.amount || 0,
+              status:
+                (item.status as BillingItem["status"]) || "Pending review",
             }))
           : [];
 
@@ -283,12 +305,17 @@ export default function UserDetailsPage() {
           name: apiData.name || "Unknown User",
           email: apiData.email || "",
           phone: apiData.phone_number || apiData.phoneNumber || "N/A",
-          listings: apiData.listings_count || apiData.numberOfListings || mappedListings.length,
+          listings:
+            apiData.listings_count ||
+            apiData.numberOfListings ||
+            mappedListings.length,
           plan: apiData.plan || "Basic",
           status: apiData.status || "Active",
           avatar: apiData.avatar || apiData.profile_photo_url || "",
-          bio: apiData.business_description || apiData.bio || "No description provided.",
-          
+          bio:
+            apiData.business_description ||
+            apiData.bio ||
+            "No description provided.",
           recentActivity: Array.isArray(apiData.activities)
             ? apiData.activities.map((act) => ({
                 id: act.id?.toString(),
@@ -298,22 +325,24 @@ export default function UserDetailsPage() {
                 timestamp: act.created_at || act.timestamp || "",
               }))
             : [],
-
           stats: {
-            published: apiData.stats?.published || mappedListings.filter(l => l.status === 'Published').length,
+            published:
+              apiData.stats?.published ||
+              mappedListings.filter((l) => l.status === "Published").length,
             inquiries: apiData.stats?.inquiries || 0,
             reviews: apiData.stats?.reviews || mappedReviews.length,
             revenue: apiData.stats?.revenue || 0,
           },
-
           listingsList: mappedListings,
           reviewsList: mappedReviews,
           billingHistory: mappedBilling,
-          
           billingInfo: {
             currentPlan: apiData.plan || "Basic",
             cycle: apiData.billing_cycle || "N/A",
-            amount: typeof apiData.subscription_amount === 'string' ? parseFloat(apiData.subscription_amount) : (apiData.subscription_amount || 0),
+            amount:
+              typeof apiData.subscription_amount === "string"
+                ? parseFloat(apiData.subscription_amount)
+                : apiData.subscription_amount || 0,
             cardLast4: apiData.card_last_four || "••••",
             cardExpiry: apiData.card_expiry || "••/••",
           },
@@ -333,6 +362,75 @@ export default function UserDetailsPage() {
     fetchUserData();
   }, [params.slug, authUser, authLoading, params.id]);
 
+  // --- Actions ---
+
+  const handleEditUser = () => {
+    if (user?.id) {
+      router.push(`/dashboard/users/${user.id}/edit`);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!user?.id) return;
+    setIsDeleting(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      const response = await fetch(`${API_URL}/api/users/${user.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete user");
+      }
+
+      setDeleteUserDialogOpen(false);
+      router.push("/dashboard/admin/users");
+    } catch (error) {
+      console.error("Delete failed", error);
+      alert("Failed to delete user. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditPaymentMethod = () => {
+    // Add logic to open edit modal or navigate to edit page
+    router.push(`/dashboard/users/${user?.id}/billing/payment-method`);
+  };
+
+  const handleDeletePaymentMethod = async () => {
+    // Mock API call to delete payment method
+    setIsDeleting(true);
+    try {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // In a real app, you would make a DELETE request here
+      // const response = await fetch(...)
+
+      setDeleteCardDialogOpen(false);
+
+      // Optimistically update UI or re-fetch data
+      if (user) {
+        setUser({
+          ...user,
+          billingInfo: { ...user.billingInfo, cardLast4: "", cardExpiry: "" },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete card", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // --- Helpers ---
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-GH", {
@@ -349,7 +447,9 @@ export default function UserDetailsPage() {
           <Star
             key={star}
             className={`w-4 h-4 ${
-              star <= rating ? "fill-[#F2C94C] text-[#F2C94C]" : "text-gray-300"
+              star <= rating
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-100 text-gray-300"
             }`}
           />
         ))}
@@ -424,49 +524,62 @@ export default function UserDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* --- Header Section --- */}
-      <div className="border-b border-gray-200 bg-white pt-8 pb-0">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-start justify-between mb-8">
-            <div className="flex items-start gap-4">
-              <button
-                onClick={() => router.back()}
-                className="mt-1 p-2 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <Avatar className="w-16 h-16 border border-gray-100">
-                <AvatarImage
-                  src={user.avatar}
-                  alt={user.name}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-gray-200 text-gray-500 text-xl">
-                  {user.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="mt-0.5">
+    <div className="min-h-screen pb-20">
+      {/* --- Responsive Header Section --- */}
+      <div className="border-b border-gray-200 pt-8 pb-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row md:items-start justify-between mb-8 gap-6">
+            {/* User Info Block */}
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 flex-1 text-center md:text-left px-4">
+              <div className="relative">
+                <button
+                  onClick={() => router.back()}
+                  className="absolute -left-12 top-2 p-2 rounded-full hover:bg-gray-100 transition-colors hidden lg:block"
+                >
+                  <ArrowLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <Avatar className="w-20 h-20 md:w-16 md:h-16 border border-gray-100 shadow-sm">
+                  <AvatarImage
+                    src={user.avatar}
+                    alt={user.name}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-gray-200 text-gray-500 text-xl">
+                    {user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+
+              <div className="mt-0.5 space-y-2 md:space-y-1 w-full">
                 <h1 className="text-2xl font-bold text-gray-900">
                   {user.name}
                 </h1>
-                <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 flex-wrap">
-                  <span className="text-gray-500">Email:</span>
+
+                <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-3 gap-y-2 text-sm text-gray-500">
+                  <span className="text-gray-500 hidden md:inline">Email:</span>
                   <Link
                     href={`mailto:${user.email}`}
                     className="text-[#93C01F] hover:underline"
                   >
                     {user.email}
                   </Link>
-                  <span className="text-gray-300 mx-1">•</span>
-                  <span>Phone number: {user.phone}</span>
-                  <span className="text-gray-300 mx-1">•</span>
-                  <span>Listings: {user.listings}</span>
-                  <span className="text-gray-300 mx-1">•</span>
+                  <span className="hidden md:inline text-gray-300">•</span>
+                  <span className="whitespace-nowrap">
+                    <span className="md:hidden font-medium">Phone: </span>
+                    {user.phone}
+                  </span>
+                  <span className="hidden md:inline text-gray-300">•</span>
+                  <span className="whitespace-nowrap">
+                    Listings:{" "}
+                    <span className="text-gray-900 font-medium">
+                      {user.listings}
+                    </span>
+                  </span>
+                  <span className="hidden md:inline text-gray-300">•</span>
                   <span className="bg-[#5ea0d6] text-white text-xs px-2.5 py-0.5 rounded-md font-medium">
                     {user.plan}
                   </span>
-                  <span className="text-gray-300 mx-1">•</span>
+                  <span className="hidden md:inline text-gray-300">•</span>
                   <span
                     className={`text-xs px-2.5 py-0.5 rounded-md font-medium ${
                       user.status === "Active"
@@ -479,47 +592,58 @@ export default function UserDetailsPage() {
                 </div>
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-normal gap-2 rounded-lg px-4"
-                >
-                  More Actions <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit User</DropdownMenuItem>
-                <DropdownMenuItem className="text-red-600">
-                  Delete User
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+            {/* Actions Block */}
+            <div className="w-full md:w-auto flex justify-center md:justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-normal gap-2 rounded-lg px-6 w-full md:w-auto justify-between md:justify-start"
+                  >
+                    More Actions <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleEditUser}>
+                    <Edit className="w-4 h-4 mr-2" /> Edit User
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setDeleteUserDialogOpen(true)}
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Delete User
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          <div className="flex gap-8 border-b border-gray-100">
-            {["Overview", "Listings", "Reviews", "Billing"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`pb-4 text-sm font-medium transition-all relative ${
-                  activeTab === tab
-                    ? "text-[#93C01F]"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab}
-                {activeTab === tab && (
-                  <div className="absolute -bottom-0.5 left-0 w-full h-[3px] bg-[#93C01F] rounded-t-full" />
-                )}
-              </button>
-            ))}
+          <div className="w-full overflow-x-auto no-scrollbar">
+            <div className="flex gap-8 border-b border-gray-100 min-w-max">
+              {["Overview", "Listings", "Reviews", "Billing"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`pb-4 text-sm font-medium transition-all relative whitespace-nowrap px-1 ${
+                    activeTab === tab
+                      ? "text-[#93C01F]"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab}
+                  {activeTab === tab && (
+                    <div className="absolute -bottom-0.5 left-0 w-full h-[3px] bg-[#93C01F] rounded-t-full" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* --- Main Content Area --- */}
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* === OVERVIEW TAB === */}
         {activeTab === "Overview" && (
           <>
@@ -578,48 +702,47 @@ export default function UserDetailsPage() {
         {/* === LISTINGS TAB === */}
         {activeTab === "Listings" && (
           <div className="space-y-8">
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 px-4">
-              <div className="text-center md:text-left">
-                <h3 className="text-3xl font-bold text-gray-900">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 px-2 md:px-4">
+              <div className="text-center md:text-left bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900">
                   {user.stats.published}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-3 h-3 rounded-full bg-gray-200" />
-                  <span className="text-gray-500 text-sm">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-1 justify-center md:justify-start">
+                  <div className="w-3 h-3 rounded-full bg-gray-200 hidden md:block" />
+                  <span className="text-gray-500 text-xs md:text-sm">
                     Listings published
                   </span>
                 </div>
               </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-3xl font-bold text-gray-900">
+              <div className="text-center md:text-left bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900">
                   {user.stats.inquiries}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-3 h-3 rounded-full bg-[#F2994A]" />
-                  <span className="text-gray-500 text-sm">
-                    Inquires recieved
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-1 justify-center md:justify-start">
+                  <div className="w-3 h-3 rounded-full bg-[#F2994A] hidden md:block" />
+                  <span className="text-gray-500 text-xs md:text-sm">
+                    Inquires received
                   </span>
                 </div>
               </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-3xl font-bold text-gray-900">
+              <div className="text-center md:text-left bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900">
                   {user.stats.reviews}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-3 h-3 rounded-full bg-[#5ea0d6]" />
-                  <span className="text-gray-500 text-sm">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-1 justify-center md:justify-start">
+                  <div className="w-3 h-3 rounded-full bg-[#5ea0d6] hidden md:block" />
+                  <span className="text-gray-500 text-xs md:text-sm">
                     Reviews received
                   </span>
                 </div>
               </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-3xl font-bold text-gray-900">
+              <div className="text-center md:text-left bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900">
                   {formatCurrency(user.stats.revenue)}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-3 h-3 rounded-full bg-[#548235]" />
-                  <span className="text-gray-500 text-sm">
+                <div className="flex flex-col md:flex-row items-center gap-2 mt-1 justify-center md:justify-start">
+                  <div className="w-3 h-3 rounded-full bg-[#548235] hidden md:block" />
+                  <span className="text-gray-500 text-xs md:text-sm">
                     Revenue accumulated
                   </span>
                 </div>
@@ -631,87 +754,91 @@ export default function UserDetailsPage() {
                 Listings Overview
               </h3>
               <div className="rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-gray-50/50">
-                    <TableRow>
-                      <TableHead className="w-[300px]">Listing Name</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Stats Summary</TableHead>
-                      <TableHead>Created Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {user.listingsList.length > 0 ? (
-                      user.listingsList.map((listing) => (
-                        <TableRow
-                          key={listing.id}
-                          className="hover:bg-gray-50/50"
-                        >
-                          <TableCell className="py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gray-200" />{" "}
-                              <span className="font-medium text-gray-900">
-                                {listing.name}
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[800px]">
+                    <TableHeader className="bg-gray-50/50">
+                      <TableRow>
+                        <TableHead className="w-[300px]">
+                          Listing Name
+                        </TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Stats Summary</TableHead>
+                        <TableHead>Created Date</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {user.listingsList.length > 0 ? (
+                        user.listingsList.map((listing) => (
+                          <TableRow
+                            key={listing.id}
+                            className="hover:bg-gray-50/50"
+                          >
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+                                <span className="font-medium text-gray-900 truncate">
+                                  {listing.name}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-600">
+                              {listing.location}
+                            </TableCell>
+                            <TableCell className="text-gray-600">
+                              {listing.type}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-4 text-gray-500 text-xs">
+                                <span className="flex items-center gap-1">
+                                  <Eye className="w-3.5 h-3.5" />
+                                  {listing.views}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                  {listing.comments}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Bookmark className="w-3.5 h-3.5" />
+                                  {listing.bookmarks}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Star className="w-3.5 h-3.5" />
+                                  {listing.rating}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-600">
+                              {listing.createdDate}
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-fit ${getStatusBadgeStyles(
+                                  listing.status
+                                )}`}
+                              >
+                                {listing.status === "Published" && (
+                                  <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                                )}
+                                {listing.status}
                               </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {listing.location}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {listing.type}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-4 text-gray-500 text-xs">
-                              <span className="flex items-center gap-1">
-                                <Eye className="w-3.5 h-3.5" />
-                                {listing.views}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <MessageSquare className="w-3.5 h-3.5" />
-                                {listing.comments}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Bookmark className="w-3.5 h-3.5" />
-                                {listing.bookmarks}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Star className="w-3.5 h-3.5" />
-                                {listing.rating}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {listing.createdDate}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-fit ${getStatusBadgeStyles(
-                                listing.status
-                              )}`}
-                            >
-                              {listing.status === "Published" && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
-                              )}
-                              {listing.status}
-                            </span>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="text-center py-8 text-gray-500"
+                          >
+                            No listings found for this user.
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center py-8 text-gray-500"
-                        >
-                          No listings found for this user.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </div>
           </div>
@@ -800,9 +927,8 @@ export default function UserDetailsPage() {
         {/* === BILLING TAB === */}
         {activeTab === "Billing" && (
           <div className="space-y-6">
-            {/* Top Cards */}
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Current Plan */}
+              {/* Current Plan Card */}
               <Card className="p-6 border border-gray-200 shadow-sm rounded-xl">
                 <h3 className="text-xl font-normal text-gray-900 mb-1">
                   Current Plan
@@ -829,7 +955,7 @@ export default function UserDetailsPage() {
                 </div>
               </Card>
 
-              {/* Payment Methods */}
+              {/* Payment Methods Card (Updated with Dropdown) */}
               <Card className="p-6 border border-gray-200 shadow-sm rounded-xl">
                 <h3 className="text-xl font-normal text-gray-900 mb-1">
                   Payment Methods
@@ -838,28 +964,59 @@ export default function UserDetailsPage() {
                   Manage your payment method
                 </p>
 
-                <div className="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-8 bg-white border border-gray-200 rounded flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-blue-800" />
+                {user.billingInfo.cardLast4 ? (
+                  <div className="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-8 bg-white border border-gray-200 rounded flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-blue-800" />
+                      </div>
+                      <div>
+                        <p className="text-gray-900 text-sm font-medium">
+                          Visa ending {user.billingInfo.cardLast4}
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          Expires {user.billingInfo.cardExpiry}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-gray-900 text-sm font-medium">
-                        Visa ending {user.billingInfo.cardLast4}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        Expires {user.billingInfo.cardExpiry}
-                      </p>
-                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-400 hover:text-gray-600 hover:bg-gray-200"
+                        >
+                          <MoreHorizontal className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleEditPaymentMethod}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit Card
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteCardDialogOpen(true)}
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Card
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-gray-400"
-                  >
-                    <MoreHorizontal className="w-5 h-5" />
-                  </Button>
-                </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-100 border-dashed">
+                    <p className="text-gray-500 text-sm">
+                      No payment method added.
+                    </p>
+                    <Button
+                      variant="link"
+                      className="text-[#93C01F] p-0 h-auto mt-2"
+                    >
+                      Add Payment Method
+                    </Button>
+                  </div>
+                )}
               </Card>
             </div>
 
@@ -874,67 +1031,123 @@ export default function UserDetailsPage() {
                 </p>
               </div>
 
-              <Table>
-                <TableHeader className="bg-gray-50/50">
-                  <TableRow>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {user.billingHistory.length > 0 ? (
-                    user.billingHistory.map((bill) => (
-                      <TableRow key={bill.id} className="hover:bg-gray-50/50">
-                        <TableCell className="text-gray-600 py-4">
-                          {bill.plan}
-                        </TableCell>
-                        <TableCell className="text-gray-600">
-                          {bill.date}
-                        </TableCell>
-                        <TableCell className="text-gray-900 font-medium">
-                          ${bill.amount}
-                        </TableCell>
-                        <TableCell>
-                          {bill.status === "Paid" ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#548235] text-white text-xs font-medium">
-                              <CheckCircle className="w-3 h-3" /> Paid
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#F2C94C] text-white text-xs font-medium">
-                              <Clock className="w-3 h-3" /> Pending review
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[600px]">
+                  <TableHeader className="bg-gray-50/50">
+                    <TableRow>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {user.billingHistory.length > 0 ? (
+                      user.billingHistory.map((bill) => (
+                        <TableRow key={bill.id} className="hover:bg-gray-50/50">
+                          <TableCell className="text-gray-600 py-4">
+                            {bill.plan}
+                          </TableCell>
+                          <TableCell className="text-gray-600">
+                            {bill.date}
+                          </TableCell>
+                          <TableCell className="text-gray-900 font-medium">
+                            ${bill.amount}
+                          </TableCell>
+                          <TableCell>
+                            {bill.status === "Paid" ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#548235] text-white text-xs font-medium">
+                                <CheckCircle className="w-3 h-3" /> Paid
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#F2C94C] text-white text-xs font-medium">
+                                <Clock className="w-3 h-3" /> Pending review
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-gray-500"
+                        >
+                          No billing history found.
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center py-8 text-gray-500"
-                      >
-                        No billing history found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog
+        open={deleteUserDialogOpen}
+        onOpenChange={setDeleteUserDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              user account <strong>{user.name}</strong> and remove their data
+              from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Card Confirmation Dialog */}
+      <AlertDialog
+        open={deleteCardDialogOpen}
+        onOpenChange={setDeleteCardDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Payment Method?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the card ending in{" "}
+              <strong>{user.billingInfo.cardLast4}</strong>? This may affect
+              upcoming automated billing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePaymentMethod}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Removing..." : "Remove Card"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
