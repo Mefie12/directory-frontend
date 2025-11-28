@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/ui/navbar";
 import Footer from "@/components/ui/footer";
+// import BecomeVendor from "@/app/become-a-vendor/page";
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -10,9 +11,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     
     return (
         <>
-            {!isAuthPage && !isDashboard && <Navbar />}
+            {!isAuthPage && !isDashboard && pathname !== "/become-a-vendor" && <Navbar />}
             {children}
-            {!isAuthPage && !isDashboard && <Footer />}
+            {!isAuthPage && !isDashboard && pathname !== "/become-a-vendor" && <Footer />}
         </>
     );
 }

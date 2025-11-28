@@ -512,7 +512,7 @@ export default function Navbar() {
                   Sign Up
                 </Link>
                 <Link
-                  href="/become-vendor"
+                  href="/become-a-vendor"
                   className="px-4 py-2 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors"
                 >
                   Become a vendor
