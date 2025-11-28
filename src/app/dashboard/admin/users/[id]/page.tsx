@@ -218,7 +218,7 @@ export default function UserDetailsPage() {
 
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/user/${id}`, {
+        const response = await fetch(`${API_URL}/api/users/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",

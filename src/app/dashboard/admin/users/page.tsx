@@ -41,12 +41,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
 interface User {
+    role: string;
   id: string;
   name: string;
   email: string;
   avatar: string;
   businessName?: string;
-  phoneNumber: string;
+  phone?: string;
   plan?: "Basic" | "Premium" | "Pro";
   numberOfListings?: string;
   lastActive: string;
@@ -213,7 +214,7 @@ export default function Users() {
         const businessMatch = (user.businessName || "")
           .toLowerCase()
           .includes(searchLower);
-        const phoneMatch = (user.phoneNumber || "").includes(searchLower);
+        const phoneMatch = (user.phone || "").includes(searchLower);
 
         return nameMatch || emailMatch || businessMatch || phoneMatch;
       }
@@ -531,7 +532,7 @@ export default function Users() {
                     {activeTab === "vendors" && (
                       <>
                         <TableCell>{user.businessName || "-"}</TableCell>
-                        <TableCell>{user.phoneNumber}</TableCell>
+                        <TableCell>{user.phone}</TableCell>
                         <TableCell>
                           <Badge
                             className={`${getPlanBadgeColor(
@@ -546,10 +547,10 @@ export default function Users() {
                         <TableCell>
                           <Badge
                             className={`${getStatusBadgeColor(
-                              user.status
+                              user.role
                             )} text-white`}
                           >
-                            {user.status}
+                            {user.role}
                           </Badge>
                         </TableCell>
                       </>
@@ -557,7 +558,7 @@ export default function Users() {
 
                     {activeTab === "customers" && (
                       <>
-                        <TableCell>{user.phoneNumber}</TableCell>
+                        <TableCell>{user.phone}</TableCell>
                         <TableCell>{user.lastActive}</TableCell>
                       </>
                     )}
