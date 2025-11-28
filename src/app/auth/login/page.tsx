@@ -82,7 +82,8 @@ export default function Login() {
       // console.log('📨 Raw login response:', data);
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to login");
+        // Handle specific error messages from backend or default to generic
+        throw new Error(data.message || "Invalid email or password");
       }
 
       // Debug: Check all possible token locations
@@ -109,10 +110,9 @@ export default function Login() {
       }
     } catch (error) {
       // console.error("❌ Login failed:", error);
-      setError(
-        "Failed to login: " +
-          (error instanceof Error ? error.message : String(error))
-      );
+      // If the error message includes "401" or typical auth failure text, show specific message
+      const msg = error instanceof Error ? error.message : String(error);
+      setError(msg.includes("401") ? "Incorrect email or password." : msg);
     } finally {
       setIsLoading(false);
     }
@@ -180,6 +180,7 @@ export default function Login() {
                   <p className="text-red-500 text-sm">{errors.email}</p>
                 )}
               </div>
+              
               <div className="space-y-2">
                 <div className="flex item-center justify-between">
                   <Label htmlFor="password" className="text-sm">
@@ -192,27 +193,32 @@ export default function Login() {
                     Forgot password?
                   </Link>
                 </div>
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  className="w-full  placeholder:text-xs"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                />
+                
+                {/* WRAPPER FOR RELATIVE POSITIONING */}
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    className="w-full placeholder:text-xs pr-10" // Added pr-10 to prevent text overlap with eye
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                  />
 
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-10 bottom-20 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+
                 {errors.password && (
                   <p className="text-red-500 text-sm">{errors.password}</p>
                 )}
