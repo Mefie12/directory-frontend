@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Users,
   Tag,
   Mail,
-  CreditCard,
   AlertTriangle,
   Flag,
   Banknote,
@@ -37,10 +38,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StatCard from "@/components/dashboard/stat-cards";
 import RecentActivityCard from "@/components/dashboard/recent-activity";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   BarChart,
   Bar,
@@ -55,8 +55,23 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import { useAuth } from "@/context/auth-context";
 
-// --- INTERFACES ---
+// --- FRONTEND INTERFACES ---
+
+interface DashboardStats {
+  totalVendors: number;
+  activeListings: number;
+  inquiries: number;
+  revenue: number;
+  trends: {
+    vendors: number;
+    listings: number;
+    inquiries: number;
+    revenue: number;
+  };
+}
+
 interface RecentActivityItem {
   id: string;
   initials: string;
@@ -101,148 +116,300 @@ interface ListingItem {
   rating: number;
 }
 
-// --- MOCK DATA ---
+interface ChartDataPoint {
+  name: string;
+  value?: number;
+  business?: number;
+  event?: number;
+}
 
-const recentActivityData: RecentActivityItem[] = [
-  {
-    id: "1",
-    initials: "UP",
-    color: "bg-[#F2994A]",
-    title: "Plan Upgrade",
-    description: "Added new listing “Greenbowl Spintex Branch”",
-    timestamp: "10th July 2025, 12:34 PM",
-  },
-  {
-    id: "2",
-    initials: "LA",
-    color: "bg-[#93C01F]",
-    title: "Listing Added",
-    description: "Added new listing “Greenbowl Spintex Branch”",
-    timestamp: "10th July 2025, 12:34 PM",
-  },
-];
+// --- API RESPONSE INTERFACES (Raw Data) ---
 
-const pendingListingsData: PendingListingItem[] = [
-  {
-    id: 1,
-    name: "@Greenbowl restaurant",
-    action: "submitted a business...",
-    time: "5 mins ago",
-    initials: "GR",
-    color: "bg-[#93C01F]",
-  },
-  {
-    id: 2,
-    name: "@BPM",
-    action: "submitted an event",
-    time: "Yesterday",
-    initials: "BP",
-    color: "bg-[#5D5FEF]",
-  },
-  {
-    id: 3,
-    name: "@Kente & Crafts",
-    action: "submitted a business...",
-    time: "Sept 8",
-    initials: "KC",
-    color: "bg-[#5ea0d6]",
-  },
-];
+interface ApiStats {
+  vendors_count: number;
+  listings_count: number;
+  inquiries_count: number;
+  total_revenue: number;
+  trends?: {
+    vendors: number;
+    listings: number;
+    inquiries: number;
+    revenue: number;
+  };
+}
 
-const flaggedContentData: FlaggedContentItem[] = [
-  {
-    id: 1,
-    title: "Review on @Ama's Boutique",
-    reason: "flagged for offensive text",
-    time: "5 mins ago",
-  },
-  {
-    id: 2,
-    title: "@Quick Loans Ghana",
-    reason: "vendor flagged for misleading info",
-    time: "5 mins ago",
-  },
-];
+interface ApiRecentActivity {
+  id: number | string;
+  user?: { initials?: string };
+  color?: string;
+  title: string;
+  description: string;
+  created_at_human?: string;
+}
 
-const paymentIssuesData: PaymentIssueItem[] = [
-  {
-    id: 1,
-    title: "Payment Failed",
-    desc: "@Kwame's Catering - GHS 450 payment failed",
-  },
-  {
-    id: 2,
-    title: "Refund Requested",
-    desc: "@EventHub Africa - GHS 1,200 refund requested",
-  },
-];
+interface ApiPendingListing {
+  id: number;
+  vendor_name: string;
+  created_at_human: string;
+  vendor_initials?: string;
+}
 
-const listingsData: ListingItem[] = [
-  {
-    id: 1,
-    name: "Greenbowl Restaurant",
-    image: "/images/image-1.jpg",
-    category: "Restaurant",
-    location: "Accra, Ghana",
-    status: "Published",
-    views: 1234,
-    comments: 32,
-    bookmarks: 18,
-    rating: 4.7,
-  },
-  {
-    id: 2,
-    name: "Accra Music Festival",
-    image: "/images/image-2.jpg",
-    category: "Event",
-    location: "Accra, Ghana",
-    status: "Pending",
-    views: 850,
-    comments: 12,
-    bookmarks: 45,
-    rating: 0,
-  },
-];
+interface ApiFlaggedContent {
+  id: number;
+  subject: string;
+  reason: string;
+  created_at_human: string;
+}
 
-// --- CHART DATA ---
-const revenuePieData = [
-  { name: "Community", value: 400, color: "#9CA3AF" }, // Gray
-  { name: "Pro", value: 300, color: "#5D5FEF" }, // Purple
-  { name: "Premium", value: 300, color: "#93C01F" }, // Green
-];
+interface ApiPaymentIssue {
+  id: number;
+  type: string;
+  description: string;
+}
 
-const vendorGrowthData = [
-  { name: "Jan", value: 100 },
-  { name: "Feb", value: 400 },
-  { name: "Mar", value: 300 },
-  { name: "Apr", value: 800 },
-  { name: "May", value: 500 },
-  { name: "Jun", value: 900 },
-  { name: "Jul", value: 1200 },
-];
+interface ApiListing {
+  id: number;
+  name: string;
+  image?: string;
+  category: string;
+  location: string;
+  status: "Published" | "Pending" | "Draft";
+  rating?: number;
+  stats?: {
+    views?: number;
+    comments?: number;
+    bookmarks?: number;
+  };
+}
 
-const listingCreationData = [
-  { name: "Jan", business: 400, event: 240 },
-  { name: "Feb", business: 300, event: 139 },
-  { name: "Mar", business: 200, event: 980 },
-  { name: "Apr", business: 278, event: 390 },
-  { name: "May", business: 189, event: 480 },
-  { name: "Jun", business: 239, event: 380 },
-  { name: "Jul", business: 349, event: 430 },
-];
+interface ApiRevenueBreakdown {
+  label: string;
+  amount: number;
+  color?: string;
+}
 
-// Set to true to see the "populated" lines
-const hasChartData = true;
+interface RawDashboardData {
+  stats: ApiStats;
+  recent_activity: ApiRecentActivity[];
+  pending_listings: ApiPendingListing[];
+  flagged_content: ApiFlaggedContent[];
+  payment_issues: ApiPaymentIssue[];
+  listings: ApiListing[];
+  revenue_breakdown: ApiRevenueBreakdown[];
+}
+
+interface ApiChartResponse {
+  data: ChartDataPoint[];
+}
 
 export default function Dashboard() {
   const router = useRouter();
+  const { user: authUser, loading: authLoading } = useAuth();
 
-  // --- Dynamic State for Dropdowns ---
+  // --- State ---
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>(
+    []
+  );
+  const [pendingListings, setPendingListings] = useState<PendingListingItem[]>(
+    []
+  );
+  const [flaggedContent, setFlaggedContent] = useState<FlaggedContentItem[]>(
+    []
+  );
+  const [paymentIssues, setPaymentIssues] = useState<PaymentIssueItem[]>([]);
+  const [listings, setListings] = useState<ListingItem[]>([]);
+
+  // Charts State
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [revenuePieData, setRevenuePieData] = useState<any[]>([]);
+  const [vendorGrowthData, setVendorGrowthData] = useState<ChartDataPoint[]>(
+    []
+  );
+  const [listingCreationData, setListingCreationData] = useState<
+    ChartDataPoint[]
+  >([]);
+
+  // Filter State
   const [vendorGrowthFilter, setVendorGrowthFilter] = useState("This year");
   const [listingActivityFilter, setListingActivityFilter] =
     useState("This year");
 
-  // Helper for Status Badge
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Helper: Auth Token ---
+  const getAuthToken = useCallback(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("authToken");
+    return null;
+  }, []);
+
+  // --- Helper: Mappers ---
+  const mapData = (data: RawDashboardData) => {
+    // Stats
+    setStats({
+      totalVendors: data.stats?.vendors_count || 0,
+      activeListings: data.stats?.listings_count || 0,
+      inquiries: data.stats?.inquiries_count || 0,
+      revenue: data.stats?.total_revenue || 0,
+      trends: {
+        vendors: data.stats?.trends?.vendors || 0,
+        listings: data.stats?.trends?.listings || 0,
+        inquiries: data.stats?.trends?.inquiries || 0,
+        revenue: data.stats?.trends?.revenue || 0,
+      },
+    });
+
+    // Recent Activity
+    setRecentActivity(
+      (data.recent_activity || []).map((item) => ({
+        id: item.id.toString(),
+        initials: item.user?.initials || "NA",
+        color: item.color || "bg-gray-500",
+        title: item.title,
+        description: item.description,
+        timestamp: item.created_at_human || "Just now",
+      }))
+    );
+
+    // Pending Listings
+    setPendingListings(
+      (data.pending_listings || []).map((item) => ({
+        id: item.id,
+        name: item.vendor_name,
+        action: "submitted a listing",
+        time: item.created_at_human,
+        initials: item.vendor_initials || "VN",
+        color: "bg-[#93C01F]",
+      }))
+    );
+
+    // Flagged Content
+    setFlaggedContent(
+      (data.flagged_content || []).map((item) => ({
+        id: item.id,
+        title: item.subject,
+        reason: item.reason,
+        time: item.created_at_human,
+      }))
+    );
+
+    // Payment Issues
+    setPaymentIssues(
+      (data.payment_issues || []).map((item) => ({
+        id: item.id,
+        title: item.type,
+        desc: item.description,
+      }))
+    );
+
+    // Listings Table
+    setListings(
+      (data.listings || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        image: item.image || "/images/placeholder.png",
+        category: item.category,
+        location: item.location,
+        status: item.status,
+        views: item.stats?.views || 0,
+        comments: item.stats?.comments || 0,
+        bookmarks: item.stats?.bookmarks || 0,
+        rating: item.rating || 0,
+      }))
+    );
+
+    // Revenue Pie Chart
+    setRevenuePieData(
+      (data.revenue_breakdown || []).map((item) => ({
+        name: item.label,
+        value: item.amount,
+        color: item.color || "#9CA3AF",
+      }))
+    );
+  };
+
+  // --- API Fetch: Main Dashboard Data ---
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (authLoading) return;
+      if (!authUser) return;
+
+      setIsLoading(true);
+      try {
+        const token = getAuthToken();
+        const API_URL =
+          process.env.API_URL || "https://me-fie.co.uk";
+
+        const response = await fetch(`${API_URL}/api/admin/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch dashboard data");
+
+        const json = await response.json();
+        // Handle potential wrapper
+        const apiData = (json.data || json) as RawDashboardData;
+        mapData(apiData);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load dashboard");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [authUser, authLoading, getAuthToken]);
+
+  // --- API Fetch: Dynamic Charts ---
+  const fetchChartData = useCallback(
+    async (type: "growth" | "creation", period: string) => {
+      try {
+        const token = getAuthToken();
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+        const timeParam = period.toLowerCase().replace("this ", "");
+
+        const endpoint =
+          type === "growth"
+            ? `${API_URL}/api/admin/charts/vendor-growth?period=${timeParam}`
+            : `${API_URL}/api/admin/charts/listing-creation?period=${timeParam}`;
+
+        const response = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) return [];
+
+        const json = await response.json();
+        const chartResponse = json as ApiChartResponse;
+        return chartResponse.data || [];
+      } catch (error) {
+        console.error(`Error fetching ${type} chart:`, error);
+        return [];
+      }
+    },
+    [getAuthToken]
+  );
+
+  // Vendor Growth Chart Effect
+  useEffect(() => {
+    if (!authUser) return;
+    fetchChartData("growth", vendorGrowthFilter).then(setVendorGrowthData);
+  }, [vendorGrowthFilter, fetchChartData, authUser]);
+
+  // Listing Creation Chart Effect
+  useEffect(() => {
+    if (!authUser) return;
+    fetchChartData("creation", listingActivityFilter).then(
+      setListingCreationData
+    );
+  }, [listingActivityFilter, fetchChartData, authUser]);
+
   const getStatusStyles = (status: string) => {
     switch (status) {
       case "Published":
@@ -254,13 +421,21 @@ export default function Dashboard() {
     }
   };
 
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-500">
+        Loading dashboard...
+      </div>
+    );
+  }
+
   return (
-    <div className="px-1 lg:px-8 py-6 space-y-6 min-h-screen bg-white">
+    <div className="px-1 lg:px-8 py-6 space-y-6 min-h-screen">
       {/* --- Header Intro --- */}
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
           <h4 className="text-2xl font-semibold text-gray-900">
-            Welcome back, George
+            Welcome back, {authUser?.name || "User"}
           </h4>
           <p className="text-sm text-gray-500 mt-1">
             Here is what&apos;s happening with your listings
@@ -273,52 +448,50 @@ export default function Dashboard() {
         <StatCard
           title="Total Vendors"
           icon={Users}
-          statValue={null}
-          trend={8}
+          statValue={stats?.totalVendors ?? null}
+          trend={stats?.trends.vendors || 0}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
         <StatCard
           title="Active Listings"
           icon={Tag}
-          statValue={null}
-          trend={-2}
+          statValue={stats?.activeListings ?? null}
+          trend={stats?.trends.listings || 0}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
         <StatCard
           title="Inquiries"
           icon={Mail}
-          statValue={null}
-          trend={12}
+          statValue={stats?.inquiries ?? null}
+          trend={stats?.trends.inquiries || 0}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
         <StatCard
           title="Revenue"
-          icon={CreditCard}
-          statValue={null}
-          trend={-5}
+          icon={Banknote}
+          statValue={stats?.revenue ?? null}
+          trend={stats?.trends.revenue || 0}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
       </div>
 
-      {/* --- Row 2: Status Cards (Pending, Flagged, Payment) --- */}
+      {/* --- Row 2: Status Cards --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* 1. Pending Listings */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm flex flex-col h-auto min-h-[250px]">
           <h3 className="text-sm font-medium text-gray-500 mb-4">
             Pending Listings
           </h3>
-
-          {pendingListingsData.length > 0 ? (
-            // DATA STATE
+          {pendingListings.length > 0 ? (
             <div className="space-y-4">
-              {pendingListingsData.map((item) => (
-                <div key={item.id} className="flex gap-3 items-start group">
+              {pendingListings.map((item) => (
+                <div key={item.id} className="flex gap-3 items-start">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0 ${item.color}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-medium ${item.color}`}
                   >
                     {item.initials}
                   </div>
@@ -333,30 +506,11 @@ export default function Dashboard() {
                       {item.time}
                     </span>
                   </div>
-                  {/* FUNCTIONAL ELLIPSIS */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-100  transition-opacity -mt-1"
-                      >
-                        <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Review</DropdownMenuItem>
-                      <DropdownMenuItem>Approve</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
-                        Reject
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </div>
               ))}
             </div>
           ) : (
-            // EMPTY STATE
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-12 h-12 bg-[#E9F5D6] rounded-full flex items-center justify-center mb-3 border border-[#E9F5D6]">
                 <AlertTriangle className="w-6 h-6 text-[#93C01F]" />
@@ -373,13 +527,11 @@ export default function Dashboard() {
           <h3 className="text-sm font-medium text-gray-500 mb-4">
             Flagged Content
           </h3>
-
-          {flaggedContentData.length > 0 ? (
-            // DATA STATE
+          {flaggedContent.length > 0 ? (
             <div className="space-y-4">
-              {flaggedContentData.map((item) => (
+              {flaggedContent.map((item) => (
                 <div key={item.id} className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-slate-500 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-500 flex items-center justify-center">
                     <Flag className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1">
@@ -395,7 +547,6 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            // EMPTY STATE
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-12 h-12 bg-[#F9F5E6] rounded-full flex items-center justify-center mb-3 border border-[#F9F5E6]">
                 <Flag className="w-6 h-6 text-[#93C01F]" />
@@ -412,13 +563,11 @@ export default function Dashboard() {
           <h3 className="text-sm font-medium text-gray-500 mb-4">
             Payment Issues
           </h3>
-
-          {paymentIssuesData.length > 0 ? (
-            // DATA STATE
+          {paymentIssues.length > 0 ? (
             <div className="space-y-4">
-              {paymentIssuesData.map((item) => (
+              {paymentIssues.map((item) => (
                 <div key={item.id} className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-[#93C01F] flex items-center justify-center text-xs text-white font-medium shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#93C01F] flex items-center justify-center text-xs text-white font-medium">
                     AM
                   </div>
                   <div className="flex-1">
@@ -431,7 +580,6 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            // EMPTY STATE
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="w-12 h-12 bg-[#E9F5D6] rounded-full flex items-center justify-center mb-3 border border-[#E9F5D6]">
                 <Banknote className="w-6 h-6 text-[#93C01F]" />
@@ -448,8 +596,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Activity */}
         <div className="h-full">
-          {recentActivityData.length > 0 ? (
-            <RecentActivityCard items={recentActivityData} />
+          {recentActivity.length > 0 ? (
+            <RecentActivityCard items={recentActivity} />
           ) : (
             <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm h-full min-h-[400px]">
               <div className="flex justify-between items-center mb-6">
@@ -475,10 +623,8 @@ export default function Dashboard() {
           <h3 className="text-base font-semibold text-gray-900 mb-6">
             Revenue Breakdown
           </h3>
-
-          {hasChartData ? (
+          {revenuePieData.length > 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px]">
-              {/* RECHARTS PIE CHART */}
               <div className="h-[200px] w-full flex justify-center relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -499,14 +645,13 @@ export default function Dashboard() {
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Center Text */}
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
                   <p className="text-xs text-gray-500">Total Revenue</p>
-                  <h4 className="text-2xl font-bold text-gray-900">138</h4>
+                  <h4 className="text-2xl font-bold text-gray-900">
+                    {stats?.revenue || 0}
+                  </h4>
                 </div>
               </div>
-
-              {/* Legend */}
               <div className="flex gap-6 mt-4">
                 {revenuePieData.map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
@@ -520,7 +665,6 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            // Empty State
             <div className="flex flex-col items-center justify-center h-[300px]">
               <div className="w-12 h-12 bg-white border border-gray-100 shadow-none rounded-full flex items-center justify-center mb-4">
                 <BarChart3 className="w-5 h-5 text-[#93C01F]" />
@@ -533,9 +677,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* --- Row 4: Charts with Real Dropdowns --- */}
+      {/* --- Row 4: Charts --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Vendor Growth (LINE/AREA CHART) */}
+        {/* Vendor Growth */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-semibold text-gray-900">
@@ -570,9 +714,8 @@ export default function Dashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
           <div className="h-64 w-full">
-            {hasChartData ? (
+            {vendorGrowthData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={vendorGrowthData}
@@ -611,17 +754,12 @@ export default function Dashboard() {
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorValue)"
+                    animationDuration={800}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center border-t border-dashed relative">
-                <div className="absolute inset-0 flex flex-col justify-between text-xs text-gray-300">
-                  {/* Fake Grid lines for empty state */}
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="w-full h-px bg-gray-100" />
-                  ))}
-                </div>
                 <span className="text-xs text-gray-500 bg-white px-2 z-10">
                   No data showing
                 </span>
@@ -630,7 +768,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Chart 2: Listings Creation (BAR CHART) */}
+        {/* Listings Creation */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-semibold text-gray-900">
@@ -665,9 +803,8 @@ export default function Dashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
           <div className="h-64 w-full">
-            {hasChartData ? (
+            {listingCreationData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={listingCreationData}
@@ -700,38 +837,24 @@ export default function Dashboard() {
                     stackId="a"
                     fill="#5D5FEF"
                     radius={[0, 0, 4, 4]}
+                    animationDuration={800}
                   />
                   <Bar
                     dataKey="event"
                     stackId="a"
                     fill="#4FD1C5"
                     radius={[4, 4, 0, 0]}
+                    animationDuration={800}
                   />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center border-t border-dashed relative">
-                <div className="absolute inset-0 flex flex-col justify-between text-xs text-gray-300">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="w-full h-px bg-gray-100" />
-                  ))}
-                </div>
                 <span className="text-xs text-gray-500 bg-white px-2 z-10">
                   No data showing
                 </span>
               </div>
             )}
-          </div>
-
-          <div className="flex gap-4 mt-4 pl-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-2 bg-[#5D5FEF] rounded-sm"></div>
-              <span className="text-xs text-gray-600">Business</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-2 bg-[#4FD1C5] rounded-sm"></div>
-              <span className="text-xs text-gray-600">Event</span>
-            </div>
           </div>
         </div>
       </div>
@@ -742,15 +865,13 @@ export default function Dashboard() {
           <h2 className="text-base font-semibold text-gray-900">Listings</h2>
           <Button
             variant="link"
-            onClick={() => router.push("/dashboard/listings")}
+            onClick={() => router.push("/dashboard/admin/listings")}
             className="text-[#93C01F] cursor-pointer hover:no-underline text-xs"
           >
             View All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-
-        {listingsData.length > 0 ? (
-          // DATA STATE (Shadcn Table)
+        {listings.length > 0 ? (
           <div className="rounded-lg border overflow-hidden">
             <Table>
               <TableHeader className="bg-gray-50">
@@ -763,18 +884,20 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {listingsData.map((listing) => (
+                {listings.slice(0, 5).map((listing) => (
                   <TableRow key={listing.id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 relative rounded-full overflow-hidden bg-gray-100">
-                          {/* Fallback image logic handled by Next/Image usually, simplified here */}
-                          <Image
-                            src={listing.image}
-                            alt={listing.name}
-                            fill
-                            className="object-cover"
-                          />
+                          <Avatar>
+                            <AvatarImage
+                              src={listing.image}
+                              className="object-cover"
+                            />
+                            <AvatarFallback>
+                              {listing.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
                         </div>
                         <span className="font-medium text-sm text-gray-900">
                           {listing.name}
@@ -809,7 +932,7 @@ export default function Dashboard() {
                         </span>
                         <span className="flex items-center gap-1 text-gray-900 font-medium">
                           <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />{" "}
-                          {listing.rating > 0 ? listing.rating : "N/A"}
+                          {listing.rating}
                         </span>
                       </div>
                     </TableCell>
@@ -819,7 +942,6 @@ export default function Dashboard() {
             </Table>
           </div>
         ) : (
-          // EMPTY STATE
           <div className="flex flex-col items-center justify-center py-10">
             <div className="w-12 h-12 bg-white border border-gray-100 shadow-none rounded-full flex items-center justify-center mb-4">
               <Tag className="w-5 h-5 text-[#93C01F]" />
