@@ -5,6 +5,8 @@ import "./globals.css";
 // import Footer from "@/components/ui/footer";
 import LayoutWrapper from "@/components/layout-wrapper";
 import { AuthProvider } from "@/context/auth-context";
+import { Toaster } from "@/components/ui/sonner";
+import { BookmarkProvider } from "@/context/bookmark-context";
 
 const gilroy = localFont({
   src: [
@@ -99,7 +101,10 @@ export default function RootLayout({
       <body className={`${gilroy.variable} antialiased`}>
         {/* <Navbar /> */}
         <AuthProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
+          <BookmarkProvider>
+            <LayoutWrapper>{children}</LayoutWrapper>
+            <Toaster />
+          </BookmarkProvider>
         </AuthProvider>
         {/* <Footer /> */}
       </body>
