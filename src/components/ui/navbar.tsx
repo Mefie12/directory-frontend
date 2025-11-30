@@ -614,7 +614,7 @@ export default function Navbar() {
                 About Us
               </Link>
               <Link
-                href="/become-vendor"
+                href="/become-a-vendor"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full text-center px-4 py-3 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors mt-10"
               >

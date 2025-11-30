@@ -17,7 +17,7 @@ export const heroSlides: HeroSlide[] = [
     image: "/images/backgroundImages/hero1.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: "",
+    link: "/become-a-vendor",
   },
   {
     id: 2,
@@ -27,7 +27,7 @@ export const heroSlides: HeroSlide[] = [
     image: "/images/backgroundImages/hero2.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: "",
+    link: "/discover",
   },
   {
     id: 3,
@@ -37,7 +37,7 @@ export const heroSlides: HeroSlide[] = [
     image: "/images/backgroundImages/hero3.jpg",
     cta: "Join as a vendor",
     cta2: "Explore listing",
-    link: "",
+    link: "/become-a-vendor",
   },
 ];
 
