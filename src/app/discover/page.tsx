@@ -37,7 +37,7 @@ export default async function Discover() {
         <div className="py-12 px-4 lg:px-16 bg-white">
           <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
             {/* Left: Image */}
-            <div className="relative w-full lg:w-1/2 h-[320px] lg:h-auto">
+            <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
               <Image
                 src="/images/backgroundImages/business/vendor.jpg"
                 alt="Vendor serving customer"

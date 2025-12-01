@@ -67,11 +67,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       url: "/dashboard/customer/bookmarks",
       iconUrl: "/images/icons/bookmark.svg",
     },
-    {
-      title: "Inquiries",
-      url: "/dashboard/customer/inquiries",
-      iconUrl: "/images/icons/chat.svg",
-    },
+    // {
+    //   title: "Inquiries",
+    //   url: "/dashboard/customer/inquiries",
+    //   iconUrl: "/images/icons/chat.svg",
+    // },
     {
       title: "My Events",
       url: "/dashboard/customer/my-events",

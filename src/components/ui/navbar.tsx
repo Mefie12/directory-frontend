@@ -51,7 +51,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, loading, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Define currentUser properly for dependency arrays
@@ -116,7 +116,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/notifications`, {
         method: "GET",
@@ -155,7 +155,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/mark-all-read`, {
         method: "POST",
@@ -177,7 +177,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: "PATCH",
@@ -201,18 +201,18 @@ export default function Navbar() {
     router.push("/dashboard/notifications");
   };
 
-  // Show loading state briefly
-  if (loading) {
-    return (
-      <header className="fixed top-0 left-0 right-0 z-50 bg-(--background-secondary) text-white font-gilroy">
-        <nav className="mx-auto px-4 py-2 sm:px-6 lg:px-16">
-          <div className="flex items-center justify-between h-16">
-            <div className="text-white">Loading...</div>
-          </div>
-        </nav>
-      </header>
-    );
-  }
+  // // Show loading state briefly
+  // if (loading) {
+  //   return (
+  //     <header className="fixed top-0 left-0 right-0 z-50 bg-(--background-secondary) text-white font-gilroy">
+  //       <nav className="mx-auto px-4 py-2 sm:px-6 lg:px-16">
+  //         <div className="flex items-center justify-between h-16">
+  //           <div className="text-white">Loading...</div>
+  //         </div>
+  //       </nav>
+  //     </header>
+  //   );
+  // }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-(--background-secondary) text-white font-gilroy">

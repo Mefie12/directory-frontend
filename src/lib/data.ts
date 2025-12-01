@@ -993,6 +993,7 @@ export const communityCategories: CommunityCategory[] = [
 // community card data
 export type CommunityCard = {
   id: string; // Always good to have an id
+  slug: string; // For routing to slug pages
   name: string; // From your boilerplate
   description: string;
   imageUrl: string; // Inferred from image
@@ -1005,6 +1006,7 @@ export const communityCards: CommunityCard[] = [
   // Mental Health Communities
   {
     id: "1",
+    slug: "mindcare-ghana",
     name: "MindCare Ghana",
     description: "Providing accessible mental health care and safe spaces for individuals and families in Ghana",
     imageUrl: "/images/backgroundImages/community/mental-health.jpg",
@@ -1015,6 +1017,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "2",
+    slug: "mental-health-society-of-ghana",
     name: "Mental Health Society of Ghana",
     description: "Promoting awareness, reducing stigma, and supporting people living with mental health conditions",
     imageUrl: "/images/backgroundImages/community/community-help.jpg",
@@ -1025,6 +1028,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "3",
+    slug: "basicneeds-ghana",
     name: "BasicNeeds Ghana",
     description: "Empowering people with mental illness and epilepsy to live healthier, productive lives through community-based support",
     imageUrl: "/images/backgroundImages/community/community-people.png",
@@ -1035,6 +1039,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "4",
+    slug: "healthy-minds-africa",
     name: "Healthy Minds Africa (HMA)",
     description: "Connecting Africans abroad with culturally sensitive mental health resources and peer support networks",
     imageUrl: "/images/backgroundImages/community/friendship.jpg",
@@ -1047,6 +1052,7 @@ export const communityCards: CommunityCard[] = [
   // Social Impact Communities
   {
     id: "5",
+    slug: "university-of-ghana-alumni-network",
     name: "University of Ghana Alumni Network",
     description: "Connecting graduates worldwide to foster mentorship, career growth, and lifelong friendships across generations",
     imageUrl: "/images/backgroundImages/community/students.jpg",
@@ -1057,6 +1063,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "6",
+    slug: "ghana-tech-professionals-association",
     name: "Ghana Tech Professionals Association",
     description: "A network for IT specialists, innovators, and entrepreneurs driving digital growth across Ghana and beyond",
     imageUrl: "/images/backgroundImages/community/tech-community.jpg",
@@ -1067,6 +1074,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "7",
+    slug: "youth-for-good-governance",
     name: "Youth for Good Governance",
     description: "Empowering young voices to engage in civic leadership, advocacy, and transparent governance initiatives",
     imageUrl: "/images/backgroundImages/community/community1.jpg",
@@ -1077,6 +1085,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "8",
+    slug: "ghana-cultural-exchange-circle",
     name: "Ghana Cultural Exchange Circle",
     description: "Bringing together people passionate about Ghanaian culture through food, music, storytelling, and traditions",
     imageUrl: "/images/backgroundImages/community/togetherness.jpg",
@@ -1089,6 +1098,7 @@ export const communityCards: CommunityCard[] = [
   // Additional Communities
   {
     id: "9",
+    slug: "accra-runners-club",
     name: "Accra Runners Club",
     description: "A community of fitness enthusiasts promoting healthy lifestyles through regular running events and marathons",
     imageUrl: "/images/backgroundImages/community/community2.jpg",
@@ -1099,6 +1109,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "10",
+    slug: "kumasi-hometown-heroes",
     name: "Kumasi Hometown Heroes",
     description: "Connecting Kumasi natives and residents to celebrate local heritage and drive community development projects",
     imageUrl: "/images/backgroundImages/community/community-3.jpg",
@@ -1109,6 +1120,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "11",
+    slug: "ghana-education-support-network",
     name: "Ghana Education Support Network",
     description: "Supporting underprivileged students with scholarships, mentorship, and educational resources across Ghana",
     imageUrl: "/images/backgroundImages/community/community-4.jpg",
@@ -1119,6 +1131,7 @@ export const communityCards: CommunityCard[] = [
   },
   {
     id: "12",
+    slug: "community-builders-ghana",
     name: "Community Builders Ghana",
     description: "Volunteers working together on local infrastructure, sanitation, and neighborhood improvement initiatives",
     imageUrl: "/images/backgroundImages/community/community-love.jpg",

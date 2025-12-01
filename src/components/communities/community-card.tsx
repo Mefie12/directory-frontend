@@ -21,7 +21,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
   };
   return (
     <Link
-      href={`/communities/${community.id}`}
+      href={`/communities/${community.slug}`}
       className="group block rounded-3xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full border border-[#E2E8F0]"
     >
       {/* Image container with relative positioning for overlays */}

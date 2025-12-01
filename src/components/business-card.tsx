@@ -33,7 +33,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
   };
   return (
     <Link
-      href={`/businesses/${business.slug}`}
+      href={`/discover/${business.slug}`}
       className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 border border-[#E2E8F0]"
     >
       {/* Image Container */}
