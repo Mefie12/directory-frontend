@@ -138,6 +138,16 @@ export default function MyListing() {
               </span>{" "}
               Event Listing
             </DropdownMenuItem>
+             <DropdownMenuItem
+              onClick={() =>
+                router.push("/dashboard/vendor/my-listing/create?type=community")
+              }
+            >
+              <span className="border bg-[#93C01F]/30 rounded-full px-2">
+                3
+              </span>{" "}
+              Community Listing
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -39,9 +39,10 @@ export default function ListingContent() {
 
   const searchParams = useSearchParams()
 
-  useEffect(() => {
+ useEffect(() => {
     const type = searchParams.get('type')
-    if (type === 'business' || type === 'event') {
+    // Added 'community' to the allowed types check
+    if (type === 'business' || type === 'event' || type === 'community') {
       setListingType(type)
     }
   }, [searchParams, listingType, setListingType]);

@@ -2,7 +2,7 @@ import { useListing } from "@/context/listing-form-context";
 import { FileUploader } from "@/components/dashboard/listing/media-uploader";
 
 type MediaUploadStepProps = {
-  listingType: "business" | "event";
+  listingType: "business" | "event" | "community";
 };
 
 
@@ -20,7 +20,7 @@ export function MediaUploadStep({ listingType }: MediaUploadStepProps) {
 
       <div className="space-y-6">
         <FileUploader
-          label={listingType === "business" ? "Business Images" : "Event Images"}
+          label={listingType === "business" ? "Business Images" : listingType === "event" ? "Event Images" : "Community Images"}
           multiple
           files={media.images}
           onChange={(files) => setMedia({ ...media, images: files })}
