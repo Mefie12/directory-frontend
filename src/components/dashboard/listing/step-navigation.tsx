@@ -10,7 +10,7 @@ interface Step {
 interface StepNavigationProps {
   currentStep: number;
   onStepClick: (step: number) => void;
-  listingType: "business" | "event";
+  listingType: "business" | "event" | "community";
 }
 
 const steps: Step[] = [

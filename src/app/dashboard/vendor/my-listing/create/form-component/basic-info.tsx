@@ -20,11 +20,32 @@ export const businessFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
 });
 
+const basicInfoConfig = {
+  business: {
+    nameLabel: "Business Name",
+    namePlaceholder: "Enter business name",
+    descriptionLabel: "Business Description",
+    descriptionPlaceholder: "Short description about your business",
+  },
+  event: {
+    nameLabel: "Event Name",
+    namePlaceholder: "Enter event name",
+    descriptionLabel: "Event Description",
+    descriptionPlaceholder: "Short description about your event",
+  },
+  community: {
+    nameLabel: "Community Name",
+    namePlaceholder: "Enter community name",
+    descriptionLabel: "Community Description",
+    descriptionPlaceholder: "Short description about your community",
+  },
+};
+
 export type BusinessFormValues = z.infer<typeof businessFormSchema>;
 
 type Props = {
   form: ReturnType<typeof useForm<BusinessFormValues>>;
-  listingType: "business" | "event";
+  listingType: "business" | "event" | "community";
 };
 
 export function BasicInformationForm({ form, listingType }: Props) {
@@ -34,19 +55,21 @@ export function BasicInformationForm({ form, listingType }: Props) {
     formState: { errors },
   } = form;
 
-  // Dynamic labels and placeholders based on listing type
-  const nameLabel = listingType === "business" ? "Business Name" : "Event Name";
-  const descriptionLabel = listingType === "business" ? "Business Description" : "Event Description";
-  const namePlaceholder = listingType === "business" ? "Enter business name" : "Enter event name";
-  const descriptionPlaceholder = listingType === "business" ? "Short description about your business" : "Short description about your event";
+  const text = basicInfoConfig[listingType];
+  const {
+    nameLabel,
+    namePlaceholder,
+    descriptionLabel,
+    descriptionPlaceholder,
+  } = text;
 
   return (
     <div className="w-full max-w-5xl space-y-6 mx-auto p-6">
       <div>
         <h2 className="text-2xl font-semibold">Basic Information</h2>
         <p className="text-sm text-gray-500 mt-1">
-          {listingType === "business" 
-            ? "Tell us about your business" 
+          {listingType === "business"
+            ? "Tell us about your business"
             : "Tell us about your event"}
         </p>
       </div>
@@ -89,7 +112,9 @@ export function BasicInformationForm({ form, listingType }: Props) {
                 <>
                   <SelectItem value="food">Food & Dining</SelectItem>
                   <SelectItem value="retail">Retail</SelectItem>
-                  <SelectItem value="services">Professional Services</SelectItem>
+                  <SelectItem value="services">
+                    Professional Services
+                  </SelectItem>
                   <SelectItem value="health">Health & Wellness</SelectItem>
                   <SelectItem value="entertainment">Entertainment</SelectItem>
                 </>
@@ -98,7 +123,9 @@ export function BasicInformationForm({ form, listingType }: Props) {
                   <SelectItem value="music">Music & Concerts</SelectItem>
                   <SelectItem value="sports">Sports</SelectItem>
                   <SelectItem value="arts">Arts & Culture</SelectItem>
-                  <SelectItem value="business">Business & Networking</SelectItem>
+                  <SelectItem value="business">
+                    Business & Networking
+                  </SelectItem>
                   <SelectItem value="community">Community</SelectItem>
                 </>
               )}

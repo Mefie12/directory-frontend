@@ -21,6 +21,30 @@ export const DetailsFormSchema = z.object({
   tags: z.string().min(1, "At least one tag is required"),
 });
 
+const formTextConfig = {
+  business: {
+    addressLabel: "Business Address",
+    addressPlaceholder: "Enter business address",
+    emailLabel: "Business Email",
+    phoneLabel: "Business Phone",
+    subtitle: "Provide the business details below",
+  },
+  event: {
+    addressLabel: "Event Venue Address",
+    addressPlaceholder: "Enter event venue address",
+    emailLabel: "Event Contact Email",
+    phoneLabel: "Event Contact Phone",
+    subtitle: "Provide the event details below",
+  },
+  community: {
+    addressLabel: "Community Address",
+    addressPlaceholder: "Enter community address",
+    emailLabel: "Community Contact Email",
+    phoneLabel: "Community Contact Phone",
+    subtitle: "Provide the community details below",
+  },
+};
+
 /* ---------------------------------------------------
    TYPES
 --------------------------------------------------- */
@@ -28,7 +52,7 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 
 type Props = {
   form: ReturnType<typeof useForm<DetailsFormValues>>;
-  listingType: "business" | "event";
+  listingType: "business" | "event" | "community";
 };
 
 /* ---------------------------------------------------
@@ -42,21 +66,9 @@ export function BusinessDetailsForm({ form, listingType }: Props) {
 
   const { businessDetails, setBusinessDetails } = useListing();
 
-  // Dynamic labels and placeholders based on listing type
-  const addressLabel =
-    listingType === "business" ? "Business Address" : "Event Venue Address";
-  const addressPlaceholder =
-    listingType === "business"
-      ? "Enter business address"
-      : "Enter event venue address";
-  const emailLabel =
-    listingType === "business" ? "Business Email" : "Event Contact Email";
-  const phoneLabel =
-    listingType === "business" ? "Business Phone" : "Event Contact Phone";
-  const subtitle =
-    listingType === "business"
-      ? "Provide the business details below"
-      : "Provide the event details below";
+  const text = formTextConfig[listingType];
+  const { addressLabel, addressPlaceholder, emailLabel, phoneLabel, subtitle } =
+    text;
 
   return (
     <div className="w-full max-w-5xl space-y-6 mx-auto p-6">
@@ -152,7 +164,11 @@ export function BusinessDetailsForm({ form, listingType }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BusinessHoursSelector
           label={
-            listingType === "business" ? "Business Hours" : "Event Date & Time"
+            listingType === "business"
+              ? "Business Hours"
+              : listingType === "event"
+              ? "Event Date & Time"
+              : "Community Meeting Hours"
           }
           value={businessDetails.businessHours}
           onChange={(hours) =>

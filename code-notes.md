@@ -1,9 +1,11 @@
 # API Integration Guide - Complete Reference
 
 ## Overview
+
 This project uses Next.js App Router with API routes that act as a proxy to your backend API. The API utility file (`/src/lib/api.ts`) provides a comprehensive set of functions for all backend operations.
 
 ### Benefits
+
 - **Security**: Backend API URL and keys are kept server-side
 - **Caching**: Built-in caching with Next.js revalidation
 - **SSR Support**: Server-side rendering for better SEO
@@ -77,12 +79,14 @@ src/app/api/
 All endpoints support the following query parameters:
 
 **Common Parameters:**
+
 - `q` - Search query string
 - `country` - Filter by country
 - `page` - Page number (default: 1)
 - `limit` - Items per page (default: 20)
 
 **Endpoint-Specific:**
+
 - `price` - Price range filter (businesses, listings)
 - `date` - Date filter (events, listings)
 
@@ -123,7 +127,7 @@ import { fetchBusinesses, type Business } from "@/lib/api";
 
 export default function BusinessList() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  
+
   useEffect(() => {
     fetchBusinesses({ q: "restaurant" })
       .then((data) => setBusinesses(data.data))
@@ -189,7 +193,7 @@ In `/src/app/api/*/route.ts`, add authentication headers:
 const response = await fetch(`${API_BASE_URL}/endpoint`, {
   headers: {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${process.env.API_KEY}`,
+    Authorization: `Bearer ${process.env.API_KEY}`,
   },
 });
 ```
@@ -199,7 +203,9 @@ const response = await fetch(`${API_BASE_URL}/endpoint`, {
 Modify the `revalidate` value in route handlers:
 
 ```typescript
-next: { revalidate: 300 } // Cache for 5 minutes
+next: {
+  revalidate: 300;
+} // Cache for 5 minutes
 ```
 
 Or use `cache: "no-store"` for always-fresh data.
@@ -230,9 +236,6 @@ curl http://localhost:3000/api/events?date=2024-12-25
 curl http://localhost:3000/api/communities?q=tech
 ```
 
-
-
-
 # Implementation Summary
 
 ## ✅ Completed Tasks
@@ -242,6 +245,7 @@ curl http://localhost:3000/api/communities?q=tech
 **File:** `/src/components/discover/business-card-carousel.tsx`
 
 **Changes:**
+
 - ✅ Carousel buttons hidden on mobile (`hidden md:flex`)
 - ✅ Mobile swipe/scroll enabled with `overflow-x-auto` and `snap-x snap-mandatory`
 - ✅ Smooth snap scrolling on mobile
@@ -251,11 +255,13 @@ curl http://localhost:3000/api/communities?q=tech
 - ✅ Maintains existing UI design
 
 **Mobile Behavior:**
+
 - Users can swipe/slide through businesses
 - Snap-to-card scrolling for better UX
 - No visible carousel buttons
 
 **Desktop Behavior:**
+
 - Grid layout (4 columns)
 - Carousel navigation buttons visible
 - Click to navigate
@@ -267,6 +273,7 @@ curl http://localhost:3000/api/communities?q=tech
 **File:** `/src/components/search-dropdown.tsx`
 
 **Features:**
+
 - ✅ Real-time search with 300ms debounce
 - ✅ Dropdown shows search results as user types
 - ✅ "No results found" message when no matches
@@ -277,6 +284,7 @@ curl http://localhost:3000/api/communities?q=tech
 - ✅ Links to individual listing pages
 
 **Integration:**
+
 - Integrated into `SearchHeader` component
 - Replaces plain input field
 - Works with all contexts (discover, businesses, events, communities)
@@ -286,6 +294,7 @@ curl http://localhost:3000/api/communities?q=tech
 ### 3. **API Integration with Server-Side Rendering**
 
 #### **API Routes Created:**
+
 - `/src/app/api/listings/route.ts` - All listings
 - `/src/app/api/businesses/route.ts` - Businesses only
 - `/src/app/api/events/route.ts` - Events only
@@ -294,28 +303,33 @@ curl http://localhost:3000/api/communities?q=tech
 #### **Pages Updated to Use API:**
 
 **1. Home Page (`/src/app/page.tsx`)**
+
 - ✅ Converted to async server component
 - ✅ Fetches featured businesses and upcoming events
 - ✅ Passes data to client component (`HomeContent`)
 - ✅ Uses `Promise.all` for parallel fetching
 
 **2. Discover Page (`/src/app/discover/page.tsx`)**
+
 - ✅ Fetches all listings from API
 - ✅ Respects search params (q, country, date, price)
 - ✅ Server-side rendering with SSR
 - ✅ Displays results in `BusinessCardCarousel`
 
 **3. Businesses Page (`/src/app/businesses/page.tsx`)**
+
 - ✅ Fetches businesses from API
 - ✅ Filters: search, country, price
 - ✅ SSR enabled
 
 **4. Events Page (`/src/app/events/page.tsx`)**
+
 - ✅ Fetches events from API
 - ✅ Filters: search, country, date
 - ✅ SSR enabled
 
 **5. Communities Page (`/src/app/communities/page.tsx`)**
+
 - ✅ Fetches communities from API
 - ✅ Filters: search, country
 - ✅ SSR enabled
@@ -397,16 +411,19 @@ User Selects Filter → Update URL Params
 ### **When You Receive the Backend API:**
 
 1. **Update Environment Variable:**
+
    ```bash
    # In .env.local
    NEXT_PUBLIC_API_URL=https://your-backend-api.com
    ```
 
 2. **Verify API Response Format:**
+
    - Check if response matches the expected format in `/src/lib/api.ts`
    - Update TypeScript interfaces if needed
 
 3. **Test Endpoints:**
+
    ```bash
    # Test in browser or Postman
    http://localhost:3000/api/listings
@@ -425,18 +442,21 @@ User Selects Filter → Update URL Params
 ## 🎨 UI/UX Features
 
 ### **Mobile Experience:**
+
 - ✅ Swipe to navigate carousels
 - ✅ Snap scrolling for smooth UX
 - ✅ No carousel buttons (cleaner interface)
 - ✅ Touch-friendly search dropdown
 
 ### **Desktop Experience:**
+
 - ✅ Grid layouts for better content display
 - ✅ Carousel navigation buttons
 - ✅ Hover effects on cards
 - ✅ Larger search dropdown
 
 ### **Search Experience:**
+
 - ✅ Instant feedback while typing
 - ✅ Visual loading indicators
 - ✅ Clear "no results" messaging
@@ -447,14 +467,17 @@ User Selects Filter → Update URL Params
 ## 🔧 Configuration
 
 ### **Caching Strategy:**
+
 - API routes cache for 60 seconds (`revalidate: 60`)
 - Browser cache: `s-maxage=60, stale-while-revalidate=120`
 - Can be adjusted in `/src/app/api/*/route.ts`
 
 ### **Search Debounce:**
+
 - 300ms delay (configurable in `search-dropdown.tsx`)
 
 ### **Items Per Page:**
+
 - Home: 8 businesses, 6 events
 - Other pages: 12 items (configurable via `limit` param)
 
@@ -463,11 +486,13 @@ User Selects Filter → Update URL Params
 ## 📝 Next Steps
 
 1. **When API is ready:**
+
    - Update `NEXT_PUBLIC_API_URL` in `.env.local`
    - Verify response format matches TypeScript interfaces
    - Add authentication headers if needed
 
 2. **Optional Enhancements:**
+
    - Add pagination controls
    - Implement infinite scroll
    - Add loading skeletons
@@ -484,20 +509,24 @@ User Selects Filter → Update URL Params
 ## 🐛 Troubleshooting
 
 **Search dropdown not showing:**
+
 - Check browser console for API errors
 - Verify API endpoint is accessible
 - Check network tab for failed requests
 
 **Carousel not scrolling on mobile:**
+
 - Ensure `overflow-x-auto` class is present
 - Check if `scrollbar-hide` utility is defined in Tailwind
 
 **API not fetching:**
+
 - Verify `NEXT_PUBLIC_API_URL` is set
 - Check API route logs in terminal
 - Ensure backend API is running
 
 **SSR not working:**
+
 - Check if page component is async
 - Verify no client-side hooks in server components
 - Look for "use client" directive placement
@@ -513,10 +542,6 @@ All three requirements have been fully implemented:
 3. ✅ **API integration** - All pages fetch from API, SSR enabled, search uses API
 
 The application is now ready to connect to your backend API. Simply update the environment variable and everything will work seamlessly!
-
-
-
-
 
 # Businesses Page Structure
 
@@ -557,6 +582,7 @@ page.tsx (Server Component)
 ## File Structure
 
 ### 1. `/src/app/businesses/page.tsx` (Server Component)
+
 - Fetches data from `data.ts`
 - Renders NavigationTab
 - Passes data to BusinessesContent
@@ -565,7 +591,7 @@ page.tsx (Server Component)
 export default async function Businesses() {
   const categories = businessCategories;
   const businesses = featuredBusinesses;
-  
+
   return (
     <div className="overflow-x-hidden pt-20 bg-white min-h-screen">
       <div className="w-full">
@@ -578,6 +604,7 @@ export default async function Businesses() {
 ```
 
 ### 2. `/src/app/businesses/businesses-content.tsx` (Client Component)
+
 - Manages filtering state
 - Renders category tabs, search bar, and filtered content
 - Handles category selection and filtering logic
@@ -586,19 +613,19 @@ export default async function Businesses() {
 export default function BusinessesContent({ categories, businesses }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const filteredBusinesses = useMemo(() => { /* filtering logic */ }, []);
-  
+
   return (
     <>
       {/* Category Tabs Section */}
       <div className="bg-white border-b border-gray-200">
         <ScrollableCategoryTabs ... />
       </div>
-      
+
       {/* Search Bar Section */}
       <div className="bg-white border-b border-gray-200">
         <SearchHeader context="businesses" />
       </div>
-      
+
       {/* Content Section */}
       <div className="bg-gray-50 min-h-screen">
         <BusinessBestCarousel businesses={filteredBusinesses} />
@@ -611,33 +638,39 @@ export default function BusinessesContent({ categories, businesses }) {
 ## Styling Details
 
 ### Section Backgrounds
+
 - **Navigation Tabs**: White background (from NavigationTab component)
 - **Category Tabs**: White background with bottom border
 - **Search Bar**: White background with bottom border
 - **Content Area**: Gray-50 background (`bg-gray-50`)
 
 ### Spacing
+
 - **Category Tabs Container**: `pt-4 pb-4` (padding top/bottom)
 - **Horizontal Padding**: `px-6 lg:px-16` (responsive)
 - **Page Top Padding**: `pt-20` (accounts for fixed header)
 
 ### Borders
+
 - Bottom borders use `border-gray-200` for subtle separation
 - Category tabs have `border-b` for visual separation
 
 ## Key Features
 
 ### 1. Category Filtering
+
 - Clicking a category tab filters businesses in real-time
 - "All businesses" shows all items
 - Empty state when no businesses match
 
 ### 2. Dynamic Title
+
 - Changes based on selected category
 - "Today's best deals just for you!" for "All businesses"
 - "{Category Name} Businesses" for specific categories
 
 ### 3. Responsive Design
+
 - Horizontal scrolling on mobile for category tabs
 - Responsive padding (px-6 on mobile, px-16 on desktop)
 - Text sizes adjust (text-sm on mobile, text-base on desktop)
@@ -647,23 +680,25 @@ export default function BusinessesContent({ categories, businesses }) {
 To add more sections below the carousel, add them inside the content area:
 
 ```tsx
-{/* Business Content */}
+{
+  /* Business Content */
+}
 <div className="bg-gray-50 min-h-screen">
   {/* First Section: Best Deals */}
   <BusinessBestCarousel businesses={filteredBusinesses} />
-  
+
   {/* Second Section: Featured Businesses */}
   <div className="py-8 px-4 lg:px-16">
     <h2 className="text-2xl font-semibold mb-6">Featured Businesses</h2>
     {/* Your content here */}
   </div>
-  
+
   {/* Third Section: New Arrivals */}
   <div className="py-8 px-4 lg:px-16">
     <h2 className="text-2xl font-semibold mb-6">New Arrivals</h2>
     {/* Your content here */}
   </div>
-</div>
+</div>;
 ```
 
 ## Category Tab Customization
@@ -675,10 +710,10 @@ The ScrollableCategoryTabs component accepts these props for customization:
   categories={categories}
   defaultValue="all"
   onChange={(value) => setSelectedCategory(value)}
-  containerClassName="pt-4 pb-4"           // Container padding
-  tabClassName="font-bold"                  // All tabs
-  activeTabClassName="bg-blue-500"          // Active tab only
-  inactiveTabClassName="bg-gray-100"        // Inactive tabs only
+  containerClassName="pt-4 pb-4" // Container padding
+  tabClassName="font-bold" // All tabs
+  activeTabClassName="bg-blue-500" // Active tab only
+  inactiveTabClassName="bg-gray-100" // Inactive tabs only
 />
 ```
 
@@ -700,22 +735,21 @@ The ScrollableCategoryTabs component accepts these props for customization:
 ## Next Steps
 
 You can now build additional sections:
+
 1. Add more carousel sections (Featured, New, Popular)
 2. Add grid views for different layouts
 3. Add pagination for large datasets
 4. Add sorting options (price, rating, date)
 5. Add more filter options (location, rating, verified)
 
-
-
-
-
 # Scrollable Category Tabs - Usage Guide
 
 ## Overview
+
 The `ScrollableCategoryTabs` component is a reusable, customizable horizontal scrolling tab component with hidden scrollbars. It's perfect for category filters, navigation, and any scenario requiring horizontal tab selection.
 
 ## Features
+
 - ✅ Hidden scrollbars (works across all browsers)
 - ✅ Smooth scroll to selected tab
 - ✅ Fully customizable styling
@@ -748,24 +782,24 @@ export default function MyPage() {
 
 ## Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `categories` | `CategoryTabItem[]` | **Required** | Array of category objects |
-| `defaultValue` | `string` | First category value | Initially selected category |
-| `className` | `string` | `undefined` | Custom class for outer wrapper |
-| `containerClassName` | `string` | `undefined` | Custom class for container div |
-| `tabClassName` | `string` | `undefined` | Custom class for all tabs |
-| `activeTabClassName` | `string` | `undefined` | Custom class for active tab |
-| `inactiveTabClassName` | `string` | `undefined` | Custom class for inactive tabs |
-| `onChange` | `(value: string) => void` | `undefined` | Callback when tab is selected |
+| Prop                   | Type                      | Default              | Description                    |
+| ---------------------- | ------------------------- | -------------------- | ------------------------------ |
+| `categories`           | `CategoryTabItem[]`       | **Required**         | Array of category objects      |
+| `defaultValue`         | `string`                  | First category value | Initially selected category    |
+| `className`            | `string`                  | `undefined`          | Custom class for outer wrapper |
+| `containerClassName`   | `string`                  | `undefined`          | Custom class for container div |
+| `tabClassName`         | `string`                  | `undefined`          | Custom class for all tabs      |
+| `activeTabClassName`   | `string`                  | `undefined`          | Custom class for active tab    |
+| `inactiveTabClassName` | `string`                  | `undefined`          | Custom class for inactive tabs |
+| `onChange`             | `(value: string) => void` | `undefined`          | Callback when tab is selected  |
 
 ## CategoryTabItem Type
 
 ```typescript
 type CategoryTabItem = {
-  label: string;    // Display text
-  value: string;    // Unique identifier
-  count?: number;   // Optional count (not currently displayed)
+  label: string; // Display text
+  value: string; // Unique identifier
+  count?: number; // Optional count (not currently displayed)
 };
 ```
 
@@ -782,10 +816,7 @@ const businessCategories = [
   { label: "Home & Garden", value: "home-garden" },
 ];
 
-<ScrollableCategoryTabs
-  categories={businessCategories}
-  defaultValue="all"
-/>
+<ScrollableCategoryTabs categories={businessCategories} defaultValue="all" />;
 ```
 
 ### Example 2: Blog Post Categories
@@ -803,7 +834,7 @@ const blogCategories = [
   categories={blogCategories}
   defaultValue="all"
   onChange={(value) => filterPosts(value)}
-/>
+/>;
 ```
 
 ### Example 3: Product Filters
@@ -817,10 +848,7 @@ const productFilters = [
   { label: "Featured", value: "featured" },
 ];
 
-<ScrollableCategoryTabs
-  categories={productFilters}
-  defaultValue="all"
-/>
+<ScrollableCategoryTabs categories={productFilters} defaultValue="all" />;
 ```
 
 ### Example 4: Custom Styling
@@ -842,13 +870,14 @@ const productFilters = [
 <ScrollableCategoryTabs
   categories={categories}
   defaultValue="all"
-  containerClassName="px-0"  // Remove default padding
+  containerClassName="px-0" // Remove default padding
 />
 ```
 
 ## Default Styling
 
 The component comes with sensible defaults:
+
 - **Active tab**: Green background (`#9ACC23`), white text
 - **Inactive tab**: White background, dark text, hover effect
 - **Container**: Responsive padding (px-6 on mobile, px-16 on desktop)
@@ -857,6 +886,7 @@ The component comes with sensible defaults:
 ## Browser Support
 
 The scrollbar hiding works on:
+
 - ✅ Chrome/Edge (Webkit)
 - ✅ Firefox (scrollbar-width)
 - ✅ Safari (Webkit)
@@ -865,6 +895,7 @@ The scrollbar hiding works on:
 ## Accessibility
 
 The component includes:
+
 - `role="listbox"` for the container
 - `role="option"` for each tab
 - `aria-selected` for active state
@@ -878,25 +909,22 @@ The component includes:
 - The scrollbar is completely hidden but scrolling still works
 - Touch-friendly on mobile devices
 
-
-
-
-
-
 # Category Filtering Implementation Guide
 
 ## Overview
+
 The scrollable category tabs now filter the entire business page dynamically based on the selected category.
 
 ## Architecture
 
 ### 1. Server Component (page.tsx)
+
 ```tsx
 // src/app/businesses/page.tsx
 export default async function Businesses() {
   const categories = businessCategories;
   const businesses = featuredBusinesses;
-  
+
   return (
     <div className="overflow-x-hidden pt-20 bg-gray-50">
       <div className="w-full">
@@ -912,6 +940,7 @@ export default async function Businesses() {
 ```
 
 ### 2. Client Component (businesses-content.tsx)
+
 ```tsx
 "use client";
 
@@ -942,17 +971,22 @@ export default function BusinessesContent({ categories, businesses }) {
 ## How It Works
 
 ### Step 1: User Clicks Category Tab
+
 When a user clicks on a category tab (e.g., "Dancers"), the `ScrollableCategoryTabs` component triggers the `onChange` callback.
 
 ### Step 2: State Update
+
 The `onChange` callback updates the `selectedCategory` state in `BusinessesContent`.
 
 ### Step 3: Filtering
+
 The `useMemo` hook recalculates `filteredBusinesses` based on the new `selectedCategory`:
+
 - If "all" is selected, all businesses are shown
 - Otherwise, businesses are filtered to match the selected category
 
 ### Step 4: Re-render
+
 The `BusinessBestCarousel` component re-renders with the filtered businesses.
 
 ## Category Mapping
@@ -961,11 +995,11 @@ The filtering uses a category mapping to handle different naming conventions:
 
 ```typescript
 const categoryMap: Record<string, string[]> = {
-  "clothing": ["clothing"],
-  "jewellery": ["jewelry", "jewellery"],
+  clothing: ["clothing"],
+  jewellery: ["jewelry", "jewellery"],
   "art-crafts": ["art-craft", "art-crafts"],
-  "caterer": ["food-hospitality", "caterer"],
-  "dancers": ["dancers"],
+  caterer: ["food-hospitality", "caterer"],
+  dancers: ["dancers"],
   "cultural-attire-stylist": ["cultural-attire-stylist"],
   "drummers-cultural-performers": ["drummers-cultural-performers"],
   "toys-games": ["toys-games"],
@@ -974,12 +1008,14 @@ const categoryMap: Record<string, string[]> = {
 ```
 
 This allows for flexible matching between:
+
 - Category tab values (e.g., "jewellery")
 - Business category values (e.g., "Jewelry")
 
 ## Categories & Sample Businesses
 
 ### Available Categories
+
 1. **All businesses** - Shows all businesses
 2. **Dancers** - African dance troupes and performers
 3. **Cultural Attire Stylist** - Traditional attire styling services
@@ -994,32 +1030,41 @@ This allows for flexible matching between:
 ### Sample Businesses by Category
 
 **Dancers:**
+
 - African Dance Troupe (id: 7)
 
 **Cultural Attire Stylist:**
+
 - Heritage Attire Styling (id: 8)
 
 **Drummers & Cultural Performers:**
+
 - Djembe Masters (id: 9)
 
 **Clothing:**
+
 - Kente Tailor — Bespoke Mens Wedding Attire (id: 1)
 
 **Jewellery:**
+
 - Beaded Heritage Necklace & Bracelets (id: 2)
 
 **Art & Crafts:**
+
 - Traditional African sculptures (id: 3)
 - Authentic African pottery (id: 4)
 
 **Caterer:**
+
 - Mama's African Catering (id: 10)
 - African Cuisine Restaurant (id: 5)
 
 **Toys & Games:**
+
 - African Toy Emporium (id: 11)
 
 **Books & Magazines:**
+
 - African Literature Hub (id: 12)
 
 ## Empty State
@@ -1027,15 +1072,17 @@ This allows for flexible matching between:
 When no businesses match the selected category, an empty state is displayed:
 
 ```tsx
-{filteredBusinesses.length > 0 ? (
-  <BusinessBestCarousel businesses={filteredBusinesses} />
-) : (
-  <div className="py-16 px-4 lg:px-16 text-center">
-    <p className="text-gray-500 text-lg">
-      No businesses found in this category.
-    </p>
-  </div>
-)}
+{
+  filteredBusinesses.length > 0 ? (
+    <BusinessBestCarousel businesses={filteredBusinesses} />
+  ) : (
+    <div className="py-16 px-4 lg:px-16 text-center">
+      <p className="text-gray-500 text-lg">
+        No businesses found in this category.
+      </p>
+    </div>
+  );
+}
 ```
 
 ## Dynamic Title
@@ -1051,6 +1098,7 @@ title={
 ```
 
 Examples:
+
 - **All businesses**: "Today's best deals just for you!"
 - **Dancers**: "Dancers Businesses"
 - **Caterer**: "Caterer Businesses"
@@ -1066,6 +1114,7 @@ const filteredBusinesses = useMemo(() => {
 ```
 
 This ensures filtering only happens when:
+
 - The `businesses` array changes
 - The `selectedCategory` changes
 
@@ -1111,62 +1160,65 @@ When using the API version, the filtering can happen server-side:
 // src/app/businesses/page.tsx
 export default async function Businesses({ searchParams }) {
   const category = searchParams.category || "all";
-  
+
   // Fetch filtered businesses from API
   const businesses = await fetchBusinesses({ category });
-  
+
   return <BusinessesContent businesses={businesses} />;
 }
 ```
 
 This approach:
+
 - ✅ Reduces client-side data transfer
 - ✅ Improves performance for large datasets
 - ✅ Enables server-side caching
 - ✅ Better SEO (unique URLs per category)
 
-
-
-
-
-
-
 # Dynamic Category Filtering Guide
 
 ## Overview
+
 The category filtering system is now **fully dynamic** and requires no hardcoded mappings. It works automatically with any category values you add to your data.
 
 ## How It Works
 
 ### 1. Normalization Function
+
 ```typescript
-const normalizeString = (str: string) => 
-  str.toLowerCase()
-    .replace(/\s+/g, "-")      // Replace spaces with hyphens
-    .replace(/&/g, "")          // Remove ampersands
-    .replace(/'/g, "");         // Remove apostrophes
+const normalizeString = (str: string) =>
+  str
+    .toLowerCase()
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/&/g, "") // Remove ampersands
+    .replace(/'/g, ""); // Remove apostrophes
 ```
 
 This ensures consistent comparison between:
+
 - Category tab values: `"Art & Crafts"` → `"art-crafts"`
 - Business categories: `"Art & Crafts"` → `"art-crafts"`
 
 ### 2. Flexible Matching
+
 ```typescript
 return (
-  businessCategory === selectedCat ||           // Exact match
-  businessCategory.includes(selectedCat) ||     // Business contains category
-  selectedCat.includes(businessCategory)        // Category contains business
+  businessCategory === selectedCat || // Exact match
+  businessCategory.includes(selectedCat) || // Business contains category
+  selectedCat.includes(businessCategory) // Category contains business
 );
 ```
 
 This allows matching even if the strings aren't identical:
+
 - `"clothing"` matches `"clothing"`
 - `"jewellery"` matches `"jewellery"` (even if spelled differently)
 - `"art-crafts"` matches `"art-crafts"`
 
 ## Adding New Categories
+
 ### Step 1: Add to Category Tabs (data.ts)
+
 ```typescript
 export const businessCategories: BusinessCategory[] = [
   { label: "All businesses", value: "all" },
@@ -1176,6 +1228,7 @@ export const businessCategories: BusinessCategory[] = [
 ```
 
 ### Step 2: Add Businesses with That Category
+
 ```typescript
 {
   id: "13",
@@ -1186,7 +1239,9 @@ export const businessCategories: BusinessCategory[] = [
 ```
 
 ### That's It!
+
 No need to update any filtering logic or mappings. The system will automatically:
+
 1. Normalize both values
 2. Match them flexibly
 3. Filter the results
@@ -1194,9 +1249,11 @@ No need to update any filtering logic or mappings. The system will automatically
 ## Best Practices
 
 ### 1. Consistent Naming
+
 Keep category names consistent between tabs and business data:
 
 ✅ **Good:**
+
 ```typescript
 // Category tab
 { label: "Cultural Attire Stylist", value: "cultural-attire-stylist" }
@@ -1206,6 +1263,7 @@ Keep category names consistent between tabs and business data:
 ```
 
 ❌ **Avoid:**
+
 ```typescript
 // Category tab
 { label: "Cultural Attire Stylist", value: "cultural-attire-stylist" }
@@ -1215,28 +1273,34 @@ Keep category names consistent between tabs and business data:
 ```
 
 ### 2. Use Descriptive Values
+
 Make category values descriptive and unique:
 
 ✅ **Good:**
+
 ```typescript
 { label: "Drummers & Cultural Performers", value: "drummers-cultural-performers" }
 ```
 
 ❌ **Avoid:**
+
 ```typescript
 { label: "Drummers & Cultural Performers", value: "performers" }  // Too generic
 ```
 
 ### 3. Handle Plurals Consistently
+
 Choose either singular or plural and stick with it:
 
 ✅ **Good:**
+
 ```typescript
 { label: "Dancers", value: "dancers" }
 { category: "Dancers" }
 ```
 
 ✅ **Also Good:**
+
 ```typescript
 { label: "Dancer", value: "dancer" }
 { category: "Dancer" }
@@ -1247,6 +1311,7 @@ Choose either singular or plural and stick with it:
 ### Example 1: Adding "Photographers" Category
 
 **Step 1:** Add to `businessCategories` in `data.ts`
+
 ```typescript
 export const businessCategories: BusinessCategory[] = [
   { label: "All businesses", value: "all" },
@@ -1256,6 +1321,7 @@ export const businessCategories: BusinessCategory[] = [
 ```
 
 **Step 2:** Add businesses with that category
+
 ```typescript
 {
   id: "13",
@@ -1302,6 +1368,7 @@ All normalize to: `"hair-beauty-salons"`
 ## Matching Logic Examples
 
 ### Exact Match
+
 ```
 Category: "Dancers"
 Business: "Dancers"
@@ -1309,6 +1376,7 @@ Normalized: "dancers" === "dancers" ✅
 ```
 
 ### Contains Match
+
 ```
 Category: "Cultural Attire Stylist"
 Business: "Cultural Attire Stylist Services"
@@ -1316,6 +1384,7 @@ Normalized: "cultural-attire-stylist-services".includes("cultural-attire-stylist
 ```
 
 ### Partial Match
+
 ```
 Category: "Art & Crafts"
 Business: "Art & Crafts"
@@ -1327,6 +1396,7 @@ Normalized: "art-crafts" === "art-crafts" ✅
 ### Issue: Category not filtering correctly
 
 **Check 1:** Verify category names match
+
 ```typescript
 // Category tab
 { label: "Jewellery", value: "jewellery" }
@@ -1336,6 +1406,7 @@ Normalized: "art-crafts" === "art-crafts" ✅
 ```
 
 **Check 2:** Check for typos
+
 ```typescript
 // Category tab
 { label: "Caterers", value: "caterers" }
@@ -1345,6 +1416,7 @@ Normalized: "art-crafts" === "art-crafts" ✅
 ```
 
 **Solution:** Use consistent spelling:
+
 ```typescript
 { label: "Caterers", value: "caterers" }
 { category: "Caterers" }  // Matches ✅
@@ -1365,6 +1437,7 @@ This happens when category names are too generic:
 ```
 
 **Solution:** Use specific category names:
+
 ```typescript
 { label: "Cultural Services", value: "cultural-services" }
 ```
@@ -1380,10 +1453,12 @@ const filteredBusinesses = useMemo(() => {
 ```
 
 This ensures filtering only runs when:
+
 - The `businesses` array changes
 - The `selectedCategory` changes
 
 For large datasets (1000+ businesses), consider:
+
 1. Server-side filtering via API
 2. Pagination
 3. Virtual scrolling
@@ -1391,6 +1466,7 @@ For large datasets (1000+ businesses), consider:
 ## Future Enhancements
 
 ### 1. Multi-Category Support
+
 Allow businesses to have multiple categories:
 
 ```typescript
@@ -1402,6 +1478,7 @@ Allow businesses to have multiple categories:
 ```
 
 ### 2. Tag-Based Filtering
+
 Add tags for more granular filtering:
 
 ```typescript
@@ -1414,6 +1491,7 @@ Add tags for more granular filtering:
 ```
 
 ### 3. Search Integration
+
 Combine category filtering with search:
 
 ```typescript
@@ -1430,21 +1508,20 @@ const filteredBusinesses = businesses.filter((business) => {
 ✅ **Flexible matching** - Handles variations in naming  
 ✅ **Easy to extend** - Just add categories and businesses  
 ✅ **Performant** - Uses `useMemo` for optimization  
-✅ **Maintainable** - Single source of truth in data.ts  
+✅ **Maintainable** - Single source of truth in data.ts
 
 The filtering system will automatically work with any categories you add to your data!
-
-
-
 
 # Multi-Section Filtering Guide
 
 ## Overview
+
 The businesses page supports **multiple sections** that are all filtered simultaneously by the category tabs. When a user selects a category, ALL sections on the page update to show only businesses from that category.
 
 ## How It Works
 
 ### Single Source of Truth
+
 All sections use the same `filteredBusinesses` array:
 
 ```tsx
@@ -1457,16 +1534,17 @@ const filteredBusinesses = useMemo(() => {
 ```
 
 ### Multiple Sections
+
 Each section receives the same filtered data:
 
 ```tsx
 <>
   {/* Section 1 */}
   <BusinessBestCarousel businesses={filteredBusinesses} />
-  
+
   {/* Section 2 */}
   <ClothingSectionCarousel businesses={filteredBusinesses} />
-  
+
   {/* Section 3 */}
   <BusinessSection businesses={filteredBusinesses} title="Featured" />
 </>
@@ -1478,7 +1556,7 @@ Each section receives the same filtered data:
 // src/app/businesses/businesses-content.tsx
 export default function BusinessesContent({ categories, businesses }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
-  
+
   const filteredBusinesses = useMemo(() => {
     // Filtering logic here
   }, [businesses, selectedCategory]);
@@ -1497,10 +1575,10 @@ export default function BusinessesContent({ categories, businesses }) {
           <>
             {/* Section 1: Best Deals */}
             <BusinessBestCarousel businesses={filteredBusinesses} />
-            
+
             {/* Section 2: Clothing */}
             <ClothingSectionCarousel businesses={filteredBusinesses} />
-            
+
             {/* Add more sections here */}
           </>
         ) : (
@@ -1526,34 +1604,29 @@ import BusinessSection from "@/components/business/business-section";
   businesses={filteredBusinesses}
   title="New Arrivals"
   showNavigation={true}
-/>
+/>;
 ```
 
 **Full Example:**
+
 ```tsx
 <div className="bg-gray-50 min-h-screen">
   {filteredBusinesses.length > 0 ? (
     <>
       {/* Section 1: Best Deals */}
       <BusinessBestCarousel businesses={filteredBusinesses} />
-      
+
       {/* Section 2: Clothing */}
-      <BusinessSection
-        businesses={filteredBusinesses}
-        title="Clothing"
-      />
-      
+      <BusinessSection businesses={filteredBusinesses} title="Clothing" />
+
       {/* Section 3: Featured */}
       <BusinessSection
         businesses={filteredBusinesses}
         title="Featured Businesses"
       />
-      
+
       {/* Section 4: New Arrivals */}
-      <BusinessSection
-        businesses={filteredBusinesses}
-        title="New Arrivals"
-      />
+      <BusinessSection businesses={filteredBusinesses} title="New Arrivals" />
     </>
   ) : (
     <EmptyState />
@@ -1566,6 +1639,7 @@ import BusinessSection from "@/components/business/business-section";
 For sections with unique layouts:
 
 **Step 1:** Create your component
+
 ```tsx
 // src/components/business/custom-section.tsx
 "use client";
@@ -1594,11 +1668,12 @@ export default function CustomSection({ businesses }: CustomSectionProps) {
 ```
 
 **Step 2:** Use it in businesses-content.tsx
+
 ```tsx
 import CustomSection from "@/components/business/custom-section";
 
 // Inside render
-<CustomSection businesses={filteredBusinesses} />
+<CustomSection businesses={filteredBusinesses} />;
 ```
 
 ## Dynamic Section Titles
@@ -1611,12 +1686,15 @@ Make section titles change based on the selected category:
   title={
     selectedCategory === "all"
       ? "All Clothing"
-      : `${categories.find((c) => c.value === selectedCategory)?.label} - Clothing`
+      : `${
+          categories.find((c) => c.value === selectedCategory)?.label
+        } - Clothing`
   }
 />
 ```
 
 **Examples:**
+
 - When "All" is selected: "All Clothing"
 - When "Dancers" is selected: "Dancers - Clothing"
 - When "Caterer" is selected: "Caterer - Clothing"
@@ -1626,21 +1704,23 @@ Make section titles change based on the selected category:
 Show sections only for specific categories:
 
 ```tsx
-{/* Only show clothing section when "all" or "clothing" is selected */}
-{(selectedCategory === "all" || selectedCategory === "clothing") && (
-  <BusinessSection
-    businesses={filteredBusinesses}
-    title="Clothing"
-  />
-)}
+{
+  /* Only show clothing section when "all" or "clothing" is selected */
+}
+{
+  (selectedCategory === "all" || selectedCategory === "clothing") && (
+    <BusinessSection businesses={filteredBusinesses} title="Clothing" />
+  );
+}
 
-{/* Only show dancers section when "all" or "dancers" is selected */}
-{(selectedCategory === "all" || selectedCategory === "dancers") && (
-  <BusinessSection
-    businesses={filteredBusinesses}
-    title="Dancers"
-  />
-)}
+{
+  /* Only show dancers section when "all" or "dancers" is selected */
+}
+{
+  (selectedCategory === "all" || selectedCategory === "dancers") && (
+    <BusinessSection businesses={filteredBusinesses} title="Dancers" />
+  );
+}
 ```
 
 ## Advanced: Sub-Filtering Within Sections
@@ -1672,7 +1752,7 @@ Filter businesses further within a specific section:
 ```tsx
 export default function BusinessesContent({ categories, businesses }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
-  
+
   const filteredBusinesses = useMemo(() => {
     // Main category filtering
   }, [businesses, selectedCategory]);
@@ -1751,6 +1831,7 @@ export default function BusinessesContent({ categories, businesses }) {
 ## Performance Considerations
 
 ### 1. Use useMemo for Sub-Filtering
+
 Always wrap sub-filtering in `useMemo` to avoid recalculating on every render:
 
 ```tsx
@@ -1761,15 +1842,19 @@ const verifiedBusinesses = useMemo(
 ```
 
 ### 2. Conditional Rendering
+
 Only render sections that have content:
 
 ```tsx
-{verifiedBusinesses.length > 0 && (
-  <BusinessSection businesses={verifiedBusinesses} title="Verified" />
-)}
+{
+  verifiedBusinesses.length > 0 && (
+    <BusinessSection businesses={verifiedBusinesses} title="Verified" />
+  );
+}
 ```
 
 ### 3. Component-Level Checks
+
 The `BusinessSection` component already includes a check:
 
 ```tsx
@@ -1779,21 +1864,25 @@ if (businesses.length === 0) return null;
 ## Empty State Handling
 
 ### Global Empty State
+
 When no businesses match the selected category:
 
 ```tsx
-{filteredBusinesses.length > 0 ? (
-  <AllSections />
-) : (
-  <div className="py-16 px-4 lg:px-16 text-center">
-    <p className="text-gray-500 text-lg">
-      No businesses found in this category.
-    </p>
-  </div>
-)}
+{
+  filteredBusinesses.length > 0 ? (
+    <AllSections />
+  ) : (
+    <div className="py-16 px-4 lg:px-16 text-center">
+      <p className="text-gray-500 text-lg">
+        No businesses found in this category.
+      </p>
+    </div>
+  );
+}
 ```
 
 ### Section-Level Empty State
+
 Sections automatically hide when they have no businesses:
 
 ```tsx
@@ -1819,14 +1908,13 @@ When adding new sections, verify:
 ## Common Patterns
 
 ### Pattern 1: Featured Section
+
 ```tsx
-<BusinessSection
-  businesses={filteredBusinesses.slice(0, 8)}
-  title="Featured"
-/>
+<BusinessSection businesses={filteredBusinesses.slice(0, 8)} title="Featured" />
 ```
 
 ### Pattern 2: Recently Added
+
 ```tsx
 <BusinessSection
   businesses={filteredBusinesses
@@ -1837,16 +1925,16 @@ When adding new sections, verify:
 ```
 
 ### Pattern 3: By Location
+
 ```tsx
 <BusinessSection
-  businesses={filteredBusinesses.filter((b) => 
-    b.location.includes("London")
-  )}
+  businesses={filteredBusinesses.filter((b) => b.location.includes("London"))}
   title="London Businesses"
 />
 ```
 
 ### Pattern 4: Premium/Verified
+
 ```tsx
 <BusinessSection
   businesses={filteredBusinesses.filter((b) => b.verified)}
@@ -1861,23 +1949,23 @@ When adding new sections, verify:
 ✅ **Reusable components** - Use `BusinessSection` for quick additions  
 ✅ **Sub-filtering** - Further filter within sections as needed  
 ✅ **Performance optimized** - Uses `useMemo` to prevent unnecessary recalculations  
-✅ **Empty state handling** - Sections hide when no data matches  
+✅ **Empty state handling** - Sections hide when no data matches
 
 The multi-section filtering system ensures a consistent, performant user experience across all sections of the businesses page!
-
-
-
 
 # Business Categories - Data & API Usage
 
 ## Overview
+
 Business categories can be fetched from two sources:
+
 1. **Static data** from `data.ts` (current implementation)
 2. **API endpoint** from `api.ts` (for dynamic data)
 
 ## Current Implementation (Static Data)
 
 ### In `data.ts`
+
 ```typescript
 export type BusinessCategory = {
   label: string;
@@ -1900,25 +1988,22 @@ export const businessCategories: BusinessCategory[] = [
 ```
 
 ### Usage in Pages (Static)
+
 ```tsx
 import { businessCategories } from "@/lib/data";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 
 export default async function Businesses() {
   const categories = businessCategories;
-  
-  return (
-    <ScrollableCategoryTabs
-      categories={categories}
-      defaultValue="all"
-    />
-  );
+
+  return <ScrollableCategoryTabs categories={categories} defaultValue="all" />;
 }
 ```
 
 ## Future Implementation (API)
 
 ### In `api.ts`
+
 ```typescript
 export interface BusinessCategory {
   label: string;
@@ -1940,6 +2025,7 @@ export async function fetchBusinessCategories(): Promise<BusinessCategory[]> {
 ```
 
 ### Usage in Pages (API)
+
 ```tsx
 import { fetchBusinessCategories } from "@/lib/api";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
@@ -1947,17 +2033,13 @@ import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 export default async function Businesses() {
   // Fetch categories from API
   const categories = await fetchBusinessCategories();
-  
-  return (
-    <ScrollableCategoryTabs
-      categories={categories}
-      defaultValue="all"
-    />
-  );
+
+  return <ScrollableCategoryTabs categories={categories} defaultValue="all" />;
 }
 ```
 
 ### With Error Handling
+
 ```tsx
 import { fetchBusinessCategories } from "@/lib/api";
 import { businessCategories } from "@/lib/data";
@@ -1965,7 +2047,7 @@ import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 
 export default async function Businesses() {
   let categories = businessCategories; // Fallback to static data
-  
+
   try {
     // Try to fetch from API
     categories = await fetchBusinessCategories();
@@ -1973,13 +2055,8 @@ export default async function Businesses() {
     console.error("Failed to fetch categories, using static data:", error);
     // Falls back to static data from data.ts
   }
-  
-  return (
-    <ScrollableCategoryTabs
-      categories={categories}
-      defaultValue="all"
-    />
-  );
+
+  return <ScrollableCategoryTabs categories={categories} defaultValue="all" />;
 }
 ```
 
@@ -1988,6 +2065,7 @@ export default async function Businesses() {
 When you create the API endpoint, it should return an array of categories:
 
 ### Expected API Response
+
 ```json
 [
   { "label": "All businesses", "value": "all" },
@@ -2005,6 +2083,7 @@ When you create the API endpoint, it should return an array of categories:
 ```
 
 ### Creating the API Route
+
 Create a new file: `src/app/api/categories/businesses/route.ts`
 
 ```typescript
@@ -2016,7 +2095,7 @@ export async function GET() {
     // For now, return static data
     // Later, replace with database query
     return NextResponse.json(businessCategories);
-    
+
     // Future: Fetch from database
     // const categories = await db.categories.findMany({
     //   where: { type: "business" },
@@ -2053,6 +2132,7 @@ export async function GET() {
 You can create similar structures for other entities:
 
 ### Event Categories
+
 ```typescript
 // In data.ts
 export const eventCategories: BusinessCategory[] = [
@@ -2071,6 +2151,7 @@ export async function fetchEventCategories(): Promise<BusinessCategory[]> {
 ```
 
 ### Community Categories
+
 ```typescript
 // In data.ts
 export const communityCategories: BusinessCategory[] = [
@@ -2088,24 +2169,27 @@ export async function fetchCommunityCategories(): Promise<BusinessCategory[]> {
 }
 ```
 
-
 # Custom Sections Guide - Business Page
 
 ## Overview
+
 After the "Explore more businesses" button and additional categories, there are three custom sections you need to implement yourself.
 
 ## Location
+
 Add your components in `/src/app/businesses/businesses-content.tsx` at **line 152** (marked with comments).
 
 ## Section 1: Grow Your Business with Mefie Banner
 
 ### Design Elements
+
 - Split layout: Image on left (40%), Content on right (60%)
 - Teal/turquoise background on the right side
 - White text
 - CTA button: "Join as a vendor" (lime green)
 
 ### Suggested Component Structure
+
 ```tsx
 // Create: src/components/business/grow-business-banner.tsx
 export default function GrowBusinessBanner() {
@@ -2126,9 +2210,9 @@ export default function GrowBusinessBanner() {
           Grow Your Business with Mefie
         </h2>
         <p className="text-lg mb-8 opacity-90">
-          Join a network of vendors and service providers reaching new audiences 
-          through Mefie. Showcase your products, connect with customers, and expand 
-          your business in a thriving digital marketplace.
+          Join a network of vendors and service providers reaching new audiences
+          through Mefie. Showcase your products, connect with customers, and
+          expand your business in a thriving digital marketplace.
         </p>
         <button className="bg-[#9ACC23] text-white px-8 py-3 rounded-full font-medium hover:bg-[#8BB91F] transition-colors w-fit">
           Join as a vendor
@@ -2140,6 +2224,7 @@ export default function GrowBusinessBanner() {
 ```
 
 ### How to Add
+
 ```tsx
 // In businesses-content.tsx at line 156
 <div className="py-12 px-4 lg:px-16">
@@ -2152,6 +2237,7 @@ export default function GrowBusinessBanner() {
 ## Section 2: Events Showcase
 
 ### Design Elements
+
 - Section title: "Events" (left aligned)
 - "Explore Events" link (right aligned)
 - 3 event cards in a row
@@ -2165,6 +2251,7 @@ export default function GrowBusinessBanner() {
   - Date icon + date range
 
 ### Suggested Component Structure
+
 ```tsx
 // Create: src/components/business/events-showcase.tsx
 export default function EventsShowcase() {
@@ -2173,7 +2260,8 @@ export default function EventsShowcase() {
       id: 1,
       name: "TGMA 2026",
       image: "/images/event1.jpg",
-      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e...",
+      description:
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e...",
       location: "Memphis",
       dateRange: "Nov 20 - Dec 3, 2025",
       verified: true,
@@ -2186,7 +2274,10 @@ export default function EventsShowcase() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-3xl font-bold">Events</h2>
-        <a href="/events" className="text-[#9ACC23] font-medium hover:underline">
+        <a
+          href="/events"
+          className="text-[#9ACC23] font-medium hover:underline"
+        >
           Explore Events
         </a>
       </div>
@@ -2194,7 +2285,10 @@ export default function EventsShowcase() {
       {/* Events Grid */}
       <div className="grid md:grid-cols-3 gap-6">
         {events.map((event) => (
-          <div key={event.id} className="bg-white rounded-xl overflow-hidden shadow-md">
+          <div
+            key={event.id}
+            className="bg-white rounded-xl overflow-hidden shadow-md"
+          >
             {/* Event Image */}
             <div className="relative h-48">
               <img
@@ -2208,8 +2302,16 @@ export default function EventsShowcase() {
                 </span>
                 {event.verified && (
                   <span className="bg-[#9ACC23] w-8 h-8 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-4 h-4 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </span>
                 )}
@@ -2220,17 +2322,33 @@ export default function EventsShowcase() {
             <div className="p-4">
               <h3 className="text-xl font-bold mb-2">{event.name}</h3>
               <p className="text-gray-600 text-sm mb-4">{event.description}</p>
-              
+
               <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <span>{event.location}</span>
               </div>
 
               <div className="flex items-center gap-2 text-sm text-gray-500">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <span>{event.dateRange}</span>
               </div>
@@ -2244,6 +2362,7 @@ export default function EventsShowcase() {
 ```
 
 ### How to Add
+
 ```tsx
 // In businesses-content.tsx at line 164
 <div className="py-12 px-4 lg:px-16">
@@ -2256,6 +2375,7 @@ export default function EventsShowcase() {
 ## Section 3: Ready to Grow Your Business CTA
 
 ### Design Elements
+
 - Dark blue/navy background with decorative circles
 - Centered white text
 - Large heading: "Ready to Grow Your Business?"
@@ -2263,6 +2383,7 @@ export default function EventsShowcase() {
 - CTA button: "List your Business Today" (lime green)
 
 ### Suggested Component Structure
+
 ```tsx
 // Create: src/components/business/ready-to-grow-cta.tsx
 export default function ReadyToGrowCTA() {
@@ -2290,6 +2411,7 @@ export default function ReadyToGrowCTA() {
 ```
 
 ### How to Add
+
 ```tsx
 // In businesses-content.tsx at line 172
 <div className="py-12 px-4 lg:px-16">
@@ -2302,12 +2424,15 @@ export default function ReadyToGrowCTA() {
 ## Complete Implementation Example
 
 ### Step 1: Create Component Files
+
 Create these three files in `src/components/business/`:
+
 - `grow-business-banner.tsx`
 - `events-showcase.tsx`
 - `ready-to-grow-cta.tsx`
 
 ### Step 2: Import in businesses-content.tsx
+
 ```tsx
 // Add these imports at the top
 import GrowBusinessBanner from "@/components/business/grow-business-banner";
@@ -2316,25 +2441,34 @@ import ReadyToGrowCTA from "@/components/business/ready-to-grow-cta";
 ```
 
 ### Step 3: Add Components at Line 152
-```tsx
-{/* ========================================
-    PLACE YOUR CUSTOM SECTIONS BELOW
-    ======================================== */}
 
-{/* Section 1: Grow Your Business with Mefie Banner */}
+```tsx
+{
+  /* ========================================
+    PLACE YOUR CUSTOM SECTIONS BELOW
+    ======================================== */
+}
+
+{
+  /* Section 1: Grow Your Business with Mefie Banner */
+}
 <div className="py-12 px-4 lg:px-16">
   <GrowBusinessBanner />
-</div>
+</div>;
 
-{/* Section 2: Events Showcase */}
+{
+  /* Section 2: Events Showcase */
+}
 <div className="py-12 px-4 lg:px-16">
   <EventsShowcase />
-</div>
+</div>;
 
-{/* Section 3: Ready to Grow Your Business CTA */}
+{
+  /* Section 3: Ready to Grow Your Business CTA */
+}
 <div className="py-12 px-4 lg:px-16">
   <ReadyToGrowCTA />
-</div>
+</div>;
 ```
 
 ---
@@ -2342,7 +2476,9 @@ import ReadyToGrowCTA from "@/components/business/ready-to-grow-cta";
 ## Important Notes
 
 ### Visibility Rules
+
 These sections should:
+
 - ✅ Show when `selectedCategory === "all"` (viewing all businesses)
 - ✅ Show AFTER the expandable categories
 - ❌ NOT show when a specific category is filtered
@@ -2350,16 +2486,20 @@ These sections should:
 If you want them to show even when filtering, move them outside the `selectedCategory === "all"` conditional block.
 
 ### Responsive Design
+
 - Use Tailwind's responsive classes (`md:`, `lg:`)
 - Test on mobile, tablet, and desktop
 - Ensure images are optimized
 
 ### Images
+
 Place your images in:
+
 - `/public/images/business/` for business-related images
 - `/public/images/events/` for event images
 
 ### Colors Used
+
 - Teal/Turquoise: `#1E8B8B`
 - Dark Navy: `#1E3A5F`
 - Lime Green (CTA): `#9ACC23`
@@ -2382,15 +2522,12 @@ Place your images in:
 ## Need Help?
 
 If you need to show these sections even when filtering:
+
 1. Move them outside the `selectedCategory === "all"` block
 2. Place them after the closing `</>` of the conditional at line 180
 3. They'll then appear for all views
 
 Good luck building these sections! 🚀
-
-
-
-
 
 # Complete API Implementation Guide
 
@@ -2401,16 +2538,19 @@ The API utility file (`/src/lib/api.ts`) provides **39 comprehensive API functio
 ## Quick Reference
 
 ### Authentication (3 functions)
+
 - `login(credentials)` - User login
-- `register(data)` - User registration  
+- `register(data)` - User registration
 - `logout(token?)` - User logout
 
 ### User Management (3 functions)
+
 - `getCurrentUser(token?)` - Get current user
 - `getAllUsers(token?, params?)` - Get all users (admin)
 - `updateUser(data, token?)` - Update user profile
 
 ### Listings (9 functions)
+
 - `fetchListings(params?)` - Get all listings
 - `getMyListings(token?, params?)` - Get user's listings
 - `getListing(slug, token?)` - Get single listing
@@ -2421,35 +2561,41 @@ The API utility file (`/src/lib/api.ts`) provides **39 comprehensive API functio
 - `deleteListing(slug, token?)` - Delete listing
 
 ### Content Types (3 functions)
+
 - `fetchBusinesses(params?)` - Get businesses
 - `fetchEvents(params?)` - Get events
 - `fetchCommunities(params?)` - Get communities
 
 ### Categories (4 functions)
+
 - `getCategories(token?, params?)` - List categories
 - `createCategory(data, token?)` - Create category
 - `updateCategory(id, data, token?)` - Update category
 - `deleteCategory(id, token?)` - Delete category
 
 ### Opening Hours (4 functions)
+
 - `getOpeningHours(listingId, token?)` - Get hours
 - `createOpeningHours(listingId, data, token?)` - Create hours
 - `updateOpeningHours(id, data, token?)` - Update hours
 - `deleteOpeningHours(id, token?)` - Delete hours
 
 ### Services (4 functions)
+
 - `getServices(listingId, token?)` - Get services
 - `createService(listingId, data, token?)` - Create service
 - `updateService(id, data, token?)` - Update service
 - `deleteService(id, token?)` - Delete service
 
 ### Social Links (4 functions)
+
 - `getSocials(listingId, token?)` - Get social links
 - `createSocial(listingId, data, token?)` - Create social
 - `updateSocial(id, data, token?)` - Update social
 - `deleteSocial(id, token?)` - Delete social
 
 ### Search (1 function)
+
 - `search(params?, token?)` - Global search
 
 ---
@@ -2459,6 +2605,7 @@ The API utility file (`/src/lib/api.ts`) provides **39 comprehensive API functio
 ### 1. Authentication - Login Form
 
 **Client Component:**
+
 ```typescript
 "use client";
 import { login } from "@/lib/api";
@@ -2482,7 +2629,11 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit}>
       <input value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
       <button type="submit">Login</button>
     </form>
   );
@@ -2528,14 +2679,17 @@ export default function CreateListingForm() {
     const token = localStorage.getItem("token");
 
     try {
-      await createListingProfile({
-        name: formData.get("name") as string,
-        description: formData.get("description") as string,
-        category: formData.get("category") as string,
-        country: formData.get("country") as string,
-        image: formData.get("image") as string,
-      }, token || undefined);
-      
+      await createListingProfile(
+        {
+          name: formData.get("name") as string,
+          description: formData.get("description") as string,
+          category: formData.get("category") as string,
+          country: formData.get("country") as string,
+          image: formData.get("image") as string,
+        },
+        token || undefined
+      );
+
       alert("Listing created!");
     } catch (error: any) {
       alert(error.message);
@@ -2568,11 +2722,15 @@ export default function EditListingForm({ slug, currentData }: any) {
     const token = localStorage.getItem("token");
 
     try {
-      await updateListing(slug, {
-        name: formData.get("name") as string,
-        description: formData.get("description") as string,
-      }, token || undefined);
-      
+      await updateListing(
+        slug,
+        {
+          name: formData.get("name") as string,
+          description: formData.get("description") as string,
+        },
+        token || undefined
+      );
+
       alert("Updated!");
     } catch (error: any) {
       alert(error.message);
@@ -2598,7 +2756,7 @@ import { deleteListing } from "@/lib/api";
 export default function DeleteButton({ slug }: { slug: string }) {
   const handleDelete = async () => {
     if (!confirm("Delete this listing?")) return;
-    
+
     const token = localStorage.getItem("token");
     try {
       await deleteListing(slug, token || undefined);
@@ -2619,7 +2777,11 @@ export default function DeleteButton({ slug }: { slug: string }) {
 import { getOpeningHours, createOpeningHours } from "@/lib/api";
 import { useEffect, useState } from "react";
 
-export default function OpeningHoursManager({ listingId }: { listingId: string }) {
+export default function OpeningHoursManager({
+  listingId,
+}: {
+  listingId: string;
+}) {
   const [hours, setHours] = useState([]);
 
   useEffect(() => {
@@ -2631,11 +2793,15 @@ export default function OpeningHoursManager({ listingId }: { listingId: string }
     const formData = new FormData(e.currentTarget);
     const token = localStorage.getItem("token");
 
-    await createOpeningHours(listingId, {
-      day: formData.get("day") as string,
-      openTime: formData.get("openTime") as string,
-      closeTime: formData.get("closeTime") as string,
-    }, token || undefined);
+    await createOpeningHours(
+      listingId,
+      {
+        day: formData.get("day") as string,
+        openTime: formData.get("openTime") as string,
+        closeTime: formData.get("closeTime") as string,
+      },
+      token || undefined
+    );
 
     // Refresh hours
     getOpeningHours(listingId).then(setHours);
@@ -2645,7 +2811,9 @@ export default function OpeningHoursManager({ listingId }: { listingId: string }
     <div>
       <ul>
         {hours.map((h: any) => (
-          <li key={h.id}>{h.day}: {h.openTime} - {h.closeTime}</li>
+          <li key={h.id}>
+            {h.day}: {h.openTime} - {h.closeTime}
+          </li>
         ))}
       </ul>
       <form onSubmit={addHours}>
@@ -2682,11 +2850,15 @@ export default function ServicesManager({ listingId }: { listingId: string }) {
     const formData = new FormData(e.currentTarget);
     const token = localStorage.getItem("token");
 
-    await createService(listingId, {
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      price: parseFloat(formData.get("price") as string),
-    }, token || undefined);
+    await createService(
+      listingId,
+      {
+        name: formData.get("name") as string,
+        description: formData.get("description") as string,
+        price: parseFloat(formData.get("price") as string),
+      },
+      token || undefined
+    );
 
     getServices(listingId).then(setServices);
   };
@@ -2737,10 +2909,14 @@ export default function SocialsManager({ listingId }: { listingId: string }) {
     const formData = new FormData(e.currentTarget);
     const token = localStorage.getItem("token");
 
-    await createSocial(listingId, {
-      platform: formData.get("platform") as string,
-      url: formData.get("url") as string,
-    }, token || undefined);
+    await createSocial(
+      listingId,
+      {
+        platform: formData.get("platform") as string,
+        url: formData.get("url") as string,
+      },
+      token || undefined
+    );
 
     getSocials(listingId).then(setSocials);
   };
@@ -2749,7 +2925,9 @@ export default function SocialsManager({ listingId }: { listingId: string }) {
     <div>
       <ul>
         {socials.map((s: any) => (
-          <li key={s.id}>{s.platform}: {s.url}</li>
+          <li key={s.id}>
+            {s.platform}: {s.url}
+          </li>
         ))}
       </ul>
       <form onSubmit={addSocial}>
@@ -2868,6 +3046,101 @@ try {
 ✅ **Authentication** built-in with token management  
 ✅ **Error handling** with descriptive messages  
 ✅ **Server & Client** component examples  
-✅ **CRUD operations** for all resources  
+✅ **CRUD operations** for all resources
 
 The API utility file is production-ready and requires no modifications. Simply update `NEXT_PUBLIC_API_URL` in `.env.local` and start using the functions in your components!
+
+nested (chained) ternary operators are generally discouraged because they are hard to read and scale. If you add a fourth listing type later, that block of code will become very messy and prone to syntax errors.
+
+The best practice in React/JavaScript for this scenario is to use a Configuration Object (Dictionary Pattern). This separates your data (the text) from your logic.
+example:
+const addressLabel =
+
+listingType === "business" ? "Business Address" : listingType === "event" ? "Event Venue Address" : "Community Address";
+
+const addressPlaceholder =
+
+listingType === "business"
+
+? "Enter business address"
+
+: listingType === "event"
+
+? "Enter event venue address"
+
+: "Enter community address";
+
+const emailLabel =
+
+listingType === "business" ? "Business Email" : listingType === "event" ? "Event Contact Email" : "Community Contact Email";
+
+const phoneLabel =
+
+listingType === "business" ? "Business Phone" : listingType === "event" ? "Event Contact Phone" : "Community Contact Phone";
+
+const subtitle =
+
+listingType === "business"
+
+? "Provide the business details below"
+
+: listingType === "event"
+
+? "Provide the event details below"
+
+: "Provide the community details below";
+
+Best way to write this is to use Configuration Object
+example:
+// 1. Define the map
+const formTextConfig = {
+business: {
+addressLabel: "Business Address",
+addressPlaceholder: "Enter business address",
+emailLabel: "Business Email",
+phoneLabel: "Business Phone",
+subtitle: "Provide the business details below",
+},
+event: {
+addressLabel: "Event Venue Address",
+addressPlaceholder: "Enter event venue address",
+emailLabel: "Event Contact Email",
+phoneLabel: "Event Contact Phone",
+subtitle: "Provide the event details below",
+},
+community: {
+addressLabel: "Community Address",
+addressPlaceholder: "Enter community address",
+emailLabel: "Community Contact Email",
+phoneLabel: "Community Contact Phone",
+subtitle: "Provide the community details below",
+},
+};
+
+// 2. Inside your component
+export function BusinessDetailsForm({ listingType, form }: Props) {
+
+// 3. Extract the text based on the type
+// This automatically selects the correct group of strings
+const text = formTextConfig[listingType];
+
+return (
+<div>
+<h2>{text.subtitle}</h2>
+
+      {/* Usage in form fields */}
+      <Label>{text.addressLabel}</Label>
+      <Input placeholder={text.addressPlaceholder} {...form.register("address")} />
+
+      {/* ... etc */}
+    </div>
+
+);
+}
+
+Why is this better?
+Readability: You can see exactly what text corresponds to "event" or "community" at a glance without parsing ? : ? : logic.
+
+Scalability: If you need to add a "service" type later, you just add one key to the object. You don't have to touch the component logic.
+
+Performance: The object lookup (config[type]) is faster and cleaner than evaluating multiple conditions every render.

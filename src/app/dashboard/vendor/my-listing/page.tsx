@@ -120,7 +120,7 @@ export default function MyListing() {
           <DropdownMenuContent className="shadow-xs -mt-1">
             <DropdownMenuItem
               onClick={() =>
-                router.push("/dashboard/my-listing/create?type=business")
+                router.push("/dashboard/vendor/my-listing/create?type=business")
               }
             >
               <span className="border bg-[#93C01F]/30 rounded-full px-2">
@@ -130,13 +130,23 @@ export default function MyListing() {
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
-                router.push("/dashboard/my-listing/create?type=event")
+                router.push("/dashboard/vendor/my-listing/create?type=event")
               }
             >
               <span className="border bg-[#93C01F]/30 rounded-full px-2">
                 2
               </span>{" "}
               Event Listing
+            </DropdownMenuItem>
+             <DropdownMenuItem
+              onClick={() =>
+                router.push("/dashboard/vendor/my-listing/create?type=community")
+              }
+            >
+              <span className="border bg-[#93C01F]/30 rounded-full px-2">
+                3
+              </span>{" "}
+              Community Listing
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

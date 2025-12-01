@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 
-export type ListingType = "business" | "event";
+export type ListingType = "business" | "event" | "community";
 
 interface BasicInfo {
   name: string;

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
+import { useBookmark } from "@/context/bookmark-context";
+import { cn } from "@/lib/utils";
 
 export type Event = {
   id: string;
@@ -20,6 +22,14 @@ type EventCardProps = {
 };
 
 export function EventCard({ event }: EventCardProps) {
+  const { isBookmarked, toggleBookmark } = useBookmark();
+  const isActive = isBookmarked(event.id);
+
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigating if card is a link
+    e.stopPropagation();
+    toggleBookmark(event.id, "event");
+  };
   return (
     <Link
       href={`/events/${event.slug}`}
@@ -40,14 +50,18 @@ export function EventCard({ event }: EventCardProps) {
 
         {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
         <button
-          // onClick={(e) => {
-          //   e.preventDefault();
-          //   // Add bookmark logic here
-          // }}
+          onClick={handleBookmarkClick}
           className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
           aria-label="Bookmark event"
         >
-          <Bookmark className="w-4 h-4 text-white" />
+          <Bookmark
+            className={cn(
+              "w-5 h-5 transition-colors",
+              isActive
+                ? "fill-blue-500 text-blue-500"
+                : "text-gray-100 hover:text-blue-500"
+            )}
+          />
         </button>
 
         {/* Event Title and Category at Bottom */}
