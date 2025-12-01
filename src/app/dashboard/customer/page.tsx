@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
+import { useRouter } from "next/navigation";
 
 // --- 1. UI Interface (State) ---
 interface ListingItem {
@@ -51,6 +52,7 @@ interface ApiRawItem {
 
 // --- Reusable Listing Card Component ---
 const ListingCard = ({ item }: { item: ListingItem }) => {
+  
   return (
     <div className="group rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
       {/* Image Container */}
@@ -172,6 +174,7 @@ const CardSkeleton = () => (
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const router = useRouter()
 
   // Dynamic State
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
@@ -323,7 +326,7 @@ export default function Dashboard() {
                 business in a thriving digital marketplace.
               </p>
             </div>
-            <Button className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm">
+            <Button onClick={() => router.push('/become-a-vendor')} className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm">
               Join as a vendor
             </Button>
           </div>
@@ -365,7 +368,7 @@ export default function Dashboard() {
             </p>
           </div>
           <Link
-            href="/dashboard/bookmarks"
+            href="/dashboard/customer/bookmarks"
             className="text-sm text-[#5F8B0A] hover:underline font-medium"
           >
             See more bookmarks
