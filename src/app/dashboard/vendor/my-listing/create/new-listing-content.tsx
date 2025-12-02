@@ -20,10 +20,11 @@ import {
 } from "./form-component/business-details";
 import { MediaUploadStep } from "./form-component/media";
 import { ReviewSubmitStep } from "./form-component/review";
+import { SocialMediaForm } from "./form-component/social-media";
 import { toast } from "sonner";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // Define proper type for draft data
 interface DraftData {
@@ -35,25 +36,32 @@ interface DraftData {
 }
 
 export default function ListingContent() {
-  const { listingType, currentStep, setCurrentStep, setListingType } = useListing();
+  const { listingType, currentStep, setCurrentStep, setListingType } =
+    useListing();
 
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
+  const [listingSlug] = useState<string>("");
 
- useEffect(() => {
-    const type = searchParams.get('type')
+  useEffect(() => {
+    const type = searchParams.get("type");
     // Added 'community' to the allowed types check
-    if (type === 'business' || type === 'event' || type === 'community') {
-      setListingType(type)
+    if (type === "business" || type === "event" || type === "community") {
+      setListingType(type);
     }
   }, [searchParams, listingType, setListingType]);
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessFormSchema),
     defaultValues: {
-      businessName: "",
-      category: "",
-      subcategory: "",
+      // Fixed: Mapped to schema fields shown in error log
+      name: "",
+      category_ids: [],
       description: "",
+      type: "business", // Default type
+      primary_phone: "", // Required by schema
+      email: "", // Required by schema
+      website: "",
+      bio: "",
     },
   });
 
@@ -71,10 +79,13 @@ export default function ListingContent() {
 
   const handleNext = () => {
     if (currentStep === 1) {
+      // Fixed: Check 'name' instead of 'businessName' and 'category_ids' instead of 'category'
+      const values = form.getValues();
       if (
-        !form.getValues("businessName") ||
-        !form.getValues("category") ||
-        !form.getValues("description")
+        !values.name ||
+        !values.category_ids ||
+        values.category_ids.length === 0 ||
+        !values.description
       ) {
         toast.error("Missing information", {
           description: "Please fill out all required fields",
@@ -82,16 +93,13 @@ export default function ListingContent() {
         return;
       }
     } else if (currentStep === 2) {
-      if (
-        !detailsForm.getValues("address") ||
-        !detailsForm.getValues("email")
-      ) {
+      if (!detailsForm.getValues("address") || !detailsForm.getValues("email")) {
         toast.error("Missing information", {
           description: "Please fill out all required fields",
         });
         return;
       }
-    } else if (currentStep === 4) {
+    } else if (currentStep === 5) {
       toast.success("Success!", {
         description: "Your listing has been submitted successfully.",
       });
@@ -105,8 +113,8 @@ export default function ListingContent() {
   };
 
   const handleSaveToDraft = async () => {
-    // Validate if we have at least some basic information to save as draft
-    if (currentStep === 1 && !form.getValues("businessName")) {
+    // Fixed: Validate 'name' instead of 'businessName'
+    if (currentStep === 1 && !form.getValues("name")) {
       toast.error("Cannot save draft", {
         description: "Please provide at least a name for your listing",
       });
@@ -129,23 +137,6 @@ export default function ListingContent() {
         status: "draft",
       };
 
-      // Actual API call would look like this:
-      /*
-      const response = await fetch('/api/listings/draft', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(draftData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save draft');
-      }
-      
-      const result = await response.json();
-      */
-
       // Simulate successful API response
       const simulatedResponse = {
         id: `draft_${Date.now()}`,
@@ -160,11 +151,7 @@ export default function ListingContent() {
           "Your progress has been saved as a draft. You can continue later.",
       });
 
-      // Simulate storing draft ID for future reference
       console.log("Draft saved with ID:", simulatedResponse.id);
-
-      // You might want to store this in state or context
-      // setDraftId(simulatedResponse.id);
     } catch (error) {
       // Handle API error
       toast.error("Failed to save draft", {
@@ -181,9 +168,11 @@ export default function ListingContent() {
     const businessDetails = detailsForm.getValues();
 
     // Final validation before submission
+    // Fixed: Check 'name' and 'category_ids'
     if (
-      !basicInfo.businessName ||
-      !basicInfo.category ||
+      !basicInfo.name ||
+      !basicInfo.category_ids ||
+      basicInfo.category_ids.length === 0 ||
       !basicInfo.description
     ) {
       toast.error("Missing information", {
@@ -216,23 +205,6 @@ export default function ListingContent() {
         status: "submitted" as const,
       };
 
-      // Actual API call would look like this:
-      /*
-      const response = await fetch('/api/listings/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submissionData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Submission failed');
-      }
-      
-      const result = await response.json();
-      */
-
       // Simulate successful API response
       const simulatedResponse = {
         id: `listing_${Date.now()}`,
@@ -249,14 +221,6 @@ export default function ListingContent() {
       });
 
       console.log("Listing submitted with ID:", simulatedResponse.id);
-
-      // Reset form or navigate away after successful submission
-      // setTimeout(() => {
-      //   setCurrentStep(1);
-      //   resetForm();
-      //   // Or navigate to success page:
-      //   // router.push('/success');
-      // }, 2000);
     } catch (error) {
       // Handle API error
       toast.error("Submission failed", {
@@ -275,9 +239,33 @@ export default function ListingContent() {
           <BusinessDetailsForm form={detailsForm} listingType={listingType} />
         );
       case 3:
-        return <MediaUploadStep listingType={listingType} />;
+        return (
+          <MediaUploadStep
+            listingType={listingType}
+            listingSlug={listingSlug}
+            onComplete={() => setCurrentStep(4)}
+            onBack={() => setCurrentStep(2)}
+          />
+        );
       case 4:
-        return <ReviewSubmitStep />;
+        return (
+          <SocialMediaForm
+            listingSlug={listingSlug}
+            listingType={listingType}
+            onNext={() => setCurrentStep(5)}
+            onBack={() => setCurrentStep(3)}
+          />
+        );
+      case 5:
+        return (
+          <ReviewSubmitStep
+            listingSlug={listingSlug}
+            onSubmit={() => {
+              toast.success("Listing submitted successfully!");
+              setCurrentStep(1);
+            }}
+          />
+        );
       default:
         return <BasicInformationForm form={form} listingType={listingType} />;
     }
@@ -287,7 +275,7 @@ export default function ListingContent() {
     <>
       <StepHeader
         currentStep={currentStep}
-        totalSteps={4}
+        totalSteps={5}
         title="Adding a new listing"
         subtitle="Create a new listing and manage it"
       />
@@ -297,28 +285,6 @@ export default function ListingContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 md:px-4 lg:px-0">
         <aside className="block shrink-0 border-r border-gray-100 h-auto lg:h-[550px]">
           <div className="sticky top-0 space-y-4 mx-8 py-6">
-            {/* <div className="mb-6">
-              <h2 className="text-lg font-semibold mb-2">Choose a listing</h2>
-              <p className="text-sm text-muted-foreground">
-                Choose a listing and fill out the forms
-              </p>
-            </div>
-
-            <SidebarChoiceCard
-              id={1}
-              label="Business Listing"
-              description="Showcase your business with photos, contact details, and services to reach more customers."
-              isSelected={listingType === "business"}
-              onClick={() => setListingType("business")}
-            />
-
-            <SidebarChoiceCard
-              id={2}
-              label="Event Listing"
-              description="Promote your events with flyers, dates, and ticket links so the right audience can find you."
-              isSelected={listingType === "event"}
-              onClick={() => setListingType("event")}
-            /> */}
             <div className="hidden lg:block">
               <StepNavigation
                 currentStep={currentStep}
@@ -355,7 +321,7 @@ export default function ListingContent() {
         </div>
 
         <div className="flex gap-2 px-8">
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <Button
               onClick={handleSaveToDraft}
               variant="outline"
@@ -365,7 +331,7 @@ export default function ListingContent() {
             </Button>
           )}
 
-          {currentStep === 4 ? (
+          {currentStep === 5 ? (
             <Button onClick={handleSubmit} className="bg-[#93C01F]">
               Submit{" "}
             </Button>

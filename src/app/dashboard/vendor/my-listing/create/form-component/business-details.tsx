@@ -8,6 +8,7 @@ import { MapPin } from "lucide-react";
 import { BusinessHoursSelector } from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
 import { TagInput } from "@/components/dashboard/listing/tag-input";
+import { toast } from "sonner";
 
 /* ---------------------------------------------------
    SCHEMA
@@ -53,15 +54,23 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   form: ReturnType<typeof useForm<DetailsFormValues>>;
   listingType: "business" | "event" | "community";
+  listingSlug?: string;
+  onSubmit?: (data: DetailsFormValues) => Promise<void>;
 };
 
 /* ---------------------------------------------------
    COMPONENT
 --------------------------------------------------- */
-export function BusinessDetailsForm({ form, listingType }: Props) {
+export function BusinessDetailsForm({
+  form,
+  listingType,
+  listingSlug,
+  onSubmit,
+}: Props) {
   const {
     register,
     formState: { errors },
+    handleSubmit,
   } = form;
 
   const { businessDetails, setBusinessDetails } = useListing();
@@ -70,8 +79,59 @@ export function BusinessDetailsForm({ form, listingType }: Props) {
   const { addressLabel, addressPlaceholder, emailLabel, phoneLabel, subtitle } =
     text;
 
+  const handleFormSubmit = async (data: DetailsFormValues) => {
+    try {
+      // If listingId is provided, save to API
+      if (listingSlug) {
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const endpoint = `${API_URL}/api/listing/{listing_slug}/address`; // listingId is the slug
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            address: data.address,
+            location: data.location,
+            email: data.email,
+            phone: data.phone,
+            business_hours: data.businessHours,
+            tags: data.tags,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to save address details");
+        }
+
+        toast.success("Address details saved successfully");
+      }
+
+      // Call the onSubmit callback if provided
+      if (onSubmit) {
+        await onSubmit(data);
+      }
+    } catch (error) {
+      console.error("Address save error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save address details"
+      );
+    }
+  };
+
   return (
-    <div className="w-full max-w-5xl space-y-6 mx-auto p-6">
+    <form
+      onSubmit={handleSubmit(handleFormSubmit)}
+      className="w-full max-w-5xl space-y-6 mx-auto p-6"
+    >
       <div>
         <h2 className="text-2xl font-semibold">Details & Media</h2>
         <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
@@ -186,6 +246,6 @@ export function BusinessDetailsForm({ form, listingType }: Props) {
           onChange={(tags) => setBusinessDetails({ ...businessDetails, tags })}
         />
       </div>
-    </div>
+    </form>
   );
 }

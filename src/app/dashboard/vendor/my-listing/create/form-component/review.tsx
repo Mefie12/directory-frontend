@@ -1,11 +1,65 @@
 import { useListing } from "@/context/listing-form-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
+import { toast } from "sonner";
 
-export function ReviewSubmitStep() {
+type Props = {
+  listingSlug: string;
+  onSubmit?: () => void;
+};
+
+export function ReviewSubmitStep({ listingSlug, onSubmit }: Props) {
   const { basicInfo, businessDetails, media } = useListing();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFinalSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+
+      if (!listingSlug) {
+        throw new Error("Listing ID is missing");
+      }
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const endpoint = `${API_URL}/api/listing/{listing_slug}/show`; // listingId is the slug
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "published",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to publish listing");
+      }
+
+      toast.success("Listing published successfully!");
+      if (onSubmit) {
+        onSubmit();
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to publish listing"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 px-4 py-6">
@@ -164,6 +218,24 @@ export function ReviewSubmitStep() {
           ))}
         </div>
       )}
+
+      {/* Submit Button */}
+      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+        <Button
+          onClick={handleFinalSubmit}
+          className="bg-[#93C01F] text-white hover:bg-[#82ab1b]"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Publishing...
+            </>
+          ) : (
+            "Publish Listing"
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

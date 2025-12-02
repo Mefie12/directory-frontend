@@ -31,6 +31,11 @@ const steps: Step[] = [
   },
   {
     id: 4,
+    title: "Social Media",
+    description: "Links to social profiles",
+  },
+  {
+    id: 5,
     title: "Review & Submit",
     description: "Final review",
   },
