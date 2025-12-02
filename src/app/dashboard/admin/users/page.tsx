@@ -39,18 +39,20 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { formatDistanceToNow } from 'date-fns';
 
 interface User {
-    role: string;
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   avatar: string;
-  businessName?: string;
   phone?: string;
+  listings_count: string;
+  role: string;
   plan?: "Basic" | "Premium" | "Pro";
   numberOfListings?: string;
-  lastActive: string;
+  last_active: string;
   status: "Active" | "Pending" | "Suspended";
 }
 
@@ -207,16 +209,13 @@ export default function Users() {
 
         // We use || "" to default to an empty string if the value is null/undefined
         // This prevents the "Cannot read property 'toLowerCase' of null" crash
-        const nameMatch = (user.name || "").toLowerCase().includes(searchLower);
+        const nameMatch = (user.first_name || "").toLowerCase().includes(searchLower);
         const emailMatch = (user.email || "")
-          .toLowerCase()
-          .includes(searchLower);
-        const businessMatch = (user.businessName || "")
           .toLowerCase()
           .includes(searchLower);
         const phoneMatch = (user.phone || "").includes(searchLower);
 
-        return nameMatch || emailMatch || businessMatch || phoneMatch;
+        return nameMatch || emailMatch || phoneMatch;
       }
 
       return true;
@@ -454,12 +453,9 @@ export default function Users() {
                   <>
                     <TableHead className="font-semibold">Vendor Name</TableHead>
                     <TableHead className="font-semibold">
-                      Business Name
-                    </TableHead>
-                    <TableHead className="font-semibold">
                       Phone Number
                     </TableHead>
-                    <TableHead className="font-semibold">Plan</TableHead>
+                    {/*<TableHead className="font-semibold">Plan</TableHead>*/}
                     <TableHead className="font-semibold">
                       Number of Listings
                     </TableHead>
@@ -512,7 +508,7 @@ export default function Users() {
                             src={user.avatar}
                             width={40}
                             height={40}
-                            alt={user.name}
+                            alt={user.first_name}
                             className="h-10 w-10 rounded-full object-cover"
                           />
                         ) : (
@@ -521,7 +517,7 @@ export default function Users() {
                           </div>
                         )}
                         <div>
-                          <div className="font-medium">{user.name}</div>
+                          <div className="font-medium">{`${user.first_name} ${user.last_name}`}</div>
                           <div className="text-sm text-gray-500">
                             {user.email}
                           </div>
@@ -531,19 +527,23 @@ export default function Users() {
 
                     {activeTab === "vendors" && (
                       <>
-                        <TableCell>{user.businessName || "-"}</TableCell>
                         <TableCell>{user.phone}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${getPlanBadgeColor(
-                              user.plan || ""
-                            )} text-white`}
-                          >
-                            {user.plan || "No Plan"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{user.numberOfListings || "0"}</TableCell>
-                        <TableCell>{user.lastActive}</TableCell>
+                        {/*<TableCell>*/}
+                        {/*  <Badge*/}
+                        {/*    className={`${getPlanBadgeColor(*/}
+                        {/*      user.plan || ""*/}
+                        {/*    )} text-white`}*/}
+                        {/*  >*/}
+                        {/*    {user.plan || "No Plan"}*/}
+                        {/*  </Badge>*/}
+                        {/*</TableCell>*/}
+                        <TableCell>{user.listings_count || "0"}</TableCell>
+                          <TableCell>
+                              {user.last_active
+                                  ? formatDistanceToNow(new Date(user.last_active), { addSuffix: true })
+                                  : 'Never active'
+                              }
+                          </TableCell>
                         <TableCell>
                           <Badge
                             className={`${getStatusBadgeColor(
@@ -559,7 +559,12 @@ export default function Users() {
                     {activeTab === "customers" && (
                       <>
                         <TableCell>{user.phone}</TableCell>
-                        <TableCell>{user.lastActive}</TableCell>
+                          <TableCell>
+                              {user.last_active
+                                  ? formatDistanceToNow(new Date(user.last_active), { addSuffix: true })
+                                  : 'Never active'
+                              }
+                          </TableCell>
                       </>
                     )}
 
