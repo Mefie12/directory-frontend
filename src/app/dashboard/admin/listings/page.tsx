@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,6 +69,10 @@ interface Listing {
     image: string;
     plan?: "Basic" | "Pro" | "Premium";
     description?: string;
+    userInfo?: {
+        name: string;
+        email?: string;
+    };
 }
 
 interface RawListing {
@@ -91,6 +94,34 @@ interface RawListing {
     thumbnail?: string;
     plan?: string;
     description?: string;
+    user?: {
+        id?: number;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        name?: string;
+    };
+    categories?: Array<{
+        id: number;
+        name: string;
+        parent_id: string | null;
+        type: string;
+        description: string;
+    }>;
+    images?: Array<{
+        id: number;
+        media: string;
+        media_type: string;
+        file_size: number;
+        file_size_formatted: string;
+        mime_type: string;
+        is_compressed: number;
+        compression_status: string;
+        created_at: string;
+        updated_at: string;
+    }>;
+    city?: string;
+    country?: string;
 }
 
 interface ApiResponse {
@@ -100,6 +131,20 @@ interface ApiResponse {
     listings?: RawListing[];
     last_page?: number;
     totalPages?: number;
+    links?: {
+        first: string | null;
+        last: string | null;
+        prev: string | null;
+        next: string | null;
+    };
+    meta?: {
+        path: string;
+        per_page: number;
+        next_cursor: string | null;
+        prev_cursor: string | null;
+        totalPages?: number;
+        last_page?: number;
+    };
 }
 
 // Category Types matching your migration
@@ -238,7 +283,6 @@ export default function Listings() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [totalPages, setTotalPages] = useState(1);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [error, setError] = useState<string | null>(null);
 
     // --- Sidebar State ---
@@ -286,32 +330,115 @@ export default function Listings() {
             else if (Array.isArray(payload.data)) rawItems = payload.data;
             else if (Array.isArray(payload.results)) rawItems = payload.results;
             else if (Array.isArray(payload.listings)) rawItems = payload.listings;
+            else if (Array.isArray(payload)) rawItems = payload;
         }
 
-        return rawItems.map((item) => ({
-            id: item.id?.toString() || Math.random().toString(),
-            name: item.name || item.title || "Untitled Listing",
-            vendor: item.vendor || item.business_name || "Unknown Vendor",
-            vendorAvatar: item.vendorAvatar || item.vendor_image || "",
-            category: item.category || "General",
-            location: item.location || item.address || "Accra, Ghana",
-            type: item.type || "business",
-            submission: (item.submission || "Pending review") as
-                | "Published"
-                | "Pending review"
-                | "Draft",
-            approval: (item.approval || item.status || "Pending") as
-                | "Published"
-                | "Pending"
-                | "Rejected",
-            image: item.image || item.thumbnail || "/images/placeholder-listing.png",
-            plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
-            description: item.description || "No description provided.",
-        }));
+        return rawItems.map((item) => {
+            // Get vendor name from user data
+            let vendorName = "Unknown Vendor";
+            let userInfo: { name: string; email?: string } | undefined = undefined;
+
+            if (item.user) {
+                // Combine first_name and last_name, or use name field
+                if (item.user.first_name && item.user.last_name) {
+                    vendorName = `${item.user.first_name} ${item.user.last_name}`;
+                    userInfo = {
+                        name: vendorName,
+                        email: item.user.email
+                    };
+                } else if (item.user.name) {
+                    vendorName = item.user.name;
+                    userInfo = {
+                        name: vendorName,
+                        email: item.user.email
+                    };
+                } else if (item.user.email) {
+                    vendorName = item.user.email.split('@')[0];
+                    userInfo = {
+                        name: vendorName,
+                        email: item.user.email
+                    };
+                }
+            } else if (item.vendor || item.business_name) {
+                vendorName = item.vendor || item.business_name || "Unknown Vendor";
+            }
+
+            // Get first image URL
+            let imageUrl = "/images/placeholder-listing.png";
+            if (item.images && item.images.length > 0) {
+                // Find first image that's not "processing"
+                const validImage = item.images.find(img =>
+                    img.media && img.media !== 'processing' && img.media.startsWith('http')
+                );
+                if (validImage) {
+                    imageUrl = validImage.media;
+                }
+            } else if (item.image || item.thumbnail) {
+                imageUrl = item.image || item.thumbnail || "/images/placeholder-listing.png";
+            }
+
+            // Get category from categories array
+            let category = "General";
+            if (item.categories && item.categories.length > 0) {
+                // Get main categories (parent_id === null)
+                const mainCategories = item.categories.filter(cat => cat.parent_id === null);
+                if (mainCategories.length > 0) {
+                    category = mainCategories.map(cat => cat.name).join(', ');
+                } else {
+                    category = item.categories[0].name;
+                }
+            } else if (item.category) {
+                category = item.category;
+            }
+
+            // Get location
+            let location = "Accra, Ghana";
+            if (item.city && item.country) {
+                location = `${item.city}, ${item.country}`;
+            } else if (item.address) {
+                location = item.address;
+            } else if (item.location) {
+                location = item.location;
+            }
+
+            // Map status
+            const status = item.status || "pending";
+            let submission: "Published" | "Pending review" | "Draft" = "Pending review";
+            let approval: "Published" | "Pending" | "Rejected" = "Pending";
+
+            if (status === 'published') {
+                submission = "Published";
+                approval = "Published";
+            } else if (status === 'pending') {
+                submission = "Pending review";
+                approval = "Pending";
+            } else if (status === 'draft') {
+                submission = "Draft";
+                approval = "Pending";
+            } else if (status === 'rejected') {
+                submission = "Draft";
+                approval = "Rejected";
+            }
+
+            return {
+                id: item.id?.toString() || Math.random().toString(),
+                name: item.name || item.title || "Untitled Listing",
+                vendor: vendorName,
+                vendorAvatar: item.vendorAvatar || item.vendor_image || "",
+                category: category,
+                location: location,
+                type: item.type || "business",
+                submission: submission,
+                approval: approval,
+                image: imageUrl,
+                plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
+                description: item.description || "No description provided.",
+                userInfo: userInfo
+            };
+        });
     };
 
     // --- Category Management ---
-    // Fixed: Better filtering for main and sub categories
     const mainCategories = allCategories.filter(cat =>
         cat.type === 'mainCategory' || cat.parent_id === null
     );
@@ -320,7 +447,6 @@ export default function Listings() {
         if (cat.type !== 'subCategory') return false;
         if (!selectedMainCategory) return false;
 
-        // Handle both string and number ID comparisons
         const catParentId = cat.parent_id?.toString();
         const selectedParentId = selectedMainCategory.id.toString();
 
@@ -484,13 +610,36 @@ export default function Listings() {
 
             const json = await response.json();
 
-            const listings = extractListingsFromResponse(json);
+            // Handle different response formats
+            let listingsData: RawListing[] = [];
+
+            // Check if response has data property (your API structure)
+            if (json.data && Array.isArray(json.data)) {
+                listingsData = json.data;
+            } else if (Array.isArray(json)) {
+                listingsData = json;
+            } else if (json.items && Array.isArray(json.items)) {
+                listingsData = json.items;
+            } else if (json.listings && Array.isArray(json.listings)) {
+                listingsData = json.listings;
+            }
+
+            const listings = extractListingsFromResponse(listingsData);
             setAllData(listings);
 
             // Handle pagination from API if available
-            const meta = json as ApiResponse;
-            if (meta.last_page) setTotalPages(meta.last_page);
-            else if (meta.totalPages) setTotalPages(meta.totalPages);
+            if (json.meta && json.meta.totalPages) {
+                setTotalPages(json.meta.totalPages);
+            } else if (json.meta && json.meta.last_page) {
+                setTotalPages(json.meta.last_page);
+            } else if (json.last_page) {
+                setTotalPages(json.last_page);
+            } else if (json.totalPages) {
+                setTotalPages(json.totalPages);
+            } else {
+                // Calculate pagination based on data length
+                setTotalPages(Math.ceil(listings.length / itemsPerPage));
+            }
         } catch (error) {
             console.error("Fetch Error:", error);
             setError(
@@ -559,7 +708,8 @@ export default function Listings() {
                 return (
                     item.name.toLowerCase().includes(searchLower) ||
                     item.vendor.toLowerCase().includes(searchLower) ||
-                    item.location.toLowerCase().includes(searchLower)
+                    item.location.toLowerCase().includes(searchLower) ||
+                    item.category.toLowerCase().includes(searchLower)
                 );
             }
 
@@ -1183,7 +1333,7 @@ export default function Listings() {
 
                                     {/* Vendor */}
                                     <User className="w-4 h-4 text-gray-400" />
-                                    <span className="text-gray-500">Vendor Name</span>
+                                    <span className="text-gray-500">Vendor</span>
                                     <div className="justify-self-end flex items-center gap-2">
                                         <Avatar className="h-5 w-5">
                                             <AvatarImage
@@ -1221,6 +1371,22 @@ export default function Listings() {
                       {selectedListing.plan || "Basic"}
                     </span>
                                     </div>
+
+                                    {/* Owner Info if available */}
+                                    {selectedListing.userInfo && (
+                                        <>
+                                            <User className="w-4 h-4 text-gray-400" />
+                                            <span className="text-gray-500">Owner</span>
+                                            <div className="justify-self-end font-medium text-gray-900">
+                                                {selectedListing.userInfo.name}
+                                                {selectedListing.userInfo.email && (
+                                                    <div className="text-xs text-gray-500">
+                                                        {selectedListing.userInfo.email}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">
