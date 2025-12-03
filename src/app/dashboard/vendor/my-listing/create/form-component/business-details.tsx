@@ -4,8 +4,9 @@ import { useState, forwardRef, useImperativeHandle } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react"; // Removed unused Loader2
+import { MapPin } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSearchParams } from "next/navigation"; // ✅ Import this
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,6 @@ import {
   DaySchedule,
 } from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
-// import { TagInput } from "@/components/dashboard/listing/tag-input";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
 // --- Schema ---
@@ -29,10 +29,11 @@ export const DetailsFormSchema = z.object({
         day_of_week: z.string(),
         startTime: z.string(),
         endTime: z.string(),
+        enabled: z.boolean(),
       })
     )
     .min(1, "Hours are required"),
-  tags: z.array(z.string()).min(1, "At least one tag is required"),
+  tags: z.array(z.string()).optional(),
 });
 
 const formTextConfig = {
@@ -64,11 +65,12 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
-  onBack: () => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug }, ref) => {
+    const searchParams = useSearchParams(); // ✅ Initialize params
+    
     const form = useForm<DetailsFormValues>({
       resolver: zodResolver(DetailsFormSchema),
       defaultValues: {
@@ -90,12 +92,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
 
-    // Removed unused isSaving state since parent handles the loading indicator via ref promise
     const [, setIsSaving] = useState(false);
 
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
-    // const currentTags = watch("tags") || [];
 
     const text = formTextConfig[listingType];
 
@@ -107,8 +107,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         return false;
       }
 
-      if (!listingSlug) {
-        toast.error("Missing listing identifier. Restart process.");
+      // ✅ FIX: Check Prop OR URL Param
+      const effectiveSlug = listingSlug || searchParams.get("slug");
+
+      if (!effectiveSlug) {
+        toast.error("Missing listing identifier. Please restart from Step 1.");
         return false;
       }
 
@@ -118,38 +121,40 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         return false;
       }
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
         const data = form.getValues();
         const locationParts = data.location.split(",");
 
-        // 1. Prepare Address/Details Payload
+        // 1. Address Payload
         const detailsPayload = {
           address: data.address,
           city: locationParts[0]?.trim(),
           country: locationParts[1]?.trim() || "Ghana",
           primary_phone: data.phone,
           email: data.email,
-          tags: data.tags,
         };
 
-        // 2. Prepare Hours Payload (Mapping to Backend Format)
+        // 2. Hours Payload
         const hoursPayload = {
-          opening_hours: data.businessHours.map((h: DaySchedule) => ({
-            day_of_week: h.day_of_week,
-            open_time: h.startTime,
-            close_time: h.endTime,
-          })),
+          opening_hours: data.businessHours.map((h: DaySchedule) => {
+            const isClosed = !h.enabled; 
+            return {
+              day_of_week: h.day_of_week,
+              open_time: isClosed ? null : h.startTime, 
+              close_time: isClosed ? null : h.endTime,
+            };
+          }),
         };
 
-        // 3. Update Context (Optimistic)
+        // 3. Update Context
         setBusinessDetails({ ...businessDetails, ...data });
 
-        // 4. EXECUTE REQUESTS (Parallel)
+        // 4. API Calls
         const detailsReq = fetch(
-          `${API_URL}/api/listing/${listingSlug}/address`,
+          `${API_URL}/api/listing/${effectiveSlug}/address`,
           {
             method: "PUT",
             headers: {
@@ -162,7 +167,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         );
 
         const hoursReq = fetch(
-          `${API_URL}/api/listing/${listingSlug}/opening_hours`,
+          `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
           {
             method: "POST",
             headers: {
@@ -179,8 +184,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           hoursReq,
         ]);
 
-        if (!detailsRes.ok) throw new Error("Failed to update details");
-        if (!hoursRes.ok) throw new Error("Failed to update opening hours");
+        if (!detailsRes.ok) {
+            const err = await detailsRes.json();
+            throw new Error(err.message || "Failed to update details");
+        }
+        
+        if (!hoursRes.ok) {
+             const err = await hoursRes.json();
+             throw new Error(err.message || "Failed to update opening hours");
+        }
 
         return true;
       } catch (error) {
@@ -192,7 +204,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       }
     };
 
-    // --- PARENT "NEXT" TRIGGER ---
     useImperativeHandle(ref, () => ({
       async submit() {
         return await saveDataToApi();
@@ -271,19 +282,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               </p>
             )}
           </div>
-          {/* <div>
-            <TagInput
-              label="Tags"
-              placeholder="Add tags..."
-              tags={currentTags}
-              onChange={(val) =>
-                setValue("tags", val, { shouldValidate: true })
-              }
-            />
-            {errors.tags && (
-              <p className="text-red-500 text-xs mt-1">{errors.tags.message}</p>
-            )}
-          </div> */}
         </div>
       </div>
     );

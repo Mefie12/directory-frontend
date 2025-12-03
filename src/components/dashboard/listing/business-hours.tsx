@@ -4,11 +4,12 @@ import { Label } from "@/components/ui/label";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
-// 1. Export this interface
+// 1. Keep 'enabled' here for UI state management
 export interface DaySchedule {
   day_of_week: string;
   startTime: string;
   endTime: string;
+  enabled: boolean; // Required for the checkbox logic
 }
 
 interface BusinessHoursSelectorProps {
@@ -35,20 +36,20 @@ export function BusinessHoursSelector({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleDayToggle = (day: string, checked: boolean) => {
-    // Ensure value is an array before mapping
     const safeValue = Array.isArray(value) ? value : [];
-
-    // Check if day exists, if not create it
-    const dayExists = safeValue.find((s) => s.day_of_week === day);
+    
+    // Check if day exists in the array
+    const existingIndex = safeValue.findIndex((s) => s.day_of_week === day);
+    
     let newValue;
 
-    if (dayExists) {
-      newValue = safeValue.map((schedule) =>
-        schedule.day_of_week === day ? { ...schedule, enabled: checked } : schedule
+    if (existingIndex >= 0) {
+      // Update existing day
+      newValue = safeValue.map((schedule, index) =>
+        index === existingIndex ? { ...schedule, enabled: checked } : schedule
       );
     } else {
-      // If this is the first interaction, we might need to initialize the array
-      // or handle empty state. For robust logic, initialize all days if empty.
+      // Add new day
       newValue = [
         ...safeValue,
         { day_of_week: day, enabled: checked, startTime: "", endTime: "" },
@@ -96,18 +97,13 @@ export function BusinessHoursSelector({
             </div>
 
             {DAYS.map((day) => {
-              // Safe access
               const schedule = Array.isArray(value)
                 ? value.find((s) => s.day_of_week === day)
                 : undefined;
 
-              // Default state for rendering if not found in value prop
-              const effectiveSchedule = schedule || {
-                day,
-                enabled: false,
-                startTime: "",
-                endTime: "",
-              };
+              // Determine if this row is enabled
+              // If the schedule exists in the array AND has enabled=true
+              const isEnabled = schedule?.enabled || false;
 
               return (
                 <div
@@ -117,7 +113,7 @@ export function BusinessHoursSelector({
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id={day}
-                      checked={!!effectiveSchedule}
+                      checked={isEnabled}
                       onCheckedChange={(checked) =>
                         handleDayToggle(day, checked as boolean)
                       }
@@ -130,22 +126,23 @@ export function BusinessHoursSelector({
 
                   <Input
                     type="time"
-                    value={effectiveSchedule.startTime}
+                    // Value needs to be tied to the specific schedule if it exists, else empty
+                    value={schedule?.startTime || ""}
                     onChange={(e) =>
                       handleTimeChange(day, "startTime", e.target.value)
                     }
-                    disabled={!effectiveSchedule}
+                    disabled={!isEnabled}
                     className="text-center px-1"
                     placeholder="-- : -- AM"
                   />
 
                   <Input
                     type="time"
-                    value={effectiveSchedule.endTime}
+                    value={schedule?.endTime || ""}
                     onChange={(e) =>
                       handleTimeChange(day, "endTime", e.target.value)
                     }
-                    disabled={!effectiveSchedule}
+                    disabled={!isEnabled}
                     className="text-center px-1"
                     placeholder="-- : -- PM"
                   />
