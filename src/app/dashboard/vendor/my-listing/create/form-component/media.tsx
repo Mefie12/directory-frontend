@@ -24,7 +24,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         
         try {
             const token = localStorage.getItem("authToken");
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+            const API_URL = process.env.API_URL || "https://me-fie.co.uk";
             const endpoint = `${API_URL}/api/listing/${listingSlug}/media`;
 
             const formData = new FormData();
