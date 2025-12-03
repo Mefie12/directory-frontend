@@ -1,25 +1,40 @@
 "use client";
 
+import { forwardRef, useImperativeHandle } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { toast } from "sonner";
+import { MapPin } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod"; // Fixed import
+
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MapPin } from "lucide-react";
-import { BusinessHoursSelector } from "@/components/dashboard/listing/business-hours";
+import {
+  BusinessHoursSelector,
+  DaySchedule,
+} from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
 import { TagInput } from "@/components/dashboard/listing/tag-input";
-import { toast } from "sonner";
+import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
-/* ---------------------------------------------------
-   SCHEMA
---------------------------------------------------- */
+// Valid Schema
 export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   location: z.string().min(1, "Location is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required"),
-  businessHours: z.string().min(1, "Hours are required"),
-  tags: z.string().min(1, "At least one tag is required"),
+  // Fixed Schema to match DaySchedule[]
+  businessHours: z
+    .array(
+      z.object({
+        day: z.string(),
+        startTime: z.string(),
+        endTime: z.string(),
+        enabled: z.boolean(),
+      })
+    )
+    .min(1, "Hours are required"),
+  tags: z.array(z.string()).min(1, "At least one tag is required"),
 });
 
 const formTextConfig = {
@@ -46,206 +61,198 @@ const formTextConfig = {
   },
 };
 
-/* ---------------------------------------------------
-   TYPES
---------------------------------------------------- */
 export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 
 type Props = {
-  form: ReturnType<typeof useForm<DetailsFormValues>>;
   listingType: "business" | "event" | "community";
-  listingSlug?: string;
-  onSubmit?: (data: DetailsFormValues) => Promise<void>;
+  listingSlug: string;
 };
 
-/* ---------------------------------------------------
-   COMPONENT
---------------------------------------------------- */
-export function BusinessDetailsForm({
-  form,
-  listingType,
-  listingSlug,
-  onSubmit,
-}: Props) {
-  const {
-    register,
-    formState: { errors },
-    handleSubmit,
-  } = form;
+export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
+  ({ listingType, listingSlug }, ref) => {
+    const form = useForm<DetailsFormValues>({
+      resolver: zodResolver(DetailsFormSchema),
+      defaultValues: {
+        address: "",
+        location: "",
+        email: "",
+        phone: "",
+        businessHours: [],
+        tags: [],
+      },
+    });
 
-  const { businessDetails, setBusinessDetails } = useListing();
+    const {
+      register,
+      setValue,
+      watch,
+      trigger,
+      formState: { errors },
+    } = form;
+    const { businessDetails, setBusinessDetails } = useListing();
 
-  const text = formTextConfig[listingType];
-  const { addressLabel, addressPlaceholder, emailLabel, phoneLabel, subtitle } =
-    text;
+    // Cast watched values to correct types
+    const currentHours =
+      (watch("businessHours") as unknown as DaySchedule[]) || [];
+    const currentTags = watch("tags") || [];
 
-  const handleFormSubmit = async (data: DetailsFormValues) => {
-    try {
-      // If listingId is provided, save to API
-      if (listingSlug) {
+    const text = formTextConfig[listingType];
+    const {
+      addressLabel,
+      addressPlaceholder,
+      emailLabel,
+      phoneLabel,
+      subtitle,
+    } = text;
+
+    useImperativeHandle(ref, () => ({
+      async submit() {
+        const isValid = await trigger();
+        if (!isValid) {
+          toast.error("Please fix errors in the form");
+          return false;
+        }
+
+        if (!listingSlug) {
+          toast.error("Missing listing identifier. Restart process.");
+          return false;
+        }
+
         const token = localStorage.getItem("authToken");
-        if (!token) {
-          throw new Error("Authentication required");
-        }
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-        const endpoint = `${API_URL}/api/listing/{listing_slug}/address`; // listingId is the slug
+        try {
+          const data = form.getValues();
+          const locationParts = data.location.split(",");
 
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+          const payload = {
             address: data.address,
-            location: data.location,
+            city: locationParts[0]?.trim(),
+            country: locationParts[1]?.trim() || "Ghana",
+            primary_phone: data.phone,
             email: data.email,
-            phone: data.phone,
-            business_hours: data.businessHours,
+            opening_hours: data.businessHours,
             tags: data.tags,
-          }),
-        });
+          };
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to save address details");
+          // Update Context
+          setBusinessDetails({ ...businessDetails, ...data });
+
+          const res = await fetch(
+            `${API_URL}/api/listing/${listingSlug}/address`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(payload),
+            }
+          );
+
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Failed to update details");
+          }
+          return true;
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Update failed";
+          toast.error(msg);
+          return false;
         }
+      },
+    }));
 
-        toast.success("Address details saved successfully");
-      }
+    return (
+      <div className="w-full max-w-5xl space-y-6 mx-auto p-6">
+        <div>
+          <h2 className="text-2xl font-semibold">Details & Media</h2>
+          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+        </div>
 
-      // Call the onSubmit callback if provided
-      if (onSubmit) {
-        await onSubmit(data);
-      }
-    } catch (error) {
-      console.error("Address save error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to save address details"
-      );
-    }
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit(handleFormSubmit)}
-      className="w-full max-w-5xl space-y-6 mx-auto p-6"
-    >
-      <div>
-        <h2 className="text-2xl font-semibold">Details & Media</h2>
-        <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
-      </div>
-
-      {/* Address */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-1">
-          <label className="font-medium text-sm">{addressLabel}</label>
-
-          <div className="relative">
-            <Input
-              {...register("address")}
-              placeholder={addressPlaceholder}
-              className={cn(
-                "h-10 rounded-lg border-gray-300 px-4 pr-10 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-                errors.address && "border-red-500 focus-visible:ring-red-500"
-              )}
-            />
-
-            <MapPin
-              size={18}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1">
+            <label className="font-medium text-sm">{addressLabel}</label>
+            <div className="relative">
+              <Input
+                {...register("address")}
+                placeholder={addressPlaceholder}
+                className={cn(errors.address && "border-red-500")}
+              />
+              <MapPin
+                size={18}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+            </div>
+            {errors.address && (
+              <p className="text-red-500 text-xs">{errors.address.message}</p>
+            )}
           </div>
 
-          {errors.address && (
-            <p className="text-red-500 text-xs mt-1">
-              {errors.address.message}
-            </p>
-          )}
+          <div className="space-y-1">
+            <label className="font-medium text-sm">
+              Location (City, Country)
+            </label>
+            <Input
+              {...register("location")}
+              placeholder="Accra, Ghana"
+              className={cn(errors.location && "border-red-500")}
+            />
+          </div>
         </div>
 
-        {/* Location */}
-        <div className="space-y-1">
-          <label className="font-medium text-sm">Location</label>
-          <Input
-            {...register("location")}
-            placeholder="City, Region"
-            className={cn(
-              "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.location && "border-red-500 focus-visible:ring-red-500"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1">
+            <label className="font-medium text-sm">{emailLabel}</label>
+            <Input
+              {...register("email")}
+              type="email"
+              placeholder="contact@domain.com"
+              className={cn(errors.email && "border-red-500")}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="font-medium text-sm">{phoneLabel}</label>
+            <Input
+              {...register("phone")}
+              placeholder="+233..."
+              className={cn(errors.phone && "border-red-500")}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <BusinessHoursSelector
+              value={currentHours}
+              onChange={(val) =>
+                setValue("businessHours", val, { shouldValidate: true })
+              }
+            />
+            {errors.businessHours && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.businessHours.message}
+              </p>
             )}
-          />
-          {errors.location && (
-            <p className="text-red-500 text-xs mt-1">
-              {errors.location.message}
-            </p>
-          )}
+          </div>
+          <div>
+            <TagInput
+              label="Tags"
+              placeholder="Add tags..." // Fixed missing prop
+              tags={currentTags}
+              onChange={(val) =>
+                setValue("tags", val, { shouldValidate: true })
+              }
+            />
+            {errors.tags && (
+              <p className="text-red-500 text-xs mt-1">{errors.tags.message}</p>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Email + Phone */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Email */}
-        <div className="space-y-1">
-          <label className="font-medium text-sm">{emailLabel}</label>
-          <Input
-            {...register("email")}
-            type="email"
-            placeholder="example@domain.com"
-            className={cn(
-              "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.email && "border-red-500 focus-visible:ring-red-500"
-            )}
-          />
-          {errors.email && (
-            <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
-          )}
-        </div>
-
-        {/* Phone */}
-        <div className="space-y-1">
-          <label className="font-medium text-sm">{phoneLabel}</label>
-          <Input
-            {...register("phone")}
-            placeholder="+233 000 000 0000"
-            className={cn(
-              "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.phone && "border-red-500 focus-visible:ring-red-500"
-            )}
-          />
-          {errors.phone && (
-            <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Business Hours */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <BusinessHoursSelector
-          label={
-            listingType === "business"
-              ? "Business Hours"
-              : listingType === "event"
-              ? "Event Date & Time"
-              : "Community Meeting Hours"
-          }
-          value={businessDetails.businessHours}
-          onChange={(hours) =>
-            setBusinessDetails({ ...businessDetails, businessHours: hours })
-          }
-        />
-
-        {/* Tags */}
-        <TagInput
-          label="Tags"
-          placeholder={
-            listingType === "business" ? "Add business tags" : "Add event tags"
-          }
-          tags={businessDetails.tags}
-          onChange={(tags) => setBusinessDetails({ ...businessDetails, tags })}
-        />
-      </div>
-    </form>
-  );
-}
+    );
+  }
+);
+BusinessDetailsForm.displayName = "BusinessDetailsForm";
