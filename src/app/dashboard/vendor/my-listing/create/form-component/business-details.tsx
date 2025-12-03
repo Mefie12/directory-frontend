@@ -120,7 +120,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         const token = localStorage.getItem("authToken");
         const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          process.env.API_URL || "https://me-fie.co.uk";
 
         try {
           const data = form.getValues();

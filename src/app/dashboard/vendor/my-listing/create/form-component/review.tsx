@@ -22,7 +22,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         try {
           const token = localStorage.getItem("authToken");
           const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+            process.env.API_URL || "https://me-fie.co.uk";
 
           const res = await fetch(
             `${API_URL}/api/listing/${listingSlug}/show`,

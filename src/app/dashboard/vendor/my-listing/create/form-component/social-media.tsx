@@ -129,7 +129,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         }
 
         const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          process.env.API_URL || "https://me-fie.co.uk";
         const endpoint = `${API_URL}/api/listing/${listingSlug}/social`;
 
         const response = await fetch(endpoint, {
