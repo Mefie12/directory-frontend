@@ -12,7 +12,7 @@ interface BasicInfo {
 }
 
 export interface DaySchedule {
-  day: string;
+  day_of_week: string;
   enabled: boolean;
   startTime: string;
   endTime: string;
@@ -61,13 +61,13 @@ export function ListingProvider({ children }: { children: ReactNode }) {
     location: "",
     email: "",
     businessHours: [
-      { day: "Monday", enabled: false, startTime: "", endTime: "" },
-      { day: "Tuesday", enabled: false, startTime: "", endTime: "" },
-      { day: "Wednesday", enabled: false, startTime: "", endTime: "" },
-      { day: "Thursday", enabled: false, startTime: "", endTime: "" },
-      { day: "Friday", enabled: false, startTime: "", endTime: "" },
-      { day: "Saturday", enabled: false, startTime: "", endTime: "" },
-      { day: "Sunday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Monday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Tuesday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Wednesday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Thursday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Friday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Saturday", enabled: false, startTime: "", endTime: "" },
+      { day_of_week: "Sunday", enabled: false, startTime: "", endTime: "" },
     ],
     tags: [],
   });
@@ -84,13 +84,13 @@ export function ListingProvider({ children }: { children: ReactNode }) {
       location: "",
       email: "",
       businessHours: [
-        { day: "Monday", enabled: false, startTime: "", endTime: "" },
-        { day: "Tuesday", enabled: false, startTime: "", endTime: "" },
-        { day: "Wednesday", enabled: false, startTime: "", endTime: "" },
-        { day: "Thursday", enabled: false, startTime: "", endTime: "" },
-        { day: "Friday", enabled: false, startTime: "", endTime: "" },
-        { day: "Saturday", enabled: false, startTime: "", endTime: "" },
-        { day: "Sunday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Monday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Tuesday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Wednesday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Thursday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Friday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Saturday", enabled: false, startTime: "", endTime: "" },
+        { day_of_week: "Sunday", enabled: false, startTime: "", endTime: "" },
       ],
       tags: [],
     });

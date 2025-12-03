@@ -102,7 +102,7 @@ export default function ListingContent() {
       case 1:
         return <BasicInformationForm {...commonProps} />;
       case 2:
-        return <BusinessDetailsForm {...commonProps} />;
+        return <BusinessDetailsForm {...commonProps} onBack={handleBack} />;
       case 3:
         return <MediaUploadStep {...commonProps} />;
       case 4:

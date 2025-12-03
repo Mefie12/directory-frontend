@@ -1,11 +1,11 @@
 "use client";
 
-import { forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react";
-import { zodResolver } from "@hookform/resolvers/zod"; // Fixed import
+import { MapPin } from "lucide-react"; // Removed unused Loader2
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -17,17 +17,16 @@ import { useListing } from "@/context/listing-form-context";
 import { TagInput } from "@/components/dashboard/listing/tag-input";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
-// Valid Schema
+// --- Schema ---
 export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   location: z.string().min(1, "Location is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required"),
-  // Fixed Schema to match DaySchedule[]
   businessHours: z
     .array(
       z.object({
-        day: z.string(),
+        day_of_week: z.string(),
         startTime: z.string(),
         endTime: z.string(),
         enabled: z.boolean(),
@@ -66,6 +65,7 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onBack: () => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
@@ -91,94 +91,130 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
 
-    // Cast watched values to correct types
+    // Removed unused isSaving state since parent handles the loading indicator via ref promise
+    const [, setIsSaving] = useState(false);
+
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const currentTags = watch("tags") || [];
 
     const text = formTextConfig[listingType];
-    const {
-      addressLabel,
-      addressPlaceholder,
-      emailLabel,
-      phoneLabel,
-      subtitle,
-    } = text;
 
+    // --- SHARED SAVE FUNCTION ---
+    const saveDataToApi = async () => {
+      const isValid = await trigger();
+      if (!isValid) {
+        toast.error("Please fix errors in the form");
+        return false;
+      }
+
+      if (!listingSlug) {
+        toast.error("Missing listing identifier. Restart process.");
+        return false;
+      }
+
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        toast.error("Authentication required");
+        return false;
+      }
+
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      try {
+        setIsSaving(true);
+        const data = form.getValues();
+        const locationParts = data.location.split(",");
+
+        // 1. Prepare Address/Details Payload
+        const detailsPayload = {
+          address: data.address,
+          city: locationParts[0]?.trim(),
+          country: locationParts[1]?.trim() || "Ghana",
+          primary_phone: data.phone,
+          email: data.email,
+          tags: data.tags,
+        };
+
+        // 2. Prepare Hours Payload (Mapping to Backend Format)
+        const hoursPayload = {
+          opening_hours: data.businessHours.map((h: DaySchedule) => ({
+            day_of_week: h.day_of_week,
+            open_time: h.startTime,
+            close_time: h.endTime,
+            is_closed: !h.enabled,
+          })),
+        };
+
+        // 3. Update Context (Optimistic)
+        setBusinessDetails({ ...businessDetails, ...data });
+
+        // 4. EXECUTE REQUESTS (Parallel)
+        const detailsReq = fetch(
+          `${API_URL}/api/listing/${listingSlug}/address`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(detailsPayload),
+          }
+        );
+
+        const hoursReq = fetch(
+          `${API_URL}/api/listing/${listingSlug}/opening_hours`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(hoursPayload),
+          }
+        );
+
+        const [detailsRes, hoursRes] = await Promise.all([
+          detailsReq,
+          hoursReq,
+        ]);
+
+        if (!detailsRes.ok) throw new Error("Failed to update details");
+        if (!hoursRes.ok) throw new Error("Failed to update opening hours");
+
+        return true;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Update failed";
+        toast.error(msg);
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    // --- PARENT "NEXT" TRIGGER ---
     useImperativeHandle(ref, () => ({
       async submit() {
-        const isValid = await trigger();
-        if (!isValid) {
-          toast.error("Please fix errors in the form");
-          return false;
-        }
-
-        if (!listingSlug) {
-          toast.error("Missing listing identifier. Restart process.");
-          return false;
-        }
-
-        const token = localStorage.getItem("authToken");
-        const API_URL =
-          process.env.API_URL || "https://me-fie.co.uk";
-
-        try {
-          const data = form.getValues();
-          const locationParts = data.location.split(",");
-
-          const payload = {
-            address: data.address,
-            city: locationParts[0]?.trim(),
-            country: locationParts[1]?.trim() || "Ghana",
-            primary_phone: data.phone,
-            email: data.email,
-            opening_hours: data.businessHours,
-            tags: data.tags,
-          };
-
-          // Update Context
-          setBusinessDetails({ ...businessDetails, ...data });
-
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/address`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(payload),
-            }
-          );
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Failed to update details");
-          }
-          return true;
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : "Update failed";
-          toast.error(msg);
-          return false;
-        }
+        return await saveDataToApi();
       },
     }));
 
     return (
-      <div className="w-full max-w-5xl space-y-6 mx-auto p-6">
+      <div className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6">
         <div>
           <h2 className="text-2xl font-semibold">Details & Media</h2>
-          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+          <p className="text-sm text-gray-500 mt-1">{text.subtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">{addressLabel}</label>
+            <label className="font-medium text-sm">{text.addressLabel}</label>
             <div className="relative">
               <Input
                 {...register("address")}
-                placeholder={addressPlaceholder}
+                placeholder={text.addressPlaceholder}
                 className={cn(errors.address && "border-red-500")}
               />
               <MapPin
@@ -205,7 +241,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">{emailLabel}</label>
+            <label className="font-medium text-sm">{text.emailLabel}</label>
             <Input
               {...register("email")}
               type="email"
@@ -214,7 +250,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             />
           </div>
           <div className="space-y-1">
-            <label className="font-medium text-sm">{phoneLabel}</label>
+            <label className="font-medium text-sm">{text.phoneLabel}</label>
             <Input
               {...register("phone")}
               placeholder="+233..."
@@ -240,7 +276,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div>
             <TagInput
               label="Tags"
-              placeholder="Add tags..." // Fixed missing prop
+              placeholder="Add tags..."
               tags={currentTags}
               onChange={(val) =>
                 setValue("tags", val, { shouldValidate: true })

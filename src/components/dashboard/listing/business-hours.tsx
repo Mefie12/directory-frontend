@@ -6,7 +6,7 @@ import { useState } from "react";
 
 // 1. Export this interface
 export interface DaySchedule {
-  day: string;
+  day_of_week: string;
   enabled: boolean;
   startTime: string;
   endTime: string;
@@ -40,19 +40,19 @@ export function BusinessHoursSelector({
     const safeValue = Array.isArray(value) ? value : [];
 
     // Check if day exists, if not create it
-    const dayExists = safeValue.find((s) => s.day === day);
+    const dayExists = safeValue.find((s) => s.day_of_week === day);
     let newValue;
 
     if (dayExists) {
       newValue = safeValue.map((schedule) =>
-        schedule.day === day ? { ...schedule, enabled: checked } : schedule
+        schedule.day_of_week === day ? { ...schedule, enabled: checked } : schedule
       );
     } else {
       // If this is the first interaction, we might need to initialize the array
       // or handle empty state. For robust logic, initialize all days if empty.
       newValue = [
         ...safeValue,
-        { day, enabled: checked, startTime: "", endTime: "" },
+        { day_of_week: day, enabled: checked, startTime: "", endTime: "" },
       ];
     }
 
@@ -60,13 +60,13 @@ export function BusinessHoursSelector({
   };
 
   const handleTimeChange = (
-    day: string,
+    day_of_week: string,
     field: "startTime" | "endTime",
     time: string
   ) => {
     const safeValue = Array.isArray(value) ? value : [];
     const newValue = safeValue.map((schedule) =>
-      schedule.day === day ? { ...schedule, [field]: time } : schedule
+      schedule.day_of_week === day_of_week ? { ...schedule, [field]: time } : schedule
     );
     onChange(newValue);
   };
@@ -99,7 +99,7 @@ export function BusinessHoursSelector({
             {DAYS.map((day) => {
               // Safe access
               const schedule = Array.isArray(value)
-                ? value.find((s) => s.day === day)
+                ? value.find((s) => s.day_of_week === day)
                 : undefined;
 
               // Default state for rendering if not found in value prop
