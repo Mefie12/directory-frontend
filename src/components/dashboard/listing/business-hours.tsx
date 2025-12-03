@@ -7,7 +7,6 @@ import { useState } from "react";
 // 1. Export this interface
 export interface DaySchedule {
   day_of_week: string;
-  enabled: boolean;
   startTime: string;
   endTime: string;
 }
@@ -118,7 +117,7 @@ export function BusinessHoursSelector({
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id={day}
-                      checked={effectiveSchedule.enabled}
+                      checked={!!effectiveSchedule}
                       onCheckedChange={(checked) =>
                         handleDayToggle(day, checked as boolean)
                       }
@@ -135,7 +134,7 @@ export function BusinessHoursSelector({
                     onChange={(e) =>
                       handleTimeChange(day, "startTime", e.target.value)
                     }
-                    disabled={!effectiveSchedule.enabled}
+                    disabled={!effectiveSchedule}
                     className="text-center px-1"
                     placeholder="-- : -- AM"
                   />
@@ -146,7 +145,7 @@ export function BusinessHoursSelector({
                     onChange={(e) =>
                       handleTimeChange(day, "endTime", e.target.value)
                     }
-                    disabled={!effectiveSchedule.enabled}
+                    disabled={!effectiveSchedule}
                     className="text-center px-1"
                     placeholder="-- : -- PM"
                   />

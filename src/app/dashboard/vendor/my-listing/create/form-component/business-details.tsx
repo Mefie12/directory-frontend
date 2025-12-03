@@ -29,7 +29,6 @@ export const DetailsFormSchema = z.object({
         day_of_week: z.string(),
         startTime: z.string(),
         endTime: z.string(),
-        enabled: z.boolean(),
       })
     )
     .min(1, "Hours are required"),
@@ -142,7 +141,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             day_of_week: h.day_of_week,
             open_time: h.startTime,
             close_time: h.endTime,
-            is_closed: !h.enabled,
           })),
         };
 
