@@ -14,7 +14,7 @@ import {
   DaySchedule,
 } from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
-import { TagInput } from "@/components/dashboard/listing/tag-input";
+// import { TagInput } from "@/components/dashboard/listing/tag-input";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
 // --- Schema ---
@@ -96,7 +96,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
-    const currentTags = watch("tags") || [];
+    // const currentTags = watch("tags") || [];
 
     const text = formTextConfig[listingType];
 
@@ -273,7 +273,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               </p>
             )}
           </div>
-          <div>
+          {/* <div>
             <TagInput
               label="Tags"
               placeholder="Add tags..."
@@ -285,7 +285,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {errors.tags && (
               <p className="text-red-500 text-xs mt-1">{errors.tags.message}</p>
             )}
-          </div>
+          </div> */}
         </div>
       </div>
     );
