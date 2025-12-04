@@ -217,7 +217,7 @@ export default function Signup() {
                   </Label>
                   <Input
                     id="phone"
-                    type="number"
+                    type="tel"
                     placeholder="Enter your Phone Number"
                     className="w-full  placeholder:text-xs"
                     value={formData.phone}
