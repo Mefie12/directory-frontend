@@ -111,7 +111,7 @@ export default function Signup() {
       console.log("Registration successful:", data);
 
       // Redirect to login page
-      router.push("/auth/login");
+      router.push("/");
       router.refresh();
     } catch (error) {
       console.error("register failed:", error);

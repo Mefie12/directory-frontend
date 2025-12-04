@@ -1,8 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Edit,
+  MapPin,
+  Tag,
+  User,
+  Gem,
+  RefreshCcw,
+} from "lucide-react";
+import Image from "next/image";
+
 import { ListingsTable } from "@/components/dashboard/listing-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,63 +22,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 
-// --- API Response Interfaces ---
+// --- Interfaces ---
+
 interface ListingImage {
   id: number;
   media: string | null;
   media_type: string;
-  file_size: number;
-  file_size_formatted: string;
-  mime_type: string;
-  is_compressed: number;
-  compression_status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface OpeningHour {
-  id: number;
-  listing_id: number;
-  day_of_week: string;
-  open_time: string;
-  close_time: string;
-  is_closed: boolean;
-}
-
-interface Social {
-  id: number;
-  listing_id: number;
-  facebook: string;
-  instagram: string;
-  twitter: string;
-  tiktok: string;
-  youtube: string;
-}
-
-interface Service {
-  id: number;
-  listing_id: number;
-  name: string;
-  description: string;
 }
 
 interface Category {
   id: number;
   name: string;
-  parent_id: string | null;
-  type: "mainCategory" | "subCategory";
-  description: string;
-}
-
-interface CompressionMeta {
-  total_files: number;
-  compressed_files: number;
-  pending_compression: number;
-  compression_progress: number;
-  total_size: string;
-  compressed_size: string;
-  has_pending_compression: boolean;
 }
 
 interface ApiListing {
@@ -78,301 +59,477 @@ interface ApiListing {
   address: string;
   country: string;
   city: string;
-  primary_phone: string;
-  secondary_phone: string;
-  email: string;
-  google_plus_code: string;
-  business_reg_num: string;
-  website: string;
+  status: "pending" | "published" | "draft" | "rejected" | "active";
+  type?: string;
   images: ListingImage[];
-  opening_hours: OpeningHour[];
-  socials: Social[];
-  services: Service[];
   categories: Category[];
   rating: number;
   ratings_count: number;
   views_count: number;
-  unique_visitors_count: number;
-  authenticated_viewers_count: number;
-  guest_viewers_count: number;
-  bookmarks_count: number; // ✅ Included API field
-  created_at: string;
-  updated_at: string;
-  status: "pending" | "published" | "draft" | "rejected";
-  compression_meta: CompressionMeta;
+  bookmarks_count: number;
 }
 
 interface ApiResponse {
   data: ApiListing[];
-  links: {
-    first: string | null;
-    last: string | null;
-    prev: string | null;
-    next: string | null;
-  };
-  meta: {
-    path: string;
-    per_page: number;
-    next_cursor: string | null;
-    prev_cursor: string | null;
-  };
+  meta?: unknown;
 }
 
-// --- Table Component Interface ---
+// Extended Table Item
 interface ListingsTableItem {
   id: string;
+  slug: string;
   name: string;
-  image: string;
+  image: string; // Cover Image (images[0])
+  allImages: string[]; // ✅ All valid images
   category: string;
   location: string;
   status: "published" | "pending" | "drafted";
+  type: string;
   views: number;
   comments: number;
   bookmarks: number;
   rating: number;
+  description?: string;
 }
+
+// Helper function for image URLs
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholder-listing.png";
+
+  // If URL is already absolute with http/https, return as is
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  // If it's a relative path, prepend the API URL
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
 
 export default function MyListing() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch listings from API
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // --- Action States ---
+  const [viewListing, setViewListing] = useState<ListingsTableItem | null>(
+    null
+  );
+  const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          // Optional: Redirect to login logic here
-          throw new Error("Authentication required");
-        }
+  // Helper function for initials
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  };
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-        const response = await fetch(`${API_URL}/api/listing/my_listings`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
+  // Status color helper
+  const getStatusColor = (status: string) => {
+    if (status === "published") return "bg-[#E9F5D6] text-[#5F8B0A]";
+    if (status === "pending") return "bg-yellow-100 text-yellow-700";
+    return "bg-red-100 text-red-800";
+  };
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error("Session expired. Please login again.");
-          }
-          throw new Error(`Failed to fetch listings: ${response.status}`);
-        }
+  // --- Fetch Logic ---
+  const fetchListings = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        const data: ApiResponse = await response.json();
+      const token = localStorage.getItem("authToken");
+      if (!token) throw new Error("Authentication required");
 
-        // Transform API data to match ListingsTable component format
-        const transformedListings: ListingsTableItem[] = data.data.map(
-          (listing) => {
-            // 1. Image Handling: Safely find the first valid image URL
-            const validImages = listing.images.filter(
-              (img) =>
-                img.media && // Ensure not null
-                typeof img.media === "string" && // Ensure string
-                img.media !== "processing" && // Ensure not stuck in processing
-                img.media.startsWith("http") // Ensure valid URL
-            );
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const response = await fetch(`${API_URL}/api/listing/my_listings`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
 
-            const firstImage =
-              validImages.length > 0 && validImages[0].media
-                ? validImages[0].media
-                : "/images/placeholders/generic-business.jpg"; // Safe fallback
-
-            // 2. Category Handling
-            const mainCategories = listing.categories
-              .filter((cat) => cat.parent_id === null)
-              .map((cat) => cat.name)
-              .join(", ");
-
-            const categoryText = mainCategories || "Uncategorized";
-
-            // 3. Location Handling
-            const locationParts = [listing.city, listing.country].filter(
-              Boolean
-            );
-            const location =
-              locationParts.length > 0 ? locationParts.join(", ") : "Online";
-
-            // 4. Status Mapping
-            let status: "published" | "pending" | "drafted" = "drafted";
-            const lowerStatus = listing.status.toLowerCase();
-            if (lowerStatus === "published") status = "published";
-            else if (lowerStatus === "pending") status = "pending";
-            // Map 'rejected' or 'draft' to 'drafted' UI state
-            else status = "drafted";
-
-            return {
-              id: listing.id.toString(),
-              name: listing.name,
-              image: firstImage,
-              category: categoryText,
-              location: location,
-              status: status,
-              views: listing.views_count || 0,
-              comments: listing.ratings_count || 0,
-              bookmarks: listing.bookmarks_count || 0, // ✅ Using correct API field
-              rating: Number(listing.rating) || 0,
-            };
-          }
-        );
-
-        setListings(transformedListings);
-      } catch (err) {
-        console.error("Error fetching listings:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load listings"
-        );
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Session expired");
+        throw new Error("Failed to fetch listings");
       }
-    };
 
-    fetchListings();
+      const data: ApiResponse = await response.json();
+
+      const transformedListings: ListingsTableItem[] = data.data.map(
+        (listing) => {
+          const rawImages = listing.images || [];
+
+          // Extract ALL valid images using getImageUrl helper
+          const validImages = rawImages
+            .filter((img) => img.media && !img.media.includes("processing"))
+            .map((img) => getImageUrl(img.media));
+
+          // Set Cover (Index 0) or Fallback
+          const coverImage =
+            validImages.length > 0
+              ? validImages[0]
+              : getImageUrl("/images/placeholders/generic-business.jpg");
+
+          const categoryText = listing.categories?.[0]?.name || "Uncategorized";
+          const location =
+            [listing.city, listing.country].filter(Boolean).join(", ") ||
+            "Online";
+
+          let status: "published" | "pending" | "drafted" = "drafted";
+          if (listing.status === "published" || listing.status === "active")
+            status = "published";
+          else if (listing.status === "pending") status = "pending";
+
+          return {
+            id: listing.id.toString(),
+            slug: listing.slug,
+            name: listing.name,
+            image: coverImage, // Used for Table thumbnail (image[0])
+            allImages: validImages, // ✅ Store full array for View sidebar
+            category: categoryText,
+            location: location,
+            status: status,
+            type: listing.type || "business",
+            views: listing.views_count || 0,
+            comments: listing.ratings_count || 0,
+            bookmarks: listing.bookmarks_count || 0,
+            rating: Number(listing.rating) || 0,
+            description: listing.bio,
+          };
+        }
+      );
+
+      setListings(transformedListings);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load listings");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!authLoading && user) fetchListings();
+  }, [user, authLoading, fetchListings]);
+
+  // --- Handlers ---
+  const handleEdit = (listing: ListingsTableItem) => {
+    router.push(
+      `/dashboard/vendor/my-listing/edit?type=${listing.type}&slug=${listing.slug}`
+    );
+  };
+
+  const handleDelete = async () => {
+    if (!deleteListingId) return;
+    setIsDeleting(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+      const listing = listings.find((l) => l.id === deleteListingId);
+      if (!listing) return;
+
+      const res = await fetch(`${API_URL}/api/listing/${listing.slug}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      toast.success("Listing deleted");
+      setListings((prev) => prev.filter((l) => l.id !== deleteListingId));
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete listing");
+    } finally {
+      setIsDeleting(false);
+      setDeleteListingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" />
+      </div>
+    );
+  }
 
   return (
     <div className="px-1 lg:px-8 py-3 space-y-6">
-      {/* Header Intro */}
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
           <h4 className="text-2xl font-semibold">My Listings</h4>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your business, events, and community listings
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Manage your listings</p>
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer gap-2"
-              disabled={loading}
-            >
-              <Plus className="w-4 h-4" />
-              Add new listing
+            <Button className="bg-[#93C01F] hover:bg-[#93C01F]/80 gap-2">
+              <Plus className="w-4 h-4" /> Add new listing
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="shadow-lg border border-gray-100 -mt-1 w-56"
-            align="end"
-          >
-            <DropdownMenuItem
-              className="cursor-pointer py-2.5"
-              onClick={() =>
-                router.push("/dashboard/vendor/my-listing/create?type=business")
-              }
-            >
-              <span className="border bg-[#93C01F]/30 text-[#93C01F] rounded-full px-2 py-0.5 text-xs font-medium mr-2">
-                1
-              </span>
-              Business Listing
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer py-2.5"
-              onClick={() =>
-                router.push("/dashboard/vendor/my-listing/create?type=event")
-              }
-            >
-              <span className="border bg-[#93C01F]/30 text-[#93C01F] rounded-full px-2 py-0.5 text-xs font-medium mr-2">
-                2
-              </span>
-              Event Listing
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer py-2.5"
-              onClick={() =>
-                router.push(
-                  "/dashboard/vendor/my-listing/create?type=community"
-                )
-              }
-            >
-              <span className="border bg-[#93C01F]/30 text-[#93C01F] rounded-full px-2 py-0.5 text-xs font-medium mr-2">
-                3
-              </span>
-              Community Listing
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end">
+            {["business", "event", "community"].map((type) => (
+              <DropdownMenuItem
+                key={type}
+                onClick={() =>
+                  router.push(
+                    `/dashboard/vendor/my-listing/create?type=${type}`
+                  )
+                }
+                className="capitalize"
+              >
+                {type} Listing
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* States */}
-
-      {/* 1. Loading */}
-      {loading && (
-        <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" />
-            <p className="text-gray-500 font-medium">
-              Loading your listings...
-            </p>
-          </div>
+      {listings.length > 0 ? (
+        <ListingsTable
+          listings={listings}
+          showPagination={true}
+          itemsPerPage={6}
+          onViewClick={setViewListing}
+          onEditClick={handleEdit}
+          onDeleteClick={(id: string) => setDeleteListingId(id)}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-xl bg-gray-50">
+          <p className="text-gray-500">No listings yet</p>
         </div>
       )}
 
-      {/* 2. Error
-      {error && !loading && (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-medium">Error loading listings</p>
-            <p className="text-sm mt-1 opacity-90">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3 bg-white hover:bg-gray-50 border-red-200 text-red-700"
-              onClick={() => window.location.reload()}
-            >
-              Try Again
-            </Button>
-          </div>
-        </div>
-      )} */}
-
-      {/* 3. Success (Table or Empty) */}
-      {!loading && !error && (
-        <>
-          {listings.length > 0 ? (
-            <ListingsTable
-              listings={listings}
-              showPagination={true}
-              button={false}
-              itemsPerPage={6}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Plus className="w-8 h-8 text-gray-400" />
+      {/* --- VIEW SIDEBAR (Sheet) - Updated to match the first code's style --- */}
+      <Sheet
+        open={!!viewListing}
+        onOpenChange={(open) => !open && setViewListing(null)}
+      >
+        <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
+          {viewListing && (
+            <>
+              {/* Header */}
+              <div className="p-6 pb-2 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div
+                    className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900"
+                    onClick={() => setViewListing(null)}
+                  >
+                    ← Back
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                </div>
+                <h2 className="text-2xl font-bold">{viewListing.name}</h2>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                No listings yet
-              </h3>
-              <p className="text-gray-500 mb-6 max-w-sm text-center">
-                You haven&apos;t created any listings yet. Get started by adding
-                your first business, event, or community.
-              </p>
-              <Button
-                className="bg-[#93C01F] hover:bg-[#93C01F]/80"
-                onClick={() =>
-                  router.push(
-                    "/dashboard/vendor/my-listing/create?type=business"
-                  )
-                }
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Listing
-              </Button>
-            </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-8">
+                {/* Details Grid - Similar to first code */}
+                <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
+                  {/* Status */}
+                  <RefreshCcw className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Status</span>
+                  <div className="justify-self-end">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                        viewListing.status
+                      )}`}
+                    >
+                      {viewListing.status === "published"
+                        ? "Published"
+                        : viewListing.status === "pending"
+                        ? "Pending Review"
+                        : "Draft"}
+                    </span>
+                  </div>
+
+                  {/* Vendor/Owner */}
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Owner</span>
+                  <div className="justify-self-end flex items-center gap-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[10px]">
+                        {user
+                          ? getInitials(user.name || user.email || "U")
+                          : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-gray-900">
+                      {user?.name || user?.email || "You"}
+                    </span>
+                  </div>
+
+                  {/* Location */}
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Location</span>
+                  <div className="justify-self-end font-medium text-gray-900">
+                    {viewListing.location}
+                  </div>
+
+                  {/* Type */}
+                  <Tag className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Type</span>
+                  <div className="justify-self-end font-medium text-gray-900 capitalize">
+                    {viewListing.type}
+                  </div>
+
+                  {/* Category */}
+                  <Gem className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Category</span>
+                  <div className="justify-self-end">
+                    <Badge variant="outline" className="text-xs">
+                      {viewListing.category}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-gray-900">
+                    Listing Description
+                  </h3>
+                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100">
+                    {viewListing.description || "No description provided."}
+                  </div>
+                </div>
+
+                {/* Media Section - Using image[0] for cover and images[1,2,3] for rest */}
+                <div>
+                  <div className="flex border-b border-gray-200 mb-6">
+                    <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
+                      Media
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Cover image (image[0]) */}
+                    {viewListing.allImages.length > 0 ? (
+                      <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
+                        <Image
+                          src={viewListing.allImages[0]}
+                          alt="Cover image"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/images/placeholder-listing.png";
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                        No cover image
+                      </div>
+                    )}
+
+                    {/* Display up to 3 additional images from images array */}
+                    {viewListing.allImages.length > 1 ? (
+                      viewListing.allImages.slice(1, 4).map((img, index) => (
+                        <div
+                          key={index}
+                          className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
+                        >
+                          <Image
+                            src={img}
+                            alt={`Media ${index + 1}`}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "/images/placeholder-listing.png";
+                            }}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                        + Add Media
+                      </div>
+                    )}
+
+                    {/* Show "Add Media" button if we have less than 4 images total */}
+                    {viewListing.allImages.length < 4 && (
+                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors">
+                        + Add Media
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="text-2xl font-bold text-gray-900">
+                      {viewListing.views}
+                    </div>
+                    <div className="text-sm text-gray-500">Views</div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="text-2xl font-bold text-gray-900">
+                      {viewListing.bookmarks}
+                    </div>
+                    <div className="text-sm text-gray-500">Bookmarks</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="p-6 border-t border-gray-100 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setViewListing(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 bg-[#93C01F] hover:bg-[#82ab1b]"
+                  onClick={() => handleEdit(viewListing)}
+                >
+                  Edit Listing
+                </Button>
+              </div>
+            </>
           )}
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog
+        open={!!deleteListingId}
+        onOpenChange={(open) => !open && setDeleteListingId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Listing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -56,6 +56,19 @@ import { toast } from "sonner";
 // --- Types ---
 type TabType = "all" | "pending" | "flagged" | "categories";
 
+interface ListingImage {
+  id: number;
+  media: string;
+  media_type: string;
+  file_size: number;
+  file_size_formatted: string;
+  mime_type: string;
+  is_compressed: number;
+  compression_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface Listing {
   id: string;
   name: string;
@@ -66,14 +79,14 @@ interface Listing {
   type: string;
   submission: "Published" | "Pending review" | "Draft";
   approval: "Published" | "Pending" | "Rejected";
-  image: string; // This will be image[0] - cover image
-  images?: string[]; // Add this to store all images
+  image: string;
   plan?: "Basic" | "Pro" | "Premium";
   description?: string;
   userInfo?: {
     name: string;
     email?: string;
   };
+  images?: ListingImage[];
 }
 
 interface RawListing {
@@ -109,20 +122,9 @@ interface RawListing {
     type: string;
     description: string;
   }>;
-  images?: Array<{
-    id: number;
-    media: string;
-    media_type: string;
-    file_size: number;
-    file_size_formatted: string;
-    mime_type: string;
-    is_compressed: number;
-    compression_status: string;
-    created_at: string;
-    updated_at: string;
-  }>;
   city?: string;
   country?: string;
+  images?: ListingImage[];
 }
 
 interface ApiResponse {
@@ -148,7 +150,7 @@ interface ApiResponse {
   };
 }
 
-// Category Types matching your migration
+// Category Types
 interface Category {
   id: string;
   name: string;
@@ -169,7 +171,6 @@ interface CategoryFormData {
 
 // --- API Service Functions ---
 const categoryApi = {
-  // Get all categories
   getCategories: async (): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -186,7 +187,6 @@ const categoryApi = {
     return data.data || data.categories || [];
   },
 
-  // Create new category
   createCategory: async (categoryData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -216,7 +216,6 @@ const categoryApi = {
     return data.data;
   },
 
-  // Update category
   updateCategory: async (
     id: string,
     categoryData: CategoryFormData
@@ -249,7 +248,6 @@ const categoryApi = {
     return data.data;
   },
 
-  // Delete category
   deleteCategory: async (id: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -340,69 +338,52 @@ export default function Listings() {
       else if (Array.isArray(payload)) rawItems = payload;
     }
 
-    // ADD THE getImageUrl HELPER FUNCTION HERE
-    const getImageUrl = (url: string | undefined): string => {
-      if (!url) return "/images/placeholder-listing.png";
-
-      // If URL is already absolute with http/https, return as is
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        return url;
-      }
-
-      // If it's a relative path, prepend the API URL
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      return `${API_URL}/${url.replace(/^\//, "")}`;
-    };
-
     return rawItems.map((item) => {
       // Get vendor name from user data
       let vendorName = "Unknown Vendor";
       let userInfo: { name: string; email?: string } | undefined = undefined;
 
       if (item.user) {
-        // Combine first_name and last_name, or use name field
         if (item.user.first_name && item.user.last_name) {
           vendorName = `${item.user.first_name} ${item.user.last_name}`;
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         } else if (item.user.name) {
           vendorName = item.user.name;
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         } else if (item.user.email) {
           vendorName = item.user.email.split("@")[0];
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         }
       } else if (item.vendor || item.business_name) {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
-      // --- ADD/UPDATED IMAGE HANDLING CODE HERE ---
+      // --- 1. UPDATED IMAGE LOGIC ---
       let imageUrl = "/images/placeholder-listing.png";
-      if (item.images && item.images.length > 0) {
-        // Find first image that's not "processing"
-        const validImage = item.images.find(
-          (img) => img.media && img.media !== "processing"
-        );
-        if (validImage) {
-          imageUrl = getImageUrl(validImage.media);
-        }
-      } else if (item.image || item.thumbnail) {
-        imageUrl = getImageUrl(item.image || item.thumbnail);
-      }
-      // --- END OF IMAGE HANDLING CODE ---
 
-      // Get category from categories array
+      // Check for array of images first
+      if (item.images && item.images.length > 0) {
+        const coverImage = item.images[0];
+        // Ensure it's a valid http link and not "processing"
+        if (
+          coverImage &&
+          coverImage.media &&
+          coverImage.media !== "processing" &&
+          coverImage.media.startsWith("http")
+        ) {
+          imageUrl = coverImage.media;
+        }
+      }
+      // Fallback to single image fields
+      else if (item.image || item.thumbnail) {
+        imageUrl =
+          item.image || item.thumbnail || "/images/placeholder-listing.png";
+      }
+      // --------------------------------
+
+      // Get category
       let category = "General";
       if (item.categories && item.categories.length > 0) {
-        // Get main categories (parent_id === null)
         const mainCategories = item.categories.filter(
           (cat) => cat.parent_id === null
         );
@@ -455,21 +436,16 @@ export default function Listings() {
         type: item.type || "business",
         submission: submission,
         approval: approval,
-        image: imageUrl, // This is the cover image (image[0])
-        // ADD THIS images ARRAY FOR SIDEBAR DISPLAY
-        images: item.images
-          ? item.images
-              .filter((img) => img.media && img.media !== "processing")
-              .map((img) => getImageUrl(img.media))
-          : imageUrl
-          ? [imageUrl]
-          : [], // Fallback to cover image if no images array
+        image: imageUrl,
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
         description: item.description || "No description provided.",
         userInfo: userInfo,
+        // 2. UPDATED: Pass the images array
+        images: item.images || [],
       };
     });
   };
+
   // --- Category Management ---
   const mainCategories = allCategories.filter(
     (cat) => cat.type === "mainCategory" || cat.parent_id === null
@@ -478,24 +454,17 @@ export default function Listings() {
   const subCategories = allCategories.filter((cat) => {
     if (cat.type !== "subCategory") return false;
     if (!selectedMainCategory) return false;
-
     const catParentId = cat.parent_id?.toString();
     const selectedParentId = selectedMainCategory.id.toString();
-
     return catParentId === selectedParentId;
   });
 
-  // Load categories
-  // 1. Define the function using useCallback
   const loadCategories = useCallback(async () => {
     if (authLoading) return;
-
     setIsLoadingCategories(true);
     try {
       const categories = await categoryApi.getCategories();
       setAllCategories(categories);
-
-      // Set default selected main category if none selected
       if (categories.length > 0 && !selectedMainCategory) {
         const firstMainCategory = categories.find(
           (cat) => cat.type === "mainCategory" || cat.parent_id === null
@@ -510,9 +479,8 @@ export default function Listings() {
     } finally {
       setIsLoadingCategories(false);
     }
-  }, [authLoading, selectedMainCategory]); // Added dependencies
+  }, [authLoading, selectedMainCategory]);
 
-  // 2. If you want it to run automatically when the tab is 'categories'
   useEffect(() => {
     if (activeTab === "categories") {
       loadCategories();
@@ -548,7 +516,6 @@ export default function Listings() {
 
   const handleDeleteCategoryClick = async (category: Category) => {
     if (!category.id) return;
-
     try {
       await categoryApi.deleteCategory(category.id);
       setAllCategories((prev) =>
@@ -568,8 +535,6 @@ export default function Listings() {
       toast.error("Category name is required");
       return;
     }
-
-    // Validate that sub-categories have a parent selected
     if (!categoryFormData.is_main && !categoryFormData.parent_id) {
       toast.error("Please select a parent category for the sub-category");
       return;
@@ -578,33 +543,24 @@ export default function Listings() {
     setIsSavingCategory(true);
     try {
       if (editingCategoryId) {
-        // Update existing category
         const updatedCategory = await categoryApi.updateCategory(
           editingCategoryId,
           categoryFormData
         );
-
         setAllCategories((prev) =>
           prev.map((item) =>
             item.id === editingCategoryId ? updatedCategory : item
           )
         );
-
         toast.success("Category updated successfully");
       } else {
-        // Create new category
         const newCategory = await categoryApi.createCategory(categoryFormData);
-
         setAllCategories((prev) => [...prev, newCategory]);
-
-        // If this is a main category and it's the first one, select it
         if (categoryFormData.is_main && mainCategories.length === 0) {
           setSelectedMainCategory(newCategory);
         }
-
         toast.success("Category created successfully");
       }
-
       setIsCategoryDialogOpen(false);
     } catch (error) {
       const errorMessage =
@@ -616,7 +572,6 @@ export default function Listings() {
     }
   };
 
-  // Handle main category checkbox change
   const handleMainCategoryChange = (checked: boolean) => {
     setCategoryFormData((prev) => ({
       ...prev,
@@ -661,10 +616,7 @@ export default function Listings() {
 
       const json = await response.json();
 
-      // Handle different response formats
       let listingsData: RawListing[] = [];
-
-      // Check if response has data property (your API structure)
       if (json.data && Array.isArray(json.data)) {
         listingsData = json.data;
       } else if (Array.isArray(json)) {
@@ -678,7 +630,6 @@ export default function Listings() {
       const listings = extractListingsFromResponse(listingsData);
       setAllData(listings);
 
-      // Handle pagination from API if available
       if (json.meta && json.meta.totalPages) {
         setTotalPages(json.meta.totalPages);
       } else if (json.meta && json.meta.last_page) {
@@ -688,7 +639,6 @@ export default function Listings() {
       } else if (json.totalPages) {
         setTotalPages(json.totalPages);
       } else {
-        // Calculate pagination based on data length
         setTotalPages(Math.ceil(listings.length / itemsPerPage));
       }
     } catch (error) {
@@ -711,7 +661,6 @@ export default function Listings() {
     }
   }, [loadAllData, activeTab, loadCategories]);
 
-  // Update form parent_id when selectedMainCategory changes
   useEffect(() => {
     if (!categoryFormData.is_main && selectedMainCategory) {
       setCategoryFormData((prev) => ({
@@ -727,11 +676,9 @@ export default function Listings() {
     const safeAllData = Array.isArray(allData) ? allData : [];
 
     const filteredData = safeAllData.filter((item) => {
-      // Tab Filtering
       if (activeTab === "pending" && item.submission !== "Pending review")
         return false;
 
-      // Dropdown Filters
       if (statusFilter !== "all") {
         if (
           statusFilter === "pending" &&
@@ -753,7 +700,6 @@ export default function Listings() {
       )
         return false;
 
-      // Search
       if (search) {
         const searchLower = search.toLowerCase();
         return (
@@ -849,6 +795,21 @@ export default function Listings() {
         );
     }
     return pages;
+  };
+
+  // --- 3. HELPER FOR SIDEBAR IMAGES ---
+  const getAdditionalImages = (listing: Listing) => {
+    // If no images or only 1 image, nothing extra to show
+    if (!listing.images || listing.images.length <= 1) return [];
+
+    return listing.images
+      .slice(1, 4) // Get images at index 1, 2, and 3
+      .filter(
+        (img) =>
+          img.media &&
+          img.media !== "processing" &&
+          img.media.startsWith("http")
+      );
   };
 
   return (
@@ -1214,7 +1175,6 @@ export default function Listings() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Category Name */}
             <div className="space-y-2">
               <Label htmlFor="cat_name" className="text-gray-600">
                 Category name
@@ -1231,8 +1191,6 @@ export default function Listings() {
                 placeholder="Category name"
               />
             </div>
-
-            {/* Set as Main Category Checkbox */}
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="main_cat"
@@ -1247,8 +1205,6 @@ export default function Listings() {
                 Set as main category
               </label>
             </div>
-
-            {/* Parent Category Selector (only show for sub-categories) */}
             {!categoryFormData.is_main && (
               <div className="space-y-2">
                 <Label htmlFor="parent_category" className="text-gray-600">
@@ -1281,8 +1237,6 @@ export default function Listings() {
                 </Select>
               </div>
             )}
-
-            {/* Category Type */}
             <div className="space-y-2">
               <Label htmlFor="cat_type" className="text-gray-600">
                 Category type
@@ -1308,8 +1262,6 @@ export default function Listings() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="desc" className="text-gray-600">
                 Description
@@ -1328,7 +1280,6 @@ export default function Listings() {
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button
               variant="secondary"
@@ -1355,7 +1306,9 @@ export default function Listings() {
       {/* --- SIDEBAR (SHEET) --- */}
       <Sheet
         open={!!selectedListing}
-        onOpenChange={(open) => !open && setSelectedListing(null)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedListing(null);
+        }}
       >
         <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
           {selectedListing && (
@@ -1462,7 +1415,7 @@ export default function Listings() {
                     {selectedListing.description}
                   </div>
                 </div>
-                {/* Media section */}
+
                 <div>
                   <div className="flex border-b border-gray-200">
                     <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
@@ -1472,53 +1425,55 @@ export default function Listings() {
                       Contact Info
                     </button>
                   </div>
+
+                  {/* --- 4. SIDEBAR IMAGE GRID --- */}
                   <div className="mt-6 grid grid-cols-2 gap-4">
-                    {/* Cover image (image[0]) - using selectedListing.image */}
-                    {selectedListing.images &&
-                    selectedListing.images.length > 0 ? (
-                      <>
-                        {/* Cover image - image[0] */}
-                        <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
-                          <Image
-                            src={selectedListing.images[0]}
-                            alt="Cover image"
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                          />
-                        </div>
+                    {/* Main Cover Image */}
+                    <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
+                      <Image
+                        src={selectedListing.image}
+                        alt="Cover"
+                        fill
+                        className="object-cover"
+                        unoptimized={true} // Bypasses security check for external URLs
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                        }}
+                      />
+                    </div>
 
-                        {/* Images 1, 2, 3 from the array */}
-                        {selectedListing.images
-                          .slice(1, 4)
-                          .map((img, index) => (
-                            <div
-                              key={index}
-                              className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
-                            >
-                              <Image
-                                src={img}
-                                alt={`Media ${index + 2}`}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                              />
-                            </div>
-                          ))}
-                      </>
-                    ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                        No images available
+                    {/* Additional Images (Indices 1, 2, 3) */}
+                    {getAdditionalImages(selectedListing).map((img, idx) => (
+                      <div
+                        key={img.id || idx}
+                        className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
+                      >
+                        <Image
+                          src={img.media}
+                          alt={`Gallery ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized={true}
+                        />
                       </div>
-                    )}
+                    ))}
 
-                    {/* Show "Add Media" button if we have less than 4 images total */}
-                    {(!selectedListing.images ||
-                      selectedListing.images.length < 4) && (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors">
-                        + Add Media
+                    {/* Empty Slots/Placeholders (Fills up to 4 total spots) */}
+                    {Array.from({
+                      length: Math.max(
+                        0,
+                        3 - getAdditionalImages(selectedListing).length
+                      ),
+                    }).map((_, idx) => (
+                      <div
+                        key={`placeholder-${idx}`}
+                        className="aspect-square bg-gray-50 border border-dashed border-gray-200 rounded-lg flex flex-col gap-2 items-center justify-center text-gray-400 text-xs hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 opacity-50" />
+                        Add Media
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
