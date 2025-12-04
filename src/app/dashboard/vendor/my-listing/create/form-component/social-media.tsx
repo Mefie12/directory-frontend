@@ -16,11 +16,7 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 --------------------------------------------------- */
 export const socialMediaSchema = z.object({
   facebook: z.string().url("Invalid Facebook URL").optional().or(z.literal("")),
-  instagram: z
-    .string()
-    .url("Invalid Instagram URL")
-    .optional()
-    .or(z.literal("")),
+  instagram: z.string().url("Invalid Instagram URL").optional().or(z.literal("")),
   twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
   linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
   tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
@@ -32,8 +28,6 @@ type Props = {
   listingSlug: string;
   listingType: "business" | "event" | "community";
   onSuccess?: () => void;
-  // Include ref prop explicitly if needed by strict types, though forwardRef handles it
-  // listingId is handled via listingSlug here
 };
 
 const socialPlatforms = [
@@ -69,8 +63,8 @@ const socialPlatforms = [
     id: "tiktok",
     name: "Tiktok",
     icon: Globe,
-    placeholder: "https://tiktok.com/company/yourcompany",
-    color: "text-gray-600",
+    placeholder: "https://tiktok.com/@yourprofile",
+    color: "text-black",
   },
 ];
 
@@ -84,10 +78,11 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
   ) {
     const {
       register,
-      handleSubmit,
+      handleSubmit, // Still used for the <form> onSubmit
       formState: { errors },
       watch,
       trigger,
+      getValues, // ✅ Added getValues to manually retrieve data
     } = useForm<SocialMediaFormValues>({
       resolver: zodResolver(socialMediaSchema),
       defaultValues: {
@@ -98,9 +93,6 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         tiktok: "",
       },
     });
-
-    // Unused state removed to clean up warnings
-    // const [isSaving, setIsSaving] = useState(false);
 
     // Watch all fields to show which ones have values
     const watchedValues = watch();
@@ -123,12 +115,13 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           )
         );
 
-        // If no social media links provided, just continue
+        // If no social media links provided, just continue (Return TRUE)
         if (Object.keys(socialData).length === 0) {
-          return true; // Success (skipped)
+          return true; 
         }
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        // Ensure this endpoint matches your backend route exactly (/social vs /socials)
         const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
@@ -149,7 +142,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         toast.success("Social media links saved successfully");
         if (onSuccess) onSuccess();
-        return true;
+        
+        return true; // ✅ Returns true on success
       } catch (error) {
         console.error("Social media save error:", error);
         toast.error(
@@ -157,23 +151,28 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
             ? error.message
             : "Failed to save social media links"
         );
-        return false; // Indicate failure
+        return false; // ❌ Returns false on failure
       }
     };
 
     // Expose submit method to parent via ref
     useImperativeHandle(ref, () => ({
       submit: async () => {
+        // 1. Trigger Validation
         const isValid = await trigger();
         if (!isValid) {
           toast.error("Validation failed", {
-            description: "Please check all fields and try again",
+            description: "Please check URL formats",
           });
           return false;
         }
 
-        // Execute the submit handler and return its result (true/false)
-        return await handleSubmit(handleFormSubmit)();
+        // 2. Get Data Manually
+        const data = getValues();
+
+        // 3. Call handler DIRECTLY (Not via handleSubmit)
+        // This ensures the boolean return value is passed back to parent
+        return await handleFormSubmit(data);
       },
     }));
 
@@ -190,8 +189,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           </p>
         </div>
 
-        <form className="space-y-6">
-          {/* Social Media Platforms */}
+        {/* Used handleSubmit here just for standard form behavior (enter key) */}
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {socialPlatforms.map((platform) => {
               const Icon = platform.icon;
@@ -237,7 +236,6 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
             })}
           </div>
 
-          {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
               <span className="font-semibold">Tip:</span> Adding social media
