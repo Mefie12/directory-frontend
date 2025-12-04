@@ -5,11 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cc437f1-e105-4430-9d39-050637a5a5f9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/business-details.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/business-details.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/media.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/media.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/social-media.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/dashboard/vendor/my-listing/create/form-component/social-media.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/dashboard/listing/business-hours.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/dashboard/listing/business-hours.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/dashboard/listing/media-uploader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/dashboard/listing/media-uploader.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
