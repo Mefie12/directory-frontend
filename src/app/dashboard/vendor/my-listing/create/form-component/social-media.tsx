@@ -23,7 +23,7 @@ export const socialMediaSchema = z.object({
     .or(z.literal("")),
   twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
   linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
-  website: z.string().url("Invalid website URL").optional().or(z.literal("")),
+  tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -66,10 +66,10 @@ const socialPlatforms = [
     color: "text-blue-700",
   },
   {
-    id: "website",
-    name: "Website",
+    id: "tiktok",
+    name: "Tiktok",
     icon: Globe,
-    placeholder: "https://yourwebsite.com",
+    placeholder: "https://tiktok.com/company/yourcompany",
     color: "text-gray-600",
   },
 ];
@@ -95,7 +95,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         instagram: "",
         twitter: "",
         linkedin: "",
-        website: "",
+        tiktok: "",
       },
     });
 
@@ -130,7 +130,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         const API_URL =
           process.env.API_URL || "https://me-fie.co.uk";
-        const endpoint = `${API_URL}/api/listing/${listingSlug}/social`;
+        const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
           method: "POST",

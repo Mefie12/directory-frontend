@@ -6,6 +6,7 @@ import { useState } from "react";
 
 // 1. Keep 'enabled' here for UI state management
 export interface DaySchedule {
+  day_of_week: any;
   day_of_week: string;
   startTime: string;
   endTime: string;
