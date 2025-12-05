@@ -102,7 +102,7 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
 
   // If it's a relative path, prepend the API URL
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -137,7 +137,7 @@ export default function MyListing() {
     return "bg-red-100 text-red-800";
   };
 
-  // --- Fetch Logic ---
+ // --- Fetch Logic ---
   const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
@@ -145,7 +145,7 @@ export default function MyListing() {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
       const response = await fetch(`${API_URL}/api/listing/my_listings`, {
         method: "GET",
         headers: {
@@ -166,16 +166,30 @@ export default function MyListing() {
         (listing) => {
           const rawImages = listing.images || [];
 
-          // Extract ALL valid images using getImageUrl helper
+          // --- CRITICAL FIX START ---
           const validImages = rawImages
-            .filter((img) => img.media && !img.media.includes("processing"))
+            .filter((img) => {
+               // 1. Must have media string
+               if (!img.media) return false;
+               
+               // 2. Filter out known bad statuses
+               const badStatuses = ['processing', 'failed', 'pending', 'error'];
+               if (badStatuses.includes(img.media)) return false;
+
+               // 3. Optional: Filter out non-image extensions if necessary
+               // return /\.(jpg|jpeg|png|webp|gif)$/i.test(img.media) || img.media.startsWith('http');
+               
+               return true;
+            })
             .map((img) => getImageUrl(img.media));
+          // --- CRITICAL FIX END ---
 
           // Set Cover (Index 0) or Fallback
+          // Note: Since validImages might now be empty [], this correctly triggers the fallback.
           const coverImage =
             validImages.length > 0
               ? validImages[0]
-              : getImageUrl("/images/placeholders/generic-business.jpg");
+              : getImageUrl("/images/placeholder-listing.png");
 
           const categoryText = listing.categories?.[0]?.name || "Uncategorized";
           const location =
@@ -191,8 +205,8 @@ export default function MyListing() {
             id: listing.id.toString(),
             slug: listing.slug,
             name: listing.name,
-            image: coverImage, // Used for Table thumbnail (image[0])
-            allImages: validImages, // ✅ Store full array for View sidebar
+            image: coverImage, 
+            allImages: validImages, 
             category: categoryText,
             location: location,
             status: status,
@@ -232,7 +246,7 @@ export default function MyListing() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       const listing = listings.find((l) => l.id === deleteListingId);
       if (!listing) return;

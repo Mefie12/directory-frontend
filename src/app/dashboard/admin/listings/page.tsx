@@ -21,6 +21,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -31,6 +32,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +59,10 @@ import {
   Gem,
   Edit2,
   Trash2,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
@@ -58,14 +73,15 @@ type TabType = "all" | "pending" | "flagged" | "categories";
 
 interface Listing {
   id: string;
+  slug: string; // Add slug to Listing interface
   name: string;
   vendor: string;
   vendorAvatar?: string;
   category: string;
   location: string;
   type: string;
-  submission: "Published" | "Pending review" | "Draft";
-  approval: "Published" | "Pending" | "Rejected";
+  // submission: "Published" | "Pending review" | "Draft";
+  approval: "Approved" | "Pending" | "Rejected" | "Suspended";
   image: string; // This will be image[0] - cover image
   images?: string[]; // Add this to store all images
   plan?: "Basic" | "Pro" | "Premium";
@@ -78,6 +94,7 @@ interface Listing {
 
 interface RawListing {
   id?: string | number;
+  slug?: string;
   name?: string;
   title?: string;
   vendor?: string;
@@ -88,8 +105,7 @@ interface RawListing {
   location?: string;
   address?: string;
   type?: string;
-  submission?: string;
-  approval?: string;
+  // submission?: string;
   status?: string;
   image?: string;
   thumbnail?: string;
@@ -312,6 +328,10 @@ export default function Listings() {
     parent_id: null,
   });
 
+  const [listingToDelete, setListingToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null); // Stores ID of listing being updated
+
   const itemsPerPage = 10;
 
   // --- Helpers ---
@@ -426,34 +446,25 @@ export default function Listings() {
       }
 
       // Map status
-      const status = item.status || "pending";
-      let submission: "Published" | "Pending review" | "Draft" =
-        "Pending review";
-      let approval: "Published" | "Pending" | "Rejected" = "Pending";
+      // Handle Status Mapping (API Status -> UI Status)
+      const rawStatus = item.status?.toLowerCase() || "pending";
+      let approval: "Approved" | "Pending" | "Rejected" | "Suspended" =
+        "Pending";
 
-      if (status === "published") {
-        submission = "Published";
-        approval = "Published";
-      } else if (status === "pending") {
-        submission = "Pending review";
-        approval = "Pending";
-      } else if (status === "draft") {
-        submission = "Draft";
-        approval = "Pending";
-      } else if (status === "rejected") {
-        submission = "Draft";
-        approval = "Rejected";
-      }
+      if (rawStatus === "approved") approval = "Approved";
+      else if (rawStatus === "rejected") approval = "Rejected";
+      else if (rawStatus === "suspended") approval = "Suspended";
 
       return {
         id: item.id?.toString() || Math.random().toString(),
+        slug: item.slug || item.id?.toString() || "no-slug",
         name: item.name || item.title || "Untitled Listing",
         vendor: vendorName,
         vendorAvatar: item.vendorAvatar || item.vendor_image || "",
         category: category,
         location: location,
         type: item.type || "business",
-        submission: submission,
+        // submission: submission,
         approval: approval,
         image: imageUrl, // This is the cover image (image[0])
         // ADD THIS images ARRAY FOR SIDEBAR DISPLAY
@@ -560,6 +571,100 @@ export default function Listings() {
         error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(errorMessage);
       console.error("Delete error:", error);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!listingToDelete) return;
+    setIsDeleting(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      // Assuming endpoint is DELETE /api/listings/{id}
+      // You might need to adjust this endpoint based on your actual backend routes
+      const response = await fetch(
+        `${API_URL}/api/listings/${listingToDelete}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to delete listing");
+
+      // Update Local State
+      setAllData((prev) => prev.filter((item) => item.id !== listingToDelete));
+
+      // Close sidebar if the deleted item was selected
+      if (selectedListing?.id === listingToDelete) {
+        setSelectedListing(null);
+      }
+
+      toast.success("Listing deleted successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete listing");
+    } finally {
+      setIsDeleting(false);
+      setListingToDelete(null); // Closes the dialog
+    }
+  };
+
+  const handleStatusUpdate = async (
+    listingSlug: string, // Changed from listingSlug to listingId
+    newStatus: "approved" | "rejected" | "suspended"
+  ) => {
+    setIsUpdatingStatus(listingSlug);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      // Determine backend status string based on action
+      // Adjust these strings to match what your Laravel backend expects
+      const payloadStatus = newStatus === "approved" ? "published" : newStatus;
+      
+      const response = await fetch(
+        `${API_URL}/api/listing/${listingSlug}/update_status`,
+        {
+          method: "PATCH", // Or PUT, depending on your backend
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ status: payloadStatus }),
+        }
+      );
+
+      if (!response.ok)
+        throw new Error(`Failed to update status to ${newStatus}`);
+
+      setAllData((prev) =>
+        prev.map((item) => {
+          if (item.id === listingSlug) {
+            let uiStatus: "Approved" | "Rejected" | "Suspended" | "Pending" =
+              "Pending";
+            if (newStatus === "approved")
+              uiStatus =
+                "Approved"; // This comparison appears to be unintentional because the types '"published" | "rejected"' and '"approved"' have no overlap.
+            else if (newStatus === "rejected") uiStatus = "Rejected";
+            else if (newStatus === "suspended") uiStatus = "Suspended";
+            return { ...item, approval: uiStatus };
+          }
+          return item;
+        })
+      );
+      toast.success(`Listing ${newStatus}`);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      toast.error("Failed to update status");
+    } finally {
+      setIsUpdatingStatus(null);
     }
   };
 
@@ -727,21 +832,22 @@ export default function Listings() {
     const safeAllData = Array.isArray(allData) ? allData : [];
 
     const filteredData = safeAllData.filter((item) => {
-      // Tab Filtering
-      if (activeTab === "pending" && item.submission !== "Pending review")
-        return false;
+      if (activeTab === "pending" && item.approval !== "Pending") return false;
 
       // Dropdown Filters
       if (statusFilter !== "all") {
         if (
-          statusFilter === "pending" &&
-          item.submission !== "Pending review" &&
+          statusFilter === "pending" && // This condition checks if the filter is 'pending'
           item.approval !== "Pending"
         )
           return false;
-        if (statusFilter === "published" && item.submission !== "Published")
+        if (statusFilter === "published" && item.approval !== "Approved")
           return false;
-        if (statusFilter === "draft" && item.submission !== "Draft")
+        // The 'Draft' status is not part of the 'approval' type, so this condition will always be false.
+        // If you intend to filter by a 'Draft' status, you might need to adjust the 'approval' type or the filtering logic.
+        // For now, this line is commented out to avoid an unintentional comparison.
+        // if (statusFilter === "draft" && item.approval !== "Draft") return false;
+        if (statusFilter === "suspended" && item.approval !== "Suspended")
           return false;
         if (statusFilter === "rejected" && item.approval !== "Rejected")
           return false;
@@ -849,6 +955,63 @@ export default function Listings() {
         );
     }
     return pages;
+  };
+
+  // --- Interactive Status Component ---
+  const renderInteractiveStatus = (listing: Listing) => {
+    if (isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id) {
+      return <Loader2 className="h-4 w-4 animate-spin text-gray-500" />;
+    }
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-pointer inline-block hover:opacity-80"
+          >
+            <Badge
+              variant={getApprovalBadgeVariant(listing.approval)}
+              className={`flex items-center gap-1 ${
+                listing.approval === "Approved" ? "bg-green-600" : ""
+              }`}
+            >
+              {listing.approval}
+            </Badge>
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStatusUpdate(listing.slug, "approved");
+            }}
+            className="text-green-600 cursor-pointer"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStatusUpdate(listing.slug, "suspended");
+            }}
+            className="text-orange-600 cursor-pointer"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" /> Suspend
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStatusUpdate(listing.slug, "rejected");
+            }}
+            className="text-red-600 cursor-pointer"
+          >
+            <XCircle className="mr-2 h-4 w-4" /> Reject
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
   return (
@@ -1103,17 +1266,15 @@ export default function Listings() {
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={getSubmissionBadgeVariant(item.submission)}
+                            variant={getSubmissionBadgeVariant(item.approval)}
                             className={
-                              item.submission === "Published"
-                                ? "bg-green-600"
-                                : ""
+                              item.approval === "Approved" ? "bg-green-600" : ""
                             }
                           >
-                            {item.submission}
+                            {item.approval}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        {/* <TableCell>
                           <Badge
                             variant={getApprovalBadgeVariant(item.approval)}
                             className={
@@ -1124,6 +1285,9 @@ export default function Listings() {
                           >
                             {item.approval}
                           </Badge>
+                        </TableCell> */}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {renderInteractiveStatus(item)}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
@@ -1137,9 +1301,22 @@ export default function Listings() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Listing</DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem
+                                onClick={() => setSelectedListing(item)}
+                              >
+                                View Details
+                              </DropdownMenuItem>
+                              {/* <DropdownMenuItem>Edit Listing</DropdownMenuItem> */}
+                              <DropdownMenuSeparator />
+                              {/* DELETE BUTTON FIXED */}
+                              <DropdownMenuItem
+                                className="text-red-600 focus:text-red-700 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Stop row click
+                                  setListingToDelete(item.id); // Trigger Dialog
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1352,6 +1529,34 @@ export default function Listings() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog
+        open={!!listingToDelete}
+        onOpenChange={(open) => !open && setListingToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              listing and remove the data from your servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault(); // Prevent auto-close, handle in function
+                handleDeleteConfirm();
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Listing"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* --- SIDEBAR (SHEET) --- */}
       <Sheet
         open={!!selectedListing}
@@ -1387,12 +1592,10 @@ export default function Listings() {
                   <div className="justify-self-end">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        selectedListing.submission
+                        selectedListing.approval
                       )}`}
                     >
-                      {selectedListing.submission === "Published"
-                        ? "Approved"
-                        : selectedListing.submission}
+                      {selectedListing.approval}
                     </span>
                   </div>
 

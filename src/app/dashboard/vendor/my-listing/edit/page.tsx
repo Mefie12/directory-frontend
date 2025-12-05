@@ -1,272 +1,364 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+
+import { StepHeader } from "@/components/dashboard/listing/step-header";
+import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowLeft, Upload, MapPin, Trash2, Image as ImageIcon } from "lucide-react";
-import Image from "next/image";
+import { useListing } from "@/context/listing-form-context";
+
+// Child Forms
+import { BasicInformationForm } from "./form-component/basic-info";
+import { BusinessDetailsForm } from "./form-component/business-details";
+import { MediaUploadStep } from "./form-component/media";
+import { SocialMediaForm } from "./form-component/social-media";
+import { ReviewSubmitStep } from "./form-component/review";
+
+// Define the interface with 'unknown' instead of 'any' for stricter typing
+export interface ListingFormHandle {
+  submit: () => Promise<unknown | boolean>;
+}
+
+// --- Local Interfaces to fix 'any' errors ---
+interface ApiCategory {
+  id: string | number;
+  name: string;
+}
+
+interface ApiHour {
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
+}
+
+interface ApiImage {
+  media: string;
+}
 
 export default function EditListingPage() {
   const router = useRouter();
-  const [images, setImages] = useState([
-    "/images/placeholders/restaurant-1.jpg",
-    "/images/placeholders/restaurant-2.jpg",
-    "/images/placeholders/restaurant-3.jpg",
+  const searchParams = useSearchParams();
+
+  // Destructure setters.
+  const context = useListing();
+  const {
+    listingType,
+    currentStep,
+    setCurrentStep,
+    setListingType,
+    setBasicInfo,
+    setBusinessDetails,
+    setMedia,
+  } = context;
+
+  // Handle potential naming mismatch or missing type on Context safely
+  const setSocialMedia =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (context as any).setSocialMedia || (context as any).setSocials;
+
+  const [listingSlug, setListingSlug] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+
+  const formRef = useRef<ListingFormHandle>(null);
+
+  // --- 1. Initialize & Fetch Data ---
+  useEffect(() => {
+    const initPage = async () => {
+      const type = searchParams.get("type");
+      const slug = searchParams.get("slug");
+
+      if (!slug) {
+        toast.error("No listing identifier found");
+        router.push("/dashboard/vendor/my-listing");
+        return;
+      }
+
+      setListingSlug(slug);
+
+      if (type === "business" || type === "event" || type === "community") {
+        setListingType(type);
+      }
+
+      // Fetch Data
+      try {
+        setIsFetching(true);
+        const token = localStorage.getItem("authToken");
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+        const response = await fetch(`${API_URL}/api/listing/${slug}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to load listing data");
+
+        const json = await response.json();
+        const data = json.data || json;
+
+        // --- MAP API DATA TO CONTEXT ---
+
+        // 1. Basic Info
+        setBasicInfo({
+          name: data.name,
+          category_ids:
+            data.categories?.map((c: ApiCategory) => String(c.id)) || [],
+          description: data.bio || data.description,
+          type: data.type,
+          primary_phone: data.primary_phone,
+          secondary_phone: data.secondary_phone,
+          email: data.email,
+          website: data.website,
+          business_reg_num: data.business_reg_num,
+          bio: data.bio,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+
+        // 2. Business Details & Hours
+        const mapApiHoursToUi = (apiHours: ApiHour[]) => {
+          const days = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
+          return days.map((day) => {
+            const found = apiHours?.find((h) => h.day_of_week === day);
+            return {
+              day_of_week: day,
+              startTime: found?.open_time || "09:00",
+              endTime: found?.close_time || "17:00",
+              enabled: !!found,
+            };
+          });
+        };
+
+        setBusinessDetails({
+          address: data.address,
+          country: data.country,
+          city: data.city,
+          google_plus_code: data.google_plus_code,
+          businessHours: mapApiHoursToUi(data.opening_hours || []),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+
+        // 3. Social Media
+        if (data.socials && setSocialMedia) {
+          setSocialMedia({
+            facebook: data.socials.facebook || "",
+            twitter: data.socials.twitter || "",
+            instagram: data.socials.instagram || "",
+            linkedin: data.socials.linkedin || "",
+            tiktok: data.socials.tiktok || "",
+          });
+        }
+
+        // 4. Media
+        if (data.images) {
+          const validImages = data.images.filter(
+            (img: ApiImage) =>
+              img.media && !["processing", "failed"].includes(img.media)
+          );
+
+          if (validImages.length > 0) {
+            // FIX: Cast setMedia to 'any' to allow functional update,
+            // and cast 'prev' to 'any' to allow object spreading.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (setMedia as any)((prev: any) => ({
+              ...prev,
+              images: validImages,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        toast.error("Could not load listing details");
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    initPage();
+  }, [
+    searchParams,
+    router,
+    setListingType,
+    setBasicInfo,
+    setBusinessDetails,
+    setMedia,
+    setSocialMedia,
   ]);
-  const [coverPhoto] = useState("/images/placeholders/restaurant-cover.jpg");
+
+  // --- 2. Navigation Handlers ---
+
+  const handleNext = async () => {
+    // If on Review Step (Final Step)
+    if (currentStep === 5) {
+      if (formRef.current) {
+        setIsSaving(true);
+        try {
+          await formRef.current.submit();
+          toast.success("Listing published successfully!");
+          router.push("/dashboard/vendor/my-listing");
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+      return;
+    }
+
+    // Validation & Save for intermediate steps
+    if (!formRef.current) return;
+
+    setIsSaving(true);
+    try {
+      // Trigger the child form's submit method (which validates and saves to API)
+      const result = await formRef.current.submit();
+
+      if (result) {
+        // If it's Step 1 and we just created/updated the slug, ensure state is synced
+        if (
+          currentStep === 1 &&
+          typeof result === "object" &&
+          result !== null &&
+          "slug" in result
+        ) {
+          // Explicit cast to known shape to satisfy TS
+          setListingSlug((result as { slug: string }).slug);
+        }
+
+        // Move to next step
+        setCurrentStep(currentStep + 1);
+      }
+    } catch (error) {
+      console.error("Step submission failed", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep(Math.max(1, currentStep - 1));
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow jumping to previous steps freely, or forward if data exists
+    setCurrentStep(step);
+  };
+
+  // --- 3. Render Helpers ---
+
+  const renderStep = () => {
+    const commonProps = {
+      ref: formRef,
+      listingType,
+      listingSlug,
+    };
+
+    switch (currentStep) {
+      case 1:
+        return <BasicInformationForm {...commonProps} />;
+      case 2:
+        return <BusinessDetailsForm {...commonProps} />;
+      case 3:
+        return <MediaUploadStep {...commonProps} />;
+      case 4:
+        return <SocialMediaForm {...commonProps} />;
+      case 5:
+        return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
+      default:
+        return null;
+    }
+  };
+
+  if (isFetching) {
+    return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-[#93C01F]" />
+          <p className="text-gray-500 text-sm">Loading listing details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          className="rounded-full"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-xl font-semibold">Edit a listing</h1>
-          <p className="text-sm text-gray-500">
-            Create a new listing and manage it
-          </p>
+    <>
+      <StepHeader
+        currentStep={currentStep}
+        totalSteps={5}
+        title={`Edit ${
+          listingType
+            ? listingType.charAt(0).toUpperCase() + listingType.slice(1)
+            : "Listing"
+        }`}
+        subtitle="Update your listing information"
+      />
+      <div className="border-b border-gray-100" />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 md:px-4 lg:px-0">
+        <aside className="block shrink-0 border-r border-gray-100 h-auto lg:h-[550px]">
+          <div className="sticky top-0 space-y-4 mx-8 py-6">
+            <div className="hidden lg:block">
+              <StepNavigation
+                currentStep={currentStep}
+                onStepClick={handleStepClick} // Enable clicking steps in Edit mode
+                listingType={listingType}
+              />
+            </div>
+          </div>
+        </aside>
+
+        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24 pt-6">
+          {renderStep()}
         </div>
       </div>
 
-      {/* Form */}
-      <form className="space-y-8">
-        {/* Basic Info */}
-        <div className="space-y-6">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-10">
+        <div className="flex justify-between max-w-5xl mx-auto lg:px-8 lg:py-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Business name
-            </label>
-            <Input placeholder="Enter business name" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="food">Food & Dining</SelectItem>
-                  <SelectItem value="retail">Retail</SelectItem>
-                  <SelectItem value="services">Services</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Subcategory
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="restaurant">Restaurant</SelectItem>
-                  <SelectItem value="cafe">Cafe</SelectItem>
-                  <SelectItem value="bar">Bar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Short description
-            </label>
-            <Textarea
-              placeholder="Short description about your business"
-              className="h-24 resize-none"
-            />
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center" aria-hidden="true">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative flex justify-center">
-            <span className="px-2 bg-white text-sm text-gray-500">
-              Details & Media
-            </span>
-          </div>
-        </div>
-
-        {/* Details & Media */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Address
-              </label>
-              <div className="relative">
-                <Input placeholder="Address" className="pr-10" />
-                <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location
-              </label>
-              <Input placeholder="Enter location" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
-              </label>
-              <Input type="email" placeholder="Enter email address" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
-              <div className="flex">
-                <Select defaultValue="us">
-                  <SelectTrigger className="w-20 rounded-r-none border-r-0">
-                    <SelectValue>
-                      <span className="flex items-center">
-                        🇺🇸 +1
-                      </span>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="us">🇺🇸 +1</SelectItem>
-                    <SelectItem value="gh">🇬🇭 +233</SelectItem>
-                    <SelectItem value="uk">🇬🇧 +44</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="tel"
-                  placeholder="Enter number"
-                  className="rounded-l-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Business hours
-              </label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select business hours" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mon-fri">Mon - Fri, 9am - 5pm</SelectItem>
-                  <SelectItem value="24/7">Open 24/7</SelectItem>
-                  <SelectItem value="custom">Custom Hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tags
-              </label>
-              <Input placeholder="Enter tags" />
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Images
-            </label>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
-              <div className="flex flex-col items-center">
-                <Upload className="w-10 h-10 text-gray-400 mb-4" />
-                <p className="text-sm text-gray-500 mb-2">
-                  Drag and drop files here
-                </p>
-                <p className="text-xs text-gray-400 mb-4">or</p>
-                <Button variant="secondary" size="sm">
-                  Choose files
-                  <Upload className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex gap-4 mt-4">
-              {images.map((src, index) => (
-                <div key={index} className="relative w-24 h-16 rounded-lg overflow-hidden group">
-                  <Image
-                    src={src}
-                    alt={`Uploaded image ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => setImages(images.filter((_, i) => i !== index))}
-                  >
-                    <Trash2 className="w-3 h-3 text-red-500" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Cover Photo */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select cover photo
-            </label>
-            <div className="relative w-full h-48 rounded-lg overflow-hidden group">
-              <Image
-                src={coverPhoto}
-                alt="Cover photo"
-                fill
-                className="object-cover"
-              />
-              <button
-                type="button"
-                className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            {currentStep > 1 && (
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={isSaving}
+                className="w-24"
               >
-                <Trash2 className="w-4 h-4 text-red-500" />
-              </button>
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                <Button variant="secondary" size="sm">
-                  Change Cover
-                  <ImageIcon className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
+                <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+            )}
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-          <Button variant="outline" type="button">
-            Cancel
-          </Button>
-          <Button className="bg-[#84cc16] hover:bg-[#65a30d] text-white">
-            Save changes
+          <Button
+            onClick={handleNext}
+            disabled={isSaving}
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : currentStep === 5 ? (
+              "Update Listing"
+            ) : (
+              <>
+                Save & Continue <ChevronRight className="w-4 h-4 ml-1" />
+              </>
+            )}
           </Button>
         </div>
-      </form>
-    </div>
+      </div>
+    </>
   );
 }
