@@ -33,24 +33,31 @@ import { Button } from "@/components/ui/button";
 
 type ListingStatus = "published" | "pending" | "drafted";
 
-interface Listing {
+export interface ListingsTableItem {
   id: string;
+  slug: string;
   name: string;
   image: string;
+  allImages: string[];
   category: string;
   location: string;
-  status: ListingStatus;
+  status: "published" | "pending" | "drafted";
+  type: string;
   views: number;
   comments: number;
   bookmarks: number;
   rating: number;
+  description?: string;
 }
 
 interface ListingsTableProps {
-  listings: Listing[];
+  listings: ListingsTableItem[];
   showPagination?: boolean;
   button?: boolean;
   itemsPerPage?: number;
+  onViewClick?: (listing: ListingsTableItem) => void;
+  onEditClick?: (listing: ListingsTableItem) => void;
+  onDeleteClick?: (id: string) => void;
 }
 
 const getStatusConfig = (status: ListingStatus) => {
@@ -93,6 +100,9 @@ export function ListingsTable({
   showPagination = false,
   button = true,
   itemsPerPage = 4,
+  onViewClick, 
+  onEditClick, 
+  onDeleteClick
 }: ListingsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -267,9 +277,10 @@ export function ListingsTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View</DropdownMenuItem>
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem onClick={() => onViewClick?.(listing)}>View</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEditClick?.(listing)}>Edit</DropdownMenuItem>
+                     <DropdownMenuItem 
+                      onClick={() => onDeleteClick?.(listing.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>

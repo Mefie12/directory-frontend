@@ -6,7 +6,7 @@ import { useState } from "react";
 
 // 1. Keep 'enabled' here for UI state management
 export interface DaySchedule {
-  day_of_week: any;
+  // day_of_week: any;
   day_of_week: string;
   startTime: string;
   endTime: string;
@@ -38,10 +38,10 @@ export function BusinessHoursSelector({
 
   const handleDayToggle = (day: string, checked: boolean) => {
     const safeValue = Array.isArray(value) ? value : [];
-    
+
     // Check if day exists in the array
     const existingIndex = safeValue.findIndex((s) => s.day_of_week === day);
-    
+
     let newValue;
 
     if (existingIndex >= 0) {
@@ -67,7 +67,9 @@ export function BusinessHoursSelector({
   ) => {
     const safeValue = Array.isArray(value) ? value : [];
     const newValue = safeValue.map((schedule) =>
-      schedule.day_of_week === day_of_week ? { ...schedule, [field]: time } : schedule
+      schedule.day_of_week === day_of_week
+        ? { ...schedule, [field]: time }
+        : schedule
     );
     onChange(newValue);
   };

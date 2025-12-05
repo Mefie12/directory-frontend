@@ -111,7 +111,7 @@ export default function Signup() {
       console.log("Registration successful:", data);
 
       // Redirect to login page
-      router.push("/auth/login");
+      router.push("/");
       router.refresh();
     } catch (error) {
       console.error("register failed:", error);
@@ -217,7 +217,7 @@ export default function Signup() {
                   </Label>
                   <Input
                     id="phone"
-                    type="number"
+                    type="tel"
                     placeholder="Enter your Phone Number"
                     className="w-full  placeholder:text-xs"
                     value={formData.phone}

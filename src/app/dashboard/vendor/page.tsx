@@ -48,12 +48,15 @@ export default function Dashboard() {
   //   },
   // ];
 
-  const listings = [
+const listings = [
     {
       id: "1",
       name: "Greenbowl Restaurant",
+      slug: "greenbowl-restaurant", // Added
       image: "/images/image-1.jpg",
+      allImages: ["/images/image-1.jpg"], // Added
       category: "Restaurant",
+      type: "Venue", // Added
       location: "Accra, Ghana",
       status: "published" as const,
       views: 1234,
@@ -64,8 +67,11 @@ export default function Dashboard() {
     {
       id: "2",
       name: "Ghana Cultural Festival",
+      slug: "ghana-cultural-festival", // Added
       image: "/images/image-2.jpg",
+      allImages: ["/images/image-2.jpg"], // Added
       category: "Festival",
+      type: "Event", // Added
       location: "Accra, Ghana",
       status: "pending" as const,
       views: 1234,
@@ -76,8 +82,11 @@ export default function Dashboard() {
     {
       id: "3",
       name: "Greenbowl Restaurant",
+      slug: "greenbowl-restaurant-2", // Added
       image: "/images/image-1.jpg",
+      allImages: ["/images/image-1.jpg"], // Added
       category: "Beauty",
+      type: "Service", // Added
       location: "Accra, Ghana",
       status: "drafted" as const,
       views: 1234,
@@ -86,7 +95,6 @@ export default function Dashboard() {
       rating: 4.7,
     },
   ];
-
   return (
     <div className="px-1 lg:px-8 py-3 space-y-6">
       {/* Header Intro */}
