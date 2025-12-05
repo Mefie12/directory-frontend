@@ -25,6 +25,15 @@ interface BusinessDetails {
   tags: string[];
 }
 
+// --- 1. NEW: Define Social Media Interface ---
+export interface Socials {
+  facebook: string;
+  twitter: string;
+  instagram: string;
+  linkedin: string;
+  tiktok: string;
+}
+
 interface Media {
   images: File[];
   coverPhoto: File | null;
@@ -39,6 +48,9 @@ interface ListingContextType {
   setBasicInfo: (info: BasicInfo) => void;
   businessDetails: BusinessDetails;
   setBusinessDetails: (details: BusinessDetails) => void;
+  // --- 2. NEW: Add Socials to Context Type ---
+  socials: Socials;
+  setSocials: (socials: Socials) => void;
   media: Media;
   setMedia: (media: Media) => void;
   resetListing: () => void;
@@ -49,12 +61,14 @@ const ListingContext = createContext<ListingContextType | undefined>(undefined);
 export function ListingProvider({ children }: { children: ReactNode }) {
   const [listingType, setListingType] = useState<ListingType>("business");
   const [currentStep, setCurrentStep] = useState(1);
+  
   const [basicInfo, setBasicInfo] = useState<BasicInfo>({
     name: "",
     category: "",
     subcategory: "",
     description: "",
   });
+
   const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
     address: "",
     location: "",
@@ -70,6 +84,16 @@ export function ListingProvider({ children }: { children: ReactNode }) {
     ],
     tags: [],
   });
+
+  // --- 3. NEW: Initialize Socials State ---
+  const [socials, setSocials] = useState<Socials>({
+    facebook: "",
+    twitter: "",
+    instagram: "",
+    linkedin: "",
+    tiktok: "",
+  });
+
   const [media, setMedia] = useState<Media>({
     images: [],
     coverPhoto: null,
@@ -93,6 +117,14 @@ export function ListingProvider({ children }: { children: ReactNode }) {
       ],
       tags: [],
     });
+    // --- 4. NEW: Reset Socials State ---
+    setSocials({
+      facebook: "",
+      twitter: "",
+      instagram: "",
+      linkedin: "",
+      tiktok: "",
+    });
     setMedia({ images: [], coverPhoto: null });
   };
 
@@ -107,6 +139,9 @@ export function ListingProvider({ children }: { children: ReactNode }) {
         setBasicInfo,
         businessDetails,
         setBusinessDetails,
+        // --- 5. NEW: Expose Socials to Consumers ---
+        socials,
+        setSocials,
         media,
         setMedia,
         resetListing,

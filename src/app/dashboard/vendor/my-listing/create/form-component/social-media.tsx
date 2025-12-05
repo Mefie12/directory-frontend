@@ -28,6 +28,7 @@ type Props = {
   listingSlug: string;
   listingType: "business" | "event" | "community";
   onSuccess?: () => void;
+  initialData?: SocialMediaFormValues;
 };
 
 const socialPlatforms = [

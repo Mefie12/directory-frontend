@@ -73,17 +73,16 @@ type TabType = "all" | "pending" | "flagged" | "categories";
 
 interface Listing {
   id: string;
-  slug: string; // Add slug to Listing interface
+  slug: string;
   name: string;
   vendor: string;
   vendorAvatar?: string;
   category: string;
   location: string;
   type: string;
-  // submission: "Published" | "Pending review" | "Draft";
   approval: "Approved" | "Pending" | "Rejected" | "Suspended";
-  image: string; // This will be image[0] - cover image
-  images?: string[]; // Add this to store all images
+  image: string;
+  images?: string[];
   plan?: "Basic" | "Pro" | "Premium";
   description?: string;
   userInfo?: {
@@ -105,7 +104,6 @@ interface RawListing {
   location?: string;
   address?: string;
   type?: string;
-  // submission?: string;
   status?: string;
   image?: string;
   thumbnail?: string;
@@ -164,7 +162,7 @@ interface ApiResponse {
   };
 }
 
-// Category Types matching your migration
+// Category Types
 interface Category {
   id: string;
   name: string;
@@ -185,35 +183,28 @@ interface CategoryFormData {
 
 // --- API Service Functions ---
 const categoryApi = {
-  // Get all categories
   getCategories: async (): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
     const response = await fetch(`${API_URL}/api/categories`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
-
     if (!response.ok) throw new Error("Failed to fetch categories");
     const data = await response.json();
     return data.data || data.categories || [];
   },
-
-  // Create new category
   createCategory: async (categoryData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
       description: categoryData.description || "",
       parent_id: categoryData.is_main ? null : categoryData.parent_id,
     };
-
     const response = await fetch(`${API_URL}/api/categories`, {
       method: "POST",
       headers: {
@@ -222,31 +213,25 @@ const categoryApi = {
       },
       body: JSON.stringify(payload),
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to create category");
     }
-
     const data = await response.json();
     return data.data;
   },
-
-  // Update category
   updateCategory: async (
     id: string,
     categoryData: CategoryFormData
   ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
       description: categoryData.description,
       parent_id: categoryData.is_main ? null : categoryData.parent_id,
     };
-
     const response = await fetch(`${API_URL}/api/categories/${id}`, {
       method: "PUT",
       headers: {
@@ -255,28 +240,22 @@ const categoryApi = {
       },
       body: JSON.stringify(payload),
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to update category");
     }
-
     const data = await response.json();
     return data.data;
   },
-
-  // Delete category
   deleteCategory: async (id: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
     const response = await fetch(`${API_URL}/api/categories/${id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to delete category");
@@ -330,7 +309,7 @@ export default function Listings() {
 
   const [listingToDelete, setListingToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null); // Stores ID of listing being updated
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
 
   const itemsPerPage = 10;
 
@@ -360,27 +339,20 @@ export default function Listings() {
       else if (Array.isArray(payload)) rawItems = payload;
     }
 
-    // ADD THE getImageUrl HELPER FUNCTION HERE
     const getImageUrl = (url: string | undefined): string => {
       if (!url) return "/images/placeholder-listing.png";
-
-      // If URL is already absolute with http/https, return as is
       if (url.startsWith("http://") || url.startsWith("https://")) {
         return url;
       }
-
-      // If it's a relative path, prepend the API URL
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
       return `${API_URL}/${url.replace(/^\//, "")}`;
     };
 
     return rawItems.map((item) => {
-      // Get vendor name from user data
       let vendorName = "Unknown Vendor";
       let userInfo: { name: string; email?: string } | undefined = undefined;
 
       if (item.user) {
-        // Combine first_name and last_name, or use name field
         if (item.user.first_name && item.user.last_name) {
           vendorName = `${item.user.first_name} ${item.user.last_name}`;
           userInfo = {
@@ -404,10 +376,8 @@ export default function Listings() {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
-      // --- ADD/UPDATED IMAGE HANDLING CODE HERE ---
       let imageUrl = "/images/placeholder-listing.png";
       if (item.images && item.images.length > 0) {
-        // Find first image that's not "processing"
         const validImage = item.images.find(
           (img) => img.media && img.media !== "processing"
         );
@@ -417,12 +387,9 @@ export default function Listings() {
       } else if (item.image || item.thumbnail) {
         imageUrl = getImageUrl(item.image || item.thumbnail);
       }
-      // --- END OF IMAGE HANDLING CODE ---
 
-      // Get category from categories array
       let category = "General";
       if (item.categories && item.categories.length > 0) {
-        // Get main categories (parent_id === null)
         const mainCategories = item.categories.filter(
           (cat) => cat.parent_id === null
         );
@@ -435,7 +402,6 @@ export default function Listings() {
         category = item.category;
       }
 
-      // Get location
       let location = "Accra, Ghana";
       if (item.city && item.country) {
         location = `${item.city}, ${item.country}`;
@@ -445,13 +411,12 @@ export default function Listings() {
         location = item.location;
       }
 
-      // Map status
-      // Handle Status Mapping (API Status -> UI Status)
       const rawStatus = item.status?.toLowerCase() || "pending";
       let approval: "Approved" | "Pending" | "Rejected" | "Suspended" =
         "Pending";
 
-      if (rawStatus === "approved") approval = "Approved";
+      if (rawStatus === "approved" || rawStatus === "published")
+        approval = "Approved";
       else if (rawStatus === "rejected") approval = "Rejected";
       else if (rawStatus === "suspended") approval = "Suspended";
 
@@ -464,23 +429,22 @@ export default function Listings() {
         category: category,
         location: location,
         type: item.type || "business",
-        // submission: submission,
         approval: approval,
-        image: imageUrl, // This is the cover image (image[0])
-        // ADD THIS images ARRAY FOR SIDEBAR DISPLAY
+        image: imageUrl,
         images: item.images
           ? item.images
               .filter((img) => img.media && img.media !== "processing")
               .map((img) => getImageUrl(img.media))
           : imageUrl
           ? [imageUrl]
-          : [], // Fallback to cover image if no images array
+          : [],
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
         description: item.description || "No description provided.",
         userInfo: userInfo,
       };
     });
   };
+
   // --- Category Management ---
   const mainCategories = allCategories.filter(
     (cat) => cat.type === "mainCategory" || cat.parent_id === null
@@ -489,24 +453,17 @@ export default function Listings() {
   const subCategories = allCategories.filter((cat) => {
     if (cat.type !== "subCategory") return false;
     if (!selectedMainCategory) return false;
-
     const catParentId = cat.parent_id?.toString();
     const selectedParentId = selectedMainCategory.id.toString();
-
     return catParentId === selectedParentId;
   });
 
-  // Load categories
-  // 1. Define the function using useCallback
   const loadCategories = useCallback(async () => {
     if (authLoading) return;
-
     setIsLoadingCategories(true);
     try {
       const categories = await categoryApi.getCategories();
       setAllCategories(categories);
-
-      // Set default selected main category if none selected
       if (categories.length > 0 && !selectedMainCategory) {
         const firstMainCategory = categories.find(
           (cat) => cat.type === "mainCategory" || cat.parent_id === null
@@ -521,16 +478,14 @@ export default function Listings() {
     } finally {
       setIsLoadingCategories(false);
     }
-  }, [authLoading, selectedMainCategory]); // Added dependencies
+  }, [authLoading, selectedMainCategory]);
 
-  // 2. If you want it to run automatically when the tab is 'categories'
   useEffect(() => {
     if (activeTab === "categories") {
       loadCategories();
     }
   }, [activeTab, loadCategories]);
 
-  // Category Handlers
   const handleAddCategoryClick = () => {
     setEditingCategoryId(null);
     setCategoryFormData({
@@ -559,7 +514,6 @@ export default function Listings() {
 
   const handleDeleteCategoryClick = async (category: Category) => {
     if (!category.id) return;
-
     try {
       await categoryApi.deleteCategory(category.id);
       setAllCategories((prev) =>
@@ -574,6 +528,7 @@ export default function Listings() {
     }
   };
 
+  // --- REVISED DELETE HANDLER ---
   const handleDeleteConfirm = async () => {
     if (!listingToDelete) return;
     setIsDeleting(true);
@@ -582,14 +537,14 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // Assuming endpoint is DELETE /api/listings/{id}
-      // You might need to adjust this endpoint based on your actual backend routes
+      // FIXED: Use singular 'listing' instead of 'listings' and use SLUG
       const response = await fetch(
-        `${API_URL}/api/listings/${listingToDelete}`,
+        `${API_URL}/api/listing/${listingToDelete}`,
         {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
@@ -597,10 +552,9 @@ export default function Listings() {
       if (!response.ok) throw new Error("Failed to delete listing");
 
       // Update Local State
-      setAllData((prev) => prev.filter((item) => item.id !== listingToDelete));
+      setAllData((prev) => prev.filter((item) => item.slug !== listingToDelete && item.id !== listingToDelete));
 
-      // Close sidebar if the deleted item was selected
-      if (selectedListing?.id === listingToDelete) {
+      if (selectedListing?.slug === listingToDelete) {
         setSelectedListing(null);
       }
 
@@ -610,12 +564,13 @@ export default function Listings() {
       toast.error("Failed to delete listing");
     } finally {
       setIsDeleting(false);
-      setListingToDelete(null); // Closes the dialog
+      setListingToDelete(null);
     }
   };
 
+  // --- REVISED STATUS UPDATE HANDLER ---
   const handleStatusUpdate = async (
-    listingSlug: string, // Changed from listingSlug to listingId
+    listingSlug: string,
     newStatus: "approved" | "rejected" | "suspended"
   ) => {
     setIsUpdatingStatus(listingSlug);
@@ -624,34 +579,37 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // Determine backend status string based on action
-      // Adjust these strings to match what your Laravel backend expects
-      const payloadStatus = newStatus === "approved" ? "published" : newStatus;
-      
+      // FIXED: Map status to what API expects (e.g., 'pending' for pending, 'approved' for approved)
+      // Based on your doc screenshot, body was {status: "pending"}
+      // Assuming valid values are: pending, approved, suspended, rejected
+      // Note: 'published' in your prev code might need to be 'approved' for API
+      const apiStatusValue = newStatus; // Or map 'approved' -> 'published' if API requires that specifically
+
+      // FIXED: URL structure (singular 'listing', slug, update_status)
       const response = await fetch(
         `${API_URL}/api/listing/${listingSlug}/update_status`,
         {
-          method: "PATCH", // Or PUT, depending on your backend
+          method: "PATCH",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ status: payloadStatus }),
+          body: JSON.stringify({ status: apiStatusValue }),
         }
       );
 
-      if (!response.ok)
-        throw new Error(`Failed to update status to ${newStatus}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to update status`);
+      }
 
       setAllData((prev) =>
         prev.map((item) => {
-          if (item.id === listingSlug) {
+          if (item.slug === listingSlug || item.id === listingSlug) {
             let uiStatus: "Approved" | "Rejected" | "Suspended" | "Pending" =
               "Pending";
-            if (newStatus === "approved")
-              uiStatus =
-                "Approved"; // This comparison appears to be unintentional because the types '"published" | "rejected"' and '"approved"' have no overlap.
+            if (newStatus === "approved") uiStatus = "Approved";
             else if (newStatus === "rejected") uiStatus = "Rejected";
             else if (newStatus === "suspended") uiStatus = "Suspended";
             return { ...item, approval: uiStatus };
@@ -660,9 +618,9 @@ export default function Listings() {
         })
       );
       toast.success(`Listing ${newStatus}`);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      toast.error("Failed to update status");
+        const msg = error instanceof Error ? error.message : "Failed to update status";
+      toast.error(msg);
     } finally {
       setIsUpdatingStatus(null);
     }
@@ -673,8 +631,6 @@ export default function Listings() {
       toast.error("Category name is required");
       return;
     }
-
-    // Validate that sub-categories have a parent selected
     if (!categoryFormData.is_main && !categoryFormData.parent_id) {
       toast.error("Please select a parent category for the sub-category");
       return;
@@ -683,33 +639,24 @@ export default function Listings() {
     setIsSavingCategory(true);
     try {
       if (editingCategoryId) {
-        // Update existing category
         const updatedCategory = await categoryApi.updateCategory(
           editingCategoryId,
           categoryFormData
         );
-
         setAllCategories((prev) =>
           prev.map((item) =>
             item.id === editingCategoryId ? updatedCategory : item
           )
         );
-
         toast.success("Category updated successfully");
       } else {
-        // Create new category
         const newCategory = await categoryApi.createCategory(categoryFormData);
-
         setAllCategories((prev) => [...prev, newCategory]);
-
-        // If this is a main category and it's the first one, select it
         if (categoryFormData.is_main && mainCategories.length === 0) {
           setSelectedMainCategory(newCategory);
         }
-
         toast.success("Category created successfully");
       }
-
       setIsCategoryDialogOpen(false);
     } catch (error) {
       const errorMessage =
@@ -721,7 +668,6 @@ export default function Listings() {
     }
   };
 
-  // Handle main category checkbox change
   const handleMainCategoryChange = (checked: boolean) => {
     setCategoryFormData((prev) => ({
       ...prev,
@@ -734,16 +680,13 @@ export default function Listings() {
     }));
   };
 
-  // --- API Fetch for Listings ---
   const loadAllData = useCallback(async () => {
     if (authLoading || activeTab === "categories") return;
-
     if (!authUser) {
       setError("Authentication required to view listings");
       setIsLoading(false);
       return;
     }
-
     setIsLoading(true);
     setError(null);
 
@@ -751,7 +694,18 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      const response = await fetch(`${API_URL}/api/listings`, {
+      // IMPORTANT: Using server-side pagination to avoid 504 Gateway Timeout
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        per_page: itemsPerPage.toString(),
+      });
+      
+      if (search) params.append("search", search);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (typeFilter !== "all") params.append("type", typeFilter);
+      if (activeTab === "pending") params.append("status", "pending");
+
+      const response = await fetch(`${API_URL}/api/listings?${params.toString()}`, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -765,11 +719,7 @@ export default function Listings() {
       }
 
       const json = await response.json();
-
-      // Handle different response formats
       let listingsData: RawListing[] = [];
-
-      // Check if response has data property (your API structure)
       if (json.data && Array.isArray(json.data)) {
         listingsData = json.data;
       } else if (Array.isArray(json)) {
@@ -783,19 +733,11 @@ export default function Listings() {
       const listings = extractListingsFromResponse(listingsData);
       setAllData(listings);
 
-      // Handle pagination from API if available
-      if (json.meta && json.meta.totalPages) {
-        setTotalPages(json.meta.totalPages);
-      } else if (json.meta && json.meta.last_page) {
-        setTotalPages(json.meta.last_page);
-      } else if (json.last_page) {
-        setTotalPages(json.last_page);
-      } else if (json.totalPages) {
-        setTotalPages(json.totalPages);
-      } else {
-        // Calculate pagination based on data length
-        setTotalPages(Math.ceil(listings.length / itemsPerPage));
-      }
+      // Handle pagination meta
+      const meta = json.meta || {};
+      const total = meta.last_page || meta.totalPages || json.last_page || json.totalPages || 1;
+      setTotalPages(total);
+
     } catch (error) {
       console.error("Fetch Error:", error);
       setError(
@@ -805,9 +747,8 @@ export default function Listings() {
     } finally {
       setIsLoading(false);
     }
-  }, [authUser, authLoading, activeTab]);
+  }, [authUser, authLoading, activeTab, currentPage, search, statusFilter, typeFilter]);
 
-  // --- Effects ---
   useEffect(() => {
     if (activeTab === "categories") {
       loadCategories();
@@ -816,7 +757,6 @@ export default function Listings() {
     }
   }, [loadAllData, activeTab, loadCategories]);
 
-  // Update form parent_id when selectedMainCategory changes
   useEffect(() => {
     if (!categoryFormData.is_main && selectedMainCategory) {
       setCategoryFormData((prev) => ({
@@ -828,76 +768,12 @@ export default function Listings() {
 
   useEffect(() => {
     if (activeTab === "categories") return;
-
     const safeAllData = Array.isArray(allData) ? allData : [];
+    // Client-side filtering is now largely redundant due to server-side params
+    // but kept for immediate feedback if needed on small datasets
+    setDisplayData(safeAllData); 
+  }, [allData, activeTab]);
 
-    const filteredData = safeAllData.filter((item) => {
-      if (activeTab === "pending" && item.approval !== "Pending") return false;
-
-      // Dropdown Filters
-      if (statusFilter !== "all") {
-        if (
-          statusFilter === "pending" && // This condition checks if the filter is 'pending'
-          item.approval !== "Pending"
-        )
-          return false;
-        if (statusFilter === "published" && item.approval !== "Approved")
-          return false;
-        // The 'Draft' status is not part of the 'approval' type, so this condition will always be false.
-        // If you intend to filter by a 'Draft' status, you might need to adjust the 'approval' type or the filtering logic.
-        // For now, this line is commented out to avoid an unintentional comparison.
-        // if (statusFilter === "draft" && item.approval !== "Draft") return false;
-        if (statusFilter === "suspended" && item.approval !== "Suspended")
-          return false;
-        if (statusFilter === "rejected" && item.approval !== "Rejected")
-          return false;
-      }
-
-      if (
-        typeFilter !== "all" &&
-        item.type.toLowerCase() !== typeFilter.toLowerCase()
-      )
-        return false;
-
-      // Search
-      if (search) {
-        const searchLower = search.toLowerCase();
-        return (
-          item.name.toLowerCase().includes(searchLower) ||
-          item.vendor.toLowerCase().includes(searchLower) ||
-          item.location.toLowerCase().includes(searchLower) ||
-          item.category.toLowerCase().includes(searchLower)
-        );
-      }
-
-      return true;
-    });
-
-    const totalItems = filteredData.length;
-    const computedTotalPages = Math.ceil(totalItems / itemsPerPage);
-    if (!totalPages || totalPages === 1) setTotalPages(computedTotalPages || 1);
-
-    if (currentPage > computedTotalPages && computedTotalPages > 0) {
-      setCurrentPage(1);
-    }
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-
-    setDisplayData(paginatedData);
-  }, [
-    allData,
-    statusFilter,
-    typeFilter,
-    search,
-    currentPage,
-    itemsPerPage,
-    activeTab,
-    totalPages,
-  ]);
-
-  // --- Handlers ---
   const handlePageChange = (page: number) => setCurrentPage(page);
   const handlePrevious = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -907,18 +783,20 @@ export default function Listings() {
   };
 
   const getStatusColor = (status: string) => {
-    if (status === "Published") return "bg-[#E9F5D6] text-[#5F8B0A]";
-    if (status === "Pending review" || status === "Pending")
-      return "bg-yellow-100 text-yellow-700";
+    if (status === "Approved") return "bg-[#E9F5D6] text-[#5F8B0A]";
+    if (status === "Pending") return "bg-yellow-100 text-yellow-700";
+    if (status === "Suspended") return "bg-orange-100 text-orange-700";
     return "bg-red-100 text-red-800";
   };
 
   const getSubmissionBadgeVariant = (status: string) => {
     switch (status) {
-      case "Published":
+      case "Approved":
         return "default";
-      case "Pending review":
+      case "Pending":
         return "secondary";
+      case "Rejected":
+        return "destructive";
       default:
         return "outline";
     }
@@ -926,7 +804,7 @@ export default function Listings() {
 
   const getApprovalBadgeVariant = (status: string) => {
     switch (status) {
-      case "Published":
+      case "Approved":
         return "default";
       case "Pending":
         return "secondary";
@@ -957,9 +835,10 @@ export default function Listings() {
     return pages;
   };
 
-  // --- Interactive Status Component ---
   const renderInteractiveStatus = (listing: Listing) => {
-    if (isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id) {
+    const isUpdating = isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id;
+
+    if (isUpdating) {
       return <Loader2 className="h-4 w-4 animate-spin text-gray-500" />;
     }
 
@@ -968,12 +847,12 @@ export default function Listings() {
         <DropdownMenuTrigger asChild>
           <div
             onClick={(e) => e.stopPropagation()}
-            className="cursor-pointer inline-block hover:opacity-80"
+            className="cursor-pointer inline-block hover:opacity-80 transition-opacity"
           >
             <Badge
               variant={getApprovalBadgeVariant(listing.approval)}
               className={`flex items-center gap-1 ${
-                listing.approval === "Approved" ? "bg-green-600" : ""
+                listing.approval === "Approved" ? "bg-green-600 hover:bg-green-700" : ""
               }`}
             >
               {listing.approval}
@@ -1274,18 +1153,6 @@ export default function Listings() {
                             {item.approval}
                           </Badge>
                         </TableCell>
-                        {/* <TableCell>
-                          <Badge
-                            variant={getApprovalBadgeVariant(item.approval)}
-                            className={
-                              item.approval === "Published"
-                                ? "bg-green-600"
-                                : ""
-                            }
-                          >
-                            {item.approval}
-                          </Badge>
-                        </TableCell> */}
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {renderInteractiveStatus(item)}
                         </TableCell>
@@ -1306,14 +1173,15 @@ export default function Listings() {
                               >
                                 View Details
                               </DropdownMenuItem>
-                              {/* <DropdownMenuItem>Edit Listing</DropdownMenuItem> */}
-                              <DropdownMenuSeparator />
+                              {/* <DropdownMenuItem>Edit Listing</DropdownMenuItem>
+                              <DropdownMenuSeparator /> */}
                               {/* DELETE BUTTON FIXED */}
                               <DropdownMenuItem
                                 className="text-red-600 focus:text-red-700 cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation(); // Stop row click
-                                  setListingToDelete(item.id); // Trigger Dialog
+                                  // Use SLUG if available, fallback to ID
+                                  setListingToDelete(item.slug || item.id);
                                 }}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />

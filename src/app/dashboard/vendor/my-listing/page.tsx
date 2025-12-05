@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
@@ -59,7 +59,7 @@ interface ApiListing {
   address: string;
   country: string;
   city: string;
-  status: "pending" | "published" | "draft" | "rejected" | "active";
+  status: string; // Changed to string to handle various backend values safely
   type?: string;
   images: ListingImage[];
   categories: Category[];
@@ -83,7 +83,7 @@ interface ListingsTableItem {
   allImages: string[]; // ✅ All valid images
   category: string;
   location: string;
-  status: "published" | "pending" | "drafted";
+  status: "published" | "pending" | "drafted"; // Frontend status types
   type: string;
   views: number;
   comments: number;
@@ -102,7 +102,7 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
 
   // If it's a relative path, prepend the API URL
-  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -137,7 +137,7 @@ export default function MyListing() {
     return "bg-red-100 text-red-800";
   };
 
- // --- Fetch Logic ---
+  // --- Fetch Logic ---
   const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
@@ -145,7 +145,7 @@ export default function MyListing() {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const response = await fetch(`${API_URL}/api/listing/my_listings`, {
         method: "GET",
         headers: {
@@ -169,17 +169,17 @@ export default function MyListing() {
           // --- CRITICAL FIX START ---
           const validImages = rawImages
             .filter((img) => {
-               // 1. Must have media string
-               if (!img.media) return false;
-               
-               // 2. Filter out known bad statuses
-               const badStatuses = ['processing', 'failed', 'pending', 'error'];
-               if (badStatuses.includes(img.media)) return false;
+              // 1. Must have media string
+              if (!img.media) return false;
 
-               // 3. Optional: Filter out non-image extensions if necessary
-               // return /\.(jpg|jpeg|png|webp|gif)$/i.test(img.media) || img.media.startsWith('http');
-               
-               return true;
+              // 2. Filter out known bad statuses
+              const badStatuses = ["processing", "failed", "pending", "error"];
+              if (badStatuses.includes(img.media)) return false;
+
+              // 3. Optional: Filter out non-image extensions if necessary
+              // return /\.(jpg|jpeg|png|webp|gif)$/i.test(img.media) || img.media.startsWith('http');
+
+              return true;
             })
             .map((img) => getImageUrl(img.media));
           // --- CRITICAL FIX END ---
@@ -196,17 +196,27 @@ export default function MyListing() {
             [listing.city, listing.country].filter(Boolean).join(", ") ||
             "Online";
 
+          // Correctly map backend status to frontend status
           let status: "published" | "pending" | "drafted" = "drafted";
-          if (listing.status === "published" || listing.status === "active")
+          const backendStatus = listing.status?.toLowerCase();
+
+          if (
+            backendStatus === "published" ||
+            backendStatus === "active" ||
+            backendStatus === "approved"
+          ) {
             status = "published";
-          else if (listing.status === "pending") status = "pending";
+          } else if (backendStatus === "pending") {
+            status = "pending";
+          }
+          // 'draft', 'rejected', 'suspended' will fall back to 'drafted' or you can add specific cases
 
           return {
             id: listing.id.toString(),
-            slug: listing.slug,
+            slug: listing.slug, // Use slug if available
             name: listing.name,
-            image: coverImage, 
-            allImages: validImages, 
+            image: coverImage,
+            allImages: validImages,
             category: categoryText,
             location: location,
             status: status,
@@ -235,6 +245,9 @@ export default function MyListing() {
 
   // --- Handlers ---
   const handleEdit = (listing: ListingsTableItem) => {
+    // Ensure we are using the correct route structure based on your folder image
+    // It seems like /dashboard/vendor/my-listing/edit/page.tsx is the file
+    // So the route should be /dashboard/vendor/my-listing/edit
     router.push(
       `/dashboard/vendor/my-listing/edit?type=${listing.type}&slug=${listing.slug}`
     );
@@ -246,23 +259,43 @@ export default function MyListing() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      const listing = listings.find((l) => l.id === deleteListingId);
-      if (!listing) return;
+      // Find the listing to get the slug. deleteListingId is the ID.
+      const listingToDelete = listings.find((l) => l.id === deleteListingId);
 
-      const res = await fetch(`${API_URL}/api/listing/${listing.slug}`, {
+      if (!listingToDelete) {
+        toast.error("Listing not found for deletion");
+        return;
+      }
+
+      // Use slug for deletion as per API docs pattern, fallback to ID if no slug
+      const identifier = listingToDelete.slug || listingToDelete.id;
+
+      const res = await fetch(`${API_URL}/api/listing/${identifier}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       });
 
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Delete failed with status: ${res.status}`
+        );
+      }
 
-      toast.success("Listing deleted");
+      toast.success("Listing deleted successfully");
       setListings((prev) => prev.filter((l) => l.id !== deleteListingId));
+      setViewListing(null); // Close view sheet if open
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete listing");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete listing"
+      );
     } finally {
       setIsDeleting(false);
       setDeleteListingId(null);
@@ -292,7 +325,7 @@ export default function MyListing() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {["business", "event", "community"].map((type) => (
+            {["business", "event", "community"].map((type, index) => (
               <DropdownMenuItem
                 key={type}
                 onClick={() =>
@@ -300,8 +333,12 @@ export default function MyListing() {
                     `/dashboard/vendor/my-listing/create?type=${type}`
                   )
                 }
-                className="capitalize"
+                className="capitalize cursor-pointer"
               >
+                {/* Number Badge */}
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#93C01F] text-white text-xs  font-medium">
+                  {index + 1}
+                </span>
                 {type} Listing
               </DropdownMenuItem>
             ))}
@@ -324,12 +361,15 @@ export default function MyListing() {
         </div>
       )}
 
-      {/* --- VIEW SIDEBAR (Sheet) - Updated to match the first code's style --- */}
+      {/* --- VIEW SIDEBAR (Sheet) --- */}
       <Sheet
         open={!!viewListing}
         onOpenChange={(open) => !open && setViewListing(null)}
       >
         <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
+          <SheetDescription className="sr-only">
+            Details for {viewListing?.name}
+          </SheetDescription>
           {viewListing && (
             <>
               {/* Header */}
@@ -341,7 +381,12 @@ export default function MyListing() {
                   >
                     ← Back
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEdit(viewListing)}
+                  >
                     <Edit className="w-4 h-4" />
                   </Button>
                 </div>
@@ -350,7 +395,7 @@ export default function MyListing() {
 
               {/* Content */}
               <div className="p-6 space-y-8">
-                {/* Details Grid - Similar to first code */}
+                {/* Details Grid */}
                 <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
                   {/* Status */}
                   <RefreshCcw className="w-4 h-4 text-gray-400" />
@@ -419,7 +464,7 @@ export default function MyListing() {
                   </div>
                 </div>
 
-                {/* Media Section - Using image[0] for cover and images[1,2,3] for rest */}
+                {/* Media Section */}
                 <div>
                   <div className="flex border-b border-gray-200 mb-6">
                     <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
