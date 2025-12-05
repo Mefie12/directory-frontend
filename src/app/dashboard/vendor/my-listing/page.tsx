@@ -102,7 +102,7 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
 
   // If it's a relative path, prepend the API URL
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -145,7 +145,7 @@ export default function MyListing() {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
       const response = await fetch(`${API_URL}/api/listing/my_listings`, {
         method: "GET",
         headers: {
@@ -465,6 +465,7 @@ export default function MyListing() {
                 </div>
 
                 {/* Media Section */}
+                {/* Media Section */}
                 <div>
                   <div className="flex border-b border-gray-200 mb-6">
                     <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
@@ -474,31 +475,34 @@ export default function MyListing() {
                   <div className="grid grid-cols-2 gap-4">
                     {/* Cover image (image[0]) */}
                     {viewListing.allImages.length > 0 ? (
-                      <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
+                      <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group">
                         <Image
                           src={viewListing.allImages[0]}
                           alt="Cover image"
                           fill
                           className="object-cover"
                           sizes="(max-width: 768px) 100vw, 50vw"
+                          unoptimized={true} // <--- FIX: Allow external URLs
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = "/images/placeholder-listing.png";
+                            if (!target.src.includes("placeholder")) {
+                              target.src = "/images/placeholder-listing.png";
+                            }
                           }}
                         />
                       </div>
                     ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300">
                         No cover image
                       </div>
                     )}
 
-                    {/* Display up to 3 additional images from images array */}
-                    {viewListing.allImages.length > 1 ? (
+                    {/* Additional Images (Index 1, 2, 3) */}
+                    {viewListing.allImages.length > 1 &&
                       viewListing.allImages.slice(1, 4).map((img, index) => (
                         <div
                           key={index}
-                          className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
+                          className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
                         >
                           <Image
                             src={img}
@@ -506,23 +510,25 @@ export default function MyListing() {
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, 50vw"
+                            unoptimized={true} // <--- FIX: Allow external URLs
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = "/images/placeholder-listing.png";
+                              if (!target.src.includes("placeholder")) {
+                                target.src = "/images/placeholder-listing.png";
+                              }
                             }}
                           />
                         </div>
-                      ))
-                    ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                        + Add Media
-                      </div>
-                    )}
+                      ))}
 
-                    {/* Show "Add Media" button if we have less than 4 images total */}
+                    {/* Show "Add Media" button if fewer than 4 images */}
                     {viewListing.allImages.length < 4 && (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors">
-                        + Add Media
+                      <div
+                        onClick={() => handleEdit(viewListing)}
+                        className="aspect-square bg-gray-50 rounded-lg flex flex-col gap-2 items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-100 border border-dashed border-gray-300 transition-all"
+                      >
+                        <Plus className="w-5 h-5 opacity-50" />
+                        <span>Add Media</span>
                       </div>
                     )}
                   </div>
