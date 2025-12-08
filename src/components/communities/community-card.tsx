@@ -12,12 +12,12 @@ interface CommunityCardProps {
 
 export default function CommunityCard({ community }: CommunityCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
-  const isActive = isBookmarked(community.id);
+  const isActive = isBookmarked(community.slug);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(community.id);
+    toggleBookmark(community.slug);
   };
   return (
     <Link

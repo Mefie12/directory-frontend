@@ -24,12 +24,12 @@ type BusinessCardProps = {
 
 export function BusinessCard({ business }: BusinessCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
-  const isActive = isBookmarked(business.id);
+  const isActive = isBookmarked(business.slug);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(business.id);
+    toggleBookmark(business.slug);
   };
   return (
     <Link

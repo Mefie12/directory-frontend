@@ -1,15 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { toast } from "sonner";
 
 export type BookmarkItemType = "business" | "event" | "community";
 
 interface BookmarkContextType {
-  bookmarkedSlugs: string[]; // Changed to track Slugs since Toggle uses Slug
+  bookmarkedSlugs: string[];
   isLoading: boolean;
-  toggleBookmark: (slug: string) => Promise<void>; // Uses Slug
-  deleteBookmarkById: (bookmarkId: string | number) => Promise<void>; // Uses Bookmark ID
+  toggleBookmark: (slug: string) => Promise<void>;
+  deleteBookmarkById: (bookmarkId: string | number) => Promise<void>;
   isBookmarked: (slug: string) => boolean;
   refreshBookmarks: () => Promise<void>;
 }
@@ -19,16 +25,14 @@ const BookmarkContext = createContext<BookmarkContextType | undefined>(
 );
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  // We track Slugs for the UI state because the Toggle API relies on them
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Fetch initial state on load
-  useEffect(() => {
-    refreshBookmarks();
-  }, []);
+  // Helper to safely access Env Var on client
+  const getApiUrl = () => process.env.API_URL || "https://me-fie.co.uk";
 
-  const refreshBookmarks = async () => {
+  // --- 1. Define refreshBookmarks FIRST (wrapped in useCallback) ---
+  const refreshBookmarks = useCallback(async () => {
     const token = localStorage.getItem("authToken");
     if (!token) {
       setIsLoading(false);
@@ -36,9 +40,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      // This endpoint should ideally return the list of SLUGS the user has bookmarked
-      const response = await fetch(`${API_URL}/api/user/bookmarks/id`, {
+      const response = await fetch(`${getApiUrl()}/api/my_bookmarks`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -46,21 +48,40 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        // Assuming the API returns a list of slugs or IDs.
-        // We cast to string to be safe.
-        const items = Array.isArray(data) ? data : data.data || [];
-        setBookmarkedSlugs(items.map(String));
+        const json = await response.json();
+        // Handle various response structures (array of strings vs array of objects)
+        const items = Array.isArray(json) ? json : json.data || [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const slugs = items.map((item: any) => {
+          // If the API returns objects, try to find the slug property
+          if (typeof item === "object" && item !== null) {
+            // Prioritize getting the actual slug from the listing object
+            if (item.listing && item.listing.slug) {
+              return item.listing.slug;
+            }
+            return item.slug || item.listing_slug || String(item.id);
+          }
+          // If it's just a string/number, return as string
+          return String(item);
+        });
+
+        setBookmarkedSlugs(slugs);
       }
     } catch (error) {
       console.error("Failed to sync bookmarks", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Empty dependency array ensures this doesn't trigger unnecessary re-renders
 
-  // --- 2. Toggle Bookmark (Uses Slug POST API) ---
-  const toggleBookmark = async (slug: string) => {
+  // --- 2. Call useEffect SECOND ---
+  useEffect(() => {
+    refreshBookmarks();
+  }, [refreshBookmarks]);
+
+  // --- Toggle Bookmark ---
+  const toggleBookmark = async (slugOrId: string) => {
     const token = localStorage.getItem("authToken");
 
     if (!token) {
@@ -70,79 +91,117 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Optimistic Update: Update UI immediately
-    const isCurrentlyBookmarked = bookmarkedSlugs.includes(slug);
+    // IMPORTANT: Check if what we have is actually a numeric ID
+    // If it is, we need to fetch the actual slug first
+    let actualSlug = slugOrId;
+    
+    // Check if it's a numeric ID (not just a string that can be converted to number)
+    if (!isNaN(Number(slugOrId)) && slugOrId === String(Number(slugOrId))) {
+      // It's a numeric ID, not a slug (e.g., "6", not "cafe-downtown")
+      console.warn(`Received numeric ID (${slugOrId}), attempting to fetch slug...`);
+      
+      try {
+        // First, fetch the listing details to get the slug
+        const listingResponse = await fetch(
+          `${getApiUrl()}/api/listings/${slugOrId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+        
+        if (listingResponse.ok) {
+          const listingData = await listingResponse.json();
+          // Try to get slug from various possible response structures
+          actualSlug = listingData.slug || listingData.data?.slug || slugOrId;
+          console.log(`Converted ID ${slugOrId} to slug: ${actualSlug}`);
+        } else {
+          console.warn(`Could not fetch listing for ID ${slugOrId}, using ID as fallback`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch listing details", error);
+      }
+    }
 
+    // Optimistic Update
+    const isCurrentlyBookmarked = bookmarkedSlugs.includes(actualSlug);
     setBookmarkedSlugs((prev) =>
-      isCurrentlyBookmarked ? prev.filter((s) => s !== slug) : [...prev, slug]
+      isCurrentlyBookmarked 
+        ? prev.filter((s) => s !== actualSlug) 
+        : [...prev, actualSlug]
     );
 
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
       // API: POST /api/listings/{slug}/bookmark/toggle
       const response = await fetch(
-        `${API_URL}/api/listings/${slug}/bookmark/toggle`,
+        `${getApiUrl()}/api/listings/${actualSlug}/bookmark/toggle`,
         {
-          method: "POST", // API docs say POST for toggle
+          method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          // Body is usually empty for this specific toggle route structure
-          // unless your API specifically asks for { type: ... }
           body: JSON.stringify({}),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to toggle bookmark");
+        // If 404, it means the Slug was invalid or not found
+        if (response.status === 404) {
+          throw new Error(
+            `Listing not found. Received: "${slugOrId}", Used: "${actualSlug}". Please ensure you're using the correct slug.`
+          );
+        }
+        throw new Error(`Failed to toggle bookmark: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-
       toast.success(
         result.message ||
           (isCurrentlyBookmarked
             ? "Removed from bookmarks"
             : "Added to bookmarks")
       );
+      
+      // Refresh bookmarks to ensure sync with server
+      refreshBookmarks();
     } catch (error) {
-      // Revert optimistic update if API fails
+      // Revert optimistic update
       setBookmarkedSlugs((prev) =>
-        isCurrentlyBookmarked ? [...prev, slug] : prev.filter((s) => s !== slug)
+        isCurrentlyBookmarked 
+          ? [...prev, actualSlug] 
+          : prev.filter((s) => s !== actualSlug)
       );
-      console.error(error);
-      toast.error("Could not update bookmark");
+      console.error("Toggle bookmark error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Could not update bookmark"
+      );
     }
   };
 
-  // --- 3. Delete Bookmark by ID (Uses Delete API) ---
-  // Use this when you have the specific Bookmark ID (e.g., from a user dashboard list)
   const deleteBookmarkById = async (bookmarkId: string | number) => {
     const token = localStorage.getItem("authToken");
     if (!token) return;
 
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const response = await fetch(
+        `${getApiUrl()}/api/bookmark/${bookmarkId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
 
-      // API: DELETE /api/bookmark/{id}
-      const response = await fetch(`${API_URL}/api/bookmark/${bookmarkId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete bookmark");
-      }
+      if (!response.ok) throw new Error("Failed to delete bookmark");
 
       toast.success("Bookmark removed");
-      // Ideally refresh the list to sync state, as we don't know the slug here easily
       refreshBookmarks();
     } catch (error) {
       console.error(error);

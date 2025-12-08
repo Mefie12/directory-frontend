@@ -23,12 +23,12 @@ type EventCardProps = {
 
 export function EventCard({ event }: EventCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
-  const isActive = isBookmarked(event.id);
+  const isActive = isBookmarked(event.slug);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(event.id);
+    toggleBookmark(event.slug);
   };
   return (
     <Link
