@@ -38,7 +38,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     try {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
       // This endpoint should ideally return the list of SLUGS the user has bookmarked
-      const response = await fetch(`${API_URL}/api/user/bookmarks/ids`, {
+      const response = await fetch(`${API_URL}/api/user/bookmarks/id`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",

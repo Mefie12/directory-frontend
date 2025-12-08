@@ -537,7 +537,6 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // FIXED: Use singular 'listing' instead of 'listings' and use SLUG
       const response = await fetch(
         `${API_URL}/api/listing/${listingToDelete}`,
         {
@@ -579,13 +578,8 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // FIXED: Map status to what API expects (e.g., 'pending' for pending, 'approved' for approved)
-      // Based on your doc screenshot, body was {status: "pending"}
-      // Assuming valid values are: pending, approved, suspended, rejected
-      // Note: 'published' in your prev code might need to be 'approved' for API
-      const apiStatusValue = newStatus; // Or map 'approved' -> 'published' if API requires that specifically
+      const apiStatusValue = newStatus;
 
-      // FIXED: URL structure (singular 'listing', slug, update_status)
       const response = await fetch(
         `${API_URL}/api/listing/${listingSlug}/update_status`,
         {
@@ -694,7 +688,6 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      // IMPORTANT: Using server-side pagination to avoid 504 Gateway Timeout
       const params = new URLSearchParams({
         page: currentPage.toString(),
         per_page: itemsPerPage.toString(),
@@ -733,7 +726,6 @@ export default function Listings() {
       const listings = extractListingsFromResponse(listingsData);
       setAllData(listings);
 
-      // Handle pagination meta
       const meta = json.meta || {};
       const total = meta.last_page || meta.totalPages || json.last_page || json.totalPages || 1;
       setTotalPages(total);
@@ -769,8 +761,6 @@ export default function Listings() {
   useEffect(() => {
     if (activeTab === "categories") return;
     const safeAllData = Array.isArray(allData) ? allData : [];
-    // Client-side filtering is now largely redundant due to server-side params
-    // but kept for immediate feedback if needed on small datasets
     setDisplayData(safeAllData); 
   }, [allData, activeTab]);
 
@@ -1442,9 +1432,9 @@ export default function Listings() {
                   >
                     <ChevronLeft className="w-4 h-4" /> Listings
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  {/* <Button variant="ghost" size="icon" className="h-8 w-8">
                     <MoreHorizontal className="w-4 h-4" />
-                  </Button>
+                  </Button> */}
                 </div>
                 <SheetTitle className="text-2xl font-bold">
                   {selectedListing.name}
@@ -1556,6 +1546,15 @@ export default function Listings() {
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, 50vw"
+                            // --- FIX APPLIED START ---
+                            unoptimized={true}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              if (!target.src.includes("placeholder")) {
+                                target.src = "/images/placeholder-listing.png";
+                              }
+                            }}
+                            // --- FIX APPLIED END ---
                           />
                         </div>
 
@@ -1573,6 +1572,16 @@ export default function Listings() {
                                 fill
                                 className="object-cover"
                                 sizes="(max-width: 768px) 100vw, 50vw"
+                                // --- FIX APPLIED START ---
+                                unoptimized={true}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  if (!target.src.includes("placeholder")) {
+                                    target.src =
+                                      "/images/placeholder-listing.png";
+                                  }
+                                }}
+                                // --- FIX APPLIED END ---
                               />
                             </div>
                           ))}
