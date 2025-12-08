@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
 
+// 1. UPDATE: Changed 'image' (string) to 'images' (string array)
 export type Business = {
   id: string;
   name: string;
   category: string;
-  image: string;
+  images: string[];
   rating: number;
   reviewCount: string;
   location: string;
@@ -27,10 +28,23 @@ export function BusinessCard({ business }: BusinessCardProps) {
   const isActive = isBookmarked(business.slug);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigating if card is a link
+    e.preventDefault();
     e.stopPropagation();
     toggleBookmark(business.slug);
   };
+
+  // 2. UPDATE: Selection Logic
+  // Try index [1] (second image). If missing, try index [0]. Else placeholder.
+  let displayImage =
+    business.images?.[1] ||
+    business.images?.[0] ||
+    "/images/placeholders/generic.jpg";
+
+  // Safety check to ensure we never pass an empty string to Next/Image
+  if (!displayImage || displayImage.trim() === "") {
+    displayImage = "/images/placeholders/generic.jpg";
+  }
+
   return (
     <Link
       href={`/discover/${business.slug}`}
@@ -39,14 +53,14 @@ export function BusinessCard({ business }: BusinessCardProps) {
       {/* Image Container */}
       <div className="relative w-full aspect-4/3 overflow-hidden ">
         <Image
-          src={business.image}
+          src={displayImage}
           alt={business.name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
 
-        {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
+        {/* Bookmark Icon */}
         <button
           onClick={handleBookmarkClick}
           className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"

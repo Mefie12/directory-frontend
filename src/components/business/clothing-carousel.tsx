@@ -1,21 +1,23 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Business } from "@/lib/api";
-import { BusinessCard } from "../business-card";
+import type { Business as ApiBusiness } from "@/lib/api";
+import {
+  BusinessCard,
+  type Business as BusinessCardBusiness,
+} from "../business-card";
 import { Button } from "../ui/button";
 
-
 interface BusinessSectionCarouselProps {
-  businesses: Business[];
+  businesses: ApiBusiness[];
   title?: string;
 }
 
 export default function ClothingSectionCarousel({
   businesses,
   title = "Clothing",
-
 }: BusinessSectionCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "center",
@@ -46,7 +48,6 @@ export default function ClothingSectionCarousel({
     emblaApi.on("select", updateButtons);
     emblaApi.on("reInit", updateButtons);
 
-    // Initial check
     updateButtons();
 
     return () => {
@@ -55,13 +56,91 @@ export default function ClothingSectionCarousel({
     };
   }, [emblaApi]);
 
+  // Helper function to convert ApiBusiness to BusinessCardBusiness
+  const convertToBusinessCardBusiness = (
+    business: ApiBusiness
+  ): BusinessCardBusiness => {
+    // FIX: Cast to 'any' here to allow checking properties that might not be in the strict type definition
+
+    const raw = business as any;
+
+    let images: string[] = [];
+
+    // 1. Handle Images
+    // Check if 'images' array exists on the raw object
+    if (raw.images && Array.isArray(raw.images)) {
+      if (raw.images.every((img: any) => typeof img === "string")) {
+        images = raw.images as string[];
+      } else if (
+        raw.images.every(
+          (img: any) => img && typeof img === "object" && "media" in img
+        )
+      ) {
+        // Explicitly type 'img' as any to fix the implicit any error
+        images = raw.images.map((img: any) => img.media || "");
+      }
+    }
+    // Fallback to the strict 'image' property if it exists
+    else if (business.image && typeof business.image === "string") {
+      images = [business.image];
+    }
+
+    // Clean up images
+    images = images.filter((img) => img && img.trim() !== "");
+    if (images.length === 0) {
+      images = ["/images/placeholders/generic.jpg"];
+    }
+
+    // 2. Map other fields using 'raw' to avoid property does not exist errors
+    return {
+      id: business.id?.toString() || "",
+      name: business.name || "",
+      slug: business.slug || "",
+      images: images,
+
+      // Check 'category' (strict) OR 'categories' (raw)
+      category: business.category || raw.categories?.[0]?.name || "General",
+
+      rating:
+        typeof business.rating === "number"
+          ? business.rating
+          : typeof business.rating === "string"
+          ? parseFloat(business.rating) || 0
+          : 0,
+
+      // Check all possible variations for reviews
+      reviewCount:
+        typeof business.reviewCount === "string"
+          ? business.reviewCount
+          : typeof raw.reviews_count === "number"
+          ? raw.reviews_count.toString()
+          : typeof raw.ratings_count === "number"
+          ? raw.ratings_count.toString()
+          : typeof raw.review_count === "number"
+          ? raw.review_count.toString()
+          : "0",
+
+      location: business.location || raw.address || "",
+
+      // Check verified status variations
+      verified:
+        business.verified ||
+        raw.is_verified ||
+        raw.status === "active" ||
+        false,
+
+      // Check open status variations
+      // Note: 'openStatus' is not on ApiBusiness, so we must access it via 'raw' or map it
+      discount: business.discount, // Optional property exists on type
+    };
+  };
+
+  const businessCardBusinesses = businesses.map(convertToBusinessCardBusiness);
+
   return (
     <div>
-      {/* Header with Title and Navigation Buttons */}
       <div className="mb-5 flex flex-row justify-between items-center">
         <h2 className="font-semibold text-2xl md:text-3xl">{title}</h2>
-
-        {/* Navigation Buttons */}
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -84,10 +163,9 @@ export default function ClothingSectionCarousel({
         </div>
       </div>
 
-      {/* Carousel Container */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
-          {businesses.map((business) => (
+          {businessCardBusinesses.map((business) => (
             <div
               key={business.id}
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"

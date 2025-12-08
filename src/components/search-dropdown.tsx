@@ -47,11 +47,8 @@ export default function SearchDropdown({
         setShowDropdown(true);
 
         try {
-          // Determine which endpoint to use based on context
           const endpoint =
-            context === "discover"
-              ? "/api/listings"
-              : `/api/${context}`;
+            context === "discover" ? "/api/listings" : `/api/${context}`;
 
           const response = await fetch(
             `${endpoint}?q=${encodeURIComponent(query)}&limit=5`
@@ -73,7 +70,7 @@ export default function SearchDropdown({
         setResults([]);
         setShowDropdown(false);
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [query, context]);
@@ -115,38 +112,47 @@ export default function SearchDropdown({
             </div>
           ) : results.length > 0 ? (
             <div className="py-2">
-              {results.map((result) => (
-                <Link
-                  key={result.id}
-                  href={`/${context}/${result.id}`}
-                  onClick={handleResultClick}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  {result.image && (
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                      <Image
-                        src={result.image}
-                        alt={result.name}
-                        fill
-                        className="object-cover"
-                      />
+              {results.map((result) => {
+                // 1. FIX: Helper to safely extract a single image URL string
+                // Handle case where result.image is string[] or just string
+                const displayImage = Array.isArray(result.image)
+                  ? result.image[0] || "/images/placeholders/generic.jpg"
+                  : result.image || "/images/placeholders/generic.jpg";
+
+                return (
+                  <Link
+                    key={result.id}
+                    href={`/${context}/${result.id}`}
+                    onClick={handleResultClick}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    {/* Only render wrapper if we have a valid image */}
+                    {displayImage && (
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                        <Image
+                          src={displayImage} // 2. FIX: Now passing a string, not string[]
+                          alt={result.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm text-gray-900 truncate">
+                        {result.name}
+                      </h4>
+                      <p className="text-xs text-gray-500 truncate">
+                        {result.category} • {result.country}
+                      </p>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm text-gray-900 truncate">
-                      {result.name}
-                    </h4>
-                    <p className="text-xs text-gray-500 truncate">
-                      {result.category} • {result.country}
-                    </p>
-                  </div>
-                  {result.price && (
-                    <span className="text-sm font-semibold text-[#9ACC23]">
-                      ${result.price}
-                    </span>
-                  )}
-                </Link>
-              ))}
+                    {result.price && (
+                      <span className="text-sm font-semibold text-[#9ACC23]">
+                        ${result.price}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           ) : query.length > 0 ? (
             <div className="p-8 text-center">

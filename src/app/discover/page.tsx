@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Suspense } from "react";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
@@ -12,8 +13,24 @@ import BusinessSectionCarousel from "@/components/business-section-carousel";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import CommunitySectionCarousel from "@/components/community-section-carousel";
 
+// Helper function to convert DataBusiness to API Business type
+const convertDataBusinessToApiBusiness = (business: any) => {
+  return {
+    ...business,
+    images: business.image ? [business.image] : ["/images/placeholders/generic.jpg"],
+    // Remove the image property since API expects images array
+    image: undefined,
+  };
+};
+
+// Helper function to convert array of DataBusiness to API Business array
+const convertBusinessesArray = (businesses: any[]) => {
+  return businesses.map(convertDataBusinessToApiBusiness);
+};
+
 export default async function Discover() {
-  const businesses = featuredBusinesses;
+  // Convert businesses to the expected API format
+  const businesses = convertBusinessesArray(featuredBusinesses);
   const events = Events;
 
   return (
@@ -58,7 +75,7 @@ export default async function Discover() {
                 customers, and expand your business in a thriving digital
                 marketplace.
               </p>
-              <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+              <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
                 Join as a vendor
               </Button>
             </div>
@@ -87,14 +104,6 @@ export default async function Discover() {
             </div>
           </div>
 
-          {/* Businesses Carousel */}
-          {/* {businesses.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {businesses.slice(0, 4).map((business) => (
-                <BusinessCard key={business.id} business={business} />
-              ))}
-            </div>
-          )} */}
           <BusinessSectionCarousel businesses={businesses} />
         </div>
 
@@ -120,14 +129,6 @@ export default async function Discover() {
             </div>
           </div>
 
-          {/* Events Carousel */}
-          {/* {events.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {events.slice(0, 3).map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          )} */}
           <EventSectionCarousel events={events} />
         </div>
 
@@ -204,7 +205,7 @@ export default async function Discover() {
             </p>
 
             {/* CTA button */}
-            <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+            <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
               List your business today
             </Button>
           </div>

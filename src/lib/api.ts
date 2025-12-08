@@ -11,13 +11,13 @@ export interface Listing {
   category: string;
   country: string;
   price?: number;
-  image: string;
+  image?: string[];
   createdAt: string;
   slug?: string;
 }
 
 export interface Business extends Listing {
-  type: "business";
+  type: "business"; // This line is already present and correct
   address?: string;
   phone?: string;
   website?: string;

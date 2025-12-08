@@ -6,7 +6,7 @@ import SearchHeader from "@/components/search-header";
 import {
   CommunityCategory,
   CommunityCard,
-  featuredBusinesses,
+  featuredBusinesses as DataBusinesses,
   Events,
 } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,31 @@ interface CommunityContentProps {
   communities: CommunityCard[];
 }
 
+// Helper function to convert DataBusiness to API Business type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const convertDataBusinessToApiBusiness = (business: any) => {
+  return {
+    ...business,
+    images: business.image ? [business.image] : ["/images/placeholders/generic.jpg"],
+    // Remove the image property since API expects images array
+    image: undefined,
+  };
+};
+
+// Helper function to convert array of DataBusiness to API Business array
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const convertBusinessesArray = (businesses: any[]) => {
+  return businesses.map(convertDataBusinessToApiBusiness);
+};
+
 export default function CommunityContent({
   categories,
   communities,
 }: CommunityContentProps) {
-  const businesses = featuredBusinesses;
+  const businesses = useMemo(() => {
+    return convertBusinessesArray(DataBusinesses);
+  }, []);
+  
   const events = Events;
 
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -129,18 +149,6 @@ export default function CommunityContent({
                   );
                 })}
 
-                {/* Explore More Button */}
-                {/* {!showAllCategories && (
-                        <div className="flex justify-center py-10">
-                          <Button
-                            onClick={() => setShowAllCategories(true)}
-                            className="px-4 py-3 border-2 bg-transparent border-[#9ACC23] text-[#9ACC23] rounded-md font-medium hover:bg-[#9ACC23] hover:text-white transition-colors"
-                          >
-                            Explore more businesses
-                          </Button>
-                        </div>
-                      )} */}
-
                 {/* Additional Tags (shown after expand) */}
                 {showAllCategories && (
                   <>
@@ -197,8 +205,8 @@ export default function CommunityContent({
                         connect with supporters, and grow movements that create
                         lasting change.
                       </p>
-                      <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
-                        List your Commmunity
+                      <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+                        List your Community
                       </Button>
                     </div>
                   </div>
@@ -228,14 +236,6 @@ export default function CommunityContent({
                     </div>
                   </div>
 
-                  {/* Businesses Carousel */}
-                  {/* {businesses.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {businesses.slice(0, 4).map((business) => (
-                <BusinessCard key={business.id} business={business} />
-              ))}
-            </div>
-          )} */}
                   <BusinessSectionCarousel businesses={businesses} />
                 </div>
 
@@ -313,7 +313,7 @@ export default function CommunityContent({
                     </p>
 
                     {/* CTA button */}
-                    <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+                    <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
                   </div>

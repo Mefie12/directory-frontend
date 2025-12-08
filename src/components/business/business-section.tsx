@@ -1,22 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Business } from "@/lib/api";
+import type { Business as ApiBusiness } from "@/lib/api"; // Renamed
 import { BusinessCard } from "../business-card";
 import { Button } from "../ui/button";
 
 interface BusinessSectionProps {
-  businesses: Business[];
+  businesses: ApiBusiness[]; // Use the API type
   title: string;
   showNavigation?: boolean;
 }
 
-/**
- * Reusable Business Section Component
- * Displays a carousel of businesses with optional navigation buttons
- * Automatically filters based on the businesses array passed to it
- */
 export default function BusinessSection({
   businesses,
   title,
@@ -99,14 +95,26 @@ export default function BusinessSection({
       {/* Carousel Container */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
-          {businesses.map((business) => (
-            <div
-              key={business.id}
-              className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"
-            >
-              <BusinessCard business={business} />
-            </div>
-          ))}
+          {businesses.map((business) => {
+            // Convert inline
+            const businessForCard = {
+              ...business,
+              images: business.image
+                ? Array.isArray(business.image)
+                  ? business.image.filter((img: any) => typeof img === "string")
+                  : [business.image]
+                : ["/images/placeholders/generic.jpg"],
+            };
+
+            return (
+              <div
+                key={business.id}
+                className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"
+              >
+                <BusinessCard business={businessForCard as any} />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

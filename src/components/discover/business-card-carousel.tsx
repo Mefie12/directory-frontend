@@ -2,12 +2,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Business } from "@/lib/api";
-import { BusinessCard } from "../business-card";
+import type { Business as ApiBusiness } from "@/lib/api";
+import {
+  BusinessCard,
+  type Business as BusinessCardBusiness,
+} from "../business-card";
 import { Button } from "../ui/button";
 
 interface BusinessCardCarouselProps {
-  businesses: Business[];
+  businesses: ApiBusiness[];
   title?: string;
 }
 
@@ -53,6 +56,71 @@ export default function BusinessCardCarousel({
     };
   }, [emblaApi]);
 
+  // 1. FIX: Helper to transform API data into BusinessCard format
+  const convertToBusinessCardBusiness = (
+    business: ApiBusiness
+  ): BusinessCardBusiness => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = business as any;
+
+    let images: string[] = [];
+
+    // Robust Image Handling
+    if (raw.images && Array.isArray(raw.images)) {
+      if (raw.images.every((img: unknown) => typeof img === "string")) {
+        images = raw.images as string[];
+      } else if (
+        raw.images.every(
+          (img: { media?: string }) =>
+            img && typeof img === "object" && "media" in img
+        )
+      ) {
+        images = raw.images.map((img: { media?: string }) => img.media || "");
+      }
+    } else if (business.image && typeof business.image === "string") {
+      images = [business.image];
+    }
+
+    // Fallback logic
+    images = images.filter((img) => img && img.trim() !== "");
+    if (images.length === 0) {
+      images = ["/images/placeholders/generic.jpg"];
+    }
+
+    // Map Fields
+    return {
+      id: business.id?.toString() || "",
+      name: business.name || "",
+      slug: business.slug || "",
+      images: images, // The fix: passing array
+      category: business.category || raw.categories?.[0]?.name || "General",
+      rating:
+        typeof business.rating === "number"
+          ? business.rating
+          : typeof business.rating === "string"
+          ? parseFloat(business.rating) || 0
+          : 0,
+      reviewCount:
+        typeof business.reviewCount === "string"
+          ? business.reviewCount
+          : typeof raw.reviews_count === "number"
+          ? raw.reviews_count.toString()
+          : typeof raw.ratings_count === "number"
+          ? raw.ratings_count.toString()
+          : "0",
+      location: business.location || raw.address || "",
+      verified:
+        business.verified ||
+        raw.is_verified ||
+        raw.status === "active" ||
+        false,
+      discount: business.discount,
+    };
+  };
+
+  // 2. FIX: Map over the transformed data
+  const businessCardBusinesses = businesses.map(convertToBusinessCardBusiness);
+
   return (
     <div className="py-8 px-4 lg:px-16">
       {/* Header with Title and Navigation Buttons */}
@@ -85,7 +153,8 @@ export default function BusinessCardCarousel({
       {/* Carousel Container */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
-          {businesses.map((business) => (
+          {/* 3. FIX: Iterate over the transformed list */}
+          {businessCardBusinesses.map((business) => (
             <div
               key={business.id}
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"

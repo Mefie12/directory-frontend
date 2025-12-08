@@ -3,7 +3,7 @@
 import { useState, useMemo, Suspense } from "react";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
-import { Business, BusinessCategory, Events } from "@/lib/data";
+import { Business as DataBusiness, BusinessCategory, Events } from "@/lib/data";
 import BusinessSection from "@/components/business/business-section";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -12,8 +12,25 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 
 interface BusinessesContentProps {
   categories: BusinessCategory[];
-  businesses: Business[];
+  businesses: DataBusiness[]; // Using DataBusiness type
 }
+
+// Helper function to convert DataBusiness to API Business type
+const convertDataBusinessToApiBusiness = (business: DataBusiness) => {
+  return {
+    ...business,
+    images: business.image
+      ? [business.image]
+      : ["/images/placeholders/generic.jpg"],
+    // Remove the image property since API expects images array
+    image: undefined,
+  };
+};
+
+// Helper function to convert array of DataBusiness to API Business array
+const convertBusinessesArray = (businesses: DataBusiness[]) => {
+  return businesses.map(convertDataBusinessToApiBusiness);
+};
 
 export default function BusinessesContent({
   categories,
@@ -55,6 +72,11 @@ export default function BusinessesContent({
   const getBusinessesByCategory = (category: string) => {
     return filteredBusinesses.filter((b) => b.category === category);
   };
+
+  // Convert filtered businesses to API format for BusinessSection
+  const filteredBusinessesForSection = useMemo(() => {
+    return convertBusinessesArray(filteredBusinesses);
+  }, [filteredBusinesses]);
 
   // Main categories to show initially (in order)
   const mainCategories = ["Clothing", "Jewellery", "Art & Crafts"];
@@ -100,7 +122,7 @@ export default function BusinessesContent({
               <>
                 {/* Top Best Deals Section */}
                 <BusinessSection
-                  businesses={filteredBusinesses.slice(0, 8)}
+                  businesses={filteredBusinessesForSection.slice(0, 8)}
                   title="Today's best deals just for you!"
                   showNavigation={true}
                 />
@@ -113,24 +135,12 @@ export default function BusinessesContent({
                   return (
                     <BusinessSection
                       key={category}
-                      businesses={categoryBusinesses}
+                      businesses={convertBusinessesArray(categoryBusinesses)}
                       title={category}
                       showNavigation={true}
                     />
                   );
                 })}
-
-                {/* Explore More Button */}
-                {/* {!showAllCategories && (
-                  <div className="flex justify-center py-10">
-                    <Button
-                      onClick={() => setShowAllCategories(true)}
-                      className="px-4 py-3 border-2 bg-transparent border-[#9ACC23] text-[#9ACC23] rounded-md font-medium hover:bg-[#9ACC23] hover:text-white transition-colors"
-                    >
-                      Explore more businesses
-                    </Button>
-                  </div>
-                )} */}
 
                 {/* Additional Categories (shown after expand) */}
                 {showAllCategories && (
@@ -143,7 +153,9 @@ export default function BusinessesContent({
                       return (
                         <BusinessSection
                           key={category}
-                          businesses={categoryBusinesses}
+                          businesses={convertBusinessesArray(
+                            categoryBusinesses
+                          )}
                           title={category}
                           showNavigation={true}
                         />
@@ -167,7 +179,7 @@ export default function BusinessesContent({
                 <div className="py-12 px-4 lg:px-16 bg-white">
                   <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
                     {/* Left: Image */}
-                    <div className="relative w-full lg:w-1/2 h-[320px] lg:h-auto">
+                    <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
                       <Image
                         src="/images/backgroundImages/business/vendor.jpg"
                         alt="Vendor serving customer"
@@ -188,7 +200,7 @@ export default function BusinessesContent({
                         connect with customers, and expand your business in a
                         thriving digital marketplace.
                       </p>
-                      <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+                      <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
                         Join as a vendor
                       </Button>
                     </div>
@@ -269,7 +281,7 @@ export default function BusinessesContent({
                     </p>
 
                     {/* CTA button */}
-                    <Button className="bg-(--accent-primary) hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+                    <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
                   </div>
@@ -279,7 +291,7 @@ export default function BusinessesContent({
               // Show filtered businesses in a single section
               <>
                 <BusinessSection
-                  businesses={filteredBusinesses}
+                  businesses={filteredBusinessesForSection}
                   title={
                     categories.find((c) => c.value === selectedCategory)
                       ?.label || "Filtered Businesses"

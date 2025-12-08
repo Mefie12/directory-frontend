@@ -2,12 +2,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Business } from "@/lib/api";
-import { BusinessCard } from "../business-card";
+import type { Business as ApiBusiness } from "@/lib/api";
+import {
+  BusinessCard,
+  type Business as BusinessCardBusiness,
+} from "../business-card";
 import { Button } from "../ui/button";
 
 interface BusinessBestCarouselProps {
-  businesses: Business[];
+  businesses: ApiBusiness[];
   title?: string;
 }
 
@@ -44,7 +47,6 @@ export default function BusinessBestCarousel({
     emblaApi.on("select", updateButtons);
     emblaApi.on("reInit", updateButtons);
 
-    // Initial check
     updateButtons();
 
     return () => {
@@ -52,6 +54,75 @@ export default function BusinessBestCarousel({
       emblaApi.off("reInit", updateButtons);
     };
   }, [emblaApi]);
+
+  // Helper to transform API data into the format BusinessCard expects
+  const convertToBusinessCardBusiness = (
+    business: ApiBusiness
+  ): BusinessCardBusiness => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = business as any; // Cast to 'any' to safely check flexible API fields
+
+    let images: string[] = [];
+
+    // Handle Images Logic
+    if (raw.images && Array.isArray(raw.images)) {
+      // Check if it's an array of strings
+      if (raw.images.every((img: unknown) => typeof img === "string")) {
+        images = raw.images as string[];
+      }
+      // Check if it's an array of objects with media property
+      // FIX: Typed 'img' to { media: string } to allow access without 'any' error
+      else if (
+        raw.images.every(
+          (img: { media?: string }) =>
+            img && typeof img === "object" && "media" in img
+        )
+      ) {
+        images = raw.images.map((img: { media?: string }) => img.media || "");
+      }
+    } else if (business.image && typeof business.image === "string") {
+      images = [business.image];
+    }
+
+    // Fallback for empty images
+    images = images.filter((img) => img && img.trim() !== "");
+    if (images.length === 0) {
+      images = ["/images/placeholders/generic.jpg"];
+    }
+
+    // Map fields
+    return {
+      id: business.id?.toString() || "",
+      name: business.name || "",
+      slug: business.slug || "",
+      images: images,
+      category: business.category || raw.categories?.[0]?.name || "General",
+      rating:
+        typeof business.rating === "number"
+          ? business.rating
+          : typeof business.rating === "string"
+          ? parseFloat(business.rating) || 0
+          : 0,
+      reviewCount:
+        typeof business.reviewCount === "string"
+          ? business.reviewCount
+          : typeof raw.reviews_count === "number"
+          ? raw.reviews_count.toString()
+          : typeof raw.ratings_count === "number"
+          ? raw.ratings_count.toString()
+          : "0",
+      location: business.location || raw.address || "",
+      verified:
+        business.verified ||
+        raw.is_verified ||
+        raw.status === "active" ||
+        false,
+      // FIX: Removed 'openStatus' because it does not exist in the BusinessCard type
+      discount: business.discount,
+    };
+  };
+
+  const businessCardBusinesses = businesses.map(convertToBusinessCardBusiness);
 
   return (
     <div className="py-8 px-4 lg:px-16">
@@ -85,7 +156,7 @@ export default function BusinessBestCarousel({
       {/* Carousel Container */}
       <div className="overflow-hidden " ref={emblaRef}>
         <div className="flex gap-4">
-          {businesses.map((business) => (
+          {businessCardBusinesses.map((business) => (
             <div
               key={business.id}
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"

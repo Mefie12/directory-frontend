@@ -4,12 +4,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Business } from "@/lib/api";
-import { BusinessCard } from "./business-card";
+import type { Business as ApiBusiness } from "@/lib/api"; // Renamed import
+import {
+  BusinessCard,
+  type Business as BusinessCardBusiness,
+} from "./business-card";
 import { Button } from "./ui/button";
 
 interface BusinessSectionCarouselProps {
-  businesses: Business[];
+  businesses: ApiBusiness[]; // Use the API type
 }
 
 export default function BusinessSectionCarousel({
@@ -53,6 +56,11 @@ export default function BusinessSectionCarousel({
     };
   }, [emblaApi]);
 
+  // Type assertion - USE WITH CAUTION
+  // This assumes the API business structure matches BusinessCard expectations
+  const businessCardBusinesses =
+    businesses as unknown as BusinessCardBusiness[];
+
   return (
     <div>
       {/* Header with hidden navigation buttons */}
@@ -85,7 +93,7 @@ export default function BusinessSectionCarousel({
       {/* Carousel Container */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
-          {businesses.map((business) => (
+          {businessCardBusinesses.map((business) => (
             <div
               key={business.id}
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.5rem)] lg:flex-[0_0_calc(25%-0.75rem)]"

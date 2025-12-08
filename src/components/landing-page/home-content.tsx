@@ -40,6 +40,7 @@ interface ApiListing {
   name: string;
   slug: string;
   type: string;
+  listing_type?: string; // Added for better type detection
   rating: string | number;
   ratings_count: string | number;
   location?: string;
@@ -54,13 +55,126 @@ interface ApiListing {
   is_verified?: boolean;
 }
 
-// Helper to construct image URL safely
+// 1. FIX: Helper to construct image URL safely with Encoding
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url || typeof url !== "string")
     return "/images/placeholders/generic.jpg";
+
   if (url.startsWith("http")) return url;
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-  return `${API_URL}/${url.replace(/^\//, "")}`;
+
+  // Remove leading slash
+  const cleanPath = url.replace(/^\//, "");
+
+  // CRITICAL FIX: Encode the URI to handle spaces in filenames
+  // "my image.jpg" -> "my%20image.jpg"
+  const encodedPath = encodeURI(cleanPath);
+
+  return `${API_URL}/${encodedPath}`;
+};
+
+// Helper to get image URLs from listing
+const getImageUrls = (item: ApiListing): string[] => {
+  let imageUrls: string[] = [];
+
+  if (item.images && Array.isArray(item.images) && item.images.length > 0) {
+    imageUrls = item.images
+      .filter(
+        (img) =>
+          img.media &&
+          typeof img.media === "string" &&
+          !["processing", "failed"].includes(img.media)
+      )
+      .map((img) => getImageUrl(img.media));
+  } else if (item.cover_image) {
+    imageUrls = [getImageUrl(item.cover_image)];
+  }
+
+  if (imageUrls.length === 0) {
+    imageUrls = ["/images/placeholders/generic.jpg"];
+  }
+
+  return imageUrls;
+};
+
+// Type classification helper - FIXED LOGIC
+const classifyListing = (item: ApiListing): "business" | "event" | "community" => {
+  // Get and normalize the type
+  const rawType = (item.type || item.listing_type || "").toString().trim().toLowerCase();
+  const categoryName = item.categories?.[0]?.name || "";
+  const normalizedCategory = categoryName.toLowerCase();
+  
+  // DEBUG logging
+  console.debug("Classifying listing:", {
+    name: item.name,
+    rawType: rawType,
+    category: categoryName,
+    hasStartDate: !!item.start_date
+  });
+
+  // 1. Check for event markers (highest priority)
+  const eventMarkers = [
+    rawType.includes("event"),
+    normalizedCategory.includes("event"),
+    normalizedCategory.includes("workshop"),
+    normalizedCategory.includes("conference"),
+    normalizedCategory.includes("seminar"),
+    normalizedCategory.includes("meetup"),
+    !!item.start_date // Has a start date is strong indicator of event
+  ];
+  
+  if (eventMarkers.some(marker => marker)) {
+    console.debug(`✓ Classified as EVENT: ${item.name}`);
+    return "event";
+  }
+
+  // 2. Check for community markers
+  const communityMarkers = [
+    rawType === "community",
+    rawType === "group",
+    rawType.includes("community"),
+    rawType.includes("group"),
+    normalizedCategory === "community",
+    normalizedCategory.includes("community"),
+    normalizedCategory.includes("group"),
+    normalizedCategory.includes("network"),
+    normalizedCategory.includes("support"),
+    item.name.toLowerCase().includes("community") && !item.name.toLowerCase().includes("community center"), // "community center" is often a business
+    item.name.toLowerCase().includes("group") && !item.name.toLowerCase().includes("business group"), // "business group" might still be business
+    item.bio?.toLowerCase().includes("community") || 
+    item.description?.toLowerCase().includes("community") ||
+    item.bio?.toLowerCase().includes("group") || 
+    item.description?.toLowerCase().includes("group")
+  ];
+
+  // Strong community indicators (any one of these is enough)
+  const strongCommunityIndicators = [
+    rawType === "community",
+    normalizedCategory === "community",
+    normalizedCategory.includes("support group")
+  ];
+
+  // Medium community indicators (need at least 2)
+  const mediumCommunityIndicators = [
+    rawType.includes("community"),
+    normalizedCategory.includes("community"),
+    item.name.toLowerCase().includes("community group"),
+    item.name.toLowerCase().includes("support group")
+  ];
+
+  const hasStrongIndicator = strongCommunityIndicators.some(indicator => indicator);
+  const hasMediumIndicators = mediumCommunityIndicators.filter(indicator => indicator).length >= 2;
+  const hasAnyIndicator = communityMarkers.some(marker => marker);
+
+  if (hasStrongIndicator || hasMediumIndicators || hasAnyIndicator) {
+    console.debug(`✓ Classified as COMMUNITY: ${item.name}`);
+    return "community";
+  }
+
+  // 3. Default to business
+  console.debug(`✓ Classified as BUSINESS: ${item.name}`);
+  return "business";
 };
 
 export default function HomeContent() {
@@ -94,79 +208,73 @@ export default function HomeContent() {
         const json = await response.json();
         const data: ApiListing[] = json.data || json.listings || [];
 
+        console.log("Total listings fetched:", data.length);
+
         const businesses: Business[] = [];
         const events: Event[] = [];
         const communities: Community[] = [];
 
         data.forEach((item) => {
-          let coverImage = "/images/placeholders/generic.jpg";
-          if (item.images && item.images.length > 0) {
-            const validImg = item.images.find(
-              (img) =>
-                img.media && !["processing", "failed"].includes(img.media)
-            );
-            if (validImg) coverImage = getImageUrl(validImg.media);
-          } else if (item.cover_image) {
-            coverImage = getImageUrl(item.cover_image);
-          }
+          // Get image URLs
+          const imageUrls = getImageUrls(item);
+          const primaryImage = imageUrls[0];
 
+          // Get category name
           const categoryName = item.categories?.[0]?.name || "General";
           const location = item.location || item.address || "Online";
 
-          const type = (item.type || "business")
-            .toString()
-            .trim()
-            .toLowerCase();
+          // Classify the listing using the fixed logic
+          const listingType = classifyListing(item);
 
-          const isCommunity =
-            type.includes("community") ||
-            categoryName.toLowerCase().includes("community") ||
-            item.name.toLowerCase().includes("community");
-
-          if (isCommunity) {
+          // Process based on classified type
+          if (listingType === "community") {
             communities.push({
               id: item.id.toString(),
               title: item.name,
               description:
                 item.bio || item.description || "Join our supportive network.",
-              image: coverImage,
+              image: primaryImage,
               slug: item.slug,
             });
-          } else if (type.includes("event")) {
+          } else if (listingType === "event") {
             events.push({
               id: item.id.toString(),
               name: item.name,
               slug: item.slug,
               category: categoryName,
-              // --- CRITICAL FIX START ---
-              // Converted Date objects to strings using .toDateString()
               startDate: item.start_date
                 ? new Date(item.start_date).toDateString()
                 : new Date().toDateString(),
               endDate: item.start_date
                 ? new Date(item.start_date).toDateString()
                 : new Date().toDateString(),
-              // --- CRITICAL FIX END ---
               location: location,
-              image: coverImage,
+              image: primaryImage,
               description: item.description || item.bio || "",
               verified: item.is_verified || false,
               price: "Free",
-            } as unknown as Event); // Added 'unknown' cast to force fit if Event type definition is stubborn
+            } as unknown as Event);
           } else {
+            // Default to business
             businesses.push({
               id: item.id.toString(),
               name: item.name,
               slug: item.slug,
-              image: coverImage,
+              images: imageUrls,
               category: categoryName,
               rating: Number(item.rating) || 0,
               reviewCount: Number(item.ratings_count) || 0,
               location: location,
               verified: item.status === "active" || item.status === "published",
-              openStatus: "Open Now",
-            });
+            } as Business);
           }
+        });
+
+        console.log("Classification results:", {
+          businesses: businesses.length,
+          events: events.length,
+          communities: communities.length,
+          communitiesList: communities.map(c => c.title)
         });
 
         setFeaturedBusinesses(businesses);
@@ -204,7 +312,7 @@ export default function HomeContent() {
     }
   }, [sortBy]);
 
-  // Skeleton loading component
+  // Skeletons...
   const BusinessSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {[1, 2, 3, 4].map((i) => (
@@ -403,7 +511,7 @@ export default function HomeContent() {
         )}
       </div>
 
-      {/* Ready to grow your business section (Static) */}
+      {/* Ready to grow your business section */}
       <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
@@ -499,7 +607,7 @@ export default function HomeContent() {
         </Button>
       </div>
 
-      {/* FAQs & CTA (Static) */}
+      {/* FAQs & CTA */}
       <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-row justify-center items-center gap-3 mb-8">
           <div className="text-center space-y-2">
