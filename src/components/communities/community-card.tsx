@@ -17,7 +17,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(community.id, "community");
+    toggleBookmark(community.id);
   };
   return (
     <Link

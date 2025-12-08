@@ -217,9 +217,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               formData.append("original_total_files", files.length.toString());
 
               const response = await fetch(
-                `${API_URL}/api/listing/${listingSlug}/media`,
+                `${API_URL}/api/listing/${listingSlug}/media_update`,
                 {
-                  method: "POST",
+                  method: "PATCH",
                   headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: "application/json",

@@ -3,14 +3,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 
-// Define the allowed types for bookmarks
 export type BookmarkItemType = "business" | "event" | "community";
 
 interface BookmarkContextType {
-  bookmarkedIds: string[];
+  bookmarkedSlugs: string[]; // Changed to track Slugs since Toggle uses Slug
   isLoading: boolean;
-  toggleBookmark: (itemId: string, type: BookmarkItemType) => Promise<void>;
-  isBookmarked: (itemId: string) => boolean;
+  toggleBookmark: (slug: string) => Promise<void>; // Uses Slug
+  deleteBookmarkById: (bookmarkId: string | number) => Promise<void>; // Uses Bookmark ID
+  isBookmarked: (slug: string) => boolean;
   refreshBookmarks: () => Promise<void>;
 }
 
@@ -19,7 +19,8 @@ const BookmarkContext = createContext<BookmarkContextType | undefined>(
 );
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
+  // We track Slugs for the UI state because the Toggle API relies on them
+  const [bookmarkedSlugs, setBookmarkedSlugs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // 1. Fetch initial state on load
@@ -36,7 +37,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      // This endpoint should return an array of IDs of items the user has bookmarked
+      // This endpoint should ideally return the list of SLUGS the user has bookmarked
       const response = await fetch(`${API_URL}/api/user/bookmarks/ids`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -46,9 +47,10 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        // Ensure we handle the response structure correctly (e.g., data.ids or just data)
-        const ids = Array.isArray(data) ? data : data.ids || [];
-        setBookmarkedIds(ids.map(String)); // Ensure all IDs are strings
+        // Assuming the API returns a list of slugs or IDs.
+        // We cast to string to be safe.
+        const items = Array.isArray(data) ? data : data.data || [];
+        setBookmarkedSlugs(items.map(String));
       }
     } catch (error) {
       console.error("Failed to sync bookmarks", error);
@@ -57,7 +59,8 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleBookmark = async (itemId: string, type: BookmarkItemType) => {
+  // --- 2. Toggle Bookmark (Uses Slug POST API) ---
+  const toggleBookmark = async (slug: string) => {
     const token = localStorage.getItem("authToken");
 
     if (!token) {
@@ -67,57 +70,95 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Optimistic Update: Update UI immediately before API call
-    const isCurrentlyBookmarked = bookmarkedIds.includes(itemId);
+    // Optimistic Update: Update UI immediately
+    const isCurrentlyBookmarked = bookmarkedSlugs.includes(slug);
 
-    setBookmarkedIds((prev) =>
-      isCurrentlyBookmarked
-        ? prev.filter((id) => id !== itemId)
-        : [...prev, itemId]
+    setBookmarkedSlugs((prev) =>
+      isCurrentlyBookmarked ? prev.filter((s) => s !== slug) : [...prev, slug]
     );
 
     try {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      const method = isCurrentlyBookmarked ? "DELETE" : "POST";
 
-      const response = await fetch(`${API_URL}/api/bookmarks/${itemId}`, {
-        method: method,
+      // API: POST /api/listings/{slug}/bookmark/toggle
+      const response = await fetch(
+        `${API_URL}/api/listings/${slug}/bookmark/toggle`,
+        {
+          method: "POST", // API docs say POST for toggle
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          // Body is usually empty for this specific toggle route structure
+          // unless your API specifically asks for { type: ... }
+          body: JSON.stringify({}),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle bookmark");
+      }
+
+      const result = await response.json();
+
+      toast.success(
+        result.message ||
+          (isCurrentlyBookmarked
+            ? "Removed from bookmarks"
+            : "Added to bookmarks")
+      );
+    } catch (error) {
+      // Revert optimistic update if API fails
+      setBookmarkedSlugs((prev) =>
+        isCurrentlyBookmarked ? [...prev, slug] : prev.filter((s) => s !== slug)
+      );
+      console.error(error);
+      toast.error("Could not update bookmark");
+    }
+  };
+
+  // --- 3. Delete Bookmark by ID (Uses Delete API) ---
+  // Use this when you have the specific Bookmark ID (e.g., from a user dashboard list)
+  const deleteBookmarkById = async (bookmarkId: string | number) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+
+    try {
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      // API: DELETE /api/bookmark/{id}
+      const response = await fetch(`${API_URL}/api/bookmark/${bookmarkId}`, {
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ type }), // Sending 'community', 'business', or 'event'
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update bookmark");
+        throw new Error("Failed to delete bookmark");
       }
 
-      toast.success(
-        isCurrentlyBookmarked ? "Removed from bookmarks" : "Saved to bookmarks"
-      );
-    } catch {
-      // Revert change if API fails
-      setBookmarkedIds((prev) =>
-        isCurrentlyBookmarked
-          ? [...prev, itemId]
-          : prev.filter((id) => id !== itemId)
-      );
-      toast.error("Something went wrong", {
-        description: "Could not update bookmark. Please try again.",
-      });
+      toast.success("Bookmark removed");
+      // Ideally refresh the list to sync state, as we don't know the slug here easily
+      refreshBookmarks();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete bookmark");
     }
   };
 
-  const isBookmarked = (itemId: string) => bookmarkedIds.includes(itemId);
+  const isBookmarked = (slug: string) => bookmarkedSlugs.includes(slug);
 
   return (
     <BookmarkContext.Provider
       value={{
-        bookmarkedIds,
+        bookmarkedSlugs,
         isLoading,
         toggleBookmark,
+        deleteBookmarkById,
         isBookmarked,
         refreshBookmarks,
       }}

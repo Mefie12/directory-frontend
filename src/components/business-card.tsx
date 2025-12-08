@@ -29,7 +29,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(business.id, "business");
+    toggleBookmark(business.id);
   };
   return (
     <Link

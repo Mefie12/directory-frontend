@@ -28,7 +28,7 @@ export function EventCard({ event }: EventCardProps) {
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
     e.stopPropagation();
-    toggleBookmark(event.id, "event");
+    toggleBookmark(event.id);
   };
   return (
     <Link

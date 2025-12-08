@@ -9,6 +9,7 @@ import {
   Calendar,
   MapPin,
   Star,
+  CheckCircle,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-cards";
 import Image from "next/image";
@@ -16,11 +17,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
+// import { useBookmark } from "@/context/bookmark-context"; // Ensure this import is correct based on your project structure
 import { useRouter } from "next/navigation";
 
 // --- 1. UI Interface (State) ---
 interface ListingItem {
   id: string;
+  // slug: string;
   title: string;
   type: "event" | "business" | "community";
   category: string;
@@ -33,15 +36,15 @@ interface ListingItem {
   reviews?: string;
 }
 
-// --- 2. API Raw Data Interface (Fixes 'any' error) ---
+// --- 2. API Raw Data Interface ---
 interface ApiRawItem {
   id: number | string;
   title?: string;
-  name?: string; // Some endpoints might return 'name' instead of 'title'
-  type?: "event" | "business";
-  category?: { name: string } | string; // Handle category as object or string
+  name?: string;
+  type?: string; // Keep as string here, validate later
+  category?: { name: string } | string;
   image?: string;
-  cover_image?: string; // Some endpoints might use cover_image
+  cover_image?: string;
   location?: string;
   is_verified?: boolean;
   description?: string;
@@ -52,7 +55,9 @@ interface ApiRawItem {
 
 // --- Reusable Listing Card Component ---
 const ListingCard = ({ item }: { item: ListingItem }) => {
-  
+  // If your context allows removing, you can destructure logic here.
+  // For the Dashboard view, usually, we just link to the item.
+
   return (
     <div className="group rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
       {/* Image Container */}
@@ -62,11 +67,15 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
           alt={item.title}
           fill
           className="object-cover"
+          unoptimized={true} // Handle external images
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = "/images/placeholders/generic.jpg";
+          }}
         />
 
         {/* Event Specific Overlay */}
         {item.type === "event" && (
-          // Fixed: Changed bg-linear-to-t to standard bg-gradient-to-t
           <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent flex flex-col justify-end p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-white text-xl font-bold line-clamp-1">
@@ -77,12 +86,7 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
                   {item.category}
                 </Badge>
                 {item.verified && (
-                  <Image
-                    src="/images/icons/verify.svg"
-                    alt="Verified"
-                    width={20}
-                    height={20}
-                  />
+                  <CheckCircle className="w-5 h-5 text-green-500 fill-white" />
                 )}
               </div>
             </div>
@@ -103,12 +107,7 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
                 {item.category}
               </Badge>
               {item.verified && (
-                <Image
-                  src="/images/icons/verify.svg"
-                  alt="Verified"
-                  width={20}
-                  height={20}
-                />
+                <CheckCircle className="w-4 h-4 text-green-500" />
               )}
             </div>
             <h3 className="font-semibold text-gray-900 text-base line-clamp-1">
@@ -161,7 +160,6 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
 
 // --- Loading Skeleton Component ---
 const CardSkeleton = () => (
-  // Fixed: Changed h-[320px] to h-80
   <div className="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm h-80 animate-pulse">
     <div className="h-48 w-full bg-gray-200" />
     <div className="p-4 space-y-3">
@@ -174,7 +172,7 @@ const CardSkeleton = () => (
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const router = useRouter()
+  const router = useRouter();
 
   // Dynamic State
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
@@ -191,7 +189,8 @@ export default function Dashboard() {
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         const [bookmarksRes, eventsRes] = await Promise.all([
-          fetch(`${API_URL}/api/user/bookmarks`, {
+          // FIX 1: Implemented the new API endpoint here
+          fetch(`${API_URL}/api/my_bookmarks`, {
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
@@ -207,37 +206,49 @@ export default function Dashboard() {
 
         // 2. Parse & Map Bookmarks
         if (bookmarksRes.ok) {
-          const data = await bookmarksRes.json();
-          // Fixed: Explicitly typed 'item' as ApiRawItem
-          const mappedBookmarks = (data.data || []).map((item: ApiRawItem) => ({
-            id: item.id.toString(),
-            title: item.title || item.name || "Untitled",
-            type: item.type || "business",
-            category:
-              typeof item.category === "object"
-                ? item.category?.name || "General"
-                : item.category || "General",
-            image:
-              item.image ||
-              item.cover_image ||
-              "/images/placeholders/generic.jpg",
-            location: item.location || "Online",
-            verified: item.is_verified || false,
-            description: item.description,
-            date: item.start_date
-              ? `${new Date(item.start_date).toLocaleDateString()}`
-              : undefined,
-            rating: Number(item.rating) || 0,
-            reviews: item.reviews_count ? `${item.reviews_count}` : "0",
-          }));
+          const json = await bookmarksRes.json();
+          const rawData: ApiRawItem[] = json.data || [];
+
+          const mappedBookmarks: ListingItem[] = rawData.map((item) => {
+            // FIX 2: Resolved ESLint 'any' error by validating the type string
+            let validParamsType: "business" | "event" | "community" =
+              "business";
+            const typeStr = item.type?.toLowerCase();
+            if (typeStr === "event" || typeStr === "community") {
+              validParamsType = typeStr;
+            }
+
+            return {
+              id: item.id.toString(),
+              title: item.title || item.name || "Untitled",
+              type: validParamsType, // No 'as any' needed
+              category:
+                typeof item.category === "object"
+                  ? item.category?.name || "General"
+                  : item.category || "General",
+              image:
+                item.image ||
+                item.cover_image ||
+                "/images/placeholders/generic.jpg",
+              location: item.location || "Online",
+              verified: !!item.is_verified,
+              description: item.description,
+              date: item.start_date
+                ? `${new Date(item.start_date).toLocaleDateString()}`
+                : undefined,
+              rating: Number(item.rating) || 0,
+              reviews: item.reviews_count ? `${item.reviews_count}` : "0",
+            };
+          });
           setBookmarks(mappedBookmarks);
         }
 
         // 3. Parse & Map Events
         if (eventsRes.ok) {
-          const data = await eventsRes.json();
-          // Fixed: Explicitly typed 'item' as ApiRawItem
-          const mappedEvents = (data.data || []).map((item: ApiRawItem) => ({
+          const json = await eventsRes.json();
+          const rawData: ApiRawItem[] = json.data || [];
+
+          const mappedEvents: ListingItem[] = rawData.map((item) => ({
             id: item.id.toString(),
             title: item.title || item.name || "Untitled Event",
             type: "event",
@@ -250,7 +261,7 @@ export default function Dashboard() {
               item.cover_image ||
               "/images/placeholders/generic.jpg",
             location: item.location || "TBD",
-            verified: item.is_verified || false,
+            verified: !!item.is_verified,
             description: item.description,
             date: item.start_date
               ? `${new Date(item.start_date).toLocaleDateString()}`
@@ -274,7 +285,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
           <h4 className="text-2xl font-semibold text-gray-900">
-            Welcome back, {user?.name || "Vendor"}!
+            Welcome back, {user?.name || "User"}!
           </h4>
           <p className="text-base text-gray-500">
             Here is what&apos;s happening with your listings
@@ -287,7 +298,7 @@ export default function Dashboard() {
         <StatCard
           title="Bookmarks"
           icon={Bookmark}
-          statValue={bookmarks.length || 0}
+          statValue={bookmarks.length}
           trend={5}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
@@ -303,7 +314,7 @@ export default function Dashboard() {
         <StatCard
           title="Events"
           icon={Calendar}
-          statValue={eventsNearMe.length || 0}
+          statValue={eventsNearMe.length}
           trend={-8}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
@@ -326,7 +337,10 @@ export default function Dashboard() {
                 business in a thriving digital marketplace.
               </p>
             </div>
-            <Button onClick={() => router.push('/become-a-vendor')} className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm">
+            <Button
+              onClick={() => router.push("/become-a-vendor")}
+              className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm"
+            >
               Join as a vendor
             </Button>
           </div>
@@ -338,7 +352,6 @@ export default function Dashboard() {
                 a reward.
               </h4>
             </div>
-
             <div className="absolute right-0 bottom-0 opacity-20 md:opacity-100">
               <Image
                 src="/images/backgroundImages/present.svg"
@@ -348,7 +361,6 @@ export default function Dashboard() {
                 className="object-contain"
               />
             </div>
-
             <Button className="bg-white text-gray-900 hover:bg-gray-100 w-fit mt-6 relative z-10">
               Invite a friend
             </Button>
@@ -378,9 +390,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading
             ? [1, 2, 3].map((n) => <CardSkeleton key={n} />)
-            : bookmarks.map((item) => (
-                <ListingCard key={item.id} item={item} />
-              ))}
+            : bookmarks
+                .slice(0, 3)
+                .map((item) => <ListingCard key={item.id} item={item} />)}
           {!loading && bookmarks.length === 0 && (
             <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <Bookmark className="w-10 h-10 text-gray-300 mx-auto mb-2" />

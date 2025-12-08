@@ -86,7 +86,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           const res = await fetch(
             `${API_URL}/api/listing/${listingSlug}/show`,
             {
-              method: "POST", // or PUT/PATCH depending on backend route
+              method: "GET", // or PUT/PATCH depending on backend route
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
