@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import HeroSlider from "@/components/landing-page/hero-slider";
-import { EventCard } from "@/components/event-card";
 import { Sort, SortOption } from "@/components/sort";
 import { BusinessCarousel } from "@/components/landing-page/business-carousel";
 import { DirectoryEventCarousel } from "@/components/landing-page/directory-event-carousel";
@@ -11,11 +10,10 @@ import { categories } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Faqs } from "@/components/landing-page/faqs";
 import { BusinessCard } from "../business-card";
+import { EventCard } from "@/components/event-card";
 
-// Use the Business type from BusinessCard component
+// Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
-
-// Use the Event type from EventCard component
 export type Event = (typeof EventCard)["prototype"]["props"]["event"];
 
 export interface Community {
@@ -26,9 +24,11 @@ export interface Community {
   slug: string;
 }
 
-// --- Interfaces for API Data ---
+// --- API Interfaces ---
 interface ApiImage {
+  id?: number;
   media: string;
+  media_type?: string;
 }
 
 interface ApiCategory {
@@ -40,13 +40,14 @@ interface ApiListing {
   name: string;
   slug: string;
   type: string;
-  listing_type?: string; // Added for better type detection
+  listing_type?: string;
   rating: string | number;
   ratings_count: string | number;
   location?: string;
   address?: string;
   status: string;
-  images: ApiImage[];
+  // UPDATE: Explicitly allow mixed arrays or specific arrays
+  images: (ApiImage | string)[];
   cover_image?: string;
   categories: ApiCategory[];
   bio?: string;
@@ -55,54 +56,20 @@ interface ApiListing {
   is_verified?: boolean;
 }
 
-// 1. FIX: Helper to construct image URL safely with Encoding
+// --- Helper ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url || typeof url !== "string")
-    return "/images/placeholders/generic.jpg";
-
-  if (url.startsWith("http")) return url;
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-  // Remove leading slash
-  const cleanPath = url.replace(/^\//, "");
-
-  // CRITICAL FIX: Encode the URI to handle spaces in filenames
-  // "my image.jpg" -> "my%20image.jpg"
-  const encodedPath = encodeURI(cleanPath);
-
-  return `${API_URL}/${encodedPath}`;
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const API_URL = "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// Helper to get image URLs from listing
-const getImageUrls = (item: ApiListing): string[] => {
-  let imageUrls: string[] = [];
-
-  if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-    imageUrls = item.images
-      .filter(
-        (img) =>
-          img.media &&
-          typeof img.media === "string" &&
-          !["processing", "failed"].includes(img.media)
-      )
-      .map((img) => getImageUrl(img.media));
-  } else if (item.cover_image) {
-    imageUrls = [getImageUrl(item.cover_image)];
-  }
-
-  if (imageUrls.length === 0) {
-    imageUrls = ["/images/placeholders/generic.jpg"];
-  }
-
-  return imageUrls;
-};
-
-// Type classification helper - FIXED LOGIC
+// --- Classifier Logic ---
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
-  // Get and normalize the type
   const rawType = (item.type || item.listing_type || "")
     .toString()
     .trim()
@@ -110,80 +77,26 @@ const classifyListing = (
   const categoryName = item.categories?.[0]?.name || "";
   const normalizedCategory = categoryName.toLowerCase();
 
-  // DEBUG logging
-  console.debug("Classifying listing:", {
-    name: item.name,
-    rawType: rawType,
-    category: categoryName,
-    hasStartDate: !!item.start_date,
-  });
+  if (rawType === "community") return "community";
+  if (rawType === "event") return "event";
+  if (rawType === "business") return "business";
 
-  // 1. Check for event markers (highest priority)
-  const eventMarkers = [
-    rawType.includes("event"),
-    normalizedCategory.includes("event"),
-    normalizedCategory.includes("workshop"),
-    normalizedCategory.includes("conference"),
-    normalizedCategory.includes("seminar"),
-    normalizedCategory.includes("meetup"),
-    !!item.start_date, // Has a start date is strong indicator of event
-  ];
-
-  if (eventMarkers.some((marker) => marker)) {
-    console.debug(`✓ Classified as EVENT: ${item.name}`);
-    return "event";
-  }
-
-  // 2. Check for community markers
-  const communityMarkers = [
-    rawType === "community",
-    rawType === "group",
-    rawType.includes("community"),
-    rawType.includes("group"),
-    normalizedCategory === "community",
-    normalizedCategory.includes("community"),
-    normalizedCategory.includes("group"),
-    normalizedCategory.includes("network"),
-    normalizedCategory.includes("support"),
-    item.name.toLowerCase().includes("community") &&
-      !item.name.toLowerCase().includes("community center"), // "community center" is often a business
-    item.name.toLowerCase().includes("group") &&
-      !item.name.toLowerCase().includes("business group"), // "business group" might still be business
-    item.bio?.toLowerCase().includes("community") ||
-      item.description?.toLowerCase().includes("community") ||
-      item.bio?.toLowerCase().includes("group") ||
-      item.description?.toLowerCase().includes("group"),
-  ];
-
-  // Strong community indicators (any one of these is enough)
-  const strongCommunityIndicators = [
-    rawType === "community",
-    normalizedCategory === "community",
-    normalizedCategory.includes("support group"),
-  ];
-
-  // Medium community indicators (need at least 2)
-  const mediumCommunityIndicators = [
-    rawType.includes("community"),
-    normalizedCategory.includes("community"),
-    item.name.toLowerCase().includes("community group"),
-    item.name.toLowerCase().includes("support group"),
-  ];
-
-  const hasStrongIndicator = strongCommunityIndicators.some(
-    (indicator) => indicator
-  );
-  const hasMediumIndicators =
-    mediumCommunityIndicators.filter((indicator) => indicator).length >= 2;
-  const hasAnyIndicator = communityMarkers.some((marker) => marker);
-
-  if (hasStrongIndicator || hasMediumIndicators || hasAnyIndicator) {
-    console.debug(`✓ Classified as COMMUNITY: ${item.name}`);
+  if (
+    rawType.includes("community") ||
+    normalizedCategory.includes("community") ||
+    normalizedCategory.includes("support group")
+  ) {
     return "community";
   }
 
-  // 3. Default to business
-  console.debug(`✓ Classified as BUSINESS: ${item.name}`);
+  if (
+    rawType.includes("event") ||
+    normalizedCategory.includes("event") ||
+    !!item.start_date
+  ) {
+    return "event";
+  }
+
   return "business";
 };
 
@@ -196,13 +109,11 @@ export default function HomeContent() {
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL =
-          process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/listings`, {
           headers: {
@@ -211,39 +122,58 @@ export default function HomeContent() {
           },
         });
 
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
-        }
 
         const json = await response.json();
         const data: ApiListing[] = json.data || json.listings || [];
-
-        console.log("Total listings fetched:", data.length);
 
         const businesses: Business[] = [];
         const events: Event[] = [];
         const communities: Community[] = [];
 
         data.forEach((item) => {
-          // Get image URLs
-          const imageUrls = getImageUrls(item);
-          const primaryImage = imageUrls[0];
+          // A. Extract the array safely
+          const rawImages = Array.isArray(item.images) ? item.images : [];
 
-          // Get category name
+          // B. Filter and Map with Strict Types
+          const validImages = rawImages
+            .filter((img: string | ApiImage) => {
+              // 1. Handle String
+              if (typeof img === "string") return true;
+
+              // 2. Handle Object (ApiImage)
+              if (!img || typeof img !== "object" || !img.media) return false;
+
+              const badStatuses = ["processing", "failed", "pending", "error"];
+              return !badStatuses.includes(img.media);
+            })
+            .map((img: string | ApiImage) => {
+              // Extract string path based on type
+              const mediaPath = typeof img === "string" ? img : img.media;
+              return getImageUrl(mediaPath);
+            });
+
+          // C. Fallback logic
+          if (validImages.length === 0 && item.cover_image) {
+            validImages.push(getImageUrl(item.cover_image));
+          }
+          if (validImages.length === 0) {
+            validImages.push("/images/placeholders/generic.jpg");
+          }
+
           const categoryName = item.categories?.[0]?.name || "General";
           const location = item.location || item.address || "Online";
-
-          // Classify the listing using the fixed logic
           const listingType = classifyListing(item);
 
-          // Process based on classified type
+          // --- Distribute Data ---
           if (listingType === "community") {
             communities.push({
               id: item.id.toString(),
               title: item.name,
               description:
                 item.bio || item.description || "Join our supportive network.",
-              image: primaryImage,
+              image: validImages[0],
               slug: item.slug,
             });
           } else if (listingType === "event") {
@@ -259,18 +189,17 @@ export default function HomeContent() {
                 ? new Date(item.start_date).toDateString()
                 : new Date().toDateString(),
               location: location,
-              image: primaryImage,
+              image: validImages[0],
               description: item.description || item.bio || "",
               verified: item.is_verified || false,
               price: "Free",
             } as unknown as Event);
           } else {
-            // Default to business
             businesses.push({
               id: item.id.toString(),
               name: item.name,
               slug: item.slug,
-              images: imageUrls,
+              images: validImages,
               category: categoryName,
               rating: Number(item.rating) || 0,
               reviewCount: Number(item.ratings_count) || 0,
@@ -278,13 +207,6 @@ export default function HomeContent() {
               verified: item.status === "active" || item.status === "published",
             } as Business);
           }
-        });
-
-        console.log("Classification results:", {
-          businesses: businesses.length,
-          events: events.length,
-          communities: communities.length,
-          communitiesList: communities.map((c) => c.title),
         });
 
         setFeaturedBusinesses(businesses);
@@ -322,7 +244,7 @@ export default function HomeContent() {
     }
   }, [sortBy]);
 
-  // Skeletons...
+  // Skeletons
   const BusinessSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {[1, 2, 3, 4].map((i) => (
@@ -334,11 +256,6 @@ export default function HomeContent() {
           <div className="p-4 space-y-3">
             <div className="h-6 bg-gray-200 rounded w-3/4" />
             <div className="h-4 bg-gray-200 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
-            <div className="flex gap-2 mt-2">
-              <div className="h-4 bg-gray-200 rounded w-16" />
-              <div className="h-4 bg-gray-200 rounded w-20" />
-            </div>
           </div>
         </div>
       ))}
@@ -355,12 +272,6 @@ export default function HomeContent() {
           <div className="h-[180px] bg-gray-200 w-full" />
           <div className="p-4 space-y-3">
             <div className="h-6 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-full" />
-            <div className="flex justify-between mt-2">
-              <div className="h-4 bg-gray-200 rounded w-20" />
-              <div className="h-4 bg-gray-200 rounded w-16" />
-            </div>
           </div>
         </div>
       ))}
@@ -377,9 +288,6 @@ export default function HomeContent() {
           <div className="w-32 sm:w-48 bg-gray-200 rounded-l-3xl h-full" />
           <div className="flex-1 p-6 space-y-3">
             <div className="h-6 bg-gray-200 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-full" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
-            <div className="h-8 bg-gray-200 rounded w-32 mt-4" />
           </div>
         </div>
       ))}
@@ -417,15 +325,9 @@ export default function HomeContent() {
                 src={category.image}
                 alt={category.name}
                 fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover group-hover:scale-110 transition-transform duration-300"
                 unoptimized={true}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (!target.src.includes("generic.jpg")) {
-                    target.src = "/images/placeholders/generic.jpg";
-                  }
-                }}
               />
               <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
                 <h3 className="text-white font-medium text-base md:text-xl">
@@ -448,33 +350,18 @@ export default function HomeContent() {
               Discover top-rated businesses near you
             </p>
           </div>
-          <div>
-            <Link
-              href="/businesses"
-              className="text-[#275782] font-medium hidden lg:block"
-            >
-              Explore Businesses
-            </Link>
-            <Link
-              href="/businesses"
-              className="text-[#275782] font-medium lg:hidden"
-            >
-              Explore all
-            </Link>
-          </div>
+          <Link href="/businesses" className="text-[#275782] font-medium">
+            Explore all
+          </Link>
         </div>
 
-        {/* Business Section */}
         {isLoading ? (
           <BusinessSkeleton />
         ) : featuredBusinesses.length > 0 ? (
           <BusinessCarousel businesses={featuredBusinesses} />
         ) : (
           <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <p>No featured businesses found at the moment.</p>
-            <Button className="mt-4 bg-[#93C01F] hover:bg-[#7ea919] text-white">
-              Explore All Businesses
-            </Button>
+            <p>No featured businesses found.</p>
           </div>
         )}
       </div>
@@ -490,23 +377,11 @@ export default function HomeContent() {
               Don&apos;t miss these amazing cultural events
             </p>
           </div>
-          <div>
-            <Link
-              href="/events"
-              className="text-[#275782] font-medium hidden lg:block"
-            >
-              Explore Events
-            </Link>
-            <Link
-              href="/events"
-              className="text-[#275782] font-medium lg:hidden"
-            >
-              Explore all
-            </Link>
-          </div>
+          <Link href="/events" className="text-[#275782] font-medium">
+            Explore all
+          </Link>
         </div>
 
-        {/* Events Section */}
         {isLoading ? (
           <EventSkeleton />
         ) : upcomingEvents.length > 0 ? (
@@ -514,14 +389,11 @@ export default function HomeContent() {
         ) : (
           <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
             <p>No upcoming events found.</p>
-            <Button className="mt-4 bg-[#93C01F] hover:bg-[#7ea919] text-white">
-              Explore All Events
-            </Button>
           </div>
         )}
       </div>
 
-      {/* Ready to grow your business section */}
+      {/* Vendor Section */}
       <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
@@ -530,7 +402,6 @@ export default function HomeContent() {
               alt="Vendor"
               fill
               className="object-cover"
-              priority
               unoptimized={true}
             />
           </div>
@@ -561,7 +432,6 @@ export default function HomeContent() {
           </div>
         </div>
 
-        {/* Community Section */}
         {isLoading ? (
           <CommunitySkeleton />
         ) : featuredCommunities.length > 0 ? (
@@ -577,15 +447,8 @@ export default function HomeContent() {
                       src={item.image}
                       alt={item.title}
                       fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover"
                       unoptimized={true}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes("generic.jpg")) {
-                          target.src = "/images/placeholders/generic.jpg";
-                        }
-                      }}
                     />
                   </div>
                 </div>
@@ -606,67 +469,12 @@ export default function HomeContent() {
         ) : (
           <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
             <p>No communities found.</p>
-            <Button className="mt-4 bg-[#93C01F] hover:bg-[#7ea919] text-white">
-              Explore All Communities
-            </Button>
           </div>
         )}
-
-        <Button className="flex justify-center bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-full md:w-fit px-4 py-3 rounded-md cursor-pointer mx-auto mt-5">
-          Explore more communities
-        </Button>
       </div>
 
-      {/* FAQs & CTA */}
       <div className="py-12 px-4 lg:px-16">
-        <div className="flex flex-row justify-center items-center gap-3 mb-8">
-          <div className="text-center space-y-2">
-            <h2 className="font-semibold text-xl md:text-4xl capitalize">
-              Frequently Asked Questions{" "}
-              <span className="text-[#93C01F]">(FAQs)</span>
-            </h2>
-            <p className="font-normal text-sm md:text-base max-w-5xl">
-              Common questions to help vendors and customers.
-            </p>
-          </div>
-        </div>
         <Faqs />
-      </div>
-
-      <div className="py-12 px-4 lg:px-16">
-        <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-          <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
-            <Image
-              src="/images/backgroundImages/bg-pattern.svg"
-              alt="pattern"
-              width={320}
-              height={320}
-              className="object-contain h-[150px] lg:h-[400px]"
-              priority
-              unoptimized={true}
-            />
-          </div>
-          <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
-            <Image
-              src="/images/backgroundImages/bg-pattern-1.svg"
-              alt="pattern"
-              width={320}
-              height={320}
-              className="object-contain"
-              priority
-              unoptimized={true}
-            />
-          </div>
-          <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
-            Ready to Grow Your Business?
-          </h2>
-          <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
-            Join thousands of African businesses on Mefie Directory
-          </p>
-          <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all">
-            List your business today
-          </Button>
-        </div>
       </div>
     </div>
   );

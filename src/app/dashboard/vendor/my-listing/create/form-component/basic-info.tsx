@@ -107,6 +107,15 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       formState: { errors },
     } = form;
+
+    useEffect(() => {
+      if (listingType) {
+        // This forces the form to accept the type passed from the URL
+        // overriding the stale "default" value
+        setValue("type", listingType);
+      }
+    }, [listingType, setValue]);
+
     const currentCategoryIds = watch("category_ids") || [];
     const textConfig = basicInfoConfig[listingType];
 

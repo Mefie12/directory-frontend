@@ -1,18 +1,17 @@
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, Bookmark } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
 
-// 1. UPDATE: Changed 'image' (string) to 'images' (string array)
 export type Business = {
   id: string;
   name: string;
   category: string;
   images: string[];
   rating: number;
-  reviewCount: string;
+  reviewCount: string | number;
   location: string;
   verified?: boolean;
   slug: string;
@@ -27,44 +26,50 @@ export function BusinessCard({ business }: BusinessCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(business.slug);
 
-  const handleBookmarkClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleBookmark(business.slug);
-  };
+  // 1. Grab the first valid image from the array we fixed in HomeContent
+  const initialImage =
+    business.images && business.images.length > 0
+      ? business.images[0]
+      : "/images/placeholders/generic.jpg";
 
-  // 2. UPDATE: Selection Logic
-  // Try index [1] (second image). If missing, try index [0]. Else placeholder.
-  let displayImage =
-    business.images?.[1] ||
-    business.images?.[0] ||
-    "/images/placeholders/generic.jpg";
+  // 2. Use State to hold the image source.
+  // This is the cure for the "looping" issue.
+  const [imageSrc, setImageSrc] = useState(initialImage);
 
-  // Safety check to ensure we never pass an empty string to Next/Image
-  if (!displayImage || displayImage.trim() === "") {
-    displayImage = "/images/placeholders/generic.jpg";
-  }
+  useEffect(() => {
+    setImageSrc(initialImage);
+  }, [initialImage]);
 
   return (
     <Link
       href={`/discover/${business.slug}`}
       className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 border border-[#E2E8F0]"
     >
-      {/* Image Container */}
-      <div className="relative w-full aspect-4/3 overflow-hidden ">
+      <div className="relative w-full aspect-4/3 overflow-hidden">
         <Image
-          src={displayImage}
+          src={imageSrc}
           alt={business.name}
           fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          // 3. 'unoptimized' is key if the server is external (me-fie.co.uk)
+          unoptimized={true}
           className="object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={() => {
+            // 4. If it fails, switch state to placeholder ONE TIME only.
+            // This stops the infinite loop.
+            if (imageSrc !== "/images/placeholders/generic.jpg") {
+              setImageSrc("/images/placeholders/generic.jpg");
+            }
+          }}
         />
 
-        {/* Bookmark Icon */}
+        {/* ... Bookmark button and other UI ... */}
         <button
-          onClick={handleBookmarkClick}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleBookmark(business.slug);
+          }}
           className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
-          aria-label="Bookmark event"
         >
           <Bookmark
             className={cn(
@@ -75,23 +80,10 @@ export function BusinessCard({ business }: BusinessCardProps) {
             )}
           />
         </button>
-
-        {/* Discount Badge */}
-        {business.discount && (
-          <div className="absolute top-1 left-1">
-            <Badge
-              variant="destructive"
-              className="bg-red-500 text-white font-normal"
-            >
-              {business.discount}
-            </Badge>
-          </div>
-        )}
       </div>
 
-      {/* Content */}
+      {/* Content Section */}
       <div className="p-4 space-y-2">
-        {/* Category Badge */}
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#64748A14] text-[#64748A] text-xs font-medium">
             {business.category}
@@ -105,13 +97,9 @@ export function BusinessCard({ business }: BusinessCardProps) {
             />
           )}
         </div>
-
-        {/* Business Name */}
         <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
           {business.name}
         </h3>
-
-        {/* Rating */}
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <Star
@@ -119,8 +107,6 @@ export function BusinessCard({ business }: BusinessCardProps) {
               className={`w-4 h-4 ${
                 i < Math.floor(business.rating)
                   ? "fill-yellow-400 text-yellow-400"
-                  : i < business.rating
-                  ? "fill-yellow-400/50 text-yellow-400"
                   : "fill-gray-200 text-gray-200"
               }`}
             />
@@ -129,8 +115,6 @@ export function BusinessCard({ business }: BusinessCardProps) {
             ({business.reviewCount})
           </span>
         </div>
-
-        {/* Location */}
         <div className="flex items-center gap-1 text-sm text-gray-500">
           <Image
             src="/images/icons/location.svg"
