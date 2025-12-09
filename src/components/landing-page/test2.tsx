@@ -41,7 +41,7 @@ interface ApiListing {
   name: string;
   slug: string;
   type: string;
-  listing_type?: string;
+  listing_type: string;
   rating: string | number;
   ratings_count: string | number;
   location?: string;
@@ -62,7 +62,7 @@ const getImageUrl = (url: string | undefined | null): string => {
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+  const API_URL = "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -70,45 +70,23 @@ const getImageUrl = (url: string | undefined | null): string => {
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
+  // Get the raw type from item.type or item.listing_type
   const rawType = (item.type || item.listing_type || "")
     .toString()
     .trim()
     .toLowerCase();
-  const categoryName = (item.categories?.[0]?.name || "").toLowerCase();
-  const name = (item.name || "").toLowerCase();
-  const bio = (item.bio || item.description || "").toLowerCase();
 
-  // 1. Force Event if it has a date
+  // 1. Check for events first (by date or explicit type)
   if (item.start_date || rawType === "event") {
     return "event";
   }
 
-  // 2. Explicit Community Check
-  if (rawType === "community") return "community";
-
-  // 3. Fuzzy Keyword Check
-  const communityKeywords = [
-    "community",
-    "support group",
-    "foundation",
-    "association",
-    "society",
-    "club",
-    "network",
-    "non-profit",
-    "charity",
-    "group",
-  ];
-
-  if (
-    communityKeywords.some((k) => categoryName.includes(k)) ||
-    communityKeywords.some((k) => name.includes(k)) ||
-    bio.includes("community group")
-  ) {
+  // 2. Check for communities (only by type)
+  if (rawType === "community") {
     return "community";
   }
 
-  // 4. Default to Business
+  // 3. Default to business
   return "business";
 };
 
@@ -125,9 +103,12 @@ export default function HomeContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings`, {
+        // FIX: Added '?per_page=100' query param.
+        // This requests 100 items instead of the default (usually 15).
+        // This ensures we get enough Events and Communities to fill the carousel.
+        const response = await fetch(`${API_URL}/api/listings?per_page=20`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -257,7 +238,7 @@ export default function HomeContent() {
     }
   }, [sortBy]);
 
-  // --- Skeletons ---
+  // --- Skeletons (Implemented with ShadCN) ---
 
   // 1. Vertical Skeleton (For Businesses and Events)
   const CardSkeleton = () => (

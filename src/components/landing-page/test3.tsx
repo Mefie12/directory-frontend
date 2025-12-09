@@ -30,6 +30,7 @@ interface ApiImage {
   id?: number;
   media: string;
   media_type?: string;
+  status?: string;
 }
 
 interface ApiCategory {
@@ -41,7 +42,7 @@ interface ApiListing {
   name: string;
   slug: string;
   type: string;
-  listing_type?: string;
+  listing_type: string;
   rating: string | number;
   ratings_count: string | number;
   location?: string;
@@ -56,128 +57,243 @@ interface ApiListing {
   is_verified?: boolean;
 }
 
-// --- Helper: Robust URL Generator ---
+interface ApiResponse {
+  data?: ApiListing[];
+  listings?: ApiListing[];
+  current_page?: number;
+  last_page?: number;
+  total?: number;
+  per_page?: number;
+  next_page_url?: string | null;
+}
+
+const API_URL = "https://me-fie.co.uk";
+
+// --- FIXED: Robust URL Generator ---
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return "/images/placeholders/generic.jpg";
+  
+  // Already a full URL
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-  return `${API_URL}/${url.replace(/^\//, "")}`;
+  
+  // Remove leading slash and construct full URL
+  const cleanPath = url.replace(/^\/+/, "");
+  return `${API_URL}/${cleanPath}`;
 };
 
-// --- UPDATED: Aggressive Classifier Logic ---
+// --- FIXED: Image Processing Logic (Access by Array Index) ---
+const processListingImages = (item: ApiListing): string[] => {
+  const validImages: string[] = [];
+  
+  // Process images array - Backend stores them as indexed array
+  if (Array.isArray(item.images) && item.images.length > 0) {
+    // Access images by index: images[0], images[1], images[2], images[3], images[4]
+    for (let i = 0; i < item.images.length; i++) {
+      const img = item.images[i];
+      
+      if (typeof img === "string") {
+        // Simple string URL
+        if (img.trim()) {
+          validImages.push(getImageUrl(img));
+        }
+      } else if (img && typeof img === "object" && img.media) {
+        // Object with media property
+        const status = (img.status || "").toLowerCase();
+        const invalidStatuses = ["processing", "failed", "pending", "error"];
+        
+        if (!invalidStatuses.includes(status) && img.media.trim()) {
+          validImages.push(getImageUrl(img.media));
+        }
+      }
+    }
+  }
+  
+  // Fallback to cover_image if no valid images
+  if (validImages.length === 0 && item.cover_image) {
+    validImages.push(getImageUrl(item.cover_image));
+  }
+  
+  // Final fallback to placeholder
+  if (validImages.length === 0) {
+    validImages.push("/images/placeholders/generic.jpg");
+  }
+  
+  return validImages;
+};
+
+// --- UPDATED: Improved Classifier Logic ---
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
-  const rawType = (item.type || item.listing_type || "")
-    .toString()
-    .trim()
-    .toLowerCase();
-  const categoryName = (item.categories?.[0]?.name || "").toLowerCase();
-  const name = (item.name || "").toLowerCase();
-  const bio = (item.bio || item.description || "").toLowerCase();
+  // Check both type fields
+  const type = (item.type || "").toString().trim().toLowerCase();
+  const listingType = (item.listing_type || "").toString().trim().toLowerCase();
+  
+  // Combine both for checking
+  const combinedType = `${type} ${listingType}`.toLowerCase();
 
-  // 1. Force Event if it has a date
-  if (item.start_date || rawType === "event") {
+  console.log(`🔍 Classifying "${item.name}": type="${type}", listing_type="${listingType}", has_start_date=${!!item.start_date}`);
+
+  // 1. Events - check for start_date or explicit event type
+  // Check for variations: "event", "events", or if start_date exists
+  if (
+    item.start_date ||
+    type === "event" ||
+    type === "events" ||
+    listingType === "event" ||
+    listingType === "events" ||
+    combinedType.includes("event")
+  ) {
+    console.log(`   ✅ Classified as EVENT`);
     return "event";
   }
 
-  // 2. Explicit Community Check
-  if (rawType === "community") return "community";
-
-  // 3. Fuzzy Keyword Check
-  const communityKeywords = [
-    "community",
-    "support group",
-    "foundation",
-    "association",
-    "society",
-    "club",
-    "network",
-    "non-profit",
-    "charity",
-    "group",
-  ];
-
+  // 2. Communities - check for explicit community type
+  // Check for variations: "community", "communities"
   if (
-    communityKeywords.some((k) => categoryName.includes(k)) ||
-    communityKeywords.some((k) => name.includes(k)) ||
-    bio.includes("community group")
+    type === "community" ||
+    type === "communities" ||
+    listingType === "community" ||
+    listingType === "communities" ||
+    combinedType.includes("community")
   ) {
+    console.log(`   ✅ Classified as COMMUNITY`);
     return "community";
   }
 
-  // 4. Default to Business
+  // 3. Default to business
+  console.log(`   ✅ Classified as BUSINESS (default)`);
   return "business";
+};
+
+// --- NEW: Fetch ALL listings with pagination ---
+const fetchAllListings = async (): Promise<ApiListing[]> => {
+  const allListings: ApiListing[] = [];
+  const currentPage = 1;
+  let lastPage = 1;
+
+  try {
+    // Fetch first page to get total pages
+    const firstResponse = await fetch(
+      `${API_URL}/api/listings?per_page=100&page=1`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!firstResponse.ok) {
+      throw new Error(`HTTP error! status: ${firstResponse.status}`);
+    }
+
+    const firstJson: ApiResponse = await firstResponse.json();
+    
+    // Debug: Log the full API response structure
+    console.log("🔍 API Response Structure:", {
+      has_data: !!firstJson.data,
+      has_listings: !!firstJson.listings,
+      data_length: firstJson.data?.length,
+      listings_length: firstJson.listings?.length,
+      keys: Object.keys(firstJson)
+    });
+    
+    const firstPageData = firstJson.data || firstJson.listings || [];
+    
+    allListings.push(...firstPageData);
+    
+    // Get pagination info
+    lastPage = firstJson.last_page || 1;
+    const total = firstJson.total || firstPageData.length;
+    
+    console.log(`📄 Page 1/${lastPage} fetched: ${firstPageData.length} listings`);
+    console.log(`📊 Pagination Info:`, {
+      current_page: firstJson.current_page,
+      last_page: firstJson.last_page,
+      total: firstJson.total,
+      per_page: firstJson.per_page,
+      has_more_pages: lastPage > 1
+    });
+
+    // Fetch remaining pages if any
+    if (lastPage > 1) {
+      const fetchPromises = [];
+      
+      for (let page = 2; page <= lastPage; page++) {
+        fetchPromises.push(
+          fetch(`${API_URL}/api/listings?per_page=100&page=${page}`, {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          })
+        );
+      }
+
+      // Fetch all pages in parallel
+      const responses = await Promise.all(fetchPromises);
+      
+      for (let i = 0; i < responses.length; i++) {
+        const response = responses[i];
+        if (response.ok) {
+          const json: ApiResponse = await response.json();
+          const pageData = json.data || json.listings || [];
+          allListings.push(...pageData);
+          console.log(`📄 Page ${i + 2}/${lastPage} fetched: ${pageData.length} listings`);
+        }
+      }
+    }
+
+    console.log(`✅ Total listings fetched across all pages: ${allListings.length}`);
+    return allListings;
+    
+  } catch (error) {
+    console.error("❌ Error fetching listings:", error);
+    return [];
+  }
 };
 
 export default function HomeContent() {
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>(
-    []
-  );
+  const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings`, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-
-        const json = await response.json();
-        const data: ApiListing[] = json.data || json.listings || [];
+        // FIXED: Fetch ALL listings across all pages
+        const data = await fetchAllListings();
 
         const businesses: Business[] = [];
         const events: Event[] = [];
         const communities: Community[] = [];
 
         data.forEach((item) => {
-          // --- Image Logic ---
-          const rawImages = Array.isArray(item.images) ? item.images : [];
-
-          const validImages = rawImages
-            .filter((img: string | ApiImage) => {
-              if (typeof img === "string") return true;
-              if (img && typeof img === "object" && img.media) {
-                const badStatuses = [
-                  "processing",
-                  "failed",
-                  "pending",
-                  "error",
-                ];
-                return !badStatuses.includes(img.media);
-              }
-              return false;
-            })
-            .map((img: string | ApiImage) => {
-              const mediaPath = typeof img === "string" ? img : img.media;
-              return getImageUrl(mediaPath);
-            });
-
-          // Fallbacks
-          if (validImages.length === 0 && item.cover_image) {
-            validImages.push(getImageUrl(item.cover_image));
-          }
-          if (validImages.length === 0) {
-            validImages.push("/images/placeholders/generic.jpg");
-          }
-
+          // FIXED: Use new image processing function that accesses by array index
+          const validImages = processListingImages(item);
+          
           const categoryName = item.categories?.[0]?.name || "General";
           const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
+
+          // Enhanced debugging - show ALL relevant fields
+          console.log(`📦 Processing "${item.name}":`, {
+            classifiedAs: listingType,
+            type: item.type,
+            listing_type: item.listing_type,
+            start_date: item.start_date,
+            status: item.status,
+            id: item.id
+          });
 
           // --- Distribute Data ---
           if (listingType === "community") {
@@ -222,11 +338,24 @@ export default function HomeContent() {
           }
         });
 
+        console.log(`
+🎯 FINAL RESULTS:
+   - Businesses: ${businesses.length}
+   - Events: ${events.length}
+   - Communities: ${communities.length}
+   - TOTAL: ${businesses.length + events.length + communities.length}
+        `);
+
+        // Debug: Log the actual items by category
+        console.log("📋 BUSINESSES:", businesses.map(b => b.name));
+        console.log("📅 EVENTS:", events.map(e => e.name));
+        console.log("👥 COMMUNITIES:", communities.map(c => c.title));
+
         setFeaturedBusinesses(businesses);
         setUpcomingEvents(events);
         setFeaturedCommunities(communities);
       } catch (error) {
-        console.error("Failed to fetch home data", error);
+        console.error("❌ Failed to fetch home data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -258,8 +387,6 @@ export default function HomeContent() {
   }, [sortBy]);
 
   // --- Skeletons ---
-
-  // 1. Vertical Skeleton (For Businesses and Events)
   const CardSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {Array.from({ length: 4 }).map((_, i) => (
@@ -267,14 +394,10 @@ export default function HomeContent() {
           key={i}
           className="flex flex-col space-y-3 rounded-2xl border border-gray-100 bg-white overflow-hidden h-full"
         >
-          {/* Image Placeholder */}
           <Skeleton className="h-[200px] w-full rounded-none" />
           <div className="p-4 space-y-3">
-            {/* Badge */}
             <Skeleton className="h-5 w-20 rounded-full" />
-            {/* Title */}
             <Skeleton className="h-6 w-3/4" />
-            {/* Meta (Rating/Location) */}
             <Skeleton className="h-4 w-1/2" />
           </div>
         </div>
@@ -282,7 +405,6 @@ export default function HomeContent() {
     </div>
   );
 
-  // 2. Horizontal Skeleton (For Communities)
   const CommunitySkeleton = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {Array.from({ length: 2 }).map((_, i) => (
@@ -290,9 +412,7 @@ export default function HomeContent() {
           key={i}
           className="flex flex-row h-[165px] w-full rounded-3xl border border-gray-100 bg-white overflow-hidden"
         >
-          {/* Left Image */}
           <Skeleton className="h-full w-32 sm:w-48 rounded-none" />
-          {/* Right Content */}
           <div className="flex flex-1 flex-col justify-center p-4 space-y-3">
             <Skeleton className="h-6 w-2/3" />
             <Skeleton className="h-4 w-full" />
@@ -486,7 +606,6 @@ export default function HomeContent() {
       {/* CTA */}
       <div className="py-12 px-4 lg:px-16">
         <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-          {/* Background patterns */}
           <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
             <Image
               src="/images/backgroundImages/bg-pattern.svg"
@@ -521,7 +640,6 @@ export default function HomeContent() {
             />
           </div>
 
-          {/* Text content */}
           <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
             Ready to Grow Your Business?
           </h2>
@@ -530,7 +648,6 @@ export default function HomeContent() {
             Directory
           </p>
 
-          {/* CTA button */}
           <Button className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
             List your business today
           </Button>

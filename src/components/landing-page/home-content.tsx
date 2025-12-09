@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Faqs } from "@/components/landing-page/faqs";
 import { BusinessCard } from "../business-card";
 import { EventCard } from "@/components/event-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
@@ -40,13 +41,12 @@ interface ApiListing {
   name: string;
   slug: string;
   type: string;
-  listing_type?: string;
+  listing_type: string;
   rating: string | number;
   ratings_count: string | number;
   location?: string;
   address?: string;
   status: string;
-  // UPDATE: Explicitly allow mixed arrays or specific arrays
   images: (ApiImage | string)[];
   cover_image?: string;
   categories: ApiCategory[];
@@ -56,47 +56,37 @@ interface ApiListing {
   is_verified?: boolean;
 }
 
-// --- Helper ---
+// --- Helper: Robust URL Generator ---
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return "/images/placeholders/generic.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  const API_URL = "https://me-fie.co.uk";
+  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// --- Classifier Logic ---
+// --- UPDATED: Aggressive Classifier Logic ---
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
+  // Get the raw type from item.type or item.listing_type
   const rawType = (item.type || item.listing_type || "")
     .toString()
     .trim()
     .toLowerCase();
-  const categoryName = item.categories?.[0]?.name || "";
-  const normalizedCategory = categoryName.toLowerCase();
 
-  if (rawType === "community") return "community";
-  if (rawType === "event") return "event";
-  if (rawType === "business") return "business";
-
-  if (
-    rawType.includes("community") ||
-    normalizedCategory.includes("community") ||
-    normalizedCategory.includes("support group")
-  ) {
-    return "community";
-  }
-
-  if (
-    rawType.includes("event") ||
-    normalizedCategory.includes("event") ||
-    !!item.start_date
-  ) {
+  // 1. Check for events first (by date or explicit type)
+  if (item.start_date || rawType === "event") {
     return "event";
   }
 
+  // 2. Check for communities (only by type)
+  if (rawType === "community") {
+    return "community";
+  }
+
+  // 3. Default to business
   return "business";
 };
 
@@ -113,9 +103,12 @@ export default function HomeContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = "https://me-fie.co.uk";
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings`, {
+        // FIX: Added '?per_page=100' query param.
+        // This requests 100 items instead of the default (usually 15).
+        // This ensures we get enough Events and Communities to fill the carousel.
+        const response = await fetch(`${API_URL}/api/listings?per_page=20`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -133,28 +126,29 @@ export default function HomeContent() {
         const communities: Community[] = [];
 
         data.forEach((item) => {
-          // A. Extract the array safely
+          // --- Image Logic ---
           const rawImages = Array.isArray(item.images) ? item.images : [];
 
-          // B. Filter and Map with Strict Types
           const validImages = rawImages
             .filter((img: string | ApiImage) => {
-              // 1. Handle String
               if (typeof img === "string") return true;
-
-              // 2. Handle Object (ApiImage)
-              if (!img || typeof img !== "object" || !img.media) return false;
-
-              const badStatuses = ["processing", "failed", "pending", "error"];
-              return !badStatuses.includes(img.media);
+              if (img && typeof img === "object" && img.media) {
+                const badStatuses = [
+                  "processing",
+                  "failed",
+                  "pending",
+                  "error",
+                ];
+                return !badStatuses.includes(img.media);
+              }
+              return false;
             })
             .map((img: string | ApiImage) => {
-              // Extract string path based on type
               const mediaPath = typeof img === "string" ? img : img.media;
               return getImageUrl(mediaPath);
             });
 
-          // C. Fallback logic
+          // Fallbacks
           if (validImages.length === 0 && item.cover_image) {
             validImages.push(getImageUrl(item.cover_image));
           }
@@ -244,50 +238,46 @@ export default function HomeContent() {
     }
   }, [sortBy]);
 
-  // Skeletons
-  const BusinessSkeleton = () => (
+  // --- Skeletons (Implemented with ShadCN) ---
+
+  // 1. Vertical Skeleton (For Businesses and Events)
+  const CardSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[1, 2, 3, 4].map((i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl overflow-hidden bg-white shadow-sm h-80 animate-pulse border border-gray-100"
+          className="flex flex-col space-y-3 rounded-2xl border border-gray-100 bg-white overflow-hidden h-full"
         >
-          <div className="h-[180px] bg-gray-200 w-full" />
+          {/* Image Placeholder */}
+          <Skeleton className="h-[200px] w-full rounded-none" />
           <div className="p-4 space-y-3">
-            <div className="h-6 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-1/2" />
+            {/* Badge */}
+            <Skeleton className="h-5 w-20 rounded-full" />
+            {/* Title */}
+            <Skeleton className="h-6 w-3/4" />
+            {/* Meta (Rating/Location) */}
+            <Skeleton className="h-4 w-1/2" />
           </div>
         </div>
       ))}
     </div>
   );
 
-  const EventSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="rounded-xl overflow-hidden bg-white shadow-sm h-80 animate-pulse border border-gray-100"
-        >
-          <div className="h-[180px] bg-gray-200 w-full" />
-          <div className="p-4 space-y-3">
-            <div className="h-6 bg-gray-200 rounded w-3/4" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
+  // 2. Horizontal Skeleton (For Communities)
   const CommunitySkeleton = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {[1, 2].map((i) => (
+      {Array.from({ length: 2 }).map((_, i) => (
         <div
           key={i}
-          className="flex flex-row bg-gray-50 rounded-3xl h-[180px] animate-pulse border border-gray-100"
+          className="flex flex-row h-[165px] w-full rounded-3xl border border-gray-100 bg-white overflow-hidden"
         >
-          <div className="w-32 sm:w-48 bg-gray-200 rounded-l-3xl h-full" />
-          <div className="flex-1 p-6 space-y-3">
-            <div className="h-6 bg-gray-200 rounded w-1/2" />
+          {/* Left Image */}
+          <Skeleton className="h-full w-32 sm:w-48 rounded-none" />
+          {/* Right Content */}
+          <div className="flex flex-1 flex-col justify-center p-4 space-y-3">
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-10 w-32 rounded-md mt-1" />
           </div>
         </div>
       ))}
@@ -354,9 +344,8 @@ export default function HomeContent() {
             Explore all
           </Link>
         </div>
-
         {isLoading ? (
-          <BusinessSkeleton />
+          <CardSkeleton />
         ) : featuredBusinesses.length > 0 ? (
           <BusinessCarousel businesses={featuredBusinesses} />
         ) : (
@@ -381,9 +370,8 @@ export default function HomeContent() {
             Explore all
           </Link>
         </div>
-
         {isLoading ? (
-          <EventSkeleton />
+          <CardSkeleton />
         ) : upcomingEvents.length > 0 ? (
           <DirectoryEventCarousel events={upcomingEvents} />
         ) : (
@@ -431,7 +419,6 @@ export default function HomeContent() {
             </p>
           </div>
         </div>
-
         {isLoading ? (
           <CommunitySkeleton />
         ) : featuredCommunities.length > 0 ? (
@@ -475,6 +462,60 @@ export default function HomeContent() {
 
       <div className="py-12 px-4 lg:px-16">
         <Faqs />
+      </div>
+
+      {/* CTA */}
+      <div className="py-12 px-4 lg:px-16">
+        <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
+          {/* Background patterns */}
+          <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
+            <Image
+              src="/images/backgroundImages/bg-pattern.svg"
+              alt="background pattern left"
+              width={320}
+              height={320}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-contain h-[150px] lg:h-[400px]"
+              priority
+            />
+          </div>
+          <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
+            <Image
+              src="/images/backgroundImages/bg-pattern-1.svg"
+              alt="background pattern right"
+              width={320}
+              height={320}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-contain"
+              priority
+            />
+          </div>
+          <div className="block lg:hidden absolute bottom-16 -right-32">
+            <Image
+              src="/images/backgroundImages/mobile-pattern.svg"
+              alt="background pattern right"
+              width={320}
+              height={320}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-contain h-[120px]"
+              priority
+            />
+          </div>
+
+          {/* Text content */}
+          <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
+            Ready to Grow Your Business?
+          </h2>
+          <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
+            Join thousands of African businesses already listed on Mefie
+            Directory
+          </p>
+
+          {/* CTA button */}
+          <Button className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+            List your business today
+          </Button>
+        </div>
       </div>
     </div>
   );
