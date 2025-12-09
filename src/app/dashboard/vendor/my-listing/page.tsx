@@ -59,7 +59,7 @@ interface ApiListing {
   address: string;
   country: string;
   city: string;
-  status: string; // Changed to string to handle various backend values safely
+  status: string;
   type?: string;
   images: ListingImage[];
   categories: Category[];
@@ -79,11 +79,11 @@ interface ListingsTableItem {
   id: string;
   slug: string;
   name: string;
-  image: string; // Cover Image (images[0])
-  allImages: string[]; // ✅ All valid images
+  image: string;
+  allImages: string[];
   category: string;
   location: string;
-  status: "published" | "pending" | "drafted"; // Frontend status types
+  status: "published" | "pending" | "drafted";
   type: string;
   views: number;
   comments: number;
@@ -95,13 +95,9 @@ interface ListingsTableItem {
 // Helper function for image URLs
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return "/images/placeholder-listing.png";
-
-  // If URL is already absolute with http/https, return as is
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-
-  // If it's a relative path, prepend the API URL
   const API_URL = process.env.API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
@@ -120,7 +116,6 @@ export default function MyListing() {
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Helper function for initials
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -130,14 +125,12 @@ export default function MyListing() {
       .toUpperCase();
   };
 
-  // Status color helper
   const getStatusColor = (status: string) => {
     if (status === "published") return "bg-[#E9F5D6] text-[#5F8B0A]";
     if (status === "pending") return "bg-yellow-100 text-yellow-700";
     return "bg-red-100 text-red-800";
   };
 
-  // --- Fetch Logic ---
   const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
@@ -162,30 +155,22 @@ export default function MyListing() {
 
       const data: ApiResponse = await response.json();
 
+      // DEBUG: Check what the API is actually returning
+      console.log("Raw API Listings Data:", data.data);
+
       const transformedListings: ListingsTableItem[] = data.data.map(
         (listing) => {
+          // 1. Image Logic
           const rawImages = listing.images || [];
-
-          // --- CRITICAL FIX START ---
           const validImages = rawImages
             .filter((img) => {
-              // 1. Must have media string
               if (!img.media) return false;
-
-              // 2. Filter out known bad statuses
               const badStatuses = ["processing", "failed", "pending", "error"];
               if (badStatuses.includes(img.media)) return false;
-
-              // 3. Optional: Filter out non-image extensions if necessary
-              // return /\.(jpg|jpeg|png|webp|gif)$/i.test(img.media) || img.media.startsWith('http');
-
               return true;
             })
             .map((img) => getImageUrl(img.media));
-          // --- CRITICAL FIX END ---
 
-          // Set Cover (Index 0) or Fallback
-          // Note: Since validImages might now be empty [], this correctly triggers the fallback.
           const coverImage =
             validImages.length > 0
               ? validImages[0]
@@ -196,31 +181,39 @@ export default function MyListing() {
             [listing.city, listing.country].filter(Boolean).join(", ") ||
             "Online";
 
-          // Correctly map backend status to frontend status
+          // 2. Status Mapping
           let status: "published" | "pending" | "drafted" = "drafted";
-          const backendStatus = listing.status?.toLowerCase();
+          const backendStatus = (listing.status || "").toLowerCase();
 
-          if (
-            backendStatus === "published" ||
-            backendStatus === "active" ||
-            backendStatus === "approved"
-          ) {
+          if (["published", "active", "approved"].includes(backendStatus)) {
             status = "published";
           } else if (backendStatus === "pending") {
             status = "pending";
           }
-          // 'draft', 'rejected', 'suspended' will fall back to 'drafted' or you can add specific cases
+
+          // 3. Type Logic (FIXED)
+          // We check 'listing.type' first.
+          // If missing, we assume 'business' is the safe default, BUT we check categories first.
+          let resolvedType = listing.type;
+
+          if (!resolvedType && listing.categories?.length > 0) {
+            // Try to find if a category matches a known type
+            const catName = listing.categories[0].name.toLowerCase();
+            if (["community", "event"].includes(catName)) {
+              resolvedType = catName;
+            }
+          }
 
           return {
             id: listing.id.toString(),
-            slug: listing.slug, // Use slug if available
+            slug: listing.slug,
             name: listing.name,
             image: coverImage,
             allImages: validImages,
             category: categoryText,
             location: location,
             status: status,
-            type: listing.type || "business",
+            type: resolvedType || "business", // Use the resolved type
             views: listing.views_count || 0,
             comments: listing.ratings_count || 0,
             bookmarks: listing.bookmarks_count || 0,
@@ -243,11 +236,7 @@ export default function MyListing() {
     if (!authLoading && user) fetchListings();
   }, [user, authLoading, fetchListings]);
 
-  // --- Handlers ---
   const handleEdit = (listing: ListingsTableItem) => {
-    // Ensure we are using the correct route structure based on your folder image
-    // It seems like /dashboard/vendor/my-listing/edit/page.tsx is the file
-    // So the route should be /dashboard/vendor/my-listing/edit
     router.push(
       `/dashboard/vendor/my-listing/edit?type=${listing.type}&slug=${listing.slug}`
     );
@@ -260,8 +249,6 @@ export default function MyListing() {
     try {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      // Find the listing to get the slug. deleteListingId is the ID.
       const listingToDelete = listings.find((l) => l.id === deleteListingId);
 
       if (!listingToDelete) {
@@ -269,7 +256,6 @@ export default function MyListing() {
         return;
       }
 
-      // Use slug for deletion as per API docs pattern, fallback to ID if no slug
       const identifier = listingToDelete.slug || listingToDelete.id;
 
       const res = await fetch(`${API_URL}/api/listing/${identifier}`, {
@@ -290,7 +276,7 @@ export default function MyListing() {
 
       toast.success("Listing deleted successfully");
       setListings((prev) => prev.filter((l) => l.id !== deleteListingId));
-      setViewListing(null); // Close view sheet if open
+      setViewListing(null);
     } catch (error) {
       console.error(error);
       toast.error(
@@ -335,7 +321,6 @@ export default function MyListing() {
                 }
                 className="capitalize cursor-pointer"
               >
-                {/* Number Badge */}
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#93C01F] text-white text-xs  font-medium">
                   {index + 1}
                 </span>
@@ -397,7 +382,6 @@ export default function MyListing() {
               <div className="p-6 space-y-8">
                 {/* Details Grid */}
                 <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
-                  {/* Status */}
                   <RefreshCcw className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Status</span>
                   <div className="justify-self-end">
@@ -414,7 +398,6 @@ export default function MyListing() {
                     </span>
                   </div>
 
-                  {/* Vendor/Owner */}
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Owner</span>
                   <div className="justify-self-end flex items-center gap-2">
@@ -430,21 +413,18 @@ export default function MyListing() {
                     </span>
                   </div>
 
-                  {/* Location */}
                   <MapPin className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Location</span>
                   <div className="justify-self-end font-medium text-gray-900">
                     {viewListing.location}
                   </div>
 
-                  {/* Type */}
                   <Tag className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Type</span>
                   <div className="justify-self-end font-medium text-gray-900 capitalize">
                     {viewListing.type}
                   </div>
 
-                  {/* Category */}
                   <Gem className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Category</span>
                   <div className="justify-self-end">
@@ -454,7 +434,6 @@ export default function MyListing() {
                   </div>
                 </div>
 
-                {/* Description */}
                 <div className="space-y-2">
                   <h3 className="font-semibold text-gray-900">
                     Listing Description
@@ -464,8 +443,6 @@ export default function MyListing() {
                   </div>
                 </div>
 
-                {/* Media Section */}
-                {/* Media Section */}
                 <div>
                   <div className="flex border-b border-gray-200 mb-6">
                     <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
@@ -473,7 +450,6 @@ export default function MyListing() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Cover image (image[0]) */}
                     {viewListing.allImages.length > 0 ? (
                       <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group">
                         <Image
@@ -482,7 +458,7 @@ export default function MyListing() {
                           fill
                           className="object-cover"
                           sizes="(max-width: 768px) 100vw, 50vw"
-                          unoptimized={true} // <--- FIX: Allow external URLs
+                          unoptimized={true}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             if (!target.src.includes("placeholder")) {
@@ -497,7 +473,6 @@ export default function MyListing() {
                       </div>
                     )}
 
-                    {/* Additional Images (Index 1, 2, 3) */}
                     {viewListing.allImages.length > 1 &&
                       viewListing.allImages.slice(1, 4).map((img, index) => (
                         <div
@@ -510,7 +485,7 @@ export default function MyListing() {
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, 50vw"
-                            unoptimized={true} // <--- FIX: Allow external URLs
+                            unoptimized={true}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               if (!target.src.includes("placeholder")) {
@@ -521,7 +496,6 @@ export default function MyListing() {
                         </div>
                       ))}
 
-                    {/* Show "Add Media" button if fewer than 4 images */}
                     {viewListing.allImages.length < 4 && (
                       <div
                         onClick={() => handleEdit(viewListing)}
@@ -534,7 +508,6 @@ export default function MyListing() {
                   </div>
                 </div>
 
-                {/* Stats */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
                     <div className="text-2xl font-bold text-gray-900">
@@ -551,7 +524,6 @@ export default function MyListing() {
                 </div>
               </div>
 
-              {/* Footer Actions */}
               <div className="p-6 border-t border-gray-100 flex gap-3">
                 <Button
                   variant="outline"

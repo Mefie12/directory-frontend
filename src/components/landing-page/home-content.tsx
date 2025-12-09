@@ -99,18 +99,23 @@ const getImageUrls = (item: ApiListing): string[] => {
 };
 
 // Type classification helper - FIXED LOGIC
-const classifyListing = (item: ApiListing): "business" | "event" | "community" => {
+const classifyListing = (
+  item: ApiListing
+): "business" | "event" | "community" => {
   // Get and normalize the type
-  const rawType = (item.type || item.listing_type || "").toString().trim().toLowerCase();
+  const rawType = (item.type || item.listing_type || "")
+    .toString()
+    .trim()
+    .toLowerCase();
   const categoryName = item.categories?.[0]?.name || "";
   const normalizedCategory = categoryName.toLowerCase();
-  
+
   // DEBUG logging
   console.debug("Classifying listing:", {
     name: item.name,
     rawType: rawType,
     category: categoryName,
-    hasStartDate: !!item.start_date
+    hasStartDate: !!item.start_date,
   });
 
   // 1. Check for event markers (highest priority)
@@ -121,10 +126,10 @@ const classifyListing = (item: ApiListing): "business" | "event" | "community" =
     normalizedCategory.includes("conference"),
     normalizedCategory.includes("seminar"),
     normalizedCategory.includes("meetup"),
-    !!item.start_date // Has a start date is strong indicator of event
+    !!item.start_date, // Has a start date is strong indicator of event
   ];
-  
-  if (eventMarkers.some(marker => marker)) {
+
+  if (eventMarkers.some((marker) => marker)) {
     console.debug(`✓ Classified as EVENT: ${item.name}`);
     return "event";
   }
@@ -140,19 +145,21 @@ const classifyListing = (item: ApiListing): "business" | "event" | "community" =
     normalizedCategory.includes("group"),
     normalizedCategory.includes("network"),
     normalizedCategory.includes("support"),
-    item.name.toLowerCase().includes("community") && !item.name.toLowerCase().includes("community center"), // "community center" is often a business
-    item.name.toLowerCase().includes("group") && !item.name.toLowerCase().includes("business group"), // "business group" might still be business
-    item.bio?.toLowerCase().includes("community") || 
-    item.description?.toLowerCase().includes("community") ||
-    item.bio?.toLowerCase().includes("group") || 
-    item.description?.toLowerCase().includes("group")
+    item.name.toLowerCase().includes("community") &&
+      !item.name.toLowerCase().includes("community center"), // "community center" is often a business
+    item.name.toLowerCase().includes("group") &&
+      !item.name.toLowerCase().includes("business group"), // "business group" might still be business
+    item.bio?.toLowerCase().includes("community") ||
+      item.description?.toLowerCase().includes("community") ||
+      item.bio?.toLowerCase().includes("group") ||
+      item.description?.toLowerCase().includes("group"),
   ];
 
   // Strong community indicators (any one of these is enough)
   const strongCommunityIndicators = [
     rawType === "community",
     normalizedCategory === "community",
-    normalizedCategory.includes("support group")
+    normalizedCategory.includes("support group"),
   ];
 
   // Medium community indicators (need at least 2)
@@ -160,12 +167,15 @@ const classifyListing = (item: ApiListing): "business" | "event" | "community" =
     rawType.includes("community"),
     normalizedCategory.includes("community"),
     item.name.toLowerCase().includes("community group"),
-    item.name.toLowerCase().includes("support group")
+    item.name.toLowerCase().includes("support group"),
   ];
 
-  const hasStrongIndicator = strongCommunityIndicators.some(indicator => indicator);
-  const hasMediumIndicators = mediumCommunityIndicators.filter(indicator => indicator).length >= 2;
-  const hasAnyIndicator = communityMarkers.some(marker => marker);
+  const hasStrongIndicator = strongCommunityIndicators.some(
+    (indicator) => indicator
+  );
+  const hasMediumIndicators =
+    mediumCommunityIndicators.filter((indicator) => indicator).length >= 2;
+  const hasAnyIndicator = communityMarkers.some((marker) => marker);
 
   if (hasStrongIndicator || hasMediumIndicators || hasAnyIndicator) {
     console.debug(`✓ Classified as COMMUNITY: ${item.name}`);
@@ -192,7 +202,7 @@ export default function HomeContent() {
       try {
         setIsLoading(true);
         const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          process.env.API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/listings`, {
           headers: {
@@ -274,7 +284,7 @@ export default function HomeContent() {
           businesses: businesses.length,
           events: events.length,
           communities: communities.length,
-          communitiesList: communities.map(c => c.title)
+          communitiesList: communities.map((c) => c.title),
         });
 
         setFeaturedBusinesses(businesses);

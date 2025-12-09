@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -94,6 +94,8 @@ interface BillingItem {
 }
 
 interface UserDetails {
+  first_name: string;
+  last_name: string;
   id: string;
   name: string;
   email: string;
@@ -122,7 +124,7 @@ interface UserDetails {
   };
 }
 
-// API Types
+// API Types (Backend Response Shape)
 interface ApiListing {
   id: number | string;
   title?: string;
@@ -169,7 +171,11 @@ interface ApiActivity {
 interface ApiUserResponse {
   id: number | string;
   name?: string;
+  first_name?: string; 
+  last_name?: string;
   email?: string;
+  // UPDATE: Added 'phone' to the interface
+  phone?: string; 
   phone_number?: string;
   phoneNumber?: string;
   listings_count?: number;
@@ -212,7 +218,138 @@ export default function UserDetailsPage() {
   const [deleteCardDialogOpen, setDeleteCardDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- API Integration ---
+  // --- Logic: Date Formatter Helper ---
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return new Date(dateString).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return "Invalid Date";
+    }
+  };
+
+  // --- Logic: Data Transformation ---
+  const transformUserData = useCallback(
+    (apiData: ApiUserResponse): UserDetails => {
+      // 1. Map Listings
+      const rawListings = Array.isArray(apiData.listings)
+        ? apiData.listings
+        : [];
+      const mappedListings: ListingItem[] = rawListings.map((item) => ({
+        id: item.id?.toString() || "",
+        name: item.name || item.title || "Untitled Listing",
+        location: item.location || "Unknown Location",
+        type: item.type || "Business",
+        views: Number(item.views_count) || 0,
+        comments: Number(item.comments_count) || 0,
+        bookmarks: Number(item.bookmarks_count) || 0,
+        rating: Number(item.rating) || 0,
+        createdDate: formatDate(item.created_at),
+        status: (item.status as ListingItem["status"]) || "Drafted",
+        image: item.image || "",
+      }));
+
+      // 2. Map Reviews
+      const rawReviews = Array.isArray(apiData.reviews) ? apiData.reviews : [];
+      const mappedReviews: ReviewItem[] = rawReviews.map((item) => ({
+        id: item.id?.toString() || "",
+        reviewerName: item.user?.name || "Anonymous",
+        reviewerAvatar: item.user?.avatar || "",
+        date: formatDate(item.created_at),
+        rating: Number(item.rating) || 5,
+        comment: item.comment || "",
+      }));
+
+      // 3. Map Billing History
+      const rawBilling = Array.isArray(apiData.billing_history)
+        ? apiData.billing_history
+        : [];
+      const mappedBilling: BillingItem[] = rawBilling.map((item) => ({
+        id: item.id?.toString() || "",
+        plan: item.plan_name || "Basic",
+        date: formatDate(item.created_at),
+        amount: Number(item.amount) || 0,
+        status: (item.status as BillingItem["status"]) || "Pending review",
+      }));
+
+      // 4. Map Activity
+      const rawActivities = Array.isArray(apiData.activities)
+        ? apiData.activities
+        : [];
+      const mappedActivities: ActivityItem[] = rawActivities.map((act) => ({
+        id: act.id?.toString() || "",
+        type: (act.type as ActivityItem["type"]) || "listing",
+        title: act.title || "Activity Logged",
+        description: act.description || "",
+        timestamp: formatDate(act.created_at || act.timestamp),
+      }));
+
+      // 5. Calculate Stats
+      const stats = {
+        published:
+          apiData.stats?.published ??
+          mappedListings.filter((l) => l.status === "Published").length,
+        inquiries: apiData.stats?.inquiries ?? 0,
+        reviews: apiData.stats?.reviews ?? mappedReviews.length,
+        revenue: apiData.stats?.revenue ?? 0,
+      };
+
+      // 6. Name Parsing
+      let fullName = apiData.name;
+      if (!fullName && (apiData.first_name || apiData.last_name)) {
+        fullName = `${apiData.first_name || ''} ${apiData.last_name || ''}`.trim();
+      }
+      if (!fullName) {
+        fullName = "Unknown User";
+      }
+      const [parsedFirst, ...rest] = fullName.split(" ");
+      const parsedLast = rest.join(" ");
+
+      return {
+        id: apiData.id?.toString() || "",
+        first_name: apiData.first_name || parsedFirst || "",
+        last_name: apiData.last_name || parsedLast || "",
+        name: fullName,
+        email: apiData.email || "",
+        // UPDATE: Check 'phone' first, then 'phone_number', then 'phoneNumber'
+        phone:
+          apiData.phone ||
+          apiData.phone_number ||
+          apiData.phoneNumber ||
+          "No phone number provided",
+        listings:
+          apiData.listings_count ??
+          apiData.numberOfListings ??
+          mappedListings.length,
+        plan: apiData.plan || "Free",
+        status: apiData.status || "Active",
+        avatar: apiData.avatar || apiData.profile_photo_url || "",
+        bio:
+          apiData.business_description ||
+          apiData.bio ||
+          "No description provided.",
+        recentActivity: mappedActivities,
+        stats: stats,
+        listingsList: mappedListings,
+        reviewsList: mappedReviews,
+        billingHistory: mappedBilling,
+        billingInfo: {
+          currentPlan: apiData.plan || "Free",
+          cycle: apiData.billing_cycle || "Monthly",
+          amount: Number(apiData.subscription_amount) || 0,
+          cardLast4: apiData.card_last_four || "",
+          cardExpiry: apiData.card_expiry || "",
+        },
+      };
+    },
+    []
+  );
+
+  // --- API Fetching ---
   useEffect(() => {
     const fetchUserData = async () => {
       if (authLoading) return;
@@ -230,11 +367,12 @@ export default function UserDetailsPage() {
         const token = localStorage.getItem("authToken");
         const id = params.id;
 
-        if (!id) throw new Error("Invalid User ID");
+        if (!id) throw new Error("Invalid User ID in URL");
 
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/users/${id}`, {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -244,110 +382,16 @@ export default function UserDetailsPage() {
 
         if (!response.ok) {
           if (response.status === 404) throw new Error("User not found");
-          throw new Error("Failed to fetch user details");
+          if (response.status === 401) throw new Error("Unauthorized access");
+          throw new Error(`API Error: ${response.statusText}`);
         }
 
         const json = await response.json();
-        const apiData = (json.data || json) as ApiUserResponse;
+        const rawData = json.data || json;
 
-        // Data Mapping
-        const mappedListings: ListingItem[] = Array.isArray(apiData.listings)
-          ? apiData.listings.map((item) => ({
-              id: item.id?.toString(),
-              name: item.title || item.name || "Untitled Listing",
-              location: item.location || "Unknown Location",
-              type: item.type || "Business",
-              views: item.views_count || 0,
-              comments: item.comments_count || 0,
-              bookmarks: item.bookmarks_count || 0,
-              rating: item.rating || 0,
-              createdDate: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "N/A",
-              status: (item.status as ListingItem["status"]) || "Drafted",
-              image: item.image || "",
-            }))
-          : [];
+        if (!rawData) throw new Error("No data received from API");
 
-        const mappedReviews: ReviewItem[] = Array.isArray(apiData.reviews)
-          ? apiData.reviews.map((item) => ({
-              id: item.id?.toString(),
-              reviewerName: item.user?.name || "Anonymous",
-              reviewerAvatar: item.user?.avatar || "",
-              date: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "",
-              rating: item.rating || 5,
-              comment: item.comment || "",
-            }))
-          : [];
-
-        const mappedBilling: BillingItem[] = Array.isArray(
-          apiData.billing_history
-        )
-          ? apiData.billing_history.map((item) => ({
-              id: item.id?.toString(),
-              plan: item.plan_name || "Basic",
-              date: item.created_at
-                ? new Date(item.created_at).toLocaleDateString()
-                : "",
-              amount:
-                typeof item.amount === "string"
-                  ? parseFloat(item.amount)
-                  : item.amount || 0,
-              status:
-                (item.status as BillingItem["status"]) || "Pending review",
-            }))
-          : [];
-
-        const mappedUser: UserDetails = {
-          id: apiData.id?.toString(),
-          name: apiData.name || "Unknown User",
-          email: apiData.email || "",
-          phone: apiData.phone_number || apiData.phoneNumber || "N/A",
-          listings:
-            apiData.listings_count ||
-            apiData.numberOfListings ||
-            mappedListings.length,
-          plan: apiData.plan || "Basic",
-          status: apiData.status || "Active",
-          avatar: apiData.avatar || apiData.profile_photo_url || "",
-          bio:
-            apiData.business_description ||
-            apiData.bio ||
-            "No description provided.",
-          recentActivity: Array.isArray(apiData.activities)
-            ? apiData.activities.map((act) => ({
-                id: act.id?.toString(),
-                type: act.type || "listing",
-                title: act.title || "Activity",
-                description: act.description || "",
-                timestamp: act.created_at || act.timestamp || "",
-              }))
-            : [],
-          stats: {
-            published:
-              apiData.stats?.published ||
-              mappedListings.filter((l) => l.status === "Published").length,
-            inquiries: apiData.stats?.inquiries || 0,
-            reviews: apiData.stats?.reviews || mappedReviews.length,
-            revenue: apiData.stats?.revenue || 0,
-          },
-          listingsList: mappedListings,
-          reviewsList: mappedReviews,
-          billingHistory: mappedBilling,
-          billingInfo: {
-            currentPlan: apiData.plan || "Basic",
-            cycle: apiData.billing_cycle || "N/A",
-            amount:
-              typeof apiData.subscription_amount === "string"
-                ? parseFloat(apiData.subscription_amount)
-                : apiData.subscription_amount || 0,
-            cardLast4: apiData.card_last_four || "••••",
-            cardExpiry: apiData.card_expiry || "••/••",
-          },
-        };
-
+        const mappedUser = transformUserData(rawData as ApiUserResponse);
         setUser(mappedUser);
       } catch (err: unknown) {
         console.error("Fetch Error:", err);
@@ -360,7 +404,7 @@ export default function UserDetailsPage() {
     };
 
     fetchUserData();
-  }, [params.slug, authUser, authLoading, params.id]);
+  }, [params.id, authUser, authLoading, transformUserData]);
 
   // --- Actions ---
 
@@ -401,23 +445,15 @@ export default function UserDetailsPage() {
   };
 
   const handleEditPaymentMethod = () => {
-    // Add logic to open edit modal or navigate to edit page
-    router.push(`/dashboard/users/${user?.id}/billing/payment-method`);
+    if (!user?.id) return;
+    router.push(`/dashboard/users/${user.id}/billing/payment-method`);
   };
 
   const handleDeletePaymentMethod = async () => {
-    // Mock API call to delete payment method
     setIsDeleting(true);
     try {
-      // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // In a real app, you would make a DELETE request here
-      // const response = await fetch(...)
-
       setDeleteCardDialogOpen(false);
-
-      // Optimistically update UI or re-fetch data
       if (user) {
         setUser({
           ...user,
@@ -552,7 +588,7 @@ export default function UserDetailsPage() {
 
               <div className="mt-0.5 space-y-2 md:space-y-1 w-full">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {user.name}
+                  {`${user.first_name} ${user.last_name}`}
                 </h1>
 
                 <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-3 gap-y-2 text-sm text-gray-500">
