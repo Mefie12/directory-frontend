@@ -12,6 +12,7 @@ import { Faqs } from "@/components/landing-page/faqs";
 import { BusinessCard } from "../business-card";
 import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
@@ -91,6 +92,7 @@ const classifyListing = (
 };
 
 export default function HomeContent() {
+  const router = useRouter();
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
@@ -242,7 +244,7 @@ export default function HomeContent() {
 
   // 1. Vertical Skeleton (For Businesses and Events)
   const CardSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
@@ -458,6 +460,11 @@ export default function HomeContent() {
             <p>No communities found.</p>
           </div>
         )}
+        <div className="flex items-center justify-center mt-4">
+          <Button onClick={()=>(router.push('/communities'))} className="bg-transparent border border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F] hover:text-white cursor-pointer">
+            Explore more communities
+          </Button>
+        </div>
       </div>
 
       <div className="py-12 px-4 lg:px-16">
