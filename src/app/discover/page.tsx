@@ -1,37 +1,195 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Suspense } from "react";
+"use client"; // Needs to be a client component for useEffect
+
+import { useState, useEffect, Suspense } from "react";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
 import EventCardCarousel from "@/components/discover/event-card-carousel";
 import BusinessBestCarousel from "@/components/discover/business-best-carousel";
-import { featuredBusinesses, Events, communityCards } from "@/lib/data";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import BusinessSectionCarousel from "@/components/business-section-carousel";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import CommunitySectionCarousel from "@/components/community-section-carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Helper function to convert DataBusiness to API Business type
-const convertDataBusinessToApiBusiness = (business: any) => {
-  return {
-    ...business,
-    images: business.image ? [business.image] : ["/images/placeholders/generic.jpg"],
-    // Remove the image property since API expects images array
-    image: undefined,
-  };
+// --- Interfaces ---
+// Reusing the robust interfaces from Code A
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
+}
+
+interface ApiCategory {
+  name: string;
+}
+
+interface ApiListing {
+  id: number;
+  name: string;
+  slug: string;
+  type: string;
+  listing_type: string;
+  rating: string | number;
+  ratings_count: string | number;
+  location?: string;
+  address?: string;
+  status: string;
+  images: (ApiImage | string)[];
+  cover_image?: string;
+  categories: ApiCategory[];
+  bio?: string;
+  description?: string;
+  start_date?: string;
+  is_verified?: boolean;
+}
+
+// --- Helper Functions ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// Helper function to convert array of DataBusiness to API Business array
-const convertBusinessesArray = (businesses: any[]) => {
-  return businesses.map(convertDataBusinessToApiBusiness);
+const classifyListing = (
+  item: ApiListing
+): "business" | "event" | "community" => {
+  const rawType = (item.type || item.listing_type || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  if (item.start_date || rawType === "event") return "event";
+  if (rawType === "community") return "community";
+  return "business";
 };
 
-export default async function Discover() {
-  // Convert businesses to the expected API format
-  const businesses = convertBusinessesArray(featuredBusinesses);
-  const events = Events;
+export default function Discover() {
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+        // Fetch 100 items to ensure we fill all sections
+        const response = await fetch(`${API_URL}/api/listings`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch listings");
+
+        const json = await response.json();
+        const data: ApiListing[] = json.data || json.listings || [];
+
+        const businessesList: any[] = [];
+        const eventsList: any[] = [];
+        const communitiesList: any[] = [];
+
+        data.forEach((item) => {
+          // --- Image Logic (Same as Code A) ---
+          const rawImages = Array.isArray(item.images) ? item.images : [];
+          const validImages = rawImages
+            .filter((img: any) => {
+              if (typeof img === "string") return true;
+              if (img && typeof img === "object" && img.media) {
+                return !["processing", "failed", "pending", "error"].includes(
+                  img.media
+                );
+              }
+              return false;
+            })
+            .map((img: any) => {
+              const mediaPath = typeof img === "string" ? img : img.media;
+              return getImageUrl(mediaPath);
+            });
+
+          // Fallbacks
+          if (validImages.length === 0 && item.cover_image) {
+            validImages.push(getImageUrl(item.cover_image));
+          }
+          if (validImages.length === 0) {
+            validImages.push("/images/placeholders/generic.jpg");
+          }
+
+          const categoryName = item.categories?.[0]?.name || "General";
+          const location = item.location || item.address || "Online";
+          const listingType = classifyListing(item);
+
+          const commonProps = {
+            id: item.id.toString(),
+            name: item.name, // events/communities might map this to title
+            title: item.name,
+            slug: item.slug,
+            description: item.bio || item.description || "",
+            image: validImages[0], // Single image for some cards
+            images: validImages, // Array for carousels
+            location: location,
+            verified: item.is_verified || false,
+          };
+
+          if (listingType === "community") {
+            communitiesList.push({
+              ...commonProps,
+              // Community-specific props if needed
+            });
+          } else if (listingType === "event") {
+            eventsList.push({
+              ...commonProps,
+              category: categoryName,
+              startDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+              endDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+              price: "Free", // Placeholder or fetch if available
+            });
+          } else {
+            businessesList.push({
+              ...commonProps,
+              category: categoryName,
+              rating: Number(item.rating) || 0,
+              reviewCount: Number(item.ratings_count) || 0,
+            });
+          }
+        });
+
+        setBusinesses(businessesList);
+        setEvents(eventsList);
+        setCommunities(communitiesList);
+      } catch (error) {
+        console.error("Failed to fetch discover data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // --- Skeletons ---
+  const SectionSkeleton = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {[1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-80 w-full rounded-2xl" />
+      ))}
+    </div>
+  );
 
   return (
     <div className="overflow-x-hidden pt-20 bg-gray-50">
@@ -44,11 +202,19 @@ export default async function Discover() {
 
       {/* content */}
       <div className="space-y-2">
-        <BusinessCardCarousel businesses={businesses} />
-        <EventCardCarousel events={events} />
-
-        {/* another carousel section */}
-        <BusinessBestCarousel businesses={businesses} />
+        {/* Top Carousels */}
+        {isLoading ? (
+          <div className="px-4 lg:px-16 py-8 space-y-8">
+            <SectionSkeleton />
+            <SectionSkeleton />
+          </div>
+        ) : (
+          <>
+            <BusinessCardCarousel businesses={businesses} />
+            <EventCardCarousel events={events} />
+            <BusinessBestCarousel businesses={businesses} />
+          </>
+        )}
 
         {/* Ready to grow your business section */}
         <div className="py-12 px-4 lg:px-16 bg-white">
@@ -60,6 +226,7 @@ export default async function Discover() {
                 alt="Vendor serving customer"
                 fill
                 className="object-cover"
+                unoptimized={true}
                 priority
               />
             </div>
@@ -82,7 +249,7 @@ export default async function Discover() {
           </div>
         </div>
 
-        {/*  Business section*/}
+        {/* Business section */}
         <div className="py-12 px-4 lg:px-16">
           <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
             <div className="flex flex-col space-y-2">
@@ -104,10 +271,14 @@ export default async function Discover() {
             </div>
           </div>
 
-          <BusinessSectionCarousel businesses={businesses} />
+          {isLoading ? (
+            <SectionSkeleton />
+          ) : (
+            <BusinessSectionCarousel businesses={businesses} />
+          )}
         </div>
 
-        {/* Events section*/}
+        {/* Events section */}
         <div className="py-12 px-4 lg:px-16">
           <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
             <div className="flex flex-col space-y-2">
@@ -129,7 +300,11 @@ export default async function Discover() {
             </div>
           </div>
 
-          <EventSectionCarousel events={events} />
+          {isLoading ? (
+            <SectionSkeleton />
+          ) : (
+            <EventSectionCarousel events={events} />
+          )}
         </div>
 
         {/* Communities section */}
@@ -153,8 +328,12 @@ export default async function Discover() {
               </Link>
             </div>
           </div>
-    
-          <CommunitySectionCarousel communities={communityCards} />
+
+          {isLoading ? (
+            <SectionSkeleton />
+          ) : (
+            <CommunitySectionCarousel communities={communities} />
+          )}
         </div>
 
         {/* CTA */}

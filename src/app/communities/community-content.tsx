@@ -1,66 +1,206 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
-import {
-  CommunityCategory,
-  CommunityCard,
-  featuredBusinesses as DataBusinesses,
-  Events,
-} from "@/lib/data";
+import { CommunityCategory } from "@/lib/data"; // Keep category types/data
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import CommunityCarousel from "@/components/communities/community-carousel";
 import BusinessSectionCarousel from "@/components/business-section-carousel";
 import EventSectionCarousel from "@/components/event-section-carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface CommunityContentProps {
-  categories: CommunityCategory[];
-  communities: CommunityCard[];
+// --- API Interfaces ---
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
 }
 
-// Helper function to convert DataBusiness to API Business type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const convertDataBusinessToApiBusiness = (business: any) => {
-  return {
-    ...business,
-    images: business.image ? [business.image] : ["/images/placeholders/generic.jpg"],
-    // Remove the image property since API expects images array
-    image: undefined,
-  };
+interface ApiCategory {
+  name: string;
+}
+
+interface ApiListing {
+  id: number;
+  name: string;
+  slug: string;
+  type: string;
+  listing_type?: string;
+  rating: string | number;
+  ratings_count: string | number;
+  location?: string;
+  address?: string;
+  status: string;
+  images: (ApiImage | string)[];
+  cover_image?: string;
+  image?: string;
+  categories: ApiCategory[];
+  bio?: string;
+  description?: string;
+  start_date?: string;
+  is_verified?: boolean;
+}
+
+// --- Helper Functions ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http")) return url;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// Helper function to convert array of DataBusiness to API Business array
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const convertBusinessesArray = (businesses: any[]) => {
-  return businesses.map(convertDataBusinessToApiBusiness);
+const classifyListing = (
+  item: ApiListing
+): "business" | "event" | "community" => {
+  const rawType = (item.type || item.listing_type || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  if (item.start_date || rawType === "event") return "event";
+  if (rawType === "community") return "community";
+  return "business";
 };
 
+// --- Main Component ---
 export default function CommunityContent({
   categories,
-  communities,
-}: CommunityContentProps) {
-  const businesses = useMemo(() => {
-    return convertBusinessesArray(DataBusinesses);
-  }, []);
-  
-  const events = Events;
+}: {
+  categories: CommunityCategory[];
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [communities, setCommunities] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [events, setEvents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
-  // Filter communities based on selected category
+  // --- Fetch Data ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+        const response = await fetch(`${API_URL}/api/listings?per_page=100`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch listings");
+
+        const json = await response.json();
+        const data: ApiListing[] = json.data || json.listings || [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const communitiesList: any[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const businessesList: any[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eventsList: any[] = [];
+
+        data.forEach((item) => {
+          // --- Robust Image Logic ---
+          const rawImages = Array.isArray(item.images) ? item.images : [];
+          const validImages = rawImages
+            .filter((img): img is string | ApiImage => {
+              if (typeof img === "string") return true;
+              if (img && typeof img === "object" && "media" in img) {
+                const badStatuses = [
+                  "processing",
+                  "failed",
+                  "pending",
+                  "error",
+                ];
+                return !badStatuses.includes(img.media);
+              }
+              return false;
+            })
+            .map((img) => {
+              const mediaPath = typeof img === "string" ? img : img.media;
+              return getImageUrl(mediaPath);
+            });
+
+          if (validImages.length === 0) {
+            if (item.image) validImages.push(getImageUrl(item.image));
+            else if (item.cover_image)
+              validImages.push(getImageUrl(item.cover_image));
+            else validImages.push("/images/placeholders/generic.jpg");
+          }
+
+          const categoryName = item.categories?.[0]?.name || "General";
+          const location = item.location || item.address || "Online";
+          const listingType = classifyListing(item);
+
+          const commonProps = {
+            id: item.id.toString(),
+            name: item.name,
+            title: item.name, // Title alias for different components
+            slug: item.slug,
+            description: item.bio || item.description || "",
+            image: validImages[0], // Single image
+            images: validImages, // Array of images
+            location: location,
+            verified: item.is_verified || false,
+            category: categoryName,
+            tag: categoryName, // Alias for communities filter
+          };
+
+          if (listingType === "community") {
+            communitiesList.push({
+              ...commonProps,
+              imageUrl: validImages[0], // Specific prop for CommunityCard if needed
+            });
+          } else if (listingType === "business") {
+            businessesList.push({
+              ...commonProps,
+              rating: Number(item.rating) || 0,
+              reviewCount: Number(item.ratings_count) || 0,
+            });
+          } else if (listingType === "event") {
+            eventsList.push({
+              ...commonProps,
+              startDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+              endDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+            });
+          }
+        });
+
+        setCommunities(communitiesList);
+        setBusinesses(businessesList);
+        setEvents(eventsList);
+      } catch (error) {
+        console.error("Failed to fetch community page data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // --- Filtering Logic ---
   const filteredCommunities = useMemo(() => {
     if (selectedCategory === "all") {
       return communities;
     }
 
     return communities.filter((community) => {
-      // Normalize both values for flexible matching
       const normalizeString = (str: string) =>
-        str
+        (str || "")
           .toLowerCase()
           .replace(/\s+/g, "-")
           .replace(/&/g, "")
@@ -69,7 +209,6 @@ export default function CommunityContent({
       const communityTag = normalizeString(community.tag);
       const selectedCat = normalizeString(selectedCategory);
 
-      // Flexible matching: exact match or partial match
       return (
         communityTag === selectedCat ||
         communityTag.includes(selectedCat) ||
@@ -78,15 +217,14 @@ export default function CommunityContent({
     });
   }, [communities, selectedCategory]);
 
-  // Get communities by specific tag
   const getCommunitiesByTag = (tag: string) => {
-    return filteredCommunities.filter((c) => c.tag === tag);
+    return filteredCommunities.filter((c) =>
+      c.tag.toLowerCase().includes(tag.toLowerCase())
+    );
   };
 
-  // Main tags to show initially (in order)
   const mainTags = ["Mental Health"];
 
-  // Additional tags to show after "Explore more"
   const additionalTags = [
     "Community Interest",
     "School Groups",
@@ -97,6 +235,25 @@ export default function CommunityContent({
     "Hometown Groups",
   ];
 
+  // Skeleton Loader
+  if (isLoading) {
+    return (
+      <div className="space-y-8 px-4 lg:px-16 pt-8">
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-10 w-32 rounded-full shrink-0" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-3xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Scrollable Category Tabs */}
@@ -106,7 +263,7 @@ export default function CommunityContent({
           defaultValue="all"
           onChange={(value) => {
             setSelectedCategory(value);
-            setShowAllCategories(false); // Reset expand state when category changes
+            setShowAllCategories(false);
           }}
           containerClassName="pt-4 pb-1"
         />
@@ -124,7 +281,6 @@ export default function CommunityContent({
         {filteredCommunities.length > 0 ? (
           <>
             {selectedCategory === "all" ? (
-              // Show structured sections for "All" view
               <>
                 {/* Top Featured Communities Section */}
                 <CommunityCarousel
@@ -168,7 +324,8 @@ export default function CommunityContent({
                     })}
                   </>
                 )}
-                {/* Explore more or less button */}
+
+                {/* Explore more button */}
                 <div className="flex justify-center py-10">
                   <Button
                     onClick={() => setShowAllCategories(!showAllCategories)}
@@ -183,18 +340,16 @@ export default function CommunityContent({
                 {/* Join community section */}
                 <div className="py-12 px-4 lg:px-16 bg-white">
                   <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
-                    {/* Left: Image */}
                     <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
                       <Image
                         src="/images/backgroundImages/community/students.jpg"
                         alt="Community gathering"
                         fill
                         className="object-cover"
+                        unoptimized={true}
                         priority
                       />
                     </div>
-
-                    {/* Right: Text Content */}
                     <div className="flex flex-col justify-center bg-black text-white w-full lg:w-1/2 p-8 lg:p-16 space-y-6">
                       <h2 className="text-3xl md:text-5xl font-medium leading-tight">
                         Host your Community or social impact on Mefie
@@ -212,7 +367,7 @@ export default function CommunityContent({
                   </div>
                 </div>
 
-                {/*  Business section*/}
+                {/* Business section */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
                     <div className="flex flex-col space-y-2">
@@ -239,7 +394,7 @@ export default function CommunityContent({
                   <BusinessSectionCarousel businesses={businesses} />
                 </div>
 
-                {/* Events section*/}
+                {/* Events section */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
                     <div className="flex flex-col space-y-2">
@@ -268,42 +423,33 @@ export default function CommunityContent({
                 {/* CTA */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-                    {/* Background patterns */}
                     <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
                       <Image
                         src="/images/backgroundImages/bg-pattern.svg"
-                        alt="background pattern left"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain h-[150px] lg:h-[400px]"
-                        priority
                       />
                     </div>
                     <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
                       <Image
                         src="/images/backgroundImages/bg-pattern-1.svg"
-                        alt="background pattern right"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain"
-                        priority
                       />
                     </div>
                     <div className="block lg:hidden absolute bottom-16 -right-32">
                       <Image
                         src="/images/backgroundImages/mobile-pattern.svg"
-                        alt="background pattern right"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain h-[120px]"
-                        priority
                       />
                     </div>
-
-                    {/* Text content */}
                     <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
                       Ready to Grow Your Business?
                     </h2>
@@ -311,8 +457,6 @@ export default function CommunityContent({
                       Join thousands of African businesses already listed on
                       Mefie Directory
                     </p>
-
-                    {/* CTA button */}
                     <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
@@ -320,7 +464,7 @@ export default function CommunityContent({
                 </div>
               </>
             ) : (
-              // Show filtered communities in a single section
+              // Filtered View
               <>
                 <div className="py-12 px-4 lg:px-16">
                   <CommunityCarousel

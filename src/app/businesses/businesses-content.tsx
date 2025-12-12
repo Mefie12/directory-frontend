@@ -1,56 +1,221 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
-import { Business as DataBusiness, BusinessCategory, Events } from "@/lib/data";
+import { BusinessCategory } from "@/lib/data";
 import BusinessSection from "@/components/business/business-section";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import EventSectionCarousel from "@/components/event-section-carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface BusinessesContentProps {
-  categories: BusinessCategory[];
-  businesses: DataBusiness[]; // Using DataBusiness type
+// --- API Interfaces ---
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
 }
 
-// Helper function to convert DataBusiness to API Business type
-const convertDataBusinessToApiBusiness = (business: DataBusiness) => {
-  return {
-    ...business,
-    images: business.image
-      ? [business.image]
-      : ["/images/placeholders/generic.jpg"],
-    // Remove the image property since API expects images array
-    image: undefined,
-  };
+interface ApiCategory {
+  name: string;
+}
+
+interface ApiListing {
+  id: number;
+  name: string;
+  slug: string;
+  type: string;
+  listing_type?: string;
+  rating: string | number;
+  ratings_count: string | number;
+  location?: string;
+  address?: string;
+  city?: string;
+  country?: string; // Add country if API has it
+  status: string;
+  images: (ApiImage | string)[];
+  cover_image?: string;
+  image?: string;
+  categories: ApiCategory[];
+  bio?: string;
+  description?: string;
+  start_date?: string;
+  created_at?: string; // Add created_at from API
+  is_verified?: boolean;
+}
+
+// --- Extended Business Interface for UI ---
+// Updated to match what BusinessCard/BusinessSection expects
+interface ProcessedBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  images: string[];
+  location: string;
+  verified: boolean;
+  rating: number;
+  reviewCount: number; // Note: BusinessCard likely expects string, check type below
+  category: string;
+  // --- ADDED MISSING FIELDS ---
+  type: string;
+  country: string;
+  createdAt: Date;
+}
+
+// --- Helper Functions ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http")) return url;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// Helper function to convert array of DataBusiness to API Business array
-const convertBusinessesArray = (businesses: DataBusiness[]) => {
-  return businesses.map(convertDataBusinessToApiBusiness);
+const classifyListing = (
+  item: ApiListing
+): "business" | "event" | "community" => {
+  const rawType = (item.type || item.listing_type || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+  if (item.start_date || rawType === "event") return "event";
+  if (rawType === "community") return "community";
+  return "business";
 };
 
+// --- Main Component ---
 export default function BusinessesContent({
   categories,
-  businesses,
-}: BusinessesContentProps) {
+}: {
+  categories: BusinessCategory[];
+}) {
+  // Use 'any' here if BusinessSection's type is strict and imported from lib/data
+  // Ideally, update BusinessSection to accept ProcessedBusiness, but 'any' fixes the immediate blocking error safely here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [events, setEvents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
-  const events = Events;
+  // --- Fetch Data ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-  // Filter businesses based on selected category
+        const response = await fetch(`${API_URL}/api/listings?per_page=100`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch listings");
+
+        const json = await response.json();
+        const data: ApiListing[] = json.data || json.listings || [];
+
+        const businessesList: ProcessedBusiness[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eventsList: any[] = [];
+
+        data.forEach((item) => {
+          // Robust Image Logic
+          const rawImages = Array.isArray(item.images) ? item.images : [];
+
+          const validImages = rawImages
+            .filter((img): img is string | ApiImage => {
+              if (typeof img === "string") return true;
+              if (img && typeof img === "object" && "media" in img) {
+                const badStatuses = [
+                  "processing",
+                  "failed",
+                  "pending",
+                  "error",
+                ];
+                return !badStatuses.includes(img.media);
+              }
+              return false;
+            })
+            .map((img) => {
+              const mediaPath = typeof img === "string" ? img : img.media;
+              return getImageUrl(mediaPath);
+            });
+
+          if (validImages.length === 0) {
+            if (item.image) validImages.push(getImageUrl(item.image));
+            else if (item.cover_image)
+              validImages.push(getImageUrl(item.cover_image));
+            else validImages.push("/images/placeholders/generic.jpg");
+          }
+
+          const categoryName = item.categories?.[0]?.name || "General";
+          const location = item.location || item.address || "Online";
+          const listingType = classifyListing(item);
+
+          const commonProps = {
+            id: item.id.toString(),
+            name: item.name,
+            slug: item.slug,
+            description: item.bio || item.description || "",
+            image: validImages[0],
+            images: validImages,
+            location: location,
+            verified: item.is_verified || false,
+            rating: Number(item.rating) || 0,
+            reviewCount: Number(item.ratings_count) || 0,
+            category: categoryName,
+            // --- MAPPED FIELDS FOR UI COMPATIBILITY ---
+            type: listingType, // "business", "event", etc.
+            country: item.country || "Ghana", // Default or fetch
+            createdAt: item.created_at ? new Date(item.created_at) : new Date(),
+          };
+
+          if (listingType === "event") {
+            eventsList.push({
+              ...commonProps,
+              title: item.name,
+              startDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+              endDate: item.start_date
+                ? new Date(item.start_date).toDateString()
+                : "TBA",
+            });
+          } else if (listingType === "business") {
+            businessesList.push(commonProps);
+          }
+        });
+
+        setBusinesses(businessesList);
+        setEvents(eventsList);
+      } catch (error) {
+        console.error("Failed to fetch business page data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // --- Filtering Logic ---
   const filteredBusinesses = useMemo(() => {
     if (selectedCategory === "all") {
       return businesses;
     }
 
     return businesses.filter((business) => {
-      // Normalize both values for flexible matching
       const normalizeString = (str: string) =>
-        str
+        (str || "")
           .toLowerCase()
           .replace(/\s+/g, "-")
           .replace(/&/g, "")
@@ -59,7 +224,6 @@ export default function BusinessesContent({
       const businessCategory = normalizeString(business.category);
       const selectedCat = normalizeString(selectedCategory);
 
-      // Flexible matching: exact match or partial match
       return (
         businessCategory === selectedCat ||
         businessCategory.includes(selectedCat) ||
@@ -68,20 +232,14 @@ export default function BusinessesContent({
     });
   }, [businesses, selectedCategory]);
 
-  // Get businesses by specific category
   const getBusinessesByCategory = (category: string) => {
-    return filteredBusinesses.filter((b) => b.category === category);
+    return filteredBusinesses.filter(
+      (b) => b.category.toLowerCase() === category.toLowerCase()
+    );
   };
 
-  // Convert filtered businesses to API format for BusinessSection
-  const filteredBusinessesForSection = useMemo(() => {
-    return convertBusinessesArray(filteredBusinesses);
-  }, [filteredBusinesses]);
-
-  // Main categories to show initially (in order)
   const mainCategories = ["Clothing", "Jewellery", "Art & Crafts"];
 
-  // Additional categories to show after "Explore more"
   const additionalCategories = [
     "Caterer",
     "Dancers",
@@ -91,43 +249,55 @@ export default function BusinessesContent({
     "Books & Magazines",
   ];
 
+  if (isLoading) {
+    return (
+      <div className="space-y-8 px-4 lg:px-16 pt-8">
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-10 w-32 rounded-full shrink-0" />
+          ))}
+        </div>
+        <Skeleton className="h-14 w-full rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-80 w-full rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Scrollable Category Tabs */}
       <div>
         <ScrollableCategoryTabs
           categories={categories}
           defaultValue="all"
           onChange={(value) => {
             setSelectedCategory(value);
-            setShowAllCategories(false); // Reset expand state when category changes
+            setShowAllCategories(false);
           }}
           containerClassName="pt-4 pb-1"
         />
       </div>
 
-      {/* Search and Filter Bar */}
       <div>
         <Suspense fallback={<div className="h-20" />}>
           <SearchHeader context="businesses" />
         </Suspense>
       </div>
 
-      {/* Business Content */}
       <div className="bg-gray-50">
         {filteredBusinesses.length > 0 ? (
           <>
             {selectedCategory === "all" ? (
-              // Show structured sections for "All" view
               <>
-                {/* Top Best Deals Section */}
                 <BusinessSection
-                  businesses={filteredBusinessesForSection.slice(0, 8)}
+                  businesses={filteredBusinesses.slice(0, 8)}
                   title="Today's best deals just for you!"
                   showNavigation={true}
                 />
 
-                {/* Main Category Sections */}
                 {mainCategories.map((category) => {
                   const categoryBusinesses = getBusinessesByCategory(category);
                   if (categoryBusinesses.length === 0) return null;
@@ -135,14 +305,13 @@ export default function BusinessesContent({
                   return (
                     <BusinessSection
                       key={category}
-                      businesses={convertBusinessesArray(categoryBusinesses)}
+                      businesses={categoryBusinesses}
                       title={category}
                       showNavigation={true}
                     />
                   );
                 })}
 
-                {/* Additional Categories (shown after expand) */}
                 {showAllCategories && (
                   <>
                     {additionalCategories.map((category) => {
@@ -153,9 +322,7 @@ export default function BusinessesContent({
                       return (
                         <BusinessSection
                           key={category}
-                          businesses={convertBusinessesArray(
-                            categoryBusinesses
-                          )}
+                          businesses={categoryBusinesses}
                           title={category}
                           showNavigation={true}
                         />
@@ -163,7 +330,7 @@ export default function BusinessesContent({
                     })}
                   </>
                 )}
-                {/* Explore more or less button */}
+
                 <div className="flex justify-center py-10">
                   <Button
                     onClick={() => setShowAllCategories(!showAllCategories)}
@@ -175,21 +342,18 @@ export default function BusinessesContent({
                   </Button>
                 </div>
 
-                {/* Ready to grow your business section */}
                 <div className="py-12 px-4 lg:px-16 bg-white">
                   <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
-                    {/* Left: Image */}
                     <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
                       <Image
                         src="/images/backgroundImages/business/vendor.jpg"
                         alt="Vendor serving customer"
                         fill
                         className="object-cover"
+                        unoptimized={true}
                         priority
                       />
                     </div>
-
-                    {/* Right: Text Content */}
                     <div className="flex flex-col justify-center bg-[#0D7077] text-white w-full lg:w-1/2 p-8 lg:p-16 space-y-6">
                       <h2 className="text-3xl md:text-5xl font-medium leading-tight">
                         Grow Your Business with Mefie
@@ -207,7 +371,6 @@ export default function BusinessesContent({
                   </div>
                 </div>
 
-                {/* Events section*/}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
                     <div className="flex flex-col space-y-2">
@@ -233,45 +396,35 @@ export default function BusinessesContent({
                   <EventSectionCarousel events={events} />
                 </div>
 
-                {/* CTA */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-                    {/* Background patterns */}
                     <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
                       <Image
                         src="/images/backgroundImages/bg-pattern.svg"
-                        alt="background pattern left"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain h-[150px] lg:h-[400px]"
-                        priority
                       />
                     </div>
                     <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
                       <Image
                         src="/images/backgroundImages/bg-pattern-1.svg"
-                        alt="background pattern right"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain"
-                        priority
                       />
                     </div>
                     <div className="block lg:hidden absolute bottom-16 -right-32">
                       <Image
                         src="/images/backgroundImages/mobile-pattern.svg"
-                        alt="background pattern right"
+                        alt="pattern"
                         width={320}
                         height={320}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain h-[120px]"
-                        priority
                       />
                     </div>
-
-                    {/* Text content */}
                     <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
                       Ready to Grow Your Business?
                     </h2>
@@ -279,8 +432,6 @@ export default function BusinessesContent({
                       Join thousands of African businesses already listed on
                       Mefie Directory
                     </p>
-
-                    {/* CTA button */}
                     <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
@@ -288,10 +439,9 @@ export default function BusinessesContent({
                 </div>
               </>
             ) : (
-              // Show filtered businesses in a single section
               <>
                 <BusinessSection
-                  businesses={filteredBusinessesForSection}
+                  businesses={filteredBusinesses}
                   title={
                     categories.find((c) => c.value === selectedCategory)
                       ?.label || "Filtered Businesses"
@@ -303,9 +453,7 @@ export default function BusinessesContent({
           </>
         ) : (
           <div className="py-16 px-4 lg:px-16 text-center">
-            <p className="text-gray-500 text-lg">
-              No businesses found in this category.
-            </p>
+            <p className="text-gray-500 text-lg">No businesses found.</p>
           </div>
         )}
       </div>
