@@ -1,11 +1,22 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { Listing } from "@/lib/api";
 import { Input } from "./ui/input";
+
+// Define the shape of the search result
+interface SearchResult {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  location: string;
+  price?: string;
+  slug: string;
+}
 
 interface SearchDropdownProps {
   onSearch: (query: string) => void;
@@ -13,13 +24,21 @@ interface SearchDropdownProps {
   context?: "discover" | "businesses" | "events" | "communities";
 }
 
+// --- Helper: Robust Image URL Generator ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http")) return url;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
 export default function SearchDropdown({
   onSearch,
   placeholder = "Search by listing name or keyword...",
   context = "discover",
 }: SearchDropdownProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Listing[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,16 +66,79 @@ export default function SearchDropdown({
         setShowDropdown(true);
 
         try {
-          const endpoint =
-            context === "discover" ? "/api/listings" : `/api/${context}`;
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
+          // 1. Using the provided Search Endpoint
           const response = await fetch(
-            `${endpoint}?q=${encodeURIComponent(query)}&limit=5`
+            `${API_URL}/api/search?q=${encodeURIComponent(query)}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+            }
           );
 
           if (response.ok) {
-            const data = await response.json();
-            setResults(data.data || []);
+            const json = await response.json();
+            // Handle different response structures (data wrapper or direct array)
+            const rawData = Array.isArray(json)
+              ? json
+              : json.data || json.results || [];
+
+            // 2. Robust Data Mapping
+            const mappedResults: SearchResult[] = rawData.map((item: any) => {
+              // Image Logic
+              const rawImages = Array.isArray(item.images) ? item.images : [];
+              const validImages = rawImages
+                .filter((img: any) => {
+                  if (typeof img === "string") return true;
+                  if (img && typeof img === "object" && img.media) {
+                    return !["processing", "failed"].includes(img.media);
+                  }
+                  return false;
+                })
+                .map((img: any) => {
+                  const mediaPath = typeof img === "string" ? img : img.media;
+                  return getImageUrl(mediaPath);
+                });
+
+              let finalImage = "/images/placeholders/generic.jpg";
+              if (validImages.length > 0) finalImage = validImages[0];
+              else if (item.image) finalImage = getImageUrl(item.image);
+              else if (item.cover_image)
+                finalImage = getImageUrl(item.cover_image);
+
+              // Category Logic
+              let categoryName = "General";
+              if (
+                Array.isArray(item.categories) &&
+                item.categories.length > 0
+              ) {
+                categoryName = item.categories[0].name;
+              } else if (
+                item.category &&
+                typeof item.category === "object" &&
+                item.category.name
+              ) {
+                categoryName = item.category.name;
+              } else if (typeof item.category === "string") {
+                categoryName = item.category;
+              }
+
+              return {
+                id: item.id.toString(),
+                name: item.name || item.title || "Untitled",
+                slug: item.slug || item.id.toString(),
+                category: categoryName,
+                image: finalImage,
+                location: item.location || "Online",
+                price: item.price ? item.price : undefined, // Optional
+              };
+            });
+
+            setResults(mappedResults);
           } else {
             setResults([]);
           }
@@ -70,10 +152,10 @@ export default function SearchDropdown({
         setResults([]);
         setShowDropdown(false);
       }
-    }, 300);
+    }, 300); // 300ms debounce
 
     return () => clearTimeout(timer);
-  }, [query, context]);
+  }, [query]);
 
   const handleInputChange = (value: string) => {
     setQuery(value);
@@ -104,7 +186,7 @@ export default function SearchDropdown({
 
       {/* Dropdown Results */}
       {showDropdown && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xs border border-gray-200 max-h-[400px] overflow-y-auto z-50">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[400px] overflow-y-auto z-50">
           {isLoading ? (
             <div className="p-4 text-center text-gray-500">
               <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
@@ -112,47 +194,44 @@ export default function SearchDropdown({
             </div>
           ) : results.length > 0 ? (
             <div className="py-2">
-              {results.map((result) => {
-                // 1. FIX: Helper to safely extract a single image URL string
-                // Handle case where result.image is string[] or just string
-                const displayImage = Array.isArray(result.image)
-                  ? result.image[0] || "/images/placeholders/generic.jpg"
-                  : result.image || "/images/placeholders/generic.jpg";
-
-                return (
-                  <Link
-                    key={result.id}
-                    href={`/${context}/${result.id}`}
-                    onClick={handleResultClick}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Only render wrapper if we have a valid image */}
-                    {displayImage && (
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                        <Image
-                          src={displayImage} // 2. FIX: Now passing a string, not string[]
-                          alt={result.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm text-gray-900 truncate">
-                        {result.name}
-                      </h4>
-                      <p className="text-xs text-gray-500 truncate">
-                        {result.category} • {result.country}
-                      </p>
-                    </div>
-                    {result.price && (
-                      <span className="text-sm font-semibold text-[#9ACC23]">
-                        ${result.price}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+              {results.map((result) => (
+                <Link
+                  key={result.id}
+                  // Dynamic routing based on the item type if available, otherwise context
+                  href={`/${context}/${result.slug}`}
+                  onClick={handleResultClick}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                >
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                    <Image
+                      src={result.image}
+                      alt={result.name}
+                      fill
+                      className="object-cover"
+                      unoptimized={true}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm text-gray-900 truncate">
+                      {result.name}
+                    </h4>
+                    <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                      <span>{result.category}</span>
+                      {result.location && (
+                        <>
+                          <span>•</span>
+                          <span>{result.location}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  {result.price && (
+                    <span className="text-sm font-semibold text-[#9ACC23]">
+                      {result.price}
+                    </span>
+                  )}
+                </Link>
+              ))}
             </div>
           ) : query.length > 0 ? (
             <div className="p-8 text-center">
@@ -163,7 +242,7 @@ export default function SearchDropdown({
                 No results found
               </h3>
               <p className="text-sm text-gray-500">
-                Try adjusting your search terms
+                We couldn&apos;t find anything matching &quot;{query}&quot;
               </p>
             </div>
           ) : null}
