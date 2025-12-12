@@ -403,7 +403,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                       key={category.id}
                       // FIX: Explicitly convert ID to string.
                       // If API returns a number (1), and state has string "1",
-                      // the Select won't match them without this conversion.
                       value={String(category.id)}
                     >
                       {category.name}
