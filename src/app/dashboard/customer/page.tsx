@@ -17,13 +17,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
-// import { useBookmark } from "@/context/bookmark-context"; // Ensure this import is correct based on your project structure
 import { useRouter } from "next/navigation";
 
-// --- 1. UI Interface (State) ---
+// --- Types ---
 interface ListingItem {
   id: string;
-  // slug: string;
   title: string;
   type: "event" | "business" | "community";
   category: string;
@@ -36,12 +34,11 @@ interface ListingItem {
   reviews?: string;
 }
 
-// --- 2. API Raw Data Interface ---
 interface ApiRawItem {
   id: number | string;
   title?: string;
   name?: string;
-  type?: string; // Keep as string here, validate later
+  type?: string;
   category?: { name: string } | string;
   image?: string;
   cover_image?: string;
@@ -53,28 +50,22 @@ interface ApiRawItem {
   reviews_count?: number | string;
 }
 
-// --- Reusable Listing Card Component ---
+// --- Listing Card ---
 const ListingCard = ({ item }: { item: ListingItem }) => {
-  // If your context allows removing, you can destructure logic here.
-  // For the Dashboard view, usually, we just link to the item.
-
   return (
     <div className="group rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-      {/* Image Container */}
       <div className="relative h-48 w-full bg-gray-200">
         <Image
           src={item.image || "/images/placeholders/generic.jpg"}
           alt={item.title}
           fill
           className="object-cover"
-          unoptimized={true} // Handle external images
+          unoptimized={true}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.src = "/images/placeholders/generic.jpg";
           }}
         />
-
-        {/* Event Specific Overlay */}
         {item.type === "event" && (
           <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent flex flex-col justify-end p-4">
             <div className="flex items-center justify-between">
@@ -94,9 +85,7 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
         )}
       </div>
 
-      {/* Content Body */}
       <div className="p-4 space-y-3">
-        {/* Business Header */}
         {item.type === "business" && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
@@ -133,14 +122,12 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
           </div>
         )}
 
-        {/* Description (Events Only) */}
         {item.type === "event" && (
           <p className="text-sm text-gray-600 line-clamp-2">
             {item.description}
           </p>
         )}
 
-        {/* Meta Details */}
         <div className="space-y-2 pt-1">
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <MapPin className="w-4 h-4 text-gray-400" />
@@ -158,7 +145,7 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
   );
 };
 
-// --- Loading Skeleton Component ---
+// --- Skeleton ---
 const CardSkeleton = () => (
   <div className="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm h-80 animate-pulse">
     <div className="h-48 w-full bg-gray-200" />
@@ -174,22 +161,23 @@ export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // Dynamic State
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
   const [eventsNearMe, setEventsNearMe] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- Fetch Data ---
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem("authToken");
+
+        // 1. If no token yet, don't fetch (but don't stop forever, the effect will re-run when `user` changes)
         if (!token) return;
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        // 2. FIX: Use NEXT_PUBLIC_ for client-side access
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [bookmarksRes, eventsRes] = await Promise.all([
-          // FIX 1: Implemented the new API endpoint here
           fetch(`${API_URL}/api/my_bookmarks`, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -204,13 +192,14 @@ export default function Dashboard() {
           }),
         ]);
 
-        // 2. Parse & Map Bookmarks
         if (bookmarksRes.ok) {
           const json = await bookmarksRes.json();
+          // Debugging: Log what the API actually returned
+          console.log("Bookmarks Data:", json);
+
           const rawData: ApiRawItem[] = json.data || [];
 
           const mappedBookmarks: ListingItem[] = rawData.map((item) => {
-            // FIX 2: Resolved ESLint 'any' error by validating the type string
             let validParamsType: "business" | "event" | "community" =
               "business";
             const typeStr = item.type?.toLowerCase();
@@ -221,7 +210,7 @@ export default function Dashboard() {
             return {
               id: item.id.toString(),
               title: item.title || item.name || "Untitled",
-              type: validParamsType, // No 'as any' needed
+              type: validParamsType,
               category:
                 typeof item.category === "object"
                   ? item.category?.name || "General"
@@ -241,13 +230,13 @@ export default function Dashboard() {
             };
           });
           setBookmarks(mappedBookmarks);
+        } else {
+          console.error("Bookmarks fetch failed:", await bookmarksRes.text());
         }
 
-        // 3. Parse & Map Events
         if (eventsRes.ok) {
           const json = await eventsRes.json();
           const rawData: ApiRawItem[] = json.data || [];
-
           const mappedEvents: ListingItem[] = rawData.map((item) => ({
             id: item.id.toString(),
             title: item.title || item.name || "Untitled Event",
@@ -276,8 +265,11 @@ export default function Dashboard() {
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    // 3. Only run fetch if we have a user (meaning auth is likely ready)
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]); // 4. FIX: Added 'user' to dependencies so it re-runs when auth completes
 
   return (
     <div className="px-1 lg:px-8 py-3 space-y-8 pb-20">
