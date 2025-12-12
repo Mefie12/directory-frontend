@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,7 +10,6 @@ import {
   Calendar,
   MapPin,
   Star,
-  CheckCircle,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-cards";
 import Image from "next/image";
@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 // --- Types ---
 interface ListingItem {
@@ -32,128 +33,174 @@ interface ListingItem {
   date?: string;
   rating?: number;
   reviews?: string;
+  slug?: string;
+}
+
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
 }
 
 interface ApiRawItem {
   id: number | string;
+  slug: string;
   title?: string;
   name?: string;
   type?: string;
   category?: { name: string } | string;
+  categories?: { name: string }[]; // Array support
+  images?: (ApiImage | string)[];
   image?: string;
   cover_image?: string;
   location?: string;
   is_verified?: boolean;
   description?: string;
+  bio?: string;
   start_date?: string;
   rating?: number | string;
   reviews_count?: number | string;
 }
 
-// --- Listing Card ---
+// --- 1. ROBUST IMAGE HELPER ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+// --- 2. LISTING CARD (Updated Design) ---
 const ListingCard = ({ item }: { item: ListingItem }) => {
+  const linkPath =
+    item.type === "event"
+      ? `/events/${item.slug || item.id}`
+      : item.type === "community"
+      ? `/communities/${item.slug || item.id}`
+      : `/discover/${item.slug || item.id}`;
+
   return (
-    <div className="group rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="relative h-48 w-full bg-gray-200">
+    <Link
+      href={linkPath}
+      className="group bg-white rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-100 h-full flex flex-col"
+    >
+      {/* Image Container */}
+      <div className="relative w-full aspect-4/3 overflow-hidden bg-gray-100">
         <Image
-          src={item.image || "/images/placeholders/generic.jpg"}
+          src={item.image}
           alt={item.title}
           fill
-          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
           unoptimized={true}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = "/images/placeholders/generic.jpg";
+            if (!target.src.includes("generic.jpg")) {
+              target.src = "/images/placeholders/generic.jpg";
+            }
           }}
         />
-        {item.type === "event" && (
-          <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent flex flex-col justify-end p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white text-xl font-bold line-clamp-1">
-                {item.title}
-              </h3>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-white/90 text-black hover:bg-white border-none">
-                  {item.category}
-                </Badge>
+
+        {/* Dark Gradient Overlay */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-80" />
+
+        {/* Bottom: Name & Badge */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 z-20 flex flex-col justify-end">
+          <div className="flex justify-between items-end gap-2 w-full">
+            {/* Title Section */}
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-bold text-lg text-white line-clamp-1">
+                  {item.title}
+                </h3>
                 {item.verified && (
-                  <CheckCircle className="w-5 h-5 text-green-500 fill-white" />
+                  <Image
+                    src="/images/icons/verify.svg"
+                    alt="Verified"
+                    width={16}
+                    height={16}
+                    className="shrink-0"
+                  />
                 )}
               </div>
             </div>
+
+            {/* Badge Section */}
+            <Badge className="shrink-0 bg-white/90 text-gray-900 hover:bg-white border-0 px-2.5 py-1 text-xs font-medium">
+              {item.category}
+            </Badge>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="p-4 space-y-3">
-        {item.type === "business" && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge
-                variant="secondary"
-                className="bg-gray-100 text-gray-600 hover:bg-gray-200"
-              >
-                {item.category}
-              </Badge>
-              {item.verified && (
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              )}
-            </div>
-            <h3 className="font-semibold text-gray-900 text-base line-clamp-1">
-              {item.title}
-            </h3>
-            <div className="flex items-center gap-1">
-              <div className="flex text-yellow-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-3 h-3 ${
-                      i < Math.floor(item.rating || 0)
-                        ? "fill-current"
-                        : "text-gray-300"
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-xs text-gray-500">
-                ({item.reviews || "0"})
-              </span>
-            </div>
-          </div>
-        )}
-
-        {item.type === "event" && (
-          <p className="text-sm text-gray-600 line-clamp-2">
+      {/* Content Body */}
+      <div className="p-4 flex flex-col flex-1">
+        {/* Description */}
+        {item.description ? (
+          <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
             {item.description}
+          </p>
+        ) : (
+          <p className="text-sm text-gray-400 italic">
+            No description available
           </p>
         )}
 
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <MapPin className="w-4 h-4 text-gray-400" />
-            <span className="line-clamp-1">{item.location}</span>
-          </div>
-          {item.date && (
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <span>{item.date}</span>
+        <div className="mt-auto pt-3 flex flex-col">
+          {/* Rating Row */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={cn(
+                    "w-3.5 h-3.5",
+                    i < Math.floor(item.rating || 0)
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "fill-gray-100 text-gray-200"
+                  )}
+                />
+              ))}
             </div>
-          )}
+            <span className="text-xs font-medium text-gray-700">
+              {item.rating?.toFixed(1)}
+            </span>
+            <span className="text-xs text-gray-400">({item.reviews})</span>
+          </div>
+
+          {/* Location & Date Row */}
+          <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-50 pt-3 mt-1">
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-gray-400" />
+              <span className="line-clamp-1 max-w-[140px]">
+                {item.location}
+              </span>
+            </div>
+
+            {item.date && (
+              <div className="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="font-medium">{item.date}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
 
 // --- Skeleton ---
 const CardSkeleton = () => (
-  <div className="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm h-80 animate-pulse">
-    <div className="h-48 w-full bg-gray-200" />
-    <div className="p-4 space-y-3">
-      <div className="h-4 w-20 bg-gray-200 rounded" />
-      <div className="h-6 w-3/4 bg-gray-200 rounded" />
-      <div className="h-4 w-1/2 bg-gray-200 rounded" />
-    </div>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {[1, 2, 3].map((i) => (
+      <div
+        key={i}
+        className="h-[380px] bg-gray-100 animate-pulse rounded-2xl border border-gray-200"
+      />
+    ))}
   </div>
 );
 
@@ -169,11 +216,8 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem("authToken");
-
-        // 1. If no token yet, don't fetch (but don't stop forever, the effect will re-run when `user` changes)
         if (!token) return;
 
-        // 2. FIX: Use NEXT_PUBLIC_ for client-side access
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
@@ -194,10 +238,16 @@ export default function Dashboard() {
 
         if (bookmarksRes.ok) {
           const json = await bookmarksRes.json();
-          // Debugging: Log what the API actually returned
-          console.log("Bookmarks Data:", json);
-
-          const rawData: ApiRawItem[] = json.data || [];
+          let rawData: ApiRawItem[] = [];
+          if (json.bookmarks && Array.isArray(json.bookmarks.data)) {
+            rawData = json.bookmarks.data;
+          } else if (Array.isArray(json.data)) {
+            rawData = json.data;
+          } else if (Array.isArray(json.bookmarks)) {
+            rawData = json.bookmarks;
+          } else if (Array.isArray(json)) {
+            rawData = json;
+          }
 
           const mappedBookmarks: ListingItem[] = rawData.map((item) => {
             let validParamsType: "business" | "event" | "community" =
@@ -207,55 +257,132 @@ export default function Dashboard() {
               validParamsType = typeStr;
             }
 
+            // --- CATEGORY FIX (Prioritize Array) ---
+            let categoryName = "General";
+            if (Array.isArray(item.categories) && item.categories.length > 0) {
+              categoryName = item.categories[0].name;
+            } else if (
+              item.category &&
+              typeof item.category === "object" &&
+              "name" in item.category
+            ) {
+              categoryName = (item.category as any).name;
+            } else if (typeof item.category === "string") {
+              categoryName = item.category;
+            }
+
+            // --- DESCRIPTION FIX ---
+            const descriptionText = item.description || item.bio || "";
+
+            // --- IMAGE FIX ---
+            const rawImages = Array.isArray(item.images) ? item.images : [];
+            const validImages = rawImages
+              .filter((img: any) => {
+                if (typeof img === "string") return true;
+                if (img && typeof img === "object" && img.media) {
+                  return !["processing", "failed", "pending", "error"].includes(
+                    img.media
+                  );
+                }
+                return false;
+              })
+              .map((img: any) => {
+                const mediaPath = typeof img === "string" ? img : img.media;
+                return getImageUrl(mediaPath);
+              });
+
+            if (validImages.length === 0) {
+              if (item.image) validImages.push(getImageUrl(item.image));
+              else if (item.cover_image)
+                validImages.push(getImageUrl(item.cover_image));
+            }
+
+            const finalImage =
+              validImages.length > 0
+                ? validImages[0]
+                : "/images/placeholders/generic.jpg";
+
             return {
               id: item.id.toString(),
+              slug: item.slug || item.id.toString(),
               title: item.title || item.name || "Untitled",
               type: validParamsType,
-              category:
-                typeof item.category === "object"
-                  ? item.category?.name || "General"
-                  : item.category || "General",
-              image:
-                item.image ||
-                item.cover_image ||
-                "/images/placeholders/generic.jpg",
+              category: categoryName,
+              image: finalImage,
               location: item.location || "Online",
               verified: !!item.is_verified,
-              description: item.description,
+              description: descriptionText,
               date: item.start_date
                 ? `${new Date(item.start_date).toLocaleDateString()}`
                 : undefined,
               rating: Number(item.rating) || 0,
-              reviews: item.reviews_count ? `${item.reviews_count}` : "0",
+              reviews: item.reviews_count ? String(item.reviews_count) : "0",
             };
           });
           setBookmarks(mappedBookmarks);
-        } else {
-          console.error("Bookmarks fetch failed:", await bookmarksRes.text());
         }
 
         if (eventsRes.ok) {
           const json = await eventsRes.json();
           const rawData: ApiRawItem[] = json.data || [];
-          const mappedEvents: ListingItem[] = rawData.map((item) => ({
-            id: item.id.toString(),
-            title: item.title || item.name || "Untitled Event",
-            type: "event",
-            category:
-              typeof item.category === "object"
-                ? item.category?.name || "Event"
-                : item.category || "Event",
-            image:
-              item.image ||
-              item.cover_image ||
-              "/images/placeholders/generic.jpg",
-            location: item.location || "TBD",
-            verified: !!item.is_verified,
-            description: item.description,
-            date: item.start_date
-              ? `${new Date(item.start_date).toLocaleDateString()}`
-              : undefined,
-          }));
+
+          const mappedEvents: ListingItem[] = rawData.map((item) => {
+            let categoryName = "Event";
+            // Same Category Logic for Events
+            if (Array.isArray(item.categories) && item.categories.length > 0) {
+              categoryName = item.categories[0].name;
+            } else if (
+              item.category &&
+              typeof item.category === "object" &&
+              "name" in item.category
+            ) {
+              categoryName = (item.category as any).name;
+            } else if (typeof item.category === "string") {
+              categoryName = item.category;
+            }
+
+            const rawImages = Array.isArray(item.images) ? item.images : [];
+            const validImages = rawImages
+              .filter((img: any) => {
+                if (typeof img === "string") return true;
+                if (img && typeof img === "object" && img.media) {
+                  return !["processing", "failed", "pending", "error"].includes(
+                    img.media
+                  );
+                }
+                return false;
+              })
+              .map((img: any) => {
+                const mediaPath = typeof img === "string" ? img : img.media;
+                return getImageUrl(mediaPath);
+              });
+
+            if (validImages.length === 0) {
+              if (item.image) validImages.push(getImageUrl(item.image));
+              else if (item.cover_image)
+                validImages.push(getImageUrl(item.cover_image));
+            }
+
+            const finalImage =
+              validImages.length > 0
+                ? validImages[0]
+                : "/images/placeholders/generic.jpg";
+
+            return {
+              id: item.id.toString(),
+              slug: item.slug || item.id.toString(),
+              title: item.title || item.name || "Untitled Event",
+              type: "event",
+              category: categoryName,
+              image: finalImage,
+              location: item.location || "TBD",
+              verified: !!item.is_verified,
+              description: item.description || item.bio || "",
+              date: item.start_date
+                ? `${new Date(item.start_date).toLocaleDateString()}`
+                : undefined,
+            };
+          });
           setEventsNearMe(mappedEvents);
         }
       } catch (error) {
@@ -265,11 +392,10 @@ export default function Dashboard() {
       }
     };
 
-    // 3. Only run fetch if we have a user (meaning auth is likely ready)
     if (user) {
       fetchDashboardData();
     }
-  }, [user]); // 4. FIX: Added 'user' to dependencies so it re-runs when auth completes
+  }, [user]);
 
   return (
     <div className="px-1 lg:px-8 py-3 space-y-8 pb-20">
@@ -380,12 +506,13 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading
-            ? [1, 2, 3].map((n) => <CardSkeleton key={n} />)
-            : bookmarks
-                .slice(0, 3)
-                .map((item) => <ListingCard key={item.id} item={item} />)}
-          {!loading && bookmarks.length === 0 && (
+          {loading ? (
+            <CardSkeleton />
+          ) : bookmarks.length > 0 ? (
+            bookmarks
+              .slice(0, 3)
+              .map((item) => <ListingCard key={item.id} item={item} />)
+          ) : (
             <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <Bookmark className="w-10 h-10 text-gray-300 mx-auto mb-2" />
               <h3 className="text-gray-900 font-medium">No bookmarks yet</h3>
@@ -417,12 +544,13 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading
-            ? [1, 2, 3].map((n) => <CardSkeleton key={n} />)
-            : eventsNearMe.map((item) => (
-                <ListingCard key={item.id} item={item} />
-              ))}
-          {!loading && eventsNearMe.length === 0 && (
+          {loading ? (
+            <CardSkeleton />
+          ) : eventsNearMe.length > 0 ? (
+            eventsNearMe.map((item) => (
+              <ListingCard key={item.id} item={item} />
+            ))
+          ) : (
             <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
               <h3 className="text-gray-900 font-medium">
