@@ -17,8 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/context/auth-context";
 
 export default function BecomeVendor() {
+  const { login } = useAuth();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -123,9 +125,18 @@ export default function BecomeVendor() {
       if (!response.ok) {
         throw new Error(data.message || "Failed to register vendor account");
       }
+      
+      const token =
+        data.token || data.access_token || data.jwt || data.data?.token;
 
-      // Redirect to login or specific vendor onboarding page
-      router.push("/auth/login?type=vendor");
+      if (token) {
+        // console.log('✅ Token found:', token);
+        await login(token);
+        router.push("/");
+      } else {
+        // console.error('❌ No token found in response');
+        setError("Login successful but no token received");
+      }
       router.refresh();
     } catch (err) {
       console.error("Vendor registration failed:", err);

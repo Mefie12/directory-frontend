@@ -111,7 +111,7 @@ export default function Signup() {
       }
 
       // Handle successful registration
-      console.log("Registration successful:", data);
+      // console.log("Registration successful:", data);
 
       // Redirect to login page
       const token =
