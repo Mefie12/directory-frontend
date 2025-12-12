@@ -314,7 +314,7 @@ export default function Bookmarks() {
           </div>
           <div className="flex items-center gap-3">
             <Select defaultValue="newest">
-              <SelectTrigger className="w-40 bg-white">
+              <SelectTrigger className="w-52 bg-white">
                 <span className="text-gray-500 mr-2">Sort by</span>
                 <SelectValue placeholder="Newest" />
               </SelectTrigger>

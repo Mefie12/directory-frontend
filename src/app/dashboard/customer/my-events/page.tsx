@@ -279,7 +279,7 @@ export default function MyEvents() {
           </div>
 
           <Select value={filterOption} onValueChange={setFilterOption}>
-            <SelectTrigger className="w-[130px] h-10 bg-white border-gray-200">
+            <SelectTrigger className="w-40 h-10 bg-white border-gray-200">
               <span className="text-gray-500 mr-1">Filter</span>
               <SelectValue />
             </SelectTrigger>

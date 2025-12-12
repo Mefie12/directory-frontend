@@ -87,7 +87,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
     // --- Form ---
     const form = useForm<BusinessFormValues>({
       resolver: zodResolver(businessFormSchema),
-      defaultValues: initialData ||{
+      defaultValues: initialData || {
         name: "",
         category_ids: [],
         description: "",
@@ -103,9 +103,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
     // Add an effect to reset form when data arrives (crucial for async fetching)
     useEffect(() => {
-        if (initialData) {
-            form.reset(initialData);
-        }
+      if (initialData) {
+        form.reset(initialData);
+      }
     }, [initialData, form]);
 
     const {
@@ -398,7 +398,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 </SelectTrigger>
                 <SelectContent>
                   {mainCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
+                    <SelectItem key={category.id} value={String(category.id)}>
                       {category.name}
                     </SelectItem>
                   ))}
