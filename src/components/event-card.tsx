@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 export type Event = {
   id: string;
@@ -24,6 +25,34 @@ type EventCardProps = {
 export function EventCard({ event }: EventCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(event.slug);
+  const pathname = usePathname(); // Get current path
+
+
+   // Determine the base path for navigation based on current page
+  const getBasePath = () => {
+    if (pathname?.includes("/dashboard/customer/bookmarks")) {
+      return "/dashboard/customer/bookmarks";
+    } else if (pathname?.includes("/dashboard/vendor/my-listing")) {
+      return "/dashboard/vendor/my-listing";
+    } else if (pathname?.includes("/discover")) {
+      return "/discover";
+    } else if (pathname?.includes("/businesses")) {
+      return "/businesses";
+    } else if (pathname?.includes("/events")) {
+      return "/events";
+    } else if (pathname?.includes("/communities")) {
+      return "/communities";
+    }
+    // Default fallback
+    return "/discover";
+  };
+
+  // Construct the dynamic link based on current page
+  const getBusinessLink = () => {
+    const basePath = getBasePath();
+    return `${basePath}/${event.slug}`;
+  };
+
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigating if card is a link
@@ -32,7 +61,7 @@ export function EventCard({ event }: EventCardProps) {
   };
   return (
     <Link
-      href={`/events/${event.slug}`}
+      href={getBusinessLink()}
       className="group block rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full"
     >
       {/* Image Container with Gradient Overlay */}

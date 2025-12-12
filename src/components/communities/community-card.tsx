@@ -5,11 +5,10 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Bookmark } from "lucide-react";
 import Link from "next/link";
-// We use 'any' for the type here to allow flexibility between 'image' and 'imageUrl' props
-// during the transition from mock data to API data.
 import type { CommunityCard } from "@/lib/data";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 interface CommunityCardProps {
   community: CommunityCard & { image?: string }; // Extend type to allow 'image'
@@ -18,6 +17,32 @@ interface CommunityCardProps {
 export default function CommunityCard({ community }: CommunityCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(community.slug);
+  const pathname = usePathname(); // Get current path
+
+  // Determine the base path for navigation based on current page
+  const getBasePath = () => {
+    if (pathname?.includes("/dashboard/customer/bookmarks")) {
+      return "/dashboard/customer/bookmarks";
+    } else if (pathname?.includes("/dashboard/vendor/my-listing")) {
+      return "/dashboard/vendor/my-listing";
+    } else if (pathname?.includes("/discover")) {
+      return "/discover";
+    } else if (pathname?.includes("/businesses")) {
+      return "/businesses";
+    } else if (pathname?.includes("/events")) {
+      return "/events";
+    } else if (pathname?.includes("/communities")) {
+      return "/communities";
+    }
+    // Default fallback
+    return "/discover";
+  };
+
+  // Construct the dynamic link based on current page
+  const getBusinessLink = () => {
+    const basePath = getBasePath();
+    return `${basePath}/${community.slug}`;
+  };
 
   // 1. LOGIC FIX: robustly find the image source
   // The API maps to 'image', but legacy data might use 'imageUrl'. We check both.
@@ -40,7 +65,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
 
   return (
     <Link
-      href={`/communities/${community.slug}`}
+      href={getBusinessLink()}
       className="group block rounded-3xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full border border-[#E2E8F0]"
     >
       {/* Image container */}
