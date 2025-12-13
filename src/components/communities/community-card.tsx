@@ -33,6 +33,9 @@ export default function CommunityCard({ community }: CommunityCardProps) {
       return "/events";
     } else if (pathname?.includes("/communities")) {
       return "/communities";
+    // } else if (pathname?.includes("/")) {
+    //   return "/";
+    // }
     }
     // Default fallback
     return "/discover";

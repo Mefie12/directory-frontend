@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
@@ -63,10 +64,19 @@ import {
   XCircle,
   Loader2,
   AlertTriangle,
+  Phone,
+  Mail,
+  Globe,
+  Facebook,
+  Instagram,
+  Twitter,
+  Youtube,
+  Linkedin,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // --- Types ---
 type TabType = "all" | "pending" | "flagged" | "categories";
@@ -89,8 +99,21 @@ interface Listing {
     name: string;
     email?: string;
   };
+  contactInfo?: {
+    phone?: string;
+    email?: string;
+    website?: string;
+    socials?: {
+      facebook?: string;
+      instagram?: string;
+      twitter?: string;
+      youtube?: string;
+      linkedin?: string;
+    };
+  };
 }
 
+// ... [Keep RawListing, ApiResponse, Category interfaces exactly as before] ...
 interface RawListing {
   id?: string | number;
   slug?: string;
@@ -109,6 +132,10 @@ interface RawListing {
   thumbnail?: string;
   plan?: string;
   description?: string;
+  primary_phone?: string;
+  email?: string;
+  website?: string;
+  socials?: any; // Can be array or object depending on API
   user?: {
     id?: number;
     first_name?: string;
@@ -181,7 +208,7 @@ interface CategoryFormData {
   parent_id: string | null;
 }
 
-// --- API Service Functions ---
+// ... [Keep categoryApi object exactly as before] ...
 const categoryApi = {
   getCategories: async (): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
@@ -266,35 +293,23 @@ const categoryApi = {
 export default function Listings() {
   const { user: authUser, loading: authLoading } = useAuth();
 
-  // --- View State ---
+  // ... [Keep all state hooks exactly as before] ...
   const [activeTab, setActiveTab] = useState<TabType>("all");
-
-  // --- Data States (Listings) ---
   const [allData, setAllData] = useState<Listing[]>([]);
   const [displayData, setDisplayData] = useState<Listing[]>([]);
-
-  // --- Filter States ---
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
-
-  // --- Pagination & UI States ---
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [, setError] = useState<string | null>(null);
-
-  // --- Sidebar State ---
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
-
-  // --- Category State (Dynamic) ---
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [selectedMainCategory, setSelectedMainCategory] =
     useState<Category | null>(null);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
-
-  // --- Dialog State (Add/Edit) ---
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null
@@ -306,7 +321,6 @@ export default function Listings() {
     is_main: false,
     parent_id: null,
   });
-
   const [listingToDelete, setListingToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
@@ -349,33 +363,26 @@ export default function Listings() {
     };
 
     return rawItems.map((item) => {
+      // ... [Keep Vendor Name logic] ...
       let vendorName = "Unknown Vendor";
       let userInfo: { name: string; email?: string } | undefined = undefined;
 
       if (item.user) {
         if (item.user.first_name && item.user.last_name) {
           vendorName = `${item.user.first_name} ${item.user.last_name}`;
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         } else if (item.user.name) {
           vendorName = item.user.name;
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         } else if (item.user.email) {
           vendorName = item.user.email.split("@")[0];
-          userInfo = {
-            name: vendorName,
-            email: item.user.email,
-          };
+          userInfo = { name: vendorName, email: item.user.email };
         }
       } else if (item.vendor || item.business_name) {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
+      // ... [Keep Image Logic] ...
       let imageUrl = "/images/placeholder-listing.png";
       if (item.images && item.images.length > 0) {
         const validImage = item.images.find(
@@ -388,6 +395,7 @@ export default function Listings() {
         imageUrl = getImageUrl(item.image || item.thumbnail);
       }
 
+      // ... [Keep Category Logic] ...
       let category = "General";
       if (item.categories && item.categories.length > 0) {
         const mainCategories = item.categories.filter(
@@ -402,6 +410,7 @@ export default function Listings() {
         category = item.category;
       }
 
+      // ... [Keep Location Logic] ...
       let location = "Accra, Ghana";
       if (item.city && item.country) {
         location = `${item.city}, ${item.country}`;
@@ -419,6 +428,11 @@ export default function Listings() {
         approval = "Approved";
       else if (rawStatus === "rejected") approval = "Rejected";
       else if (rawStatus === "suspended") approval = "Suspended";
+
+      // --- Socials Logic ---
+      const socialsData = Array.isArray(item.socials)
+        ? item.socials[0]
+        : item.socials || {};
 
       return {
         id: item.id?.toString() || Math.random().toString(),
@@ -441,11 +455,24 @@ export default function Listings() {
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
         description: item.description || "No description provided.",
         userInfo: userInfo,
+        // --- ADDED CONTACT INFO ---
+        contactInfo: {
+          phone: item.primary_phone,
+          email: item.email,
+          website: item.website,
+          socials: {
+            facebook: socialsData?.facebook,
+            instagram: socialsData?.instagram,
+            twitter: socialsData?.twitter,
+            youtube: socialsData?.youtube,
+            linkedin: socialsData?.linkedin,
+          },
+        },
       };
     });
   };
 
-  // --- Category Management ---
+  // ... [Keep Category Management logic exactly as before] ...
   const mainCategories = allCategories.filter(
     (cat) => cat.type === "mainCategory" || cat.parent_id === null
   );
@@ -528,7 +555,7 @@ export default function Listings() {
     }
   };
 
-  // --- REVISED DELETE HANDLER ---
+  // ... [Keep Delete Handler] ...
   const handleDeleteConfirm = async () => {
     if (!listingToDelete) return;
     setIsDeleting(true);
@@ -550,8 +577,11 @@ export default function Listings() {
 
       if (!response.ok) throw new Error("Failed to delete listing");
 
-      // Update Local State
-      setAllData((prev) => prev.filter((item) => item.slug !== listingToDelete && item.id !== listingToDelete));
+      setAllData((prev) =>
+        prev.filter(
+          (item) => item.slug !== listingToDelete && item.id !== listingToDelete
+        )
+      );
 
       if (selectedListing?.slug === listingToDelete) {
         setSelectedListing(null);
@@ -567,7 +597,7 @@ export default function Listings() {
     }
   };
 
-  // --- REVISED STATUS UPDATE HANDLER ---
+  // ... [Keep Status Update Handler] ...
   const handleStatusUpdate = async (
     listingSlug: string,
     newStatus: "approved" | "rejected" | "suspended"
@@ -578,8 +608,6 @@ export default function Listings() {
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-      const apiStatusValue = newStatus;
-
       const response = await fetch(
         `${API_URL}/api/listing/${listingSlug}/update_status`,
         {
@@ -589,7 +617,7 @@ export default function Listings() {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ status: apiStatusValue }),
+          body: JSON.stringify({ status: newStatus }),
         }
       );
 
@@ -613,13 +641,15 @@ export default function Listings() {
       );
       toast.success(`Listing ${newStatus}`);
     } catch (error) {
-        const msg = error instanceof Error ? error.message : "Failed to update status";
+      const msg =
+        error instanceof Error ? error.message : "Failed to update status";
       toast.error(msg);
     } finally {
       setIsUpdatingStatus(null);
     }
   };
 
+  // ... [Keep Save Category Handler] ...
   const handleSaveCategory = async () => {
     if (!categoryFormData.name.trim()) {
       toast.error("Category name is required");
@@ -662,6 +692,7 @@ export default function Listings() {
     }
   };
 
+  // ... [Keep Main Category Checkbox logic] ...
   const handleMainCategoryChange = (checked: boolean) => {
     setCategoryFormData((prev) => ({
       ...prev,
@@ -674,6 +705,7 @@ export default function Listings() {
     }));
   };
 
+  // ... [Keep loadAllData logic] ...
   const loadAllData = useCallback(async () => {
     if (authLoading || activeTab === "categories") return;
     if (!authUser) {
@@ -692,20 +724,23 @@ export default function Listings() {
         page: currentPage.toString(),
         per_page: itemsPerPage.toString(),
       });
-      
+
       if (search) params.append("search", search);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (typeFilter !== "all") params.append("type", typeFilter);
       if (activeTab === "pending") params.append("status", "pending");
 
-      const response = await fetch(`${API_URL}/api/listings?${params.toString()}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/api/listings?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -727,9 +762,13 @@ export default function Listings() {
       setAllData(listings);
 
       const meta = json.meta || {};
-      const total = meta.last_page || meta.totalPages || json.last_page || json.totalPages || 1;
+      const total =
+        meta.last_page ||
+        meta.totalPages ||
+        json.last_page ||
+        json.totalPages ||
+        1;
       setTotalPages(total);
-
     } catch (error) {
       console.error("Fetch Error:", error);
       setError(
@@ -739,7 +778,15 @@ export default function Listings() {
     } finally {
       setIsLoading(false);
     }
-  }, [authUser, authLoading, activeTab, currentPage, search, statusFilter, typeFilter]);
+  }, [
+    authUser,
+    authLoading,
+    activeTab,
+    currentPage,
+    search,
+    statusFilter,
+    typeFilter,
+  ]);
 
   useEffect(() => {
     if (activeTab === "categories") {
@@ -761,7 +808,7 @@ export default function Listings() {
   useEffect(() => {
     if (activeTab === "categories") return;
     const safeAllData = Array.isArray(allData) ? allData : [];
-    setDisplayData(safeAllData); 
+    setDisplayData(safeAllData);
   }, [allData, activeTab]);
 
   const handlePageChange = (page: number) => setCurrentPage(page);
@@ -826,7 +873,8 @@ export default function Listings() {
   };
 
   const renderInteractiveStatus = (listing: Listing) => {
-    const isUpdating = isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id;
+    const isUpdating =
+      isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id;
 
     if (isUpdating) {
       return <Loader2 className="h-4 w-4 animate-spin text-gray-500" />;
@@ -842,7 +890,9 @@ export default function Listings() {
             <Badge
               variant={getApprovalBadgeVariant(listing.approval)}
               className={`flex items-center gap-1 ${
-                listing.approval === "Approved" ? "bg-green-600 hover:bg-green-700" : ""
+                listing.approval === "Approved"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : ""
               }`}
             >
               {listing.approval}
@@ -880,6 +930,30 @@ export default function Listings() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+    );
+  };
+
+  // --- SOCIAL ICON HELPER ---
+  const SocialLink = ({
+    href,
+    icon: Icon,
+    label,
+  }: {
+    href?: string;
+    icon: any;
+    label: string;
+  }) => {
+    if (!href) return null;
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#93C01F] transition-colors p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+      >
+        <Icon className="w-4 h-4" />
+        <span className="truncate max-w-[150px]">{label}</span>
+      </a>
     );
   };
 
@@ -1020,6 +1094,7 @@ export default function Listings() {
         <>
           {/* Filters Section */}
           <div className="p-1 space-y-4">
+            {/* ... [Keep Filter JSX] ... */}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative w-full md:w-1/3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1163,14 +1238,10 @@ export default function Listings() {
                               >
                                 View Details
                               </DropdownMenuItem>
-                              {/* <DropdownMenuItem>Edit Listing</DropdownMenuItem>
-                              <DropdownMenuSeparator /> */}
-                              {/* DELETE BUTTON FIXED */}
                               <DropdownMenuItem
                                 className="text-red-600 focus:text-red-700 cursor-pointer"
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Stop row click
-                                  // Use SLUG if available, fallback to ID
+                                  e.stopPropagation();
                                   setListingToDelete(item.slug || item.id);
                                 }}
                               >
@@ -1403,7 +1474,7 @@ export default function Listings() {
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
-                e.preventDefault(); // Prevent auto-close, handle in function
+                e.preventDefault();
                 handleDeleteConfirm();
               }}
               className="bg-red-600 hover:bg-red-700"
@@ -1432,9 +1503,6 @@ export default function Listings() {
                   >
                     <ChevronLeft className="w-4 h-4" /> Listings
                   </div>
-                  {/* <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button> */}
                 </div>
                 <SheetTitle className="text-2xl font-bold">
                   {selectedListing.name}
@@ -1443,6 +1511,7 @@ export default function Listings() {
 
               {/* Content */}
               <div className="p-6 space-y-8">
+                {/* --- 1. Info Grid --- */}
                 <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
                   {/* Status */}
                   <RefreshCcw className="w-4 h-4 text-gray-400" />
@@ -1498,7 +1567,7 @@ export default function Listings() {
                     </span>
                   </div>
 
-                  {/* Owner Info if available */}
+                  {/* Owner */}
                   {selectedListing.userInfo && (
                     <>
                       <User className="w-4 h-4 text-gray-400" />
@@ -1515,6 +1584,7 @@ export default function Listings() {
                   )}
                 </div>
 
+                {/* --- 2. Description --- */}
                 <div className="space-y-2">
                   <h3 className="font-semibold text-gray-900">
                     Listing Description
@@ -1523,83 +1593,165 @@ export default function Listings() {
                     {selectedListing.description}
                   </div>
                 </div>
-                {/* Media section */}
+
+                {/* --- 3. Tabs: Media & Contact Info --- */}
                 <div>
-                  <div className="flex border-b border-gray-200">
-                    <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
-                      Media
-                    </button>
-                    <button className="pb-3 px-4 text-sm font-medium text-gray-500 hover:text-gray-700">
-                      Contact Info
-                    </button>
-                  </div>
-                  <div className="mt-6 grid grid-cols-2 gap-4">
-                    {/* Cover image (image[0]) - using selectedListing.image */}
-                    {selectedListing.images &&
-                    selectedListing.images.length > 0 ? (
-                      <>
-                        {/* Cover image - image[0] */}
-                        <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
-                          <Image
-                            src={selectedListing.images[0]}
-                            alt="Cover image"
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            // --- FIX APPLIED START ---
-                            unoptimized={true}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (!target.src.includes("placeholder")) {
-                                target.src = "/images/placeholder-listing.png";
-                              }
-                            }}
-                            // --- FIX APPLIED END ---
-                          />
-                        </div>
+                  <Tabs defaultValue="media" className="w-full">
+                    <div className="border-b border-gray-200 w-full">
+                      <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-4">
+                        <TabsTrigger
+                          value="media"
+                          className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
+                        >
+                          Media
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="contact"
+                          className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
+                        >
+                          Contact Info
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
 
-                        {/* Images 1, 2, 3 from the array */}
-                        {selectedListing.images
-                          .slice(1, 4)
-                          .map((img, index) => (
-                            <div
-                              key={index}
-                              className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
-                            >
-                              <Image
-                                src={img}
-                                alt={`Media ${index + 2}`}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                // --- FIX APPLIED START ---
-                                unoptimized={true}
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  if (!target.src.includes("placeholder")) {
-                                    target.src =
-                                      "/images/placeholder-listing.png";
-                                  }
-                                }}
-                                // --- FIX APPLIED END ---
-                              />
+                    <div className="mt-4">
+                      {/* Media Tab */}
+                      <TabsContent value="media" className="mt-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedListing.images &&
+                          selectedListing.images.length > 0 ? (
+                            <>
+                              <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
+                                <Image
+                                  src={selectedListing.images[0]}
+                                  alt="Cover"
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 768px) 100vw, 50vw"
+                                  unoptimized={true}
+                                />
+                              </div>
+                              {selectedListing.images
+                                .slice(1, 4)
+                                .map((img, index) => (
+                                  <div
+                                    key={index}
+                                    className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
+                                  >
+                                    <Image
+                                      src={img}
+                                      alt={`Media ${index + 2}`}
+                                      fill
+                                      className="object-cover"
+                                      sizes="(max-width: 768px) 100vw, 50vw"
+                                      unoptimized={true}
+                                    />
+                                  </div>
+                                ))}
+                            </>
+                          ) : (
+                            <div className="col-span-2 text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                              <p className="text-gray-400 text-sm">
+                                No media uploaded
+                              </p>
                             </div>
-                          ))}
-                      </>
-                    ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                        No images available
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      </TabsContent>
 
-                    {/* Show "Add Media" button if we have less than 4 images total */}
-                    {(!selectedListing.images ||
-                      selectedListing.images.length < 4) && (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-200 transition-colors">
-                        + Add Media
-                      </div>
-                    )}
-                  </div>
+                      {/* Contact Info Tab */}
+                      <TabsContent value="contact" className="mt-0">
+                        <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                          {selectedListing.contactInfo ? (
+                            <>
+                              {selectedListing.contactInfo.phone && (
+                                <div className="flex items-center gap-3">
+                                  <Phone className="w-4 h-4 text-gray-500" />
+                                  <span className="text-sm text-gray-700">
+                                    {selectedListing.contactInfo.phone}
+                                  </span>
+                                </div>
+                              )}
+                              {selectedListing.contactInfo.email && (
+                                <div className="flex items-center gap-3">
+                                  <Mail className="w-4 h-4 text-gray-500" />
+                                  <span className="text-sm text-gray-700">
+                                    {selectedListing.contactInfo.email}
+                                  </span>
+                                </div>
+                              )}
+                              {selectedListing.contactInfo.website && (
+                                <div className="flex items-center gap-3">
+                                  <Globe className="w-4 h-4 text-gray-500" />
+                                  <a
+                                    href={selectedListing.contactInfo.website}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-sm text-blue-600 hover:underline"
+                                  >
+                                    Website
+                                  </a>
+                                </div>
+                              )}
+
+                              {/* Socials */}
+                              <div className="pt-2 border-t border-gray-200 mt-2">
+                                <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">
+                                  Social Links
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <SocialLink
+                                    href={
+                                      selectedListing.contactInfo.socials
+                                        ?.facebook
+                                    }
+                                    icon={Facebook}
+                                    label="Facebook"
+                                  />
+                                  <SocialLink
+                                    href={
+                                      selectedListing.contactInfo.socials
+                                        ?.instagram
+                                    }
+                                    icon={Instagram}
+                                    label="Instagram"
+                                  />
+                                  <SocialLink
+                                    href={
+                                      selectedListing.contactInfo.socials
+                                        ?.twitter
+                                    }
+                                    icon={Twitter}
+                                    label="Twitter"
+                                  />
+                                  <SocialLink
+                                    href={
+                                      selectedListing.contactInfo.socials
+                                        ?.youtube
+                                    }
+                                    icon={Youtube}
+                                    label="YouTube"
+                                  />
+                                  <SocialLink
+                                    href={
+                                      selectedListing.contactInfo.socials
+                                        ?.linkedin
+                                    }
+                                    icon={Linkedin}
+                                    label="LinkedIn"
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center py-4 text-gray-400 text-sm">
+                              No contact information available
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </div>
+                  </Tabs>
                 </div>
               </div>
             </>

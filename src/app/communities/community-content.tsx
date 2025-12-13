@@ -41,6 +41,8 @@ interface ApiListing {
   bio?: string;
   description?: string;
   start_date?: string;
+  date?: string; // Add check for 'date'
+  created_at?: string; // Fallback
   is_verified?: boolean;
 }
 
@@ -50,6 +52,23 @@ const getImageUrl = (url: string | undefined | null): string => {
   if (url.startsWith("http")) return url;
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+// Robust Date Formatter
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "TBA";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "TBA";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch (error) {
+    console.error("Date formatting error:", error);
+    return "TBA";
+  }
 };
 
 const classifyListing = (
@@ -144,21 +163,21 @@ export default function CommunityContent({
           const commonProps = {
             id: item.id.toString(),
             name: item.name,
-            title: item.name, // Title alias for different components
+            title: item.name,
             slug: item.slug,
             description: item.bio || item.description || "",
-            image: validImages[0], // Single image
-            images: validImages, // Array of images
+            image: validImages[0],
+            images: validImages,
             location: location,
             verified: item.is_verified || false,
             category: categoryName,
-            tag: categoryName, // Alias for communities filter
+            tag: categoryName,
           };
 
           if (listingType === "community") {
             communitiesList.push({
               ...commonProps,
-              imageUrl: validImages[0], // Specific prop for CommunityCard if needed
+              imageUrl: validImages[0],
             });
           } else if (listingType === "business") {
             businessesList.push({
@@ -167,14 +186,14 @@ export default function CommunityContent({
               reviewCount: Number(item.ratings_count) || 0,
             });
           } else if (listingType === "event") {
+            // FIX: Check multiple possible date fields
+            const eventDate = item.start_date || item.date || item.created_at;
+            const formattedDate = formatDate(eventDate);
+
             eventsList.push({
               ...commonProps,
-              startDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
-              endDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
+              startDate: formattedDate,
+              endDate: formattedDate,
             });
           }
         });

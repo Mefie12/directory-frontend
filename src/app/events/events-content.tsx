@@ -41,6 +41,8 @@ interface ApiListing {
   bio?: string;
   description?: string;
   start_date?: string;
+  date?: string; // Add check for 'date'
+  created_at?: string; // Fallback
   is_verified?: boolean;
 }
 
@@ -52,26 +54,23 @@ const getImageUrl = (url: string | undefined | null): string => {
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// 1. NEW DATE FORMATTER (Includes Time)
+// Robust Date Formatter
 const formatDateTime = (dateString?: string) => {
-  if (!dateString) return ""; // Return empty if no date, instead of TBA
+  if (!dateString) return "TBA"; 
   
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return ""; // Handle invalid dates safely
+    if (isNaN(date.getTime())) return "TBA"; 
 
-    // Format: "Fri, Dec 12, 2:30 PM"
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
+    // Use a shorter format for cards (e.g. "Dec 12, 2025")
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
+      year: "numeric",
+    });
   } catch (error) {
     console.error("Date formatting error:", error);
-    return "";
+    return "TBA";
   }
 };
 
@@ -82,6 +81,8 @@ const classifyListing = (
     .toString()
     .trim()
     .toLowerCase();
+  
+  // Logic: If it has a start_date, assume event
   if (item.start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
@@ -174,8 +175,9 @@ export default function EventsContent({
           };
 
           if (listingType === "event") {
-            // 2. USE FORMATTER HERE
-            const formattedDate = formatDateTime(item.start_date);
+            // FIX: Check multiple possible date fields
+            const eventDate = item.start_date || item.date || item.created_at;
+            const formattedDate = formatDateTime(eventDate);
             
             eventsList.push({
               ...commonProps,

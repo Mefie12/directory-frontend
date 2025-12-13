@@ -1,24 +1,14 @@
-"use client";
-
-import { useState, useEffect, use } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  Bookmark,
   MapPin,
-  Calendar,
-  Clock,
-  Ticket,
-  Share2,
+  Star,
   Facebook,
   Instagram,
   Twitter,
   Youtube,
-  Star,
-  Users,
-  MessageCircle,
-  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,49 +22,190 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/context/auth-context";
-import { communityCards, featuredBusinesses, Events } from "@/lib/data";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // Imported Components
 import { MediaGallery } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { ReviewsSection } from "@/components/review-button";
+import { BookmarkButton } from "@/components/bookmark-button";
 
-// --- Types ---
+// --- API Interfaces ---
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
+}
 
-export type EntityType = "event" | "business" | "community" | "discover";
+interface ApiSocialItem {
+  id: number;
+  listing_id: number;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  tiktok?: string;
+  youtube?: string;
+}
 
-interface EntityItem {
-  id: string;
+// Interface for the Ratings API response
+interface ApiRatingData {
+  id: number;
+  listing_id: number;
+  user_id: number;
+  rating: number;
+  comment: string;
+  created_at?: string; 
+  // We allow user to be optional, and we will populate it if missing
+  user?: { 
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar?: string;
+  };
+}
+
+interface ApiReview { 
+  id: number | string;
+  user?: string;
+  author?: string;
+  rating: number;
+  comment: string;
+  created_at?: string;
+  date?: string;
+  avatar?: string;
+}
+
+interface ApiListingData {
+  id: number;
+  name: string;
+  slug: string;
+  bio?: string;
+  description?: string;
+  address?: string;
+  country?: string;
+  city?: string;
+  location?: string;
+  primary_phone?: string;
+  secondary_phone?: string;
+  email?: string;
+  website?: string;
+  google_plus_code?: string;
+  rating?: number | string;
+  reviews_count?: number | string;
+  is_verified?: boolean;
+  images?: (ApiImage | string)[];
+  socials?: ApiSocialItem[];
+  services?: any[];
+  faqs?: FAQItem[];
+  reviews?: ApiReview[]; 
+  experience?: ExperienceItem[];
+  pricing?: PricingItem[];
+  start_date?: string;
+  type?: string;
+}
+
+// --- UI Interfaces ---
+interface PageProps {
+  params: Promise<{ slug: string; categorySlug?: string }>;
+  type?: "business" | "event" | "community" | "discover";
+}
+
+interface SocialLinks {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  youtube?: string;
+  tiktok?: string;
+}
+
+interface Provider {
+  id: number; 
+  name: string;
+  slug: string;
+  description: string;
+  location?: string;
+  country?: string;
+  verified?: boolean;
+  reviews?: number | string;
+  rating: number | string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  socials?: SocialLinks;
+  startDate?: string;
+}
+
+interface GalleryItem {
+  type: "image" | "video";
+  src: string;
+  alt?: string;
+}
+
+interface ExperienceItem {
   title: string;
   description: string;
-  category: string;
-  location: string;
-  image: string;
-  gallery: Array<{ type: "image" | "video"; src: string; alt?: string }>;
-  isVerified?: boolean;
-  socials?: {
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-    youtube?: string;
-  };
-  website?: string;
-  tags?: string[];
-
-  // Dynamic Fields (Optional based on type)
-  date?: string; // Event
-  time?: string; // Event
-  venue?: string; // Event
-  price?: string; // Event (Ticket) or Business (Range)
-  organizer?: string; // Event
-  rating?: number; // Business
-  reviews?: number; // Business
-  memberCount?: number; // Community
-  phone?: string; // Business
-  email?: string; // Business
 }
+
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+interface ReviewItem {
+  id?: number | string;
+  author: string; 
+  rating: number;
+  date: string;
+  comment: string;
+  avatar?: string;
+}
+
+interface PricingItem {
+  price: string;
+  label: string;
+}
+
+interface TemplateContent {
+  services: string[];
+  pricing: PricingItem[];
+  experience: ExperienceItem[];
+  faqs: FAQItem[];
+  reviews: ReviewItem[];
+  gallery: GalleryItem[];
+}
+
+// --- Helper Functions ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+const formatDateTime = (dateString?: string) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  } catch {
+    return "";
+  }
+};
 
 // --- Helper Components ---
 
@@ -90,464 +221,517 @@ const SocialIcon = ({
   <Link
     href={href}
     target="_blank"
+    rel="noreferrer"
     className="text-gray-700 hover:text-gray-900 transition-colors"
   >
     <Icon className="h-4 w-4" />
   </Link>
 );
 
-// --- Sub-Components (Dynamic) ---
+// --- Sub-Components ---
 
-function EntityHeader({
-  entity,
+function ProviderHeader({
+  provider,
+  rating,
   type,
 }: {
-  entity: EntityItem;
-  type: EntityType;
+  provider: Provider;
+  rating: number;
+  type?: string;
 }) {
-  // Event Specific Date Formatting
-  const eventDate = entity.date
-    ? new Date(entity.date).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "";
-
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge className="bg-[#93C01F] hover:bg-[#7fa818] border-none text-white font-medium">
-          {entity.category}
-        </Badge>
-        {entity.isVerified && (
-          <Badge
-            variant="outline"
-            className="border-blue-200 bg-blue-50 text-blue-700 gap-1 font-normal"
-          >
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-3xl font-semibold text-gray-900">
+            {provider.name}
+          </h1>
+          {provider.verified && (
             <Image
               src="/images/icons/verify.svg"
               alt="Verified"
-              width={14}
-              height={14}
+              width={20}
+              height={20}
             />
-            Verified
-          </Badge>
-        )}
-      </div>
-
-      <h1 className="text-3xl font-bold text-gray-900 md:text-4xl leading-tight">
-        {entity.title}
-      </h1>
-
-      {/* Conditional Metadata Row */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600 mt-1">
-        {/* EVENT: Date & Time */}
-        {type === "event" && (
-          <>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-[#93C01F]" />
-              <span className="font-medium">{eventDate}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[#93C01F]" />
-              <span className="font-medium">{entity.time}</span>
-            </div>
-          </>
-        )}
-
-        {/* BUSINESS: Rating & Reviews */}
-        {(type === "business" || type === "discover") && (
-          <div className="flex items-center gap-2">
-            <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-            <span className="font-bold text-gray-900">
-              {entity.rating?.toFixed(1) || "New"}
-            </span>
-            <span className="text-gray-500">
-              ({entity.reviews || 0} reviews)
-            </span>
-          </div>
-        )}
-
-        {/* COMMUNITY: Member Count */}
-        {type === "community" && (
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#93C01F]" />
-            <span className="font-medium">
-              {entity.memberCount || 0} Members
-            </span>
-          </div>
-        )}
-
-        {/* SHARED: Location */}
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-[#93C01F]" />
-          <span className="font-medium">
-            {entity.venue ? `${entity.venue}, ` : ""}
-            {entity.location}
-          </span>
+          )}
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            <MapPin className="h-4 w-4" />
+            {provider.location ??
+              provider.country ??
+              "Available internationally"}
+          </span>
+          <span className="flex items-center gap-1 font-black text-gray-800">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+            {rating.toFixed(1)}
+            {provider.reviews && provider.reviews !== "0" && (
+              <span className="text-gray-400 font-light">
+                ({provider.reviews} reviews)
+              </span>
+            )}
+          </span>
+          {type === "event" && provider.startDate && (
+            <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full text-xs font-medium">
+              📅 {formatDateTime(provider.startDate)}
+            </span>
+          )}
+        </div>
+        <p className="mt-3 max-w-2xl text-base text-gray-600">
+          {provider.description}
+        </p>
       </div>
     </div>
   );
 }
 
-function SidebarAction({
-  entity,
-  type,
+function ProviderTabs({
+  template,
+  providerName,
+  galleryItems,
+  listingSlug, 
 }: {
-  entity: EntityItem;
-  type: EntityType;
+  template: TemplateContent;
+  providerName: string;
+  galleryItems: GalleryItem[];
+  listingSlug: string; 
 }) {
-  // Render different Primary Action Cards based on type
-
-  if (type === "event") {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-xs text-gray-500 uppercase font-medium tracking-wide">
-                Ticket Price
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {entity.price || "Free"}
-              </h3>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-[#EBF8C9] flex items-center justify-center">
-              <Ticket className="h-5 w-5 text-[#5F8B0A]" />
-            </div>
-          </div>
-          <Button className="w-full bg-[#93C01F] hover:bg-[#82ab1b] font-semibold h-11 text-base">
-            Get Tickets
-          </Button>
-          <p className="text-[10px] text-center text-gray-400 mt-3">
-            Secure checkout via Me-Fie
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (type === "business" || type === "discover") {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="mb-4">
-            <p className="text-xs text-gray-500 uppercase font-medium">
-              Price Range
-            </p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">
-              {entity.price || "Contact for pricing"}
-            </h3>
-          </div>
-          <Button className="w-full bg-[#93C01F] hover:bg-[#82ab1b] font-semibold h-11 text-base gap-2">
-            <MessageCircle className="h-4 w-4" /> Message Business
-          </Button>
-          <div className="mt-3 text-center">
-            {entity.phone && (
-              <p className="text-sm text-gray-600">{entity.phone}</p>
-            )}
-            {entity.email && (
-              <p className="text-sm text-gray-600">{entity.email}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (type === "community") {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="mb-6 text-center">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#EBF8C9] mb-3">
-              <Users className="h-8 w-8 text-[#5F8B0A]" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900">Join Community</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Connect with {entity.memberCount} others
-            </p>
-          </div>
-          <Button className="w-full bg-[#93C01F] hover:bg-[#82ab1b] font-semibold h-11 text-base">
-            Join Group
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return null;
-}
-
-function SidebarInfo({
-  entity,
-  type,
-}: {
-  entity: EntityItem;
-  type: EntityType;
-}) {
-  const socialLinks = entity.socials || {};
-  const organizerLabel =
-    type === "business"
-      ? "Business Owner"
-      : type === "community"
-      ? "Admin"
-      : "Organizer";
+  const { experiences, faqs, reviews } = {
+    experiences: template.experience || [],
+    faqs: template.faqs || [],
+    reviews: template.reviews || [],
+  };
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <h4 className="text-lg font-bold text-gray-900 mb-4">
-          {organizerLabel}
-        </h4>
+    <div className="mt-6 px-4 pb-4">
+      <Tabs defaultValue="portfolio" className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto rounded-full no-scrollbar">
+          {["Portfolio", "Reviews", "Experience", "FAQs"].map((tab) => (
+            <TabsTrigger
+              key={tab}
+              value={tab.toLowerCase()}
+              className="rounded-full text-base font-normal px-6"
+            >
+              {tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-12 w-12 rounded-full bg-gray-100 overflow-hidden border border-gray-200 shrink-0">
-            <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl bg-[#F8F9FA]">
-              {(entity.organizer || entity.title).charAt(0)}
+        <TabsContent value="portfolio" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Gallery</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MediaGallery items={galleryItems} providerName={providerName} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reviews" className="mt-6">
+          <Card>
+            <div className="px-3 py-3">
+              <ReviewsSection reviews={reviews} listingSlug={listingSlug} />
             </div>
-          </div>
-          <div className="overflow-hidden">
-            <h5 className="font-semibold text-gray-900 truncate">
-              {entity.organizer || entity.title}
-            </h5>
-            {entity.website && (
-              <Link
-                href={entity.website}
-                target="_blank"
-                className="text-xs text-[#93C01F] hover:underline block truncate"
-              >
-                Visit website
-              </Link>
-            )}
-          </div>
-        </div>
+          </Card>
+        </TabsContent>
 
-        <Divider />
+        <TabsContent value="experience" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                Highlights & experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {experiences.length > 0 ? (
+                experiences.map((item, index) => (
+                  <div key={index}>
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      {item.title}
+                    </h4>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {item.description}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No experience highlights available.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <h5 className="text-sm font-semibold text-gray-900 mb-3">Socials</h5>
-        <div className="flex gap-4">
-          {socialLinks.facebook && (
-            <SocialIcon href={socialLinks.facebook} icon={Facebook} />
-          )}
-          {socialLinks.instagram && (
-            <SocialIcon href={socialLinks.instagram} icon={Instagram} />
-          )}
-          {socialLinks.twitter && (
-            <SocialIcon href={socialLinks.twitter} icon={Twitter} />
-          )}
-          {socialLinks.youtube && (
-            <SocialIcon href={socialLinks.youtube} icon={Youtube} />
-          )}
-        </div>
+        <TabsContent value="faqs" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">FAQs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {faqs.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((f, i) => (
+                    <AccordionItem key={i} value={`faq-${i}`}>
+                      <AccordionTrigger className="text-base text-gray-800">
+                        {f.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-sm text-gray-600">
+                        {f.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <p className="text-sm text-gray-500">No FAQs available.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
-        <div className="mt-6 pt-6 border-t">
-          <Button
-            variant="outline"
-            className="w-full gap-2 text-gray-600 hover:text-gray-900"
-          >
-            <Share2 className="h-4 w-4" />
-            Share
-          </Button>
+function SidebarLocation({ provider }: { provider: Provider }) {
+  return (
+    <Card>
+      <CardContent className="pt-0.5">
+        <h4 className="text-lg font-black text-gray-900">Location</h4>
+        <div className="mt-3 relative h-40 overflow-hidden rounded-xl bg-gray-100">
+          <iframe
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(
+              provider.name + " " + (provider.location || "")
+            )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+            allowFullScreen
+            loading="lazy"
+            className="absolute inset-0 w-full h-full border-0"
+          />
         </div>
+        <p className="mt-3 text-xs text-gray-500">
+          {provider.location ?? provider.country ?? "Available internationally"}
+        </p>
       </CardContent>
     </Card>
   );
 }
 
-// --- MAIN COMPONENT ---
-
-export default function UniversalSlugPage({
-  params,
-  type,
+function SidebarInfo({
+  provider,
+  pricing,
+  services,
 }: {
-  params: Promise<{ slug: string }>;
-  type: EntityType;
+  provider: Provider;
+  pricing: PricingItem[];
+  services: string[];
 }) {
-  const { slug } = use(params);
-  const { loading: authLoading } = useAuth();
+  const socialLinks = provider.socials || {};
 
-  const [data, setData] = useState<EntityItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  return (
+    <Card>
+      <CardContent className="pt-0.5">
+        {pricing.length > 0 && (
+          <>
+            <div className="text-2xl font-bold text-gray-900">
+              {pricing[0]?.price}
+            </div>
+            <div className="text-xs text-gray-400">{pricing[0]?.label}</div>
+          </>
+        )}
 
-  useEffect(() => {
-    async function fetchData() {
-      if (authLoading) return;
-      setLoading(true);
+        <div className="mt-4">
+          <Button className="w-full bg-[#93C01F] hover:bg-[#82ab1b]">
+            Message {provider.name.split(" ")[0]}
+          </Button>
+        </div>
 
-      try {
-        let raw: Record<string, unknown> | null = null;
+        <Divider />
 
-        // First, try to find in local mock data
-        if (type === "community") {
-          const community = communityCards.find((c) => c.slug === slug);
-          if (community) {
-            raw = {
-              id: community.id,
-              name: community.name,
-              title: community.name,
-              description: community.description,
-              category: community.tag,
-              location: community.location,
-              image: community.imageUrl,
-              is_verified: community.verified,
-              members_count: 0,
-            };
-          }
-        } else if (type === "business" || type === "discover") {
-          const business = featuredBusinesses.find((b) => b.slug === slug);
-          if (business) {
-            raw = {
-              id: business.id,
-              name: business.name,
-              title: business.name,
-              description: business.description || "",
-              category: business.category,
-              location: business.location,
-              image: business.image,
-              is_verified: business.verified,
-              rating: business.rating,
-              reviews_count: parseInt(business.reviewCount) || 0,
-              price_range: "Contact for pricing",
-            };
-          }
-        } else if (type === "event") {
-          const event = Events.find((e) => e.slug === slug);
-          if (event) {
-            raw = {
-              id: event.id,
-              name: event.name,
-              title: event.name,
-              description: event.description,
-              category: event.category,
-              location: event.location,
-              image: event.image,
-              is_verified: event.verified,
-              start_date: event.startDate,
-              start_time: event.startDate,
-            };
-          }
+        <div>
+          <h5 className="text-lg font-black text-gray-900">What we do</h5>
+          {services.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-3 pl-5 text-sm text-gray-600">
+              {services.map((service, index) => (
+                <li key={index}>{service}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-gray-500">
+              Services list available upon request.
+            </p>
+          )}
+        </div>
+
+        <Divider />
+
+        <h5 className="text-lg font-black text-black">Contact</h5>
+        <div className="mt-3 space-y-4 text-sm text-gray-600">
+          {provider.phone && (
+            <div className="flex items-center gap-10">
+              <h6 className="text-base font-medium text-black min-w-12">
+                Phone
+              </h6>
+              <p className="font-medium text-gray-900">{provider.phone}</p>
+            </div>
+          )}
+          {provider.email && (
+            <div className="flex items-center gap-10">
+              <h6 className="text-base font-medium text-black min-w-12">
+                Email
+              </h6>
+              <p className="font-medium text-gray-900 truncate">
+                {provider.email}
+              </p>
+            </div>
+          )}
+
+          {provider.socials && Object.values(socialLinks).some((v) => v) && (
+            <div className="flex items-center gap-10">
+              <h6 className="text-base font-medium text-black min-w-12">
+                Socials
+              </h6>
+              <div className="flex items-center gap-3">
+                {socialLinks.facebook && (
+                  <SocialIcon href={socialLinks.facebook} icon={Facebook} />
+                )}
+                {socialLinks.instagram && (
+                  <SocialIcon href={socialLinks.instagram} icon={Instagram} />
+                )}
+                {socialLinks.twitter && (
+                  <SocialIcon href={socialLinks.twitter} icon={Twitter} />
+                )}
+                {socialLinks.youtube && (
+                  <SocialIcon href={socialLinks.youtube} icon={Youtube} />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Divider />
+
+        {provider.website && (
+          <div className="flex flex-col gap-1">
+            <h6 className="text-base font-medium text-gray-900">Website</h6>
+            <Link
+              href={provider.website}
+              target="_blank"
+              rel="noreferrer"
+              className="text-emerald-600 hover:underline text-sm truncate"
+            >
+              {provider.website}
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Main Component ---
+
+export default async function UniversalSlugPage({
+  params,
+  type = "business",
+}: PageProps) {
+  const { categorySlug, slug } = await params;
+
+  let listingData: ApiListingData | null = null;
+  let ratingsData: ApiRatingData[] = [];
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+  try {
+    // 1. Fetch Listing Details
+    const listingResponse = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      next: { revalidate: 3600 },
+    });
+
+    if (listingResponse.ok) {
+      const json = await listingResponse.json();
+      listingData = json.data;
+
+      // 2. Fetch Ratings using the Listing ID
+      if (listingData?.id) {
+        const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          next: { revalidate: 300 }, // Shorter cache for reviews
+        });
+
+        if (ratingsResponse.ok) {
+          const ratingsJson = await ratingsResponse.json();
+          const allRatings = ratingsJson.data || [];
+          
+          // Filter ratings for this specific listing since API returns all
+          const filteredRatings = allRatings.filter((r: ApiRatingData) => r.listing_id === listingData!.id);
+
+          // 3. ENRICH RATINGS (Fetch User Data if missing)
+          // Since the API returns user_id but NOT the user object, we must fetch the user details.
+          ratingsData = await Promise.all(
+            filteredRatings.map(async (rating: ApiRatingData) => {
+              // If user object is missing but we have an ID, fetch the user
+              if (!rating.user && rating.user_id) {
+                try {
+                  const userRes = await fetch(`${API_URL}/api/users/${rating.user_id}`, {
+                    headers: {
+                        Accept: "application/json",
+                    },
+                    next: { revalidate: 3600 } // Cache user info aggressively
+                  });
+
+                  if (userRes.ok) {
+                    const userJson = await userRes.json();
+                    const userData = userJson.data || userJson; // Handle standard API wrapper
+                    
+                    return {
+                      ...rating,
+                      user: {
+                        name: userData.name,
+                        first_name: userData.first_name,
+                        last_name: userData.last_name,
+                        avatar: userData.avatar || userData.profile_photo_url,
+                      }
+                    };
+                  }
+                } catch (err) {
+                  console.error(`Failed to fetch user ${rating.user_id} for rating ${rating.id}`, err);
+                }
+              }
+              return rating;
+            })
+          );
         }
-
-        // If not found in local data, try API
-        if (!raw) {
-          const token = localStorage.getItem("authToken");
-          const headers: HeadersInit = { Accept: "application/json" };
-          if (token) headers.Authorization = `Bearer ${token}`;
-
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          const endpoint = `${API_URL}/api/${
-            type === "discover" ? "businesses" : type + "s"
-          }/${slug}`;
-
-          const response = await fetch(endpoint, { method: "GET", headers });
-
-          if (!response.ok) throw new Error(`${type} not found`);
-
-          const json = await response.json();
-          raw = json.data || json;
-        }
-
-        if (!raw) throw new Error(`${type} not found`);
-
-        // Unified Data Mapping
-        const mapped: EntityItem = {
-          id: String(raw?.id || ""),
-          title: String(raw?.title || raw?.name || "Untitled"),
-          description: String(raw?.description || ""),
-          category:
-            typeof raw?.category === "object"
-              ? String(
-                  (raw.category as Record<string, unknown>)?.name || "General"
-                )
-              : String(raw?.category || "General"),
-          location: String(raw?.location || raw?.city || "Location TBD"),
-          image: String(
-            raw?.cover_image || raw?.image || "/images/placeholders/generic.jpg"
-          ),
-
-          // Type specific mapping
-          date: raw?.start_date
-            ? String(raw.start_date)
-            : raw?.date
-            ? String(raw.date)
-            : undefined,
-          time: raw?.start_time
-            ? String(raw.start_time)
-            : raw?.time
-            ? String(raw.time)
-            : undefined,
-          venue: raw?.venue
-            ? String(raw.venue)
-            : raw?.address
-            ? String(raw.address)
-            : undefined,
-          price: raw?.price_range
-            ? String(raw.price_range)
-            : raw?.price
-            ? `GHS ${raw.price}`
-            : undefined,
-          organizer:
-            typeof raw?.organizer === "object"
-              ? String(
-                  (raw.organizer as Record<string, unknown>)?.name || "Me-Fie"
-                )
-              : String(raw?.organizer || raw?.owner || "Me-Fie"),
-
-          rating: Number(raw?.rating) || 0,
-          reviews: Number(raw?.reviews_count) || 0,
-          memberCount: Number(raw?.members_count) || 0,
-          phone: raw?.phone ? String(raw.phone) : undefined,
-          email: raw?.email ? String(raw.email) : undefined,
-
-          isVerified: Boolean(raw?.is_verified),
-          website: raw?.website ? String(raw.website) : undefined,
-          tags: Array.isArray(raw?.tags) ? (raw.tags as string[]) : [],
-          socials:
-            typeof raw?.socials === "object"
-              ? (raw.socials as Record<string, string>)
-              : {},
-          gallery: Array.isArray(raw?.gallery)
-            ? (raw.gallery as Array<{
-                type: "image" | "video";
-                src: string;
-                alt?: string;
-              }>)
-            : [],
-        };
-
-        setData(mapped);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load content");
-      } finally {
-        setLoading(false);
       }
     }
+  } catch (error) {
+    console.error("Fetch error:", error);
+  }
 
-    fetchData();
-  }, [slug, type, authLoading]);
+  if (!listingData) {
+    notFound();
+  }
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50/30">
-        <Loader2 className="h-10 w-10 animate-spin text-[#93C01F] mb-4" />
-        <p className="text-gray-500">Loading {type} details...</p>
-      </div>
-    );
+  // --- Data Mapping ---
 
-  if (error || !data) return notFound();
+  // Socials
+  let socialLinks: SocialLinks = {};
+  if (listingData.socials && Array.isArray(listingData.socials) && listingData.socials.length > 0) {
+    const socialData = listingData.socials[0];
+    socialLinks = {
+      facebook: socialData.facebook,
+      instagram: socialData.instagram,
+      twitter: socialData.twitter,
+      youtube: socialData.youtube,
+      tiktok: socialData.tiktok,
+    };
+  }
 
-  // Fallback Gallery
-  const displayGallery =
-    data.gallery.length > 0
-      ? data.gallery
-      : [{ type: "image" as const, src: data.image, alt: data.title }];
+  // Services
+  const servicesList = listingData.services?.map((s: any) => typeof s === "string" ? s : s.name) || [];
+
+  // Provider Object
+  const provider: Provider = {
+    id: listingData.id,
+    name: listingData.name,
+    slug: listingData.slug,
+    description: listingData.bio || listingData.description || "No description provided.",
+    location: listingData.address || listingData.city || listingData.location,
+    country: listingData.country,
+    verified: listingData.is_verified,
+    reviews: listingData.reviews_count ? listingData.reviews_count.toString() : "0",
+    rating: listingData.rating || 0,
+    phone: listingData.primary_phone,
+    email: listingData.email,
+    website: listingData.website,
+    socials: socialLinks,
+    startDate: listingData.start_date,
+  };
+
+  // Gallery
+  const rawImages = listingData.images || [];
+  const gallery: GalleryItem[] = rawImages.map((img) => {
+    if (typeof img === "object" && img.media) {
+      return { type: "image", src: getImageUrl(img.media), alt: provider.name };
+    }
+    if (typeof img === "string") {
+      return { type: "image", src: getImageUrl(img), alt: provider.name };
+    }
+    return { type: "image", src: "/images/placeholders/generic.jpg", alt: "Placeholder" };
+  });
+  if (gallery.length === 0) {
+    gallery.push({ type: "image", src: "/images/placeholders/generic.jpg", alt: provider.name });
+  }
+
+  // --- Reviews Mapping ---
+  const mappedReviews: ReviewItem[] = ratingsData.map((rating) => {
+    let authorName = "Unknown User"; // Default fallback
+
+    if (rating.user) {
+        // 1. Try 'name' (Full Name)
+        if (rating.user.name) {
+            authorName = rating.user.name;
+        } 
+        // 2. Try constructing from first/last
+        else if (rating.user.first_name || rating.user.last_name) {
+            authorName = `${rating.user.first_name || ''} ${rating.user.last_name || ''}`.trim();
+        }
+    }
+
+    return {
+      id: rating.id,
+      author: authorName, 
+      rating: rating.rating,
+      date: rating.created_at ? new Date(rating.created_at).toLocaleDateString() : "Recent",
+      comment: rating.comment,
+      avatar: rating.user?.avatar || "",
+    };
+  });
+
+  // Fallback to old nested reviews if new API returns nothing
+  const finalReviews = mappedReviews.length > 0 ? mappedReviews : (listingData.reviews || []).map((review, idx) => ({
+    id: review.id || idx,
+    author: review.author || review.user || "Anonymous",
+    rating: review.rating || 5,
+    date: review.date || (review.created_at ? new Date(review.created_at).toLocaleDateString() : "Recent"),
+    comment: review.comment || "",
+    avatar: review.avatar || "",
+  }));
+
+  const template: TemplateContent = {
+    services: servicesList,
+    pricing: listingData.pricing || [],
+    experience: listingData.experience || [],
+    faqs: listingData.faqs || [],
+    reviews: finalReviews,
+    gallery: gallery,
+  };
+
+  const rating = Number(provider.rating) || 0;
+
+  // Breadcrumbs
+  let parentLink = "/";
+  let parentLabel = "Home";
+  if (categorySlug) {
+    parentLink = `/categories/${categorySlug}`;
+    parentLabel = categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1).replace(/-/g, " ");
+  } else if (type === "event") {
+    parentLink = "/events";
+    parentLabel = "Events";
+  } else if (type === "community") {
+    parentLink = "/communities";
+    parentLabel = "Communities";
+  } else if (type === "business") {
+    parentLink = "/businesses";
+    parentLabel = "Businesses";
+  }
 
   return (
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
@@ -559,16 +743,11 @@ export default function UniversalSlugPage({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink
-                href={`/${type === "discover" ? "businesses" : type + "s"}`}
-                className="capitalize"
-              >
-                {type === "discover" ? "Business" : type + "s"}
-              </BreadcrumbLink>
+              <BreadcrumbLink href={parentLink}>{parentLabel}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{data.title}</BreadcrumbPage>
+              <BreadcrumbPage>{provider.name}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -577,118 +756,31 @@ export default function UniversalSlugPage({
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 lg:grid-cols-12 lg:px-0">
         <main className="lg:col-span-8">
           <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
-            <div className="relative w-full h-[300px] sm:h-[400px]">
-              <HeroCarousel items={displayGallery} alt={data.title} />
+            <div className="relative w-full">
+              <HeroCarousel items={template.gallery} alt={provider.name} />
               <div className="absolute top-4 right-6 flex gap-2 z-10">
-                <Button
-                  size="sm"
-                  className="border border-white/60 bg-white/80 text-gray-700 shadow-sm transition hover:bg-white backdrop-blur-md"
-                >
-                  <Bookmark className="h-4 w-4 mr-2" /> Save
-                </Button>
+                <BookmarkButton slug={provider.slug} />
               </div>
             </div>
 
-            <EntityHeader entity={data} type={type} />
+            <ProviderHeader provider={provider} rating={rating} type={type} />
 
-            {/* Generic Tabs Structure */}
-            <div className="mt-6 px-4 pb-4">
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto rounded-full no-scrollbar">
-                  <TabsTrigger
-                    value="details"
-                    className="rounded-full px-6 text-base font-normal"
-                  >
-                    Details
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="gallery"
-                    className="rounded-full px-6 text-base font-normal"
-                  >
-                    Gallery
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="reviews"
-                    className="rounded-full px-6 text-base font-normal"
-                  >
-                    Reviews
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>About</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
-                        {data.description}
-                      </p>
-                      {data.tags && data.tags.length > 0 && (
-                        <div className="pt-4 border-t mt-4">
-                          <h4 className="text-sm font-semibold text-gray-900 mb-3">
-                            Tags
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {data.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="bg-gray-100 text-gray-600"
-                              >
-                                #{tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="gallery" className="mt-6">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <MediaGallery
-                        items={data.gallery}
-                        providerName={data.title}
-                      />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="reviews" className="mt-6">
-                  <Card>
-                    <div className="p-4">
-                      <ReviewsSection reviews={[]} />
-                    </div>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
+            <ProviderTabs
+              template={template}
+              providerName={provider.name}
+              galleryItems={template.gallery}
+              listingSlug={provider.slug}
+            />
           </div>
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
-          {/* Map can be shared or conditional */}
-          <Card>
-            <CardContent className="pt-0.5">
-              <h4 className="text-lg font-bold text-gray-900 mb-3">Location</h4>
-              <div className="relative h-48 overflow-hidden rounded-xl bg-gray-100 border border-gray-200">
-                <iframe
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                    data.location
-                  )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                  className="absolute inset-0 w-full h-full border-0"
-                  loading="lazy"
-                  allowFullScreen
-                />
-              </div>
-              <p className="mt-3 text-sm text-gray-600">{data.location}</p>
-            </CardContent>
-          </Card>
-          <SidebarAction entity={data} type={type} />
-          <SidebarInfo entity={data} type={type} />
+          <SidebarLocation provider={provider} />
+          <SidebarInfo
+            provider={provider}
+            pricing={template.pricing}
+            services={template.services}
+          />
         </aside>
       </div>
     </div>

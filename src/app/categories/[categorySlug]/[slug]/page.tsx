@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  Bookmark,
   MapPin,
   Star,
   Facebook,
@@ -33,19 +33,87 @@ import {
 import { MediaGallery } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { ReviewsSection } from "@/components/review-button";
+import { BookmarkButton } from "@/components/bookmark-button";
 
-// Data Sources
-import {
-  categories,
-  categoryServiceProviders,
-  categoryDetailContent,
-  defaultCategoryDetailContent,
-} from "@/lib/data";
+// --- API Interfaces ---
+interface ApiImage {
+  id?: number;
+  media: string;
+  media_type?: string;
+}
 
-// --- Type Definitions ---
-type PageProps = {
-  params: Promise<{ categorySlug: string; slug: string }>;
-};
+interface ApiSocialItem {
+  id: number;
+  listing_id: number;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  tiktok?: string;
+  youtube?: string;
+}
+
+// Interface for the Ratings API response
+interface ApiRatingData {
+  id: number;
+  listing_id: number;
+  user_id: number;
+  rating: number;
+  comment: string;
+  created_at?: string;
+  // We allow user to be optional, and we will populate it if missing
+  user?: {
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar?: string;
+  };
+}
+
+interface ApiReview {
+  id: number | string;
+  user?: string;
+  author?: string;
+  rating: number;
+  comment: string;
+  created_at?: string;
+  date?: string;
+  avatar?: string;
+}
+
+interface ApiListingData {
+  id: number;
+  name: string;
+  slug: string;
+  bio?: string;
+  description?: string;
+  address?: string;
+  country?: string;
+  city?: string;
+  location?: string;
+  primary_phone?: string;
+  secondary_phone?: string;
+  email?: string;
+  website?: string;
+  google_plus_code?: string;
+  rating?: number | string;
+  reviews_count?: number | string;
+  is_verified?: boolean;
+  images?: (ApiImage | string)[];
+  socials?: ApiSocialItem[];
+  services?: any[];
+  faqs?: FAQItem[];
+  reviews?: ApiReview[];
+  experience?: ExperienceItem[];
+  pricing?: PricingItem[];
+  start_date?: string;
+  type?: string;
+}
+
+// --- UI Interfaces ---
+interface PageProps {
+  params: Promise<{ slug: string; categorySlug?: string }>;
+  type?: "business" | "event" | "community";
+}
 
 interface SocialLinks {
   facebook?: string;
@@ -56,6 +124,7 @@ interface SocialLinks {
 }
 
 interface Provider {
+  id: number;
   name: string;
   slug: string;
   description: string;
@@ -68,6 +137,7 @@ interface Provider {
   email?: string;
   website?: string;
   socials?: SocialLinks;
+  startDate?: string;
 }
 
 interface GalleryItem {
@@ -75,9 +145,6 @@ interface GalleryItem {
   src: string;
   alt?: string;
 }
-
-// Union type to handle dirty data (strings or objects)
-type RawGalleryItem = string | GalleryItem;
 
 interface ExperienceItem {
   title: string;
@@ -98,16 +165,6 @@ interface ReviewItem {
   avatar?: string;
 }
 
-// Raw review shape from data.ts (handles inconsistent key naming)
-interface RawReviewItem {
-  author?: string;
-  user?: string;
-  rating: number;
-  date: string;
-  comment: string;
-  avatar?: string;
-}
-
 interface PricingItem {
   price: string;
   label: string;
@@ -121,6 +178,34 @@ interface TemplateContent {
   reviews: ReviewItem[];
   gallery: GalleryItem[];
 }
+
+// --- Helper Functions ---
+const getImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "/images/placeholders/generic.jpg";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+const formatDateTime = (dateString?: string) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  } catch {
+    return "";
+  }
+};
 
 // --- Helper Components ---
 
@@ -148,9 +233,11 @@ const SocialIcon = ({
 function ProviderHeader({
   provider,
   rating,
+  type,
 }: {
   provider: Provider;
   rating: number;
+  type?: string;
 }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4">
@@ -178,12 +265,17 @@ function ProviderHeader({
           <span className="flex items-center gap-1 font-black text-gray-800">
             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
             {rating.toFixed(1)}
-            {provider.reviews && (
+            {provider.reviews && provider.reviews !== "0" && (
               <span className="text-gray-400 font-light">
                 ({provider.reviews} reviews)
               </span>
             )}
           </span>
+          {type === "event" && provider.startDate && (
+            <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full text-xs font-medium">
+              📅 {formatDateTime(provider.startDate)}
+            </span>
+          )}
         </div>
         <p className="mt-3 max-w-2xl text-base text-gray-600">
           {provider.description}
@@ -197,10 +289,12 @@ function ProviderTabs({
   template,
   providerName,
   galleryItems,
+  listingSlug,
 }: {
   template: TemplateContent;
   providerName: string;
   galleryItems: GalleryItem[];
+  listingSlug: string;
 }) {
   const { experiences, faqs, reviews } = {
     experiences: template.experience || [],
@@ -237,7 +331,7 @@ function ProviderTabs({
         <TabsContent value="reviews" className="mt-6">
           <Card>
             <div className="px-3 py-3">
-              <ReviewsSection reviews={reviews} />
+              <ReviewsSection reviews={reviews} listingSlug={listingSlug} />
             </div>
           </Card>
         </TabsContent>
@@ -250,16 +344,22 @@ function ProviderTabs({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {experiences.map((item, index) => (
-                <div key={index}>
-                  <h4 className="text-sm font-semibold text-gray-900">
-                    {item.title}
-                  </h4>
-                  <p className="mt-1 text-sm text-gray-600">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
+              {experiences.length > 0 ? (
+                experiences.map((item, index) => (
+                  <div key={index}>
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      {item.title}
+                    </h4>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {item.description}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No experience highlights available.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -270,18 +370,22 @@ function ProviderTabs({
               <CardTitle className="text-lg font-semibold">FAQs</CardTitle>
             </CardHeader>
             <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {faqs.map((f, i) => (
-                  <AccordionItem key={i} value={`faq-${i}`}>
-                    <AccordionTrigger className="text-base text-gray-800">
-                      {f.question}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-sm text-gray-600">
-                      {f.answer}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              {faqs.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((f, i) => (
+                    <AccordionItem key={i} value={`faq-${i}`}>
+                      <AccordionTrigger className="text-base text-gray-800">
+                        {f.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-sm text-gray-600">
+                        {f.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <p className="text-sm text-gray-500">No FAQs available.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -346,11 +450,17 @@ function SidebarInfo({
 
         <div>
           <h5 className="text-lg font-black text-gray-900">What we do</h5>
-          <ul className="mt-2 list-disc space-y-3 pl-5 text-sm text-gray-600">
-            {services.map((service, index) => (
-              <li key={index}>{service}</li>
-            ))}
-          </ul>
+          {services.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-3 pl-5 text-sm text-gray-600">
+              {services.map((service, index) => (
+                <li key={index}>{service}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-gray-500">
+              Services list available upon request.
+            </p>
+          )}
         </div>
 
         <Divider />
@@ -376,7 +486,7 @@ function SidebarInfo({
             </div>
           )}
 
-          {provider.socials && (
+          {provider.socials && Object.values(socialLinks).some((v) => v) && (
             <div className="flex items-center gap-10">
               <h6 className="text-base font-medium text-black min-w-12">
                 Socials
@@ -421,73 +531,246 @@ function SidebarInfo({
 
 // --- Main Component ---
 
-export default async function CategoryProviderPage({ params }: PageProps) {
+export default async function CategorySlugPage({
+  params,
+  type = "business",
+}: PageProps) {
   const { categorySlug, slug } = await params;
 
-  // Data Fetching
-  const categoryProviders = categoryServiceProviders[categorySlug];
-  if (!categoryProviders) notFound();
+  let listingData: ApiListingData | null = null;
+  let ratingsData: ApiRatingData[] = [];
 
-  const rawProvider = categoryProviders.find((p) => p.slug === slug);
-  if (!rawProvider) notFound();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-  // Provider Data Transformation
+  try {
+    // 1. Fetch Listing Details
+    const listingResponse = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      next: { revalidate: 3600 },
+    });
+
+    if (listingResponse.ok) {
+      const json = await listingResponse.json();
+      listingData = json.data;
+
+      // 2. Fetch Ratings using the Listing ID
+      if (listingData?.id) {
+        const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          next: { revalidate: 300 }, // Shorter cache for reviews
+        });
+
+        if (ratingsResponse.ok) {
+          const ratingsJson = await ratingsResponse.json();
+          const allRatings = ratingsJson.data || [];
+
+          // Filter ratings for this specific listing since API returns all
+          const filteredRatings = allRatings.filter(
+            (r: ApiRatingData) => r.listing_id === listingData!.id
+          );
+
+          // 3. ENRICH RATINGS (Fetch User Data if missing)
+          // Since the API returns user_id but NOT the user object, we must fetch the user details.
+          ratingsData = await Promise.all(
+            filteredRatings.map(async (rating: ApiRatingData) => {
+              // If user object is missing but we have an ID, fetch the user
+              if (!rating.user && rating.user_id) {
+                try {
+                  const userRes = await fetch(
+                    `${API_URL}/api/users/${rating.user_id}`,
+                    {
+                      headers: {
+                        Accept: "application/json",
+                      },
+                      next: { revalidate: 3600 }, // Cache user info aggressively
+                    }
+                  );
+
+                  if (userRes.ok) {
+                    const userJson = await userRes.json();
+                    const userData = userJson.data || userJson; // Handle standard API wrapper
+
+                    return {
+                      ...rating,
+                      user: {
+                        name: userData.name,
+                        first_name: userData.first_name,
+                        last_name: userData.last_name,
+                        avatar: userData.avatar || userData.profile_photo_url,
+                      },
+                    };
+                  }
+                } catch (err) {
+                  console.error(
+                    `Failed to fetch user ${rating.user_id} for rating ${rating.id}`,
+                    err
+                  );
+                }
+              }
+              return rating;
+            })
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Fetch error:", error);
+  }
+
+  if (!listingData) {
+    notFound();
+  }
+
+  // --- Data Mapping ---
+
+  // Socials
+  let socialLinks: SocialLinks = {};
+  if (
+    listingData.socials &&
+    Array.isArray(listingData.socials) &&
+    listingData.socials.length > 0
+  ) {
+    const socialData = listingData.socials[0];
+    socialLinks = {
+      facebook: socialData.facebook,
+      instagram: socialData.instagram,
+      twitter: socialData.twitter,
+      youtube: socialData.youtube,
+      tiktok: socialData.tiktok,
+    };
+  }
+
+  // Services
+  const servicesList =
+    listingData.services?.map((s: any) =>
+      typeof s === "string" ? s : s.name
+    ) || [];
+
+  // Provider Object
   const provider: Provider = {
-    ...rawProvider,
-    reviews: rawProvider.reviews?.toString(),
-    rating: rawProvider.rating,
+    id: listingData.id,
+    name: listingData.name,
+    slug: listingData.slug,
+    description:
+      listingData.bio || listingData.description || "No description provided.",
+    location: listingData.address || listingData.city || listingData.location,
+    country: listingData.country,
+    verified: listingData.is_verified,
+    reviews: listingData.reviews_count
+      ? listingData.reviews_count.toString()
+      : "0",
+    rating: listingData.rating || 0,
+    phone: listingData.primary_phone,
+    email: listingData.email,
+    website: listingData.website,
+    socials: socialLinks,
+    startDate: listingData.start_date,
   };
 
-  const categoryMeta = categories.find((c) => c.slug === categorySlug);
-
-  // Template Normalization
-  const rawTemplate =
-    categoryDetailContent[categorySlug] ?? defaultCategoryDetailContent;
-
-  // Data Mapping for Child Components
-  const mappedGallery: GalleryItem[] = rawTemplate.gallery.map(
-    (item: RawGalleryItem) => {
-      if (typeof item === "string") {
-        return { type: "image", src: item, alt: provider.name };
-      }
-      return item;
+  // Gallery
+  const rawImages = listingData.images || [];
+  const gallery: GalleryItem[] = rawImages.map((img) => {
+    if (typeof img === "object" && img.media) {
+      return { type: "image", src: getImageUrl(img.media), alt: provider.name };
     }
-  );
+    if (typeof img === "string") {
+      return { type: "image", src: getImageUrl(img), alt: provider.name };
+    }
+    return {
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: "Placeholder",
+    };
+  });
+  if (gallery.length === 0) {
+    gallery.push({
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: provider.name,
+    });
+  }
 
-  const mappedReviews: ReviewItem[] = rawTemplate.reviews.map(
-    (review: RawReviewItem, index: number) => ({
-      id: index,
-      author: review.author || review.user || "Anonymous",
-      rating: review.rating,
-      date: review.date,
-      comment: review.comment,
-      avatar: review.avatar || "",
-    })
-  );
+  // --- Reviews Mapping ---
+  const mappedReviews: ReviewItem[] = ratingsData.map((rating) => {
+    let authorName = "Unknown User"; // Default fallback
 
-  // Construct the final safe template object
-  const template: TemplateContent = {
-    services: rawTemplate.services.length
-      ? rawTemplate.services
-      : defaultCategoryDetailContent.services,
-    pricing: rawTemplate.pricing.length
-      ? rawTemplate.pricing
-      : defaultCategoryDetailContent.pricing,
-    experience: rawTemplate.experience.length
-      ? rawTemplate.experience
-      : defaultCategoryDetailContent.experience,
-    faqs: rawTemplate.faqs.length
-      ? rawTemplate.faqs
-      : defaultCategoryDetailContent.faqs,
-    reviews: mappedReviews.length
+    if (rating.user) {
+      // 1. Try 'name' (Full Name)
+      if (rating.user.name) {
+        authorName = rating.user.name;
+      }
+      // 2. Try constructing from first/last
+      else if (rating.user.first_name || rating.user.last_name) {
+        authorName = `${rating.user.first_name || ""} ${
+          rating.user.last_name || ""
+        }`.trim();
+      }
+    }
+
+    return {
+      id: rating.id,
+      author: authorName,
+      rating: rating.rating,
+      date: rating.created_at
+        ? new Date(rating.created_at).toLocaleDateString()
+        : "Recent",
+      comment: rating.comment,
+      avatar: rating.user?.avatar || "",
+    };
+  });
+
+  // Fallback to old nested reviews if new API returns nothing
+  const finalReviews =
+    mappedReviews.length > 0
       ? mappedReviews
-      : (defaultCategoryDetailContent.reviews as unknown as ReviewItem[]),
-    gallery: mappedGallery.length
-      ? mappedGallery
-      : (defaultCategoryDetailContent.gallery as unknown as GalleryItem[]),
+      : (listingData.reviews || []).map((review, idx) => ({
+          id: review.id || idx,
+          author: review.author || review.user || "Anonymous",
+          rating: review.rating || 5,
+          date:
+            review.date ||
+            (review.created_at
+              ? new Date(review.created_at).toLocaleDateString()
+              : "Recent"),
+          comment: review.comment || "",
+          avatar: review.avatar || "",
+        }));
+
+  const template: TemplateContent = {
+    services: servicesList,
+    pricing: listingData.pricing || [],
+    experience: listingData.experience || [],
+    faqs: listingData.faqs || [],
+    reviews: finalReviews,
+    gallery: gallery,
   };
 
   const rating = Number(provider.rating) || 0;
+
+  // Breadcrumbs
+  let parentLink = "/";
+  let parentLabel = "Home";
+  if (categorySlug) {
+    parentLink = `/categories/${categorySlug}`;
+    parentLabel =
+      categorySlug.charAt(0).toUpperCase() +
+      categorySlug.slice(1).replace(/-/g, " ");
+  } else if (type === "event") {
+    parentLink = "/events";
+    parentLabel = "Events";
+  } else if (type === "community") {
+    parentLink = "/communities";
+    parentLabel = "Communities";
+  } else if (type === "business") {
+    parentLink = "/businesses";
+    parentLabel = "Businesses";
+  }
 
   return (
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
@@ -499,9 +782,7 @@ export default async function CategoryProviderPage({ params }: PageProps) {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/categories/${categorySlug}`}>
-                {categoryMeta?.name ?? categorySlug}
-              </BreadcrumbLink>
+              <BreadcrumbLink href={parentLink}>{parentLabel}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -512,33 +793,26 @@ export default async function CategoryProviderPage({ params }: PageProps) {
       </div>
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 lg:grid-cols-12 lg:px-0">
-        {/* Main Content Area */}
         <main className="lg:col-span-8">
           <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
             <div className="relative w-full">
               <HeroCarousel items={template.gallery} alt={provider.name} />
               <div className="absolute top-4 right-6 flex gap-2 z-10">
-                <Button
-                  size="sm"
-                  className="border border-white/60 bg-white/80 text-gray-700 shadow-sm transition hover:bg-white"
-                >
-                  <Bookmark className="h-4 w-4 mr-2" />
-                  Bookmark
-                </Button>
+                <BookmarkButton slug={provider.slug} />
               </div>
             </div>
 
-            <ProviderHeader provider={provider} rating={rating} />
+            <ProviderHeader provider={provider} rating={rating} type={type} />
 
             <ProviderTabs
               template={template}
               providerName={provider.name}
               galleryItems={template.gallery}
+              listingSlug={provider.slug}
             />
           </div>
         </main>
 
-        {/* Sidebar Area */}
         <aside className="lg:col-span-4 space-y-6">
           <SidebarLocation provider={provider} />
           <SidebarInfo

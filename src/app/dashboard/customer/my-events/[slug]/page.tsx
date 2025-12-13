@@ -229,7 +229,7 @@ function EventTabs({ event }: { event: EventItem }) {
         <TabsContent value="reviews" className="mt-6">
           <Card>
             <div className="p-4">
-              <ReviewsSection reviews={[]} />
+              <ReviewsSection reviews={[]} listingSlug={event.slug}/>
             </div>
           </Card>
         </TabsContent>

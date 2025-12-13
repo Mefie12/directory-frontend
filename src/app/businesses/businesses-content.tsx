@@ -33,7 +33,7 @@ interface ApiListing {
   location?: string;
   address?: string;
   city?: string;
-  country?: string; // Add country if API has it
+  country?: string;
   status: string;
   images: (ApiImage | string)[];
   cover_image?: string;
@@ -42,12 +42,12 @@ interface ApiListing {
   bio?: string;
   description?: string;
   start_date?: string;
-  created_at?: string; // Add created_at from API
+  date?: string; // Check this too
+  created_at?: string; // Fallback
   is_verified?: boolean;
 }
 
 // --- Extended Business Interface for UI ---
-// Updated to match what BusinessCard/BusinessSection expects
 interface ProcessedBusiness {
   id: string;
   name: string;
@@ -58,9 +58,8 @@ interface ProcessedBusiness {
   location: string;
   verified: boolean;
   rating: number;
-  reviewCount: number; // Note: BusinessCard likely expects string, check type below
+  reviewCount: number;
   category: string;
-  // --- ADDED MISSING FIELDS ---
   type: string;
   country: string;
   createdAt: Date;
@@ -74,6 +73,21 @@ const getImageUrl = (url: string | undefined | null): string => {
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
+const formatDate = (dateString: string | undefined | null) => {
+  if (!dateString) return "TBA";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "TBA";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return "TBA";
+  }
+};
+
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
@@ -81,6 +95,8 @@ const classifyListing = (
     .toString()
     .trim()
     .toLowerCase();
+
+  // If we have a start_date, assume event even if type is not explicit
   if (item.start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
@@ -92,8 +108,6 @@ export default function BusinessesContent({
 }: {
   categories: BusinessCategory[];
 }) {
-  // Use 'any' here if BusinessSection's type is strict and imported from lib/data
-  // Ideally, update BusinessSection to accept ProcessedBusiness, but 'any' fixes the immediate blocking error safely here.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [businesses, setBusinesses] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,22 +187,21 @@ export default function BusinessesContent({
             rating: Number(item.rating) || 0,
             reviewCount: Number(item.ratings_count) || 0,
             category: categoryName,
-            // --- MAPPED FIELDS FOR UI COMPATIBILITY ---
-            type: listingType, // "business", "event", etc.
-            country: item.country || "Ghana", // Default or fetch
+            type: listingType,
+            country: item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
           };
 
           if (listingType === "event") {
+            // FIX: Check multiple date fields
+            const eventDate = item.start_date || item.date || item.created_at;
+
             eventsList.push({
               ...commonProps,
               title: item.name,
-              startDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
-              endDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
+              // Use robust formatter
+              startDate: formatDate(eventDate),
+              endDate: formatDate(eventDate),
             });
           } else if (listingType === "business") {
             businessesList.push(commonProps);

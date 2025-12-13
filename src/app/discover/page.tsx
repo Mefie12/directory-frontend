@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"; // Needs to be a client component for useEffect
+"use client";
 
 import { useState, useEffect, Suspense } from "react";
 import NavigationTab from "@/components/navigation-tab";
@@ -16,7 +16,6 @@ import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // --- Interfaces ---
-// Reusing the robust interfaces from Code A
 interface ApiImage {
   id?: number;
   media: string;
@@ -44,6 +43,8 @@ interface ApiListing {
   bio?: string;
   description?: string;
   start_date?: string;
+  date?: string; // Additional check
+  created_at?: string; // Fallback
   is_verified?: boolean;
 }
 
@@ -57,6 +58,21 @@ const getImageUrl = (url: string | undefined | null): string => {
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
+const formatDate = (dateString: string | undefined | null) => {
+  if (!dateString) return "TBA";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "TBA"; // Invalid date
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return "TBA";
+  }
+};
+
 const classifyListing = (
   item: ApiListing
 ): "business" | "event" | "community" => {
@@ -65,7 +81,8 @@ const classifyListing = (
     .trim()
     .toLowerCase();
 
-  if (item.start_date || rawType === "event") return "event";
+  // If it has a future start_date, treat as event even if type is ambiguous
+  if (rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
@@ -83,7 +100,6 @@ export default function Discover() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // Fetch 100 items to ensure we fill all sections
         const response = await fetch(`${API_URL}/api/listings`, {
           headers: {
             "Content-Type": "application/json",
@@ -101,7 +117,7 @@ export default function Discover() {
         const communitiesList: any[] = [];
 
         data.forEach((item) => {
-          // --- Image Logic (Same as Code A) ---
+          // --- Image Logic ---
           const rawImages = Array.isArray(item.images) ? item.images : [];
           const validImages = rawImages
             .filter((img: any) => {
@@ -118,7 +134,6 @@ export default function Discover() {
               return getImageUrl(mediaPath);
             });
 
-          // Fallbacks
           if (validImages.length === 0 && item.cover_image) {
             validImages.push(getImageUrl(item.cover_image));
           }
@@ -132,12 +147,12 @@ export default function Discover() {
 
           const commonProps = {
             id: item.id.toString(),
-            name: item.name, // events/communities might map this to title
+            name: item.name,
             title: item.name,
             slug: item.slug,
             description: item.bio || item.description || "",
-            image: validImages[0], // Single image for some cards
-            images: validImages, // Array for carousels
+            image: validImages[0],
+            images: validImages,
             location: location,
             verified: item.is_verified || false,
           };
@@ -145,19 +160,18 @@ export default function Discover() {
           if (listingType === "community") {
             communitiesList.push({
               ...commonProps,
-              // Community-specific props if needed
             });
           } else if (listingType === "event") {
+            // FIX: Robust Date Checking
+            const eventDate = item.start_date || item.date || item.created_at;
+
             eventsList.push({
               ...commonProps,
               category: categoryName,
-              startDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
-              endDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : "TBA",
-              price: "Free", // Placeholder or fetch if available
+              // Use helper function
+              startDate: formatDate(eventDate),
+              endDate: formatDate(eventDate), // Assuming single day for now
+              price: "Free",
             });
           } else {
             businessesList.push({
@@ -182,7 +196,6 @@ export default function Discover() {
     fetchData();
   }, []);
 
-  // --- Skeletons ---
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {[1, 2, 3, 4].map((i) => (
@@ -200,7 +213,6 @@ export default function Discover() {
         </Suspense>
       </div>
 
-      {/* content */}
       <div className="space-y-2">
         {/* Top Carousels */}
         {isLoading ? (
@@ -219,7 +231,6 @@ export default function Discover() {
         {/* Ready to grow your business section */}
         <div className="py-12 px-4 lg:px-16 bg-white">
           <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
-            {/* Left: Image */}
             <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
               <Image
                 src="/images/backgroundImages/business/vendor.jpg"
@@ -230,8 +241,6 @@ export default function Discover() {
                 priority
               />
             </div>
-
-            {/* Right: Text Content */}
             <div className="flex flex-col justify-center bg-[#0D7077] text-white w-full lg:w-1/2 p-8 lg:p-16 space-y-6">
               <h2 className="text-3xl md:text-5xl font-medium leading-tight">
                 Grow Your Business with Mefie
@@ -270,7 +279,6 @@ export default function Discover() {
               </Link>
             </div>
           </div>
-
           {isLoading ? (
             <SectionSkeleton />
           ) : (
@@ -299,7 +307,6 @@ export default function Discover() {
               </Link>
             </div>
           </div>
-
           {isLoading ? (
             <SectionSkeleton />
           ) : (
@@ -328,7 +335,6 @@ export default function Discover() {
               </Link>
             </div>
           </div>
-
           {isLoading ? (
             <SectionSkeleton />
           ) : (
@@ -339,7 +345,6 @@ export default function Discover() {
         {/* CTA */}
         <div className="py-12 px-4 lg:px-16">
           <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-            {/* Background patterns */}
             <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
               <Image
                 src="/images/backgroundImages/bg-pattern.svg"
@@ -373,8 +378,6 @@ export default function Discover() {
                 priority
               />
             </div>
-
-            {/* Text content */}
             <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
               Ready to Grow Your Business?
             </h2>
@@ -382,8 +385,6 @@ export default function Discover() {
               Join thousands of African businesses already listed on Mefie
               Directory
             </p>
-
-            {/* CTA button */}
             <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
               List your business today
             </Button>
