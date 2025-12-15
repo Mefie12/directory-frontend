@@ -33,14 +33,14 @@ import {
   MoreHorizontal,
   Pause,
   Search,
-  ShieldCheck,
-  User,
+  User as UserIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from "date-fns";
 
+// --- Types ---
 interface User {
   id: string;
   first_name: string;
@@ -49,32 +49,41 @@ interface User {
   avatar: string;
   phone?: string;
   listings_count: string;
-  role: string;
-  plan?: "Basic" | "Premium" | "Pro";
-  numberOfListings?: string;
+  // Role determines the Tab (Vendor, Customer, Admin)
+  role: "vendor" | "customer" | "user" | "admin";
+  plan?: "Basic" | "Premium" | "Pro" | "Enterprise";
   last_active: string;
-  status: "Active" | "Pending" | "Suspended";
+  // Status determines filter (Active, Suspended)
+  status: "Active" | "Pending" | "Suspended" | "Inactive";
 }
+
+// Added 'all' to the TabType
+type TabType = "all" | "vendors" | "customers" | "admins";
 
 export default function Users() {
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"vendors" | "customers">(
-    "vendors"
-  );
+
+  // State - Default to 'all'
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   const [allData, setAllData] = useState<User[]>([]);
   const [displayData, setDisplayData] = useState<User[]>([]);
+
+  // Filters
   const [statusFilter, setStatusFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [totalPages, setTotalPages] = useState(1);
-  const [error, setError] = useState<string | null>(null);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  // Get auth token from localStorage
+  // Loading/Error
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // --- Helpers ---
   const getAuthToken = (): string | null => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("authToken");
@@ -83,19 +92,9 @@ export default function Users() {
   };
 
   const extractUsersFromResponse = (data: unknown): User[] => {
-    // 1. Basic safety check
-    if (!data) {
-      return [];
-    }
+    if (!data) return [];
+    if (Array.isArray(data)) return data as User[];
 
-    // 2. Check if the data itself is the array (e.g. [User, User])
-    // Array.isArray works on 'unknown' types automatically
-    if (Array.isArray(data)) {
-      return data as User[];
-    }
-
-    // 3. CASTING: We tell TS "Treat this as an object that might have these keys"
-    // This removes the "Property does not exist on type unknown" error
     const payload = data as {
       items?: User[];
       users?: User[];
@@ -103,34 +102,19 @@ export default function Users() {
       results?: User[];
     };
 
-    // Now we can safely access the properties on 'payload'
-    if (payload.items && Array.isArray(payload.items)) {
-      return payload.items;
-    }
-
-    if (payload.users && Array.isArray(payload.users)) {
-      return payload.users;
-    }
-
-    if (payload.data && Array.isArray(payload.data)) {
-      return payload.data;
-    }
-
-    if (payload.results && Array.isArray(payload.results)) {
+    if (payload.items && Array.isArray(payload.items)) return payload.items;
+    if (payload.users && Array.isArray(payload.users)) return payload.users;
+    if (payload.data && Array.isArray(payload.data)) return payload.data;
+    if (payload.results && Array.isArray(payload.results))
       return payload.results;
-    }
 
     return [];
   };
 
-  // Fetch all data without pagination parameters
+  // --- Fetch Data ---
   useEffect(() => {
     async function loadAllData() {
-      if (authLoading) {
-        // console.log("⏳ Auth still loading, waiting...");
-        return;
-      }
-
+      if (authLoading) return;
       if (!authUser) {
         setError("Authentication required to view users");
         setIsLoading(false);
@@ -141,10 +125,6 @@ export default function Users() {
       setError(null);
       try {
         const token = getAuthToken();
-        if (!token) {
-          throw new Error("No authentication token found");
-        }
-
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/all_users`, {
@@ -156,19 +136,12 @@ export default function Users() {
           },
         });
 
-        if (response.status === 401) {
-          throw new Error("Authentication failed - please login again");
-        }
-
-        if (!response.ok) {
+        if (response.status === 401) throw new Error("Authentication failed");
+        if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
-        }
 
         const data = await response.json();
-
-        // Use helper function to safely extract users
         const users = extractUsersFromResponse(data);
-
         setAllData(users);
       } catch (error) {
         setError(
@@ -181,16 +154,26 @@ export default function Users() {
     }
 
     loadAllData();
-  }, [activeTab, authUser, authLoading]);
+  }, [authUser, authLoading]);
 
-  // Filter and paginate data client-side
+  // --- Filtering Logic ---
   useEffect(() => {
-    // 1. Safety Check: Ensure allData is an array
     const safeAllData = Array.isArray(allData) ? allData : [];
 
-    // 2. Apply Filters
     const filteredData = safeAllData.filter((user) => {
-      // Status filter
+      // 1. Tab Logic (Role Based)
+      const userRole = (user.role || "").toLowerCase();
+
+      // If activeTab is 'all', we skip this check and include everyone
+      if (activeTab === "vendors") {
+        if (userRole !== "vendor") return false;
+      } else if (activeTab === "customers") {
+        if (userRole !== "customer" && userRole !== "user") return false;
+      } else if (activeTab === "admins") {
+        if (userRole !== "admin") return false;
+      }
+
+      // 2. Status Filter
       if (
         statusFilter !== "all" &&
         user.status?.toLowerCase() !== statusFilter
@@ -198,158 +181,121 @@ export default function Users() {
         return false;
       }
 
-      // Plan filter
+      // 3. Plan Filter (Only relevant for Vendors usually)
       if (planFilter !== "all" && user.plan?.toLowerCase() !== planFilter) {
         return false;
       }
 
-      // Search filter (THE FIX IS HERE)
+      // 4. Search Filter
       if (search) {
         const searchLower = search.toLowerCase();
-
-        // We use || "" to default to an empty string if the value is null/undefined
-        // This prevents the "Cannot read property 'toLowerCase' of null" crash
-        const nameMatch = (user.first_name || "").toLowerCase().includes(searchLower);
+        const nameMatch = `${user.first_name || ""} ${
+          user.last_name || ""
+        }`
+          .toLowerCase()
+          .includes(searchLower);
         const emailMatch = (user.email || "")
           .toLowerCase()
           .includes(searchLower);
         const phoneMatch = (user.phone || "").includes(searchLower);
-
         return nameMatch || emailMatch || phoneMatch;
       }
 
       return true;
     });
 
-    // 3. Calculate pagination
+    // Pagination Calculation
     const totalItems = filteredData.length;
     const computedTotalPages = Math.ceil(totalItems / itemsPerPage);
-    setTotalPages(computedTotalPages || 1); // Ensure at least 1 page exists
+    setTotalPages(computedTotalPages || 1);
 
-    // 4. Reset page if we are out of bounds (e.g. searching reduced results to 1 page but we were on page 5)
     if (currentPage > computedTotalPages && computedTotalPages > 0) {
       setCurrentPage(1);
     }
 
-    // 5. Apply pagination slice
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-
-    setDisplayData(paginatedData);
+    setDisplayData(filteredData.slice(startIndex, endIndex));
   }, [allData, statusFilter, planFilter, search, currentPage, activeTab]);
 
-  // Reset to first page when filters change
+  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
   }, [statusFilter, planFilter, search, activeTab]);
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-600 hover:bg-green-700";
-      case "Pending":
-        return "bg-yellow-500 hover:bg-yellow-600";
-      case "Suspended":
-        return "bg-red-600 hover:bg-red-700";
-      default:
-        return "bg-gray-500 hover:bg-gray-600";
-    }
-  };
-
-  const getPlanBadgeColor = (plan: string) => {
-    switch (plan) {
-      case "Basic":
-        return "bg-green-500 hover:bg-green-600";
-      case "Premium":
-        return "bg-yellow-500 hover:bg-yellow-600";
-      case "Pro":
+  // --- Badge Helpers ---
+  const getRoleBadgeColor = (role: string) => {
+    const r = (role || "").toLowerCase();
+    switch (r) {
+      case "vendor":
+        return "bg-orange-500 hover:bg-orange-600";
+      case "customer":
+      case "user":
         return "bg-blue-500 hover:bg-blue-600";
+      case "admin":
+        return "bg-purple-600 hover:bg-purple-700";
       default:
         return "bg-gray-500 hover:bg-gray-600";
     }
   };
 
+  const getPlanBadgeVariant = (plan: string) => {
+    const p = (plan || "").toLowerCase();
+    switch (p) {
+      case "basic":
+        return "bg-[#548235] hover:bg-[#548235]/90"; // Green
+      case "premium":
+        return "bg-[#6f42c1] hover:bg-[#6f42c1]/90"; // Purple
+      case "pro":
+        return "bg-[#0366d6] hover:bg-[#0366d6]/90"; // Blue
+      case "enterprise":
+        return "bg-zinc-800 hover:bg-zinc-900"; // Black
+      default:
+        return "bg-gray-500 hover:bg-gray-600";
+    }
+  };
+
+  // --- Pagination Helpers ---
   const getPageNumbers = () => {
     const pages: number[] = [];
     const maxPagesToShow = 4;
-
     if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
+      if (currentPage <= 3) pages.push(1, 2, 3, 4);
+      else if (currentPage >= totalPages - 2)
+        pages.push(
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages
+        );
+      else
         pages.push(
           currentPage - 1,
           currentPage,
           currentPage + 1,
           currentPage + 2
         );
-      }
     }
-
     return pages;
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
+  const { startItem, endItem } = (() => {
+    const s = (currentPage - 1) * itemsPerPage + 1;
+    const e = s + displayData.length - 1;
+    return { startItem: s, endItem: e > 0 ? e : 0 };
+  })();
 
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
+  // --- Actions ---
   const handleViewProfile = (userId: string) => {
     router.push(`/dashboard/admin/users/${userId}`);
   };
 
-  // Calculate showing range for pagination info
-  const getShowingRange = () => {
-    const safeAllData = Array.isArray(allData) ? allData : [];
-    const startItem = (currentPage - 1) * itemsPerPage + 1;
-    const endItem = Math.min(currentPage * itemsPerPage, safeAllData.length);
-    return { startItem, endItem };
-  };
-
-  const { startItem, endItem } = getShowingRange();
-
-  // Show loading state while auth is loading
-  if (authLoading) {
-    return (
-      <div className="p-2 lg:p-6 space-y-6">
-        <h1 className="text-3xl font-semibold">Users</h1>
-        <div className="flex justify-center items-center py-8">
-          <div className="text-gray-500">Loading authentication...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error if not authenticated
-  if (!authUser) {
-    return (
-      <div className="p-2 lg:p-6 space-y-6">
-        <h1 className="text-3xl font-semibold">Users</h1>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          <strong>Authentication Required: </strong> Please log in to view
-          users.
-        </div>
-      </div>
-    );
-  }
+  if (authLoading)
+    return <div className="p-6 text-gray-500">Loading authentication...</div>;
+  if (!authUser)
+    return <div className="p-6 text-red-700">Authentication Required</div>;
 
   return (
     <div className="p-2 lg:p-6 space-y-6">
@@ -357,89 +303,69 @@ export default function Users() {
 
       {/* Tabs */}
       <div className="flex gap-6 border-b">
-        <button
-          onClick={() => {
-            setActiveTab("vendors");
-            setCurrentPage(1);
-          }}
-          className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-            activeTab === "vendors"
-              ? "text-[#93C01F]"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Vendors
-          {activeTab === "vendors" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#93C01F]" />
-          )}
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("customers");
-            setCurrentPage(1);
-          }}
-          className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-            activeTab === "customers"
-              ? "text-[#93C01F]"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Customers
-          {activeTab === "customers" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#93C01F]" />
-          )}
-        </button>
+        {(["all", "vendors", "customers", "admins"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`pb-3 px-1 text-sm font-medium transition-colors relative capitalize ${
+              activeTab === tab
+                ? "text-[#93C01F]"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab}
+            {activeTab === tab && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#93C01F]" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           <strong>Error: </strong> {error}
         </div>
       )}
 
-      {/* Filters Section */}
+      {/* Filters */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Search Input */}
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search"
+              placeholder="Search by name, email, or phone"
               className="rounded-lg pl-9 shadow-none"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          {/* Filter Dropdowns */}
           <div className="flex gap-3">
-            {activeTab === "vendors" && (
-              <>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="rounded-lg shadow-none w-[130px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="rounded-lg shadow-none w-[130px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
 
-                <Select value={planFilter} onValueChange={setPlanFilter}>
-                  <SelectTrigger className="rounded-lg shadow-none w-[130px]">
-                    <SelectValue placeholder="Plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Plans</SelectItem>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="pro">Pro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </>
+            {/* Plan Filter - ONLY visible when specific to Vendors tab */}
+            {activeTab === "vendors" && (
+              <Select value={planFilter} onValueChange={setPlanFilter}>
+                <SelectTrigger className="rounded-lg shadow-none w-[130px]">
+                  <SelectValue placeholder="Plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Plans</SelectItem>
+                  <SelectItem value="basic">Basic</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                </SelectContent>
+              </Select>
             )}
           </div>
         </div>
@@ -449,39 +375,29 @@ export default function Users() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-200">
-                {activeTab === "vendors" ? (
-                  <>
-                    <TableHead className="font-semibold">Vendor Name</TableHead>
-                    <TableHead className="font-semibold">
-                      Phone Number
-                    </TableHead>
-                    {/*<TableHead className="font-semibold">Plan</TableHead>*/}
-                    <TableHead className="font-semibold">
-                      Number of Listings
-                    </TableHead>
-                    <TableHead className="font-semibold">Last Active</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </>
-                ) : (
-                  <>
-                    <TableHead className="font-semibold">
-                      Customer Name
-                    </TableHead>
-                    <TableHead className="font-semibold">
-                      Phone Number
-                    </TableHead>
-                    <TableHead className="font-semibold">Last Active</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </>
+                <TableHead className="font-semibold">Name</TableHead>
+                <TableHead className="font-semibold">Phone Number</TableHead>
+
+                {/* Plan Column - Vendors Only */}
+                {activeTab === "vendors" && (
+                  <TableHead className="font-semibold">Plan</TableHead>
                 )}
+
+                {/* Listings Column - Vendors Only */}
+                {activeTab === "vendors" && (
+                  <TableHead className="font-semibold">Listings</TableHead>
+                )}
+
+                <TableHead className="font-semibold">Last Active</TableHead>
+                <TableHead className="font-semibold">Role</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={activeTab === "vendors" ? 8 : 4}
+                    colSpan={7}
                     className="text-center py-8 text-gray-500"
                   >
                     Loading users...
@@ -490,7 +406,7 @@ export default function Users() {
               ) : displayData.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={activeTab === "vendors" ? 8 : 4}
+                    colSpan={7}
                     className="text-center py-8 text-gray-500"
                   >
                     {allData.length === 0
@@ -513,7 +429,7 @@ export default function Users() {
                           />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                            <User className="h-5 w-5 text-gray-500" />
+                            <UserIcon className="h-5 w-5 text-gray-500" />
                           </div>
                         )}
                         <div>
@@ -525,48 +441,43 @@ export default function Users() {
                       </div>
                     </TableCell>
 
+                    <TableCell>{user.phone || "N/A"}</TableCell>
+
+                    {/* Plan Badge - Vendors Only */}
                     {activeTab === "vendors" && (
-                      <>
-                        <TableCell>{user.phone}</TableCell>
-                        {/*<TableCell>*/}
-                        {/*  <Badge*/}
-                        {/*    className={`${getPlanBadgeColor(*/}
-                        {/*      user.plan || ""*/}
-                        {/*    )} text-white`}*/}
-                        {/*  >*/}
-                        {/*    {user.plan || "No Plan"}*/}
-                        {/*  </Badge>*/}
-                        {/*</TableCell>*/}
-                        <TableCell>{user.listings_count || "0"}</TableCell>
-                          <TableCell>
-                              {user.last_active
-                                  ? formatDistanceToNow(new Date(user.last_active), { addSuffix: true })
-                                  : 'Never active'
-                              }
-                          </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${getStatusBadgeColor(
-                              user.role
-                            )} text-white`}
-                          >
-                            {user.role}
-                          </Badge>
-                        </TableCell>
-                      </>
+                      <TableCell>
+                        <Badge
+                          className={`${getPlanBadgeVariant(
+                            user.plan || ""
+                          )} text-white`}
+                        >
+                          {user.plan || "Free"}
+                        </Badge>
+                      </TableCell>
                     )}
 
-                    {activeTab === "customers" && (
-                      <>
-                        <TableCell>{user.phone}</TableCell>
-                          <TableCell>
-                              {user.last_active
-                                  ? formatDistanceToNow(new Date(user.last_active), { addSuffix: true })
-                                  : 'Never active'
-                              }
-                          </TableCell>
-                      </>
+                    {/* Listings Count - Vendors Only */}
+                    {activeTab === "vendors" && (
+                      <TableCell>{user.listings_count || "0"}</TableCell>
                     )}
+
+                    <TableCell>
+                      {user.last_active
+                        ? formatDistanceToNow(new Date(user.last_active), {
+                            addSuffix: true,
+                          })
+                        : "Never"}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        className={`${getRoleBadgeColor(
+                          user.role
+                        )} text-white capitalize`}
+                      >
+                        {user.role || "Unknown"}
+                      </Badge>
+                    </TableCell>
 
                     <TableCell>
                       <DropdownMenu>
@@ -577,27 +488,19 @@ export default function Users() {
                             className="h-8 w-8"
                           >
                             <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Open menu</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => handleViewProfile(user.id)}
                           >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Profile
+                            <Eye className="mr-2 h-4 w-4" /> View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-yellow-600">
+                            <Pause className="mr-2 h-4 w-4" /> Suspend
                           </DropdownMenuItem>
                           <DropdownMenuItem>
-                            <Pause className="mr-2 h-4 w-4" />
-                            Suspend
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                            Message
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            Verify
+                            <MessageSquare className="mr-2 h-4 w-4" /> Message
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -616,32 +519,25 @@ export default function Users() {
               Showing{" "}
               <span className="font-semibold">
                 {startItem}-{endItem}
-              </span>{" "}
-              from{" "}
-              <span className="font-semibold">
-                {Array.isArray(allData) ? allData.length : 0}
-              </span>{" "}
-              data
+              </span>
             </span>
-
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handlePrevious}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="h-9 w-9 hover:bg-gray-100 disabled:opacity-50 rounded-full border"
+                className="h-9 w-9 rounded-full border"
               >
                 <ChevronLeft className="w-5 h-5" />
               </Button>
-
-              <div className="rounded-full border">
+              <div className="flex gap-1">
                 {getPageNumbers().map((page) => (
                   <Button
                     key={page}
                     variant={currentPage === page ? "default" : "ghost"}
                     size="icon"
-                    onClick={() => handlePageChange(page)}
+                    onClick={() => setCurrentPage(page)}
                     className={`h-9 w-9 rounded-full ${
                       currentPage === page
                         ? "bg-[#93C01F] text-white hover:bg-[#93C01F]/90"
@@ -652,13 +548,14 @@ export default function Users() {
                   </Button>
                 ))}
               </div>
-
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleNext}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
-                className="h-9 w-9 hover:bg-gray-100 disabled:opacity-50 rounded-full border"
+                className="h-9 w-9 rounded-full border"
               >
                 <ChevronRight className="w-5 h-5" />
               </Button>

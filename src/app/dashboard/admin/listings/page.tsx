@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -72,6 +73,7 @@ import {
   Twitter,
   Youtube,
   Linkedin,
+  Eye,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
@@ -113,7 +115,6 @@ interface Listing {
   };
 }
 
-// ... [Keep RawListing, ApiResponse, Category interfaces exactly as before] ...
 interface RawListing {
   id?: string | number;
   slug?: string;
@@ -135,7 +136,7 @@ interface RawListing {
   primary_phone?: string;
   email?: string;
   website?: string;
-  socials?: any; // Can be array or object depending on API
+  socials?: any;
   user?: {
     id?: number;
     first_name?: string;
@@ -208,7 +209,6 @@ interface CategoryFormData {
   parent_id: string | null;
 }
 
-// ... [Keep categoryApi object exactly as before] ...
 const categoryApi = {
   getCategories: async (): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
@@ -293,7 +293,6 @@ const categoryApi = {
 export default function Listings() {
   const { user: authUser, loading: authLoading } = useAuth();
 
-  // ... [Keep all state hooks exactly as before] ...
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [allData, setAllData] = useState<Listing[]>([]);
   const [displayData, setDisplayData] = useState<Listing[]>([]);
@@ -363,7 +362,6 @@ export default function Listings() {
     };
 
     return rawItems.map((item) => {
-      // ... [Keep Vendor Name logic] ...
       let vendorName = "Unknown Vendor";
       let userInfo: { name: string; email?: string } | undefined = undefined;
 
@@ -382,7 +380,6 @@ export default function Listings() {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
-      // ... [Keep Image Logic] ...
       let imageUrl = "/images/placeholder-listing.png";
       if (item.images && item.images.length > 0) {
         const validImage = item.images.find(
@@ -395,7 +392,6 @@ export default function Listings() {
         imageUrl = getImageUrl(item.image || item.thumbnail);
       }
 
-      // ... [Keep Category Logic] ...
       let category = "General";
       if (item.categories && item.categories.length > 0) {
         const mainCategories = item.categories.filter(
@@ -410,7 +406,6 @@ export default function Listings() {
         category = item.category;
       }
 
-      // ... [Keep Location Logic] ...
       let location = "Accra, Ghana";
       if (item.city && item.country) {
         location = `${item.city}, ${item.country}`;
@@ -429,7 +424,6 @@ export default function Listings() {
       else if (rawStatus === "rejected") approval = "Rejected";
       else if (rawStatus === "suspended") approval = "Suspended";
 
-      // --- Socials Logic ---
       const socialsData = Array.isArray(item.socials)
         ? item.socials[0]
         : item.socials || {};
@@ -455,7 +449,6 @@ export default function Listings() {
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
         description: item.description || "No description provided.",
         userInfo: userInfo,
-        // --- ADDED CONTACT INFO ---
         contactInfo: {
           phone: item.primary_phone,
           email: item.email,
@@ -472,7 +465,6 @@ export default function Listings() {
     });
   };
 
-  // ... [Keep Category Management logic exactly as before] ...
   const mainCategories = allCategories.filter(
     (cat) => cat.type === "mainCategory" || cat.parent_id === null
   );
@@ -555,7 +547,6 @@ export default function Listings() {
     }
   };
 
-  // ... [Keep Delete Handler] ...
   const handleDeleteConfirm = async () => {
     if (!listingToDelete) return;
     setIsDeleting(true);
@@ -597,7 +588,6 @@ export default function Listings() {
     }
   };
 
-  // ... [Keep Status Update Handler] ...
   const handleStatusUpdate = async (
     listingSlug: string,
     newStatus: "approved" | "rejected" | "suspended"
@@ -649,7 +639,6 @@ export default function Listings() {
     }
   };
 
-  // ... [Keep Save Category Handler] ...
   const handleSaveCategory = async () => {
     if (!categoryFormData.name.trim()) {
       toast.error("Category name is required");
@@ -692,7 +681,6 @@ export default function Listings() {
     }
   };
 
-  // ... [Keep Main Category Checkbox logic] ...
   const handleMainCategoryChange = (checked: boolean) => {
     setCategoryFormData((prev) => ({
       ...prev,
@@ -705,7 +693,6 @@ export default function Listings() {
     }));
   };
 
-  // ... [Keep loadAllData logic] ...
   const loadAllData = useCallback(async () => {
     if (authLoading || activeTab === "categories") return;
     if (!authUser) {
@@ -726,9 +713,16 @@ export default function Listings() {
       });
 
       if (search) params.append("search", search);
-      if (statusFilter !== "all") params.append("status", statusFilter);
+
+      if (activeTab === "pending") {
+        params.set("status", "pending");
+      } else if (activeTab === "flagged") {
+        params.set("status", "suspended");
+      } else {
+        if (statusFilter !== "all") params.append("status", statusFilter);
+      }
+
       if (typeFilter !== "all") params.append("type", typeFilter);
-      if (activeTab === "pending") params.append("status", "pending");
 
       const response = await fetch(
         `${API_URL}/api/listings?${params.toString()}`,
@@ -808,8 +802,42 @@ export default function Listings() {
   useEffect(() => {
     if (activeTab === "categories") return;
     const safeAllData = Array.isArray(allData) ? allData : [];
-    setDisplayData(safeAllData);
-  }, [allData, activeTab]);
+
+    let filteredData = safeAllData;
+
+    if (activeTab === "pending") {
+      filteredData = safeAllData.filter((item) => item.approval === "Pending");
+    } else if (activeTab === "flagged") {
+      filteredData = safeAllData.filter(
+        (item) => item.approval === "Suspended" || item.approval === "Rejected"
+      );
+    } else {
+      if (statusFilter !== "all") {
+        const status = statusFilter.toLowerCase();
+        if (status === "published") {
+          filteredData = filteredData.filter(
+            (item) => item.approval === "Approved"
+          );
+        } else if (status === "pending") {
+          filteredData = filteredData.filter(
+            (item) => item.approval === "Pending"
+          );
+        } else if (status === "rejected") {
+          filteredData = filteredData.filter(
+            (item) => item.approval === "Rejected"
+          );
+        }
+      }
+
+      if (typeFilter !== "all") {
+        filteredData = filteredData.filter(
+          (item) => item.type.toLowerCase() === typeFilter.toLowerCase()
+        );
+      }
+    }
+
+    setDisplayData(filteredData);
+  }, [allData, activeTab, statusFilter, typeFilter]);
 
   const handlePageChange = (page: number) => setCurrentPage(page);
   const handlePrevious = () => {
@@ -824,19 +852,6 @@ export default function Listings() {
     if (status === "Pending") return "bg-yellow-100 text-yellow-700";
     if (status === "Suspended") return "bg-orange-100 text-orange-700";
     return "bg-red-100 text-red-800";
-  };
-
-  const getSubmissionBadgeVariant = (status: string) => {
-    switch (status) {
-      case "Approved":
-        return "default";
-      case "Pending":
-        return "secondary";
-      case "Rejected":
-        return "destructive";
-      default:
-        return "outline";
-    }
   };
 
   const getApprovalBadgeVariant = (status: string) => {
@@ -870,67 +885,6 @@ export default function Listings() {
         );
     }
     return pages;
-  };
-
-  const renderInteractiveStatus = (listing: Listing) => {
-    const isUpdating =
-      isUpdatingStatus === listing.slug || isUpdatingStatus === listing.id;
-
-    if (isUpdating) {
-      return <Loader2 className="h-4 w-4 animate-spin text-gray-500" />;
-    }
-
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="cursor-pointer inline-block hover:opacity-80 transition-opacity"
-          >
-            <Badge
-              variant={getApprovalBadgeVariant(listing.approval)}
-              className={`flex items-center gap-1 ${
-                listing.approval === "Approved"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : ""
-              }`}
-            >
-              {listing.approval}
-            </Badge>
-          </div>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStatusUpdate(listing.slug, "approved");
-            }}
-            className="text-green-600 cursor-pointer"
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" /> Approve
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStatusUpdate(listing.slug, "suspended");
-            }}
-            className="text-orange-600 cursor-pointer"
-          >
-            <AlertTriangle className="mr-2 h-4 w-4" /> Suspend
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStatusUpdate(listing.slug, "rejected");
-            }}
-            className="text-red-600 cursor-pointer"
-          >
-            <XCircle className="mr-2 h-4 w-4" /> Reject
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
   };
 
   // --- SOCIAL ICON HELPER ---
@@ -987,7 +941,7 @@ export default function Listings() {
         ))}
       </div>
 
-      {/* --- CATEGORIES VIEW --- */}
+      {/* ... [Categories View remains unchanged] ... */}
       {activeTab === "categories" ? (
         <div className="space-y-6">
           <div className="flex justify-end">
@@ -1094,7 +1048,6 @@ export default function Listings() {
         <>
           {/* Filters Section */}
           <div className="p-1 space-y-4">
-            {/* ... [Keep Filter JSX] ... */}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative w-full md:w-1/3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1146,9 +1099,6 @@ export default function Listings() {
                       Category & Location
                     </TableHead>
                     <TableHead className="font-semibold">Type</TableHead>
-                    <TableHead className="font-semibold">
-                      Submission Status
-                    </TableHead>
                     <TableHead className="font-semibold">
                       Approval Status
                     </TableHead>
@@ -1208,19 +1158,22 @@ export default function Listings() {
                         <TableCell>
                           <span className="capitalize">{item.type}</span>
                         </TableCell>
-                        <TableCell>
+
+                        {/* --- STATIC APPROVAL STATUS BADGE --- */}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Badge
-                            variant={getSubmissionBadgeVariant(item.approval)}
-                            className={
-                              item.approval === "Approved" ? "bg-green-600" : ""
-                            }
+                            variant={getApprovalBadgeVariant(item.approval)}
+                            className={`flex w-fit items-center gap-1 ${
+                              item.approval === "Approved"
+                                ? "bg-green-600 hover:bg-green-700"
+                                : ""
+                            }`}
                           >
                             {item.approval}
                           </Badge>
                         </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {renderInteractiveStatus(item)}
-                        </TableCell>
+
+                        {/* --- ACTIONS MENU WITH ALL TOGGLES --- */}
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1229,15 +1182,59 @@ export default function Listings() {
                                 size="icon"
                                 className="h-8 w-8"
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                {isUpdatingStatus === item.slug ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4" />
+                                )}
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem
                                 onClick={() => setSelectedListing(item)}
+                                className="cursor-pointer"
                               >
-                                View Details
+                                <Eye className="mr-2 h-4 w-4" /> View Details
                               </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Status</DropdownMenuLabel>
+
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusUpdate(item.slug, "approved");
+                                }}
+                                className="text-green-600 cursor-pointer focus:text-green-700"
+                              >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />{" "}
+                                Approve
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusUpdate(item.slug, "suspended");
+                                }}
+                                className="text-orange-600 cursor-pointer focus:text-orange-700"
+                              >
+                                <AlertTriangle className="mr-2 h-4 w-4" />{" "}
+                                Suspend
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusUpdate(item.slug, "rejected");
+                                }}
+                                className="text-red-600 cursor-pointer focus:text-red-700"
+                              >
+                                <XCircle className="mr-2 h-4 w-4" /> Reject
+                              </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+
                               <DropdownMenuItem
                                 className="text-red-600 focus:text-red-700 cursor-pointer"
                                 onClick={(e) => {
