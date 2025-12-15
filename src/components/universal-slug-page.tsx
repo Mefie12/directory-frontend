@@ -59,17 +59,19 @@ interface ApiRatingData {
   user_id: number;
   rating: number;
   comment: string;
-  created_at?: string; 
-  // We allow user to be optional, and we will populate it if missing
-  user?: { 
+  created_at?: string;
+  user?: {
     name?: string;
     first_name?: string;
     last_name?: string;
     avatar?: string;
+    profile_photo_url?: string;
+    username?: string;
+    email?: string;
   };
 }
 
-interface ApiReview { 
+interface ApiReview {
   id: number | string;
   user?: string;
   author?: string;
@@ -102,7 +104,7 @@ interface ApiListingData {
   socials?: ApiSocialItem[];
   services?: any[];
   faqs?: FAQItem[];
-  reviews?: ApiReview[]; 
+  reviews?: ApiReview[];
   experience?: ExperienceItem[];
   pricing?: PricingItem[];
   start_date?: string;
@@ -124,7 +126,7 @@ interface SocialLinks {
 }
 
 interface Provider {
-  id: number; 
+  id: number;
   name: string;
   slug: string;
   description: string;
@@ -158,7 +160,7 @@ interface FAQItem {
 
 interface ReviewItem {
   id?: number | string;
-  author: string; 
+  author: string;
   rating: number;
   date: string;
   comment: string;
@@ -205,6 +207,30 @@ const formatDateTime = (dateString?: string) => {
   } catch {
     return "";
   }
+};
+
+// --- CONSISTENT Name Extraction Logic ---
+const extractUserName = (userData: any): string => {
+  if (!userData) return "Unknown User";
+
+  // Check if userData is wrapped in a 'data' property
+  const rawUser = userData.data || userData.user || userData;
+
+  // 1. Try 'name' field
+  let fullName = rawUser.name;
+
+  // 2. Try first_name + last_name
+  if (!fullName && (rawUser.first_name || rawUser.last_name)) {
+    fullName = `${rawUser.first_name || ""} ${rawUser.last_name || ""}`.trim();
+  }
+
+  // 3. Fallbacks
+  if (!fullName) {
+    fullName =
+      rawUser.username || rawUser.email?.split("@")[0] || "Unknown User";
+  }
+
+  return fullName;
 };
 
 // --- Helper Components ---
@@ -289,12 +315,12 @@ function ProviderTabs({
   template,
   providerName,
   galleryItems,
-  listingSlug, 
+  listingSlug,
 }: {
   template: TemplateContent;
   providerName: string;
   galleryItems: GalleryItem[];
-  listingSlug: string; 
+  listingSlug: string;
 }) {
   const { experiences, faqs, reviews } = {
     experiences: template.experience || [],
@@ -540,6 +566,7 @@ export default async function UniversalSlugPage({
   let listingData: ApiListingData | null = null;
   let ratingsData: ApiRatingData[] = [];
 
+  // FIXED: Using only the public ENV variable which is standard in Next.js
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
   try {
@@ -569,40 +596,69 @@ export default async function UniversalSlugPage({
         if (ratingsResponse.ok) {
           const ratingsJson = await ratingsResponse.json();
           const allRatings = ratingsJson.data || [];
-          
+
           // Filter ratings for this specific listing since API returns all
-          const filteredRatings = allRatings.filter((r: ApiRatingData) => r.listing_id === listingData!.id);
+          const filteredRatings = allRatings.filter(
+            (r: ApiRatingData) => r.listing_id === listingData!.id
+          );
 
           // 3. ENRICH RATINGS (Fetch User Data if missing)
-          // Since the API returns user_id but NOT the user object, we must fetch the user details.
           ratingsData = await Promise.all(
             filteredRatings.map(async (rating: ApiRatingData) => {
               // If user object is missing but we have an ID, fetch the user
-              if (!rating.user && rating.user_id) {
+              if (
+                rating.user_id &&
+                (!rating.user || Object.keys(rating.user).length === 0)
+              ) {
                 try {
-                  const userRes = await fetch(`${API_URL}/api/users/${rating.user_id}`, {
-                    headers: {
+                  const userRes = await fetch(
+                    `${API_URL}/api/users/${rating.user_id}`,
+                    {
+                      headers: {
                         Accept: "application/json",
-                    },
-                    next: { revalidate: 3600 } // Cache user info aggressively
-                  });
+                      },
+                      next: { revalidate: 3600 },
+                    }
+                  );
 
                   if (userRes.ok) {
                     const userJson = await userRes.json();
                     const userData = userJson.data || userJson; // Handle standard API wrapper
-                    
+
+                    // Manually construct the user object from the fetched data
+                    const enrichedUser = {
+                      id: userData.id || rating.user_id,
+                      first_name: userData.first_name,
+                      last_name: userData.last_name,
+                      name:
+                        userData.name ||
+                        `${userData.first_name || ""} ${
+                          userData.last_name || ""
+                        }`.trim(),
+                      avatar: userData.avatar || userData.profile_photo_url,
+                      username: userData.username,
+                      email: userData.email,
+                    };
+
+                    console.log(
+                      `Enriched user for rating ${rating.id}:`,
+                      enrichedUser
+                    );
+
                     return {
                       ...rating,
-                      user: {
-                        name: userData.name,
-                        first_name: userData.first_name,
-                        last_name: userData.last_name,
-                        avatar: userData.avatar || userData.profile_photo_url,
-                      }
+                      user: enrichedUser,
                     };
+                  } else {
+                    console.warn(
+                      `User fetch failed for ID ${rating.user_id}: ${userRes.status}`
+                    );
                   }
                 } catch (err) {
-                  console.error(`Failed to fetch user ${rating.user_id} for rating ${rating.id}`, err);
+                  console.error(
+                    `Failed to fetch user ${rating.user_id} for rating ${rating.id}`,
+                    err
+                  );
                 }
               }
               return rating;
@@ -623,7 +679,11 @@ export default async function UniversalSlugPage({
 
   // Socials
   let socialLinks: SocialLinks = {};
-  if (listingData.socials && Array.isArray(listingData.socials) && listingData.socials.length > 0) {
+  if (
+    listingData.socials &&
+    Array.isArray(listingData.socials) &&
+    listingData.socials.length > 0
+  ) {
     const socialData = listingData.socials[0];
     socialLinks = {
       facebook: socialData.facebook,
@@ -635,18 +695,24 @@ export default async function UniversalSlugPage({
   }
 
   // Services
-  const servicesList = listingData.services?.map((s: any) => typeof s === "string" ? s : s.name) || [];
+  const servicesList =
+    listingData.services?.map((s: any) =>
+      typeof s === "string" ? s : s.name
+    ) || [];
 
   // Provider Object
   const provider: Provider = {
     id: listingData.id,
     name: listingData.name,
     slug: listingData.slug,
-    description: listingData.bio || listingData.description || "No description provided.",
+    description:
+      listingData.bio || listingData.description || "No description provided.",
     location: listingData.address || listingData.city || listingData.location,
     country: listingData.country,
     verified: listingData.is_verified,
-    reviews: listingData.reviews_count ? listingData.reviews_count.toString() : "0",
+    reviews: listingData.reviews_count
+      ? listingData.reviews_count.toString()
+      : "0",
     rating: listingData.rating || 0,
     phone: listingData.primary_phone,
     email: listingData.email,
@@ -659,51 +725,62 @@ export default async function UniversalSlugPage({
   const rawImages = listingData.images || [];
   const gallery: GalleryItem[] = rawImages.map((img) => {
     if (typeof img === "object" && img.media) {
-      return { type: "image", src: getImageUrl(img.media), alt: provider.name };
+      return {
+        type: "image",
+        src: getImageUrl(img.media),
+        alt: provider.name,
+      };
     }
     if (typeof img === "string") {
       return { type: "image", src: getImageUrl(img), alt: provider.name };
     }
-    return { type: "image", src: "/images/placeholders/generic.jpg", alt: "Placeholder" };
+    return {
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: "Placeholder",
+    };
   });
   if (gallery.length === 0) {
-    gallery.push({ type: "image", src: "/images/placeholders/generic.jpg", alt: provider.name });
+    gallery.push({
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: provider.name,
+    });
   }
 
   // --- Reviews Mapping ---
+  // Using the robust helper function
   const mappedReviews: ReviewItem[] = ratingsData.map((rating) => {
-    let authorName = "Unknown User"; // Default fallback
-
-    if (rating.user) {
-        // 1. Try 'name' (Full Name)
-        if (rating.user.name) {
-            authorName = rating.user.name;
-        } 
-        // 2. Try constructing from first/last
-        else if (rating.user.first_name || rating.user.last_name) {
-            authorName = `${rating.user.first_name || ''} ${rating.user.last_name || ''}`.trim();
-        }
-    }
+    const displayName = extractUserName(rating.user);
 
     return {
       id: rating.id,
-      author: authorName, 
+      author: displayName,
       rating: rating.rating,
-      date: rating.created_at ? new Date(rating.created_at).toLocaleDateString() : "Recent",
+      date: rating.created_at
+        ? new Date(rating.created_at).toLocaleDateString()
+        : "Recent",
       comment: rating.comment,
-      avatar: rating.user?.avatar || "",
+      avatar: rating.user?.avatar || rating.user?.profile_photo_url || "",
     };
   });
 
   // Fallback to old nested reviews if new API returns nothing
-  const finalReviews = mappedReviews.length > 0 ? mappedReviews : (listingData.reviews || []).map((review, idx) => ({
-    id: review.id || idx,
-    author: review.author || review.user || "Anonymous",
-    rating: review.rating || 5,
-    date: review.date || (review.created_at ? new Date(review.created_at).toLocaleDateString() : "Recent"),
-    comment: review.comment || "",
-    avatar: review.avatar || "",
-  }));
+  const finalReviews =
+    mappedReviews.length > 0
+      ? mappedReviews
+      : (listingData.reviews || []).map((review, idx) => ({
+          id: review.id || idx,
+          author: review.user || "Anonymous",
+          rating: review.rating || 5,
+          date:
+            review.date ||
+            (review.created_at
+              ? new Date(review.created_at).toLocaleDateString()
+              : "Recent"),
+          comment: review.comment || "",
+          avatar: review.avatar || "",
+        }));
 
   const template: TemplateContent = {
     services: servicesList,
@@ -719,9 +796,15 @@ export default async function UniversalSlugPage({
   // Breadcrumbs
   let parentLink = "/";
   let parentLabel = "Home";
+
   if (categorySlug) {
     parentLink = `/categories/${categorySlug}`;
-    parentLabel = categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1).replace(/-/g, " ");
+    parentLabel =
+      categorySlug.charAt(0).toUpperCase() +
+      categorySlug.slice(1).replace(/-/g, " ");
+  } else if (type === "discover") {
+    parentLink = "/discover";
+    parentLabel = "Discover";
   } else if (type === "event") {
     parentLink = "/events";
     parentLabel = "Events";
