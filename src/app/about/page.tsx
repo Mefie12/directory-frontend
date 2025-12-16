@@ -1,7 +1,7 @@
 import NewsCard from "@/components/about/news-card";
 import TestimonialCarousel from "@/components/about/testimonial-carousel";
 import Image from "next/image";
-import { testimonials, newsList } from "@/lib/data";
+import { newsList } from "@/lib/data";
 
 export default function About() {
   return (
@@ -90,7 +90,7 @@ export default function About() {
             Hundreds of 5-star reviews of Mefie Directory award winning software
           </p>
 
-          <TestimonialCarousel testimonials={testimonials} />
+          <TestimonialCarousel />
         </div>
       </section>
 

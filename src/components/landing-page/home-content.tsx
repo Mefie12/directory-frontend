@@ -402,7 +402,7 @@ export default function HomeContent() {
             <p className="text-base md:text-lg leading-relaxed">
               Join a network of vendors reaching new audiences.
             </p>
-            <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+            <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
               Join as a vendor
             </Button>
           </div>
@@ -448,8 +448,8 @@ export default function HomeContent() {
                   <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal line-clamp-2">
                     {item.description}
                   </p>
-                  <Button className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
-                    Join Community
+                  <Button onClick={()=>router.push(`/communities/${item.slug}`)} className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
+                    View Community
                   </Button>
                 </div>
               </div>
@@ -461,7 +461,10 @@ export default function HomeContent() {
           </div>
         )}
         <div className="flex items-center justify-center mt-4">
-          <Button onClick={()=>(router.push('/communities'))} className="bg-transparent border border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F] hover:text-white cursor-pointer">
+          <Button
+            onClick={() => router.push("/communities")}
+            className="bg-transparent border border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F] hover:text-white cursor-pointer"
+          >
             Explore more communities
           </Button>
         </div>
@@ -519,7 +522,7 @@ export default function HomeContent() {
           </p>
 
           {/* CTA button */}
-          <Button className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+          <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
             List your business today
           </Button>
         </div>

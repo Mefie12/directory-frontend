@@ -1640,6 +1640,7 @@ export type SocialLinks = {
 };
 
 export interface ServiceProvider {
+  badge: boolean;
   id: string;
   name: string;
   subtitle: string;
@@ -2224,6 +2225,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
   "cultural-services": [
     {
       id: "cs-1",
+      badge: true,
       name: "Kente Tailor — Bespoke Mens Wedding Attire",
       subtitle: "Traditional Wedding Attire",
       category: "cultural-services",
@@ -2271,6 +2273,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/kentetailor",
         twitter: "https://x.com/kentetailor",
       },
+      badge: false
     },
     {
       id: "cs-3",
@@ -2296,6 +2299,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/kentetailor",
         twitter: "https://x.com/kentetailor",
       },
+      badge: false
     },
     {
       id: "cs-4",
@@ -2321,6 +2325,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/kentetailor",
         twitter: "https://x.com/kentetailor",
       },
+      badge: false
     },
     {
       id: "cs-5",
@@ -2346,6 +2351,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/kentetailor",
         twitter: "https://x.com/kentetailor",
       },
+      badge: false
     },
     {
       id: "cs-6",
@@ -2371,6 +2377,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/kentetailor",
         twitter: "https://x.com/kentetailor",
       },
+      badge: false
     },
   ],
   "fashion-lifestyle": [
@@ -2397,6 +2404,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
     {
       id: "fl-2",
@@ -2421,6 +2429,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
     {
       id: "fl-3",
@@ -2435,7 +2444,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "North London, United Kingdom",
       slug: "afrocentric-styles",
       country: "United Kingdom",
-       description: "Streetwear label blending African heritage and modern silhouettes.",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-07-25",
       availableTo: "2025-08-30",
       phone: "+44 20 7890 1234",
@@ -2445,6 +2454,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
     {
       id: "fl-4",
@@ -2459,7 +2469,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "South London, United Kingdom",
       slug: "beaded-heritage-necklaces",
       country: "United Kingdom",
-       description: "Streetwear label blending African heritage and modern silhouettes.",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-09-05",
       availableTo: "2025-10-02",
       phone: "+44 20 7890 1234",
@@ -2469,6 +2479,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
     {
       id: "fl-5",
@@ -2483,7 +2494,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "East London, United Kingdom",
       slug: "golden-adornments",
       country: "United Kingdom",
-       description: "Streetwear label blending African heritage and modern silhouettes.",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-10-08",
       availableTo: "2025-11-20",
       phone: "+44 20 7890 1234",
@@ -2493,6 +2504,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
     {
       id: "fl-6",
@@ -2507,7 +2519,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       location: "West London, United Kingdom",
       slug: "tribal-treasures-jewelry",
       country: "United Kingdom",
-       description: "Streetwear label blending African heritage and modern silhouettes.",
+      description: "Streetwear label blending African heritage and modern silhouettes.",
       availableFrom: "2025-11-01",
       availableTo: "2025-12-15",
       phone: "+44 20 7890 1234",
@@ -2517,6 +2529,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         instagram: "https://instagram.com/freetheyouth",
         youtube: "https://youtube.com/@fty",
       },
+      badge: false
     },
   ],
   "food-hospitality": [
@@ -2544,6 +2557,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
     {
       id: "fh-2",
@@ -2561,7 +2575,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-06-10",
       availableTo: "2025-07-05",
-       phone: "+44 20 3344 5566",
+      phone: "+44 20 3344 5566",
       email: "orders@mamasafrican.co.uk",
       website: "https://mamasafrican.co.uk",
       socials: {
@@ -2569,6 +2583,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
     {
       id: "fh-3",
@@ -2586,7 +2601,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-07-12",
       availableTo: "2025-08-20",
-       phone: "+44 20 3344 5566",
+      phone: "+44 20 3344 5566",
       email: "orders@mamasafrican.co.uk",
       website: "https://mamasafrican.co.uk",
       socials: {
@@ -2594,6 +2609,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
     {
       id: "fh-4",
@@ -2611,7 +2627,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-08-25",
       availableTo: "2025-09-30",
-       phone: "+44 20 3344 5566",
+      phone: "+44 20 3344 5566",
       email: "orders@mamasafrican.co.uk",
       website: "https://mamasafrican.co.uk",
       socials: {
@@ -2619,6 +2635,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
     {
       id: "fh-5",
@@ -2636,7 +2653,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-10-05",
       availableTo: "2025-11-10",
-       phone: "+44 20 3344 5566",
+      phone: "+44 20 3344 5566",
       email: "orders@mamasafrican.co.uk",
       website: "https://mamasafrican.co.uk",
       socials: {
@@ -2644,6 +2661,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
     {
       id: "fh-6",
@@ -2661,7 +2679,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
       description: "Authentic West African catering for weddings, parties and corporate events.",
       availableFrom: "2025-11-15",
       availableTo: "2025-12-20",
-       phone: "+44 20 3344 5566",
+      phone: "+44 20 3344 5566",
       email: "orders@mamasafrican.co.uk",
       website: "https://mamasafrican.co.uk",
       socials: {
@@ -2669,6 +2687,7 @@ export const categoryServiceProviders: Record<string, ServiceProvider[]> = {
         facebook: "https://facebook.com/mamasafricancatering",
         tiktok: "https://tiktok.com/@mamasafricancatering",
       },
+      badge: false
     },
   ],
 };
@@ -2710,14 +2729,15 @@ export const popularStylists: ServiceProvider[] = [
     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-05-01",
     availableTo: "2025-05-31",
-        phone: "+44 20 3344 5566",
-        email: "orders@mamasafrican.co.uk",
-        website: "https://mamasafrican.co.uk",
-        socials: {
-          instagram: "https://instagram.com/mamasafricancatering",
-          facebook: "https://facebook.com/mamasafricancatering",
-          tiktok: "https://tiktok.com/@mamasafricancatering",
-        },
+    phone: "+44 20 3344 5566",
+    email: "orders@mamasafrican.co.uk",
+    website: "https://mamasafrican.co.uk",
+    socials: {
+      instagram: "https://instagram.com/mamasafricancatering",
+      facebook: "https://facebook.com/mamasafricancatering",
+      tiktok: "https://tiktok.com/@mamasafricancatering",
+    },
+    badge: false
   },
   {
     id: "ps-2",
@@ -2732,10 +2752,10 @@ export const popularStylists: ServiceProvider[] = [
     location: "West London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-2",
     country: "United Kingdom",
-     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-06-05",
     availableTo: "2025-06-28",
-     phone: "+44 20 3344 5566",
+    phone: "+44 20 3344 5566",
     email: "orders@mamasafrican.co.uk",
     website: "https://mamasafrican.co.uk",
     socials: {
@@ -2743,6 +2763,7 @@ export const popularStylists: ServiceProvider[] = [
       facebook: "https://facebook.com/mamasafricancatering",
       tiktok: "https://tiktok.com/@mamasafricancatering",
     },
+    badge: false
   },
   {
     id: "ps-3",
@@ -2757,7 +2778,7 @@ export const popularStylists: ServiceProvider[] = [
     location: "Central London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-3",
     country: "United Kingdom",
-     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-07-01",
     availableTo: "2025-07-31",
     phone: "+44 20 3344 5566",
@@ -2768,6 +2789,7 @@ export const popularStylists: ServiceProvider[] = [
       facebook: "https://facebook.com/mamasafricancatering",
       tiktok: "https://tiktok.com/@mamasafricancatering",
     },
+    badge: false
   },
   {
     id: "ps-4",
@@ -2782,7 +2804,7 @@ export const popularStylists: ServiceProvider[] = [
     location: "North London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-4",
     country: "United Kingdom",
-     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-08-10",
     availableTo: "2025-09-05",
     phone: "+44 20 3344 5566",
@@ -2793,6 +2815,7 @@ export const popularStylists: ServiceProvider[] = [
       facebook: "https://facebook.com/mamasafricancatering",
       tiktok: "https://tiktok.com/@mamasafricancatering",
     },
+    badge: false
   },
   {
     id: "ps-5",
@@ -2807,7 +2830,7 @@ export const popularStylists: ServiceProvider[] = [
     location: "East London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-5",
     country: "United Kingdom",
-     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-09-15",
     availableTo: "2025-10-12",
     phone: "+44 20 3344 5566",
@@ -2818,6 +2841,7 @@ export const popularStylists: ServiceProvider[] = [
       facebook: "https://facebook.com/mamasafricancatering",
       tiktok: "https://tiktok.com/@mamasafricancatering",
     },
+    badge: false
   },
   {
     id: "ps-6",
@@ -2831,7 +2855,7 @@ export const popularStylists: ServiceProvider[] = [
     location: "South London, United Kingdom",
     slug: "kente-tailor-bespoke-mens-wedding-attire-6",
     country: "United Kingdom",
-     description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
+    description: "Explore the richness of African culture through our curated listings, showcasing cultural expressions, fashion, and more",
     availableFrom: "2025-10-20",
     availableTo: "2025-11-15",
     phone: "+44 20 3344 5566",
@@ -2842,5 +2866,6 @@ export const popularStylists: ServiceProvider[] = [
       facebook: "https://facebook.com/mamasafricancatering",
       tiktok: "https://tiktok.com/@mamasafricancatering",
     },
+    badge: false
   },
 ];

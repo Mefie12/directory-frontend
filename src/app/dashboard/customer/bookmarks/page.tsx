@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  Plus,
+  // Plus,
   ChevronLeft,
   ChevronRight,
   MapPin,
@@ -403,10 +403,10 @@ export default function Bookmarks() {
             All your saved bookmarks are lodged here!
           </p>
         </div>
-        <Button className="bg-[#93C01F] hover:bg-[#7fa818] text-white gap-2 h-11 px-6 shadow-sm">
+        {/* <Button className="bg-[#93C01F] hover:bg-[#7fa818] text-white gap-2 h-11 px-6 shadow-sm">
           <Plus className="w-5 h-5" />
           Add new bookmark
-        </Button>
+        </Button> */}
       </div>
 
       {/* Sort Section */}

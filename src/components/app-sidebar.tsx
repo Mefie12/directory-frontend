@@ -78,6 +78,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       iconUrl: "/images/icons/d-calendar.svg",
     },
     {
+      title: "Reviews",
+      url: "/dashboard/admin/reviews",
+      iconUrl: "/images/icons/review.svg",
+    },
+    {
       title: "Settings",
       url: "/dashboard/customer/settings",
       iconUrl: "/images/icons/setting.svg",
