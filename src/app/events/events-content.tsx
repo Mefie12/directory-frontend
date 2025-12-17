@@ -11,6 +11,9 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 import EventCarousel from "@/components/events/event-carousel";
 import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+
+
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -99,6 +102,8 @@ export default function EventsContent({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [communities, setCommunities] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
+
+  const router = useRouter();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -372,7 +377,7 @@ export default function EventsContent({
                         Create a listing, reach new customers, and grow your
                         business within the global African community.
                       </p>
-                      <Button className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+                      <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
                         List your event
                       </Button>
                     </div>
@@ -458,7 +463,7 @@ export default function EventsContent({
                     </p>
 
                     {/* CTA button */}
-                    <Button className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+                    <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
                   </div>

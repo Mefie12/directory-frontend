@@ -442,8 +442,13 @@ export default function Settings() {
                 <CardContent>
                   <div className="space-y-5">
                     <div>
-                      <Label>Full Name</Label>
-                      <Input placeholder="Jenny Wilson" />
+                      <Label>First Name</Label>
+                      <Input placeholder="Jenny" />
+                    </div>
+
+                    <div>
+                      <Label>Last Name</Label>
+                      <Input placeholder="Wilson" />
                     </div>
 
                     <div>

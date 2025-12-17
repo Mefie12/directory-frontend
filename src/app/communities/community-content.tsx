@@ -11,6 +11,8 @@ import CommunityCarousel from "@/components/communities/community-carousel";
 import BusinessSectionCarousel from "@/components/business-section-carousel";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -96,6 +98,9 @@ export default function CommunityContent({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const router = useRouter();
+
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -379,7 +384,7 @@ export default function CommunityContent({
                         connect with supporters, and grow movements that create
                         lasting change.
                       </p>
-                      <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+                      <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
                         List your Community
                       </Button>
                     </div>
@@ -476,7 +481,7 @@ export default function CommunityContent({
                       Join thousands of African businesses already listed on
                       Mefie Directory
                     </p>
-                    <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+                    <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
                       List your business today
                     </Button>
                   </div>
