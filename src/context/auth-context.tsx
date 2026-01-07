@@ -9,6 +9,9 @@ import {
 } from "react";
 
 interface User {
+  phone: string;
+  last_name: string;
+  first_name: string;
   email: string;
   name: string;
   role: string;
@@ -102,8 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // console.log("🔍 Extracted raw user data:", raw);
 
         const mappedUser: User = {
-          name:
-            raw?.name ||
+          name: raw?.name ||
             raw?.username ||
             `${raw?.first_name ?? ""} ${raw?.last_name ?? ""}`.trim() ||
             raw?.email?.split("@")[0] ||
@@ -113,6 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // 👇 ADD THIS LINE to satisfy the User interface
           email: raw?.email || "",
+          last_name: "",
+          first_name: "",
+          phone: ""
         };
 
         // console.log("👤 Final mapped user:", mappedUser);
