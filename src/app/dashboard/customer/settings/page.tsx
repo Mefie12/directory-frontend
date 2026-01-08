@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
+import { useRouter } from "next/navigation";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
 
@@ -154,7 +155,7 @@ const Button = ({
   isLoading = false,
 }: {
   children: React.ReactNode;
-  variant?: "default" | "outline";
+  variant?: "default" | "outline" | "button";
   disabled?: boolean;
   className?: string;
   onClick?: () => void;
@@ -401,6 +402,7 @@ const SuccessDialog = ({
 export default function Settings() {
   const { refetchUser } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
+  const router = useRouter();
 
   // Profile State
   const [countryCode, setCountryCode] = useState("+1");
@@ -797,6 +799,53 @@ export default function Settings() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Progress & Rewards Section */}
+            <div className="space-y-5 mt-4 py-4">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Progress & Rewards
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
+                  <div className="space-y-2 max-w-sm">
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      Grow your business with Mefie
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      Showcase your products, connect with customers, and expand
+                      your business in a thriving digital marketplace.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push("/become-a-vendor")}
+                    className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer"
+                  >
+                    Join as a vendor
+                  </button>
+                </div>
+
+                <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+                  <div className="relative z-10 space-y-2 max-w-sm">
+                    <h4 className="text-lg font-semibold text-white">
+                      Invite a friend and help them discover Mefie and both of
+                      you get a reward.
+                    </h4>
+                  </div>
+                  <div className="absolute right-0 bottom-0 opacity-20 md:opacity-100">
+                    <Image
+                      src="/images/backgroundImages/present.svg"
+                      alt="Gift Box"
+                      width={220}
+                      height={220}
+                      className="object-contain"
+                    />
+                  </div>
+                  <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
+                    Invite a friend
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Delete Account Card */}

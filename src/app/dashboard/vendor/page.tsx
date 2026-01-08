@@ -1,11 +1,12 @@
-"use client"
+"use client";
 
 import { Button } from "@/components/ui/button";
 import {
-  Plus,
+  // Plus,
   Bookmark,
   TrendingDown,
   Eye,
+  Bell,
   TrendingUp,
   Mail,
   ChevronRight,
@@ -48,7 +49,7 @@ export default function Dashboard() {
   //   },
   // ];
 
-const listings = [
+  const listings = [
     {
       id: "1",
       name: "Greenbowl Restaurant",
@@ -105,16 +106,16 @@ const listings = [
             Here is what&apos;s happening with your listings
           </p>
         </div>
-        <Button className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer">
+        {/* <Button className="bg-[#93C01F] py-3.5 px-4 hover:bg-[#93C01F]/80 cursor-pointer">
           <span>
             <Plus className="w-4 h-4" />
           </span>
           Add new listing
-        </Button>
+        </Button> */}
       </div>
 
       {/* Dashboard Content */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
         {/* Stat cards */}
         <StatCard
           title="Views (This month)"
@@ -130,6 +131,14 @@ const listings = [
           icon={Mail}
           statValue={null}
           trend={18} // positive = green TrendingUp
+          trendIconUp={TrendingUp}
+          trendIconDown={TrendingDown}
+        />
+        <StatCard
+          title="Average Rating"
+          icon={Bell}
+          statValue={null}
+          trend={5} // positive = green
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -177,7 +186,7 @@ const listings = [
             <div className="text-sm pr-3 cursor-pointer">
               <Button
                 variant="link"
-                onClick={()=>(router.push("/dashboard/my-listing"))}
+                onClick={() => router.push("/dashboard/my-listing")}
                 className="text-[#93C01F] cursor-pointer hover:no-underline"
               >
                 View all{" "}
@@ -189,7 +198,11 @@ const listings = [
           </div>
 
           {/* Table */}
-          <ListingsTable listings={listings} showPagination={false} itemsPerPage={4}/>
+          <ListingsTable
+            listings={listings}
+            showPagination={false}
+            itemsPerPage={4}
+          />
         </div>
       </div>
     </div>

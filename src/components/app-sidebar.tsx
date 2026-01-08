@@ -45,11 +45,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       url: "/dashboard/vendor/inquiries",
       iconUrl: "/images/icons/chat.svg",
     },
-    {
-      title: "Analytics",
-      url: "/dashboard/vendor/analytics",
-      iconUrl: "/images/icons/curves.svg",
-    },
+    // {
+    //   title: "Analytics",
+    //   url: "/dashboard/vendor/analytics",
+    //   iconUrl: "/images/icons/curves.svg",
+    // },
     {
       title: "Settings",
       url: "/dashboard/vendor/settings",
@@ -57,11 +57,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
     },
   ],
   customer: [
-    {
-      title: "Overview",
-      url: "/dashboard/customer",
-      iconUrl: "/images/icons/home.svg",
-    },
+    // {
+    //   title: "Overview",
+    //   url: "/dashboard/customer",
+    //   iconUrl: "/images/icons/home.svg",
+    // },
     {
       title: "Bookmarks",
       url: "/dashboard/customer/bookmarks",
@@ -79,7 +79,7 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
     },
     {
       title: "Reviews",
-      url: "/dashboard/admin/reviews",
+      url: "/dashboard/customer/reviews",
       iconUrl: "/images/icons/review.svg",
     },
     {

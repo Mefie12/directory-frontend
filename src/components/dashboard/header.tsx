@@ -53,13 +53,17 @@ export default function Header() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  // FIX: Cast user to the extended interface to access 'subscription_plan'
+  // Cast user to the extended interface to access 'subscription_plan'
   const currentUser = user as unknown as UserWithPlan;
 
   // Now we can safely access subscription_plan without TS errors
   const isPremium =
     currentUser?.subscription_plan === "Premium" ||
     currentUser?.subscription_plan === "Pro";
+
+  // --- Role Check Logic ---
+  const isAdmin = currentUser?.role?.toLowerCase() === "admin";
+  const isVendor = currentUser?.role?.toLowerCase() === "vendor"; // Assuming 'vendor' is the role string
 
   // --- State ---
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -84,6 +88,21 @@ export default function Header() {
       minute: "numeric",
       hour12: true,
     }).format(date);
+  };
+
+   const getDashboardUrl = () => {
+    if (!user) return "/auth/login";
+
+    switch (user.role?.toLowerCase()) {
+      case "vendor":
+        return "/dashboard/vendor";
+      case "admin":
+        return "/dashboard/admin";
+      case "user":
+        return "/dashboard/customer/bookmarks";
+      default:
+        return "/dashboard";
+    }
   };
 
   // --- API Actions ---
@@ -183,7 +202,7 @@ export default function Header() {
       {currentUser && (
         <div className="flex items-center gap-4">
           {/* Plan Badge */}
-          <div>
+          {/* <div>
             {isPremium ? (
               <Badge className="bg-[#FACC15] text-white px-2 py-2 shadow-sm gap-1 hover:bg-[#FACC15]/90">
                 <Image
@@ -205,7 +224,7 @@ export default function Header() {
                 Basic
               </Badge>
             )}
-          </div>
+          </div> */}
 
           {/* Notifications Dropdown */}
           <div className="flex items-center rounded-full bg-[#E9F0F6] p-2 cursor-pointer relative">
@@ -323,9 +342,38 @@ export default function Header() {
                   <span className="text-xs font-semibold text-gray-900">
                     {currentUser.name}
                   </span>
-                  <Badge className="text-[10px] bg-[#FF8D2826] text-[#FF8D28] px-2 py-0 mt-1 hover:bg-[#FF8D2826]">
+                  {/* <Badge className="text-[10px] bg-[#FF8D2826] text-[#FF8D28] px-2 py-0 mt-1 hover:bg-[#FF8D2826]">
                     {currentUser.role}
-                  </Badge>
+                  </Badge> */}
+                  <div>
+                    {isAdmin ? (
+                      <Badge className="text-[10px] bg-[#FF8D2826] text-[#FF8D28] px-2 py-0 mt-1 hover:bg-[#FF8D2826]">
+                        Admin
+                      </Badge>
+                    ) : isVendor ? (
+                      isPremium ? (
+                        <Badge className="bg-[#FACC15] text-white text-[10px] px-2 py-0.5 mt-1 gap-1 hover:bg-[#FACC15]/90">
+                          <Image
+                            src="/images/icons/diamond.svg"
+                            alt="diamond"
+                            width={10}
+                            height={10}
+                          />
+                          Premium
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-[#419E6A] text-white text-[10px] px-2 py-0.5 mt-1 gap-1 hover:bg-[#419E6A]/90">
+                          <Image
+                            src="/images/icons/bulb.svg"
+                            alt="bulb"
+                            width={10}
+                            height={10}
+                          />
+                          Basic
+                        </Badge>
+                      )
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </DropdownMenuTrigger>
@@ -352,7 +400,7 @@ export default function Header() {
 
               <DropdownMenuItem asChild>
                 <Link
-                  href="/profile-settings"
+                  href={getDashboardUrl()}
                   className="flex items-center gap-2 cursor-pointer py-2.5"
                 >
                   <Image

@@ -71,7 +71,7 @@ export default function Navbar() {
       case "admin":
         return "/dashboard/admin";
       case "user":
-        return "/dashboard/customer";
+        return "/dashboard/customer/bookmarks";
       default:
         return "/dashboard";
     }

@@ -79,6 +79,7 @@ import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 
 // --- Types ---
 type TabType = "all" | "pending" | "flagged" | "categories";
@@ -113,6 +114,7 @@ interface Listing {
       linkedin?: string;
     };
   };
+  verified: boolean;
 }
 
 interface RawListing {
@@ -121,6 +123,7 @@ interface RawListing {
   name?: string;
   title?: string;
   vendor?: string;
+  is_verified?: boolean;
   business_name?: string;
   vendorAvatar?: string;
   vendor_image?: string;
@@ -292,6 +295,7 @@ const categoryApi = {
 
 export default function Listings() {
   const { user: authUser, loading: authLoading } = useAuth();
+  const [isVerified, setIsVerified] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [allData, setAllData] = useState<Listing[]>([]);
@@ -461,6 +465,7 @@ export default function Listings() {
             linkedin: socialsData?.linkedin,
           },
         },
+        verified: !!item.is_verified,
       };
     });
   };
@@ -887,6 +892,14 @@ export default function Listings() {
     return pages;
   };
 
+  // Verification logic
+ useEffect(() => {
+  if (selectedListing) {
+    // Sync with the selected listing's data
+    setIsVerified(selectedListing.verified); 
+  }
+}, [selectedListing]);
+
   // --- SOCIAL ICON HELPER ---
   const SocialLink = ({
     href,
@@ -1143,6 +1156,14 @@ export default function Listings() {
                               </AvatarFallback>
                             </Avatar>
                             <span className="font-medium">{item.name}</span>
+                            {item.verified && (
+                              <Image
+                                src="/images/icons/verify.svg"
+                                alt="Verified"
+                                width={16}
+                                height={16}
+                              />
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>{item.vendor}</TableCell>
@@ -1195,7 +1216,7 @@ export default function Listings() {
                                 onClick={() => setSelectedListing(item)}
                                 className="cursor-pointer"
                               >
-                                <Eye className="mr-2 h-4 w-4" /> View Details
+                                <Eye className="mr-1 h-4 w-4" /> View Details
                               </DropdownMenuItem>
 
                               <DropdownMenuSeparator />
@@ -1501,8 +1522,16 @@ export default function Listings() {
                     <ChevronLeft className="w-4 h-4" /> Listings
                   </div>
                 </div>
-                <SheetTitle className="text-2xl font-bold">
+                <SheetTitle className="text-2xl font-bold flex items-center gap-0.5">
                   {selectedListing.name}
+                  {isVerified && (
+                    <Image
+                      src="/images/icons/verify.svg"
+                      alt="Verified"
+                      width={20}
+                      height={20}
+                    />
+                  )}
                 </SheetTitle>
               </div>
 
@@ -1749,6 +1778,30 @@ export default function Listings() {
                       </TabsContent>
                     </div>
                   </Tabs>
+                </div>
+                <div className="border-t border-gray-100 pt-6 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium text-gray-900">
+                        Verify Listing
+                      </Label>
+                      <p className="text-sm text-gray-500">
+                        Mark this listing as verified
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="verify-mode"
+                        checked={isVerified}
+                        onCheckedChange={(checked) => {
+                          setIsVerified(checked);
+                          // Optional: Add your API call here to persist verify status
+                          // updateVerificationStatus(selectedListing.id, checked);
+                        }}
+                        className="data-[state=checked]:bg-[#93C01F]"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </>

@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -335,7 +335,7 @@ export default function ReviewsPage() {
 
         // console.log(`Fetching from: ${API_URL}/api/ratings?${queryParams}`);
 
-        const response = await fetch(`${API_URL}/api/ratings?${queryParams}`, {
+        const response = await fetch(`${API_URL}/api/my_ratings?${queryParams}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -432,7 +432,7 @@ export default function ReviewsPage() {
 
   // --- Handlers ---
   const handleRowClick = (id: string) => {
-    router.push(`/dashboard/admin/reviews/${id}`);
+    router.push(`/dashboard/customer/reviews/${id}`);
   };
 
   const handlePageChange = (page: number) => setCurrentPage(page);
@@ -497,14 +497,14 @@ export default function ReviewsPage() {
     );
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  };
+  // const getInitials = (name: string) => {
+  //   return name
+  //     .split(" ")
+  //     .map((n) => n[0])
+  //     .slice(0, 2)
+  //     .join("")
+  //     .toUpperCase();
+  // };
 
   const renderStars = (rating: number) => {
     return (
@@ -651,7 +651,7 @@ export default function ReviewsPage() {
         <Table>
           <TableHeader className="bg-gray-200">
             <TableRow>
-              <TableHead className="w-[200px]">Customer</TableHead>
+              {/* <TableHead className="w-[200px]">Customer</TableHead> */}
               <TableHead>Listing Name</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead className="w-[300px]">Review</TableHead>
@@ -686,7 +686,7 @@ export default function ReviewsPage() {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleRowClick(item.id)}
                 >
-                  <TableCell>
+                  {/* <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="w-8 h-8">
                         <AvatarImage src={item.customer.avatar} />
@@ -698,7 +698,7 @@ export default function ReviewsPage() {
                         {item.customer.name}
                       </span>
                     </div>
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="text-gray-600">
                     {item.listing.name}
                   </TableCell>
@@ -722,11 +722,11 @@ export default function ReviewsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
+                        {/* <DropdownMenuItem
                           onClick={() => handleRowClick(item.id)}
                         >
                           View Details
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                         <DropdownMenuItem className="text-red-600">
                           Delete Review
                         </DropdownMenuItem>
