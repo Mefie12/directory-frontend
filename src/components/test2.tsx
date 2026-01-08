@@ -1,7 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client";
-
-import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,9 +9,6 @@ import {
   Instagram,
   Twitter,
   Youtube,
-  MessageSquare,
-  CornerDownRight,
-  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,22 +28,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Imported Components
 import { MediaGallery } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
+import { ReviewsSection } from "@/components/review-button";
 import { BookmarkButton } from "@/components/bookmark-button";
 
 // --- API Interfaces ---
@@ -69,17 +52,7 @@ interface ApiSocialItem {
   youtube?: string;
 }
 
-interface ApiReplyData {
-  id: number;
-  user_id: number;
-  comment: string;
-  created_at: string;
-  user?: {
-    name?: string;
-    avatar?: string;
-  };
-}
-
+// Interface for the Ratings API response
 interface ApiRatingData {
   id: number;
   listing_id: number;
@@ -96,7 +69,7 @@ interface ApiRatingData {
     username?: string;
     email?: string;
   };
-  replies?: ApiReplyData[];
+  replies?: ApiRatingData[];
 }
 
 interface ReviewReply {
@@ -247,17 +220,27 @@ const formatDateTime = (dateString?: string) => {
   }
 };
 
+// --- CONSISTENT Name Extraction Logic ---
 const extractUserName = (userData: any): string => {
   if (!userData) return "Unknown User";
+
+  // Check if userData is wrapped in a 'data' property
   const rawUser = userData.data || userData.user || userData;
+
+  // 1. Try 'name' field
   let fullName = rawUser.name;
+
+  // 2. Try first_name + last_name
   if (!fullName && (rawUser.first_name || rawUser.last_name)) {
     fullName = `${rawUser.first_name || ""} ${rawUser.last_name || ""}`.trim();
   }
+
+  // 3. Fallbacks
   if (!fullName) {
     fullName =
       rawUser.username || rawUser.email?.split("@")[0] || "Unknown User";
   }
+
   return fullName;
 };
 
@@ -282,189 +265,10 @@ const SocialIcon = ({
   </Link>
 );
 
-// --- Review Item with Reply Dialog & Threads ---
-const ReviewItemComponent = ({
-  review,
-  onReply,
-}: {
-  review: ReviewItem;
-  onReply: (reviewId: string | number, text: string) => void;
-}) => {
-  const [isReplyOpen, setIsReplyOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
 
-  const handleSubmitReply = () => {
-    if (replyText.trim() && review.id) {
-      onReply(review.id, replyText);
-      setReplyText("");
-      setIsReplyOpen(false);
-    }
-  };
 
-  return (
-    <div className="border-b border-gray-100 last:border-0 py-6">
-      <div className="flex gap-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={review.avatar} />
-          <AvatarFallback>{review.author.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-2">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900 text-sm">
-                {review.author}
-              </h4>
-              <div className="flex items-center gap-5 mt-0.5">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${
-                        i < Math.floor(review.rating)
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "fill-gray-200 text-gray-200"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-gray-500">{review.date}</span>
-              </div>
-            </div>
 
-            {/* Reply Dialog Trigger */}
-            <Dialog open={isReplyOpen} onOpenChange={setIsReplyOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-gray-500 hover:text-[#93C01F]"
-                >
-                  <MessageSquare className="w-3 h-3 mr-1.5" />
-                  Reply
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Reply to {review.author}</DialogTitle>
-                  <DialogDescription>
-                    Your reply will be publicly visible.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                  <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-600 italic border-l-2 border-gray-300">
-                    &quot;{review.comment}&quot;
-                  </div>
-                  <Textarea
-                    placeholder="Type your reply here..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                  />
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    onClick={handleSubmitReply}
-                    className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-                  >
-                    Post Reply
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {review.comment}
-          </p>
-
-          {/* Threaded Replies */}
-          {review.replies && review.replies.length > 0 && (
-            <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-100">
-              {review.replies.map((reply, index) => (
-                <div
-                  key={index}
-                  className="flex gap-3 bg-gray-50/50 p-3 rounded-r-lg"
-                >
-                  <CornerDownRight className="w-4 h-4 text-gray-400 mt-1 shrink-0" />
-                  <div className="flex-1 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold text-gray-900">
-                        {reply.author}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {reply.date}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600">{reply.comment}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- NEW: Reviews Section Container ---
-const EnhancedReviewsSection = ({
-  initialReviews,
-}: {
-  initialReviews: ReviewItem[];
-}) => {
-  const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
-
-  const handleReplySubmit = async (reviewId: string | number, text: string) => {
-    // In a real app, you would make an API call here.
-    // e.g. await fetch(`/api/reviews/${reviewId}/reply`, { method: 'POST', body: ... })
-
-    // Optimistic Update
-    const newReply: ReviewReply = {
-      id: Date.now(),
-      author: "You", // Replace with logged in user name
-      date: "Just now",
-      comment: text,
-      avatar: "", // Replace with logged in user avatar
-    };
-
-    setReviews((prev) =>
-      prev.map((review) => {
-        if (review.id === reviewId) {
-          return {
-            ...review,
-            replies: [...(review.replies || []), newReply],
-          };
-        }
-        return review;
-      })
-    );
-  };
-
-  return (
-    <div className="space-y-2">
-      {reviews.length > 0 ? (
-        reviews.map((review, i) => (
-          <ReviewItemComponent
-            key={review.id || i}
-            review={review}
-            onReply={handleReplySubmit}
-          />
-        ))
-      ) : (
-        <div className="text-center py-10 text-gray-500">
-          No reviews yet. Be the first to review!
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- Sub-Components (Stateless) ---
-
+// --- Sub-Components ---
 function ProviderHeader({
   provider,
   rating,
@@ -524,6 +328,7 @@ function ProviderTabs({
   template,
   providerName,
   galleryItems,
+  listingSlug,
 }: {
   template: TemplateContent;
   providerName: string;
@@ -564,9 +369,8 @@ function ProviderTabs({
 
         <TabsContent value="reviews" className="mt-6">
           <Card>
-            <div className="px-6 py-6">
-              {/* Using the new interactive reviews section */}
-              <EnhancedReviewsSection initialReviews={reviews} />
+            <div className="px-3 py-3">
+              <ReviewsSection reviews={reviews} listingSlug={listingSlug} />
             </div>
           </Card>
         </TabsContent>
@@ -764,220 +568,245 @@ function SidebarInfo({
   );
 }
 
-// --- Main Page Component (Client Side Fetching) ---
+// --- Main Component ---
 
-export default function UniversalSlugPage({
+export default async function UniversalSlugPage({
   params,
   type = "business",
 }: PageProps) {
-  // Use React.use to unwrap params if in Next.js 15, otherwise direct access might be deprecated
-  const resolvedParams = React.use(params);
-  const { categorySlug, slug } = resolvedParams;
+  const { categorySlug, slug } = await params;
 
-  const [loading, setLoading] = useState(true);
-  const [providerData, setProviderData] = useState<Provider | null>(null);
-  const [template, setTemplate] = useState<TemplateContent | null>(null);
+  let listingData: ApiListingData | null = null;
+  let ratingsData: ApiRatingData[] = [];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  // FIXED: Using only the public ENV variable which is standard in Next.js
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      try {
-        // 1. Fetch Listing Details
-        const listingResponse = await fetch(
-          `${API_URL}/api/listing/${slug}/show`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-          }
-        );
+  try {
+    // 1. Fetch Listing Details
+    const listingResponse = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      next: { revalidate: 3600 },
+    });
 
-        if (listingResponse.ok) {
-          const json = await listingResponse.json();
-          const listingData: ApiListingData = json.data;
+    if (listingResponse.ok) {
+      const json = await listingResponse.json();
+      listingData = json.data;
 
-          let ratingsData: ApiRatingData[] = [];
+      // 2. Fetch Ratings using the Listing ID
+      if (listingData?.id) {
+        const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          next: { revalidate: 300 }, // Shorter cache for reviews
+        });
 
-          // 2. Fetch Ratings
-          if (listingData.id) {
-            const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-            });
+        if (ratingsResponse.ok) {
+          const ratingsJson = await ratingsResponse.json();
+          const allRatings = ratingsJson.data || [];
 
-            if (ratingsResponse.ok) {
-              const ratingsJson = await ratingsResponse.json();
-              const allRatings = ratingsJson.data || [];
-              const filteredRatings = allRatings.filter(
-                (r: ApiRatingData) => r.listing_id === listingData.id
-              );
+          // Filter ratings for this specific listing since API returns all
+          const filteredRatings = allRatings.filter(
+            (r: ApiRatingData) => r.listing_id === listingData!.id
+          );
 
-              // 3. Enrich Ratings (User Data)
-              ratingsData = await Promise.all(
-                filteredRatings.map(async (rating: ApiRatingData) => {
-                  if (
-                    rating.user_id &&
-                    (!rating.user || Object.keys(rating.user).length === 0)
-                  ) {
-                    try {
-                      const userRes = await fetch(
-                        `${API_URL}/api/users/${rating.user_id}`
-                      );
-                      if (userRes.ok) {
-                        const userJson = await userRes.json();
-                        const userData = userJson.data || userJson;
-                        return {
-                          ...rating,
-                          user: {
-                            name:
-                              userData.name ||
-                              `${userData.first_name || ""} ${
-                                userData.last_name || ""
-                              }`.trim(),
-                            avatar:
-                              userData.avatar || userData.profile_photo_url,
-                          },
-                        };
-                      }
-                    } catch (e) {
-                      console.error("User fetch failed", e);
+          // 3. ENRICH RATINGS (Fetch User Data if missing)
+          ratingsData = await Promise.all(
+            filteredRatings.map(async (rating: ApiRatingData) => {
+              // If user object is missing but we have an ID, fetch the user
+              if (
+                rating.user_id &&
+                (!rating.user || Object.keys(rating.user).length === 0)
+              ) {
+                try {
+                  const userRes = await fetch(
+                    `${API_URL}/api/users/${rating.user_id}`,
+                    {
+                      headers: {
+                        Accept: "application/json",
+                      },
+                      next: { revalidate: 3600 },
                     }
+                  );
+
+                  if (userRes.ok) {
+                    const userJson = await userRes.json();
+                    const userData = userJson.data || userJson; // Handle standard API wrapper
+
+                    // Manually construct the user object from the fetched data
+                    const enrichedUser = {
+                      id: userData.id || rating.user_id,
+                      first_name: userData.first_name,
+                      last_name: userData.last_name,
+                      name:
+                        userData.name ||
+                        `${userData.first_name || ""} ${
+                          userData.last_name || ""
+                        }`.trim(),
+                      avatar: userData.avatar || userData.profile_photo_url,
+                      username: userData.username,
+                      email: userData.email,
+                    };
+
+                    console.log(
+                      `Enriched user for rating ${rating.id}:`,
+                      enrichedUser
+                    );
+
+                    return {
+                      ...rating,
+                      user: enrichedUser,
+                    };
+                  } else {
+                    console.warn(
+                      `User fetch failed for ID ${rating.user_id}: ${userRes.status}`
+                    );
                   }
-                  return rating;
-                })
-              );
-            }
-          }
-
-          // --- Process Data ---
-          let socialLinks: SocialLinks = {};
-          if (listingData.socials && listingData.socials.length > 0) {
-            const socialData = listingData.socials[0];
-            socialLinks = {
-              facebook: socialData.facebook,
-              instagram: socialData.instagram,
-              twitter: socialData.twitter,
-              youtube: socialData.youtube,
-              tiktok: socialData.tiktok,
-            };
-          }
-
-          const provider: Provider = {
-            id: listingData.id,
-            name: listingData.name,
-            slug: listingData.slug,
-            description:
-              listingData.bio ||
-              listingData.description ||
-              "No description provided.",
-            location:
-              listingData.address || listingData.city || listingData.location,
-            country: listingData.country,
-            verified: listingData.is_verified,
-            reviews: listingData.reviews_count
-              ? listingData.reviews_count.toString()
-              : "0",
-            rating: listingData.rating || 0,
-            phone: listingData.primary_phone,
-            email: listingData.email,
-            website: listingData.website,
-            socials: socialLinks,
-            startDate: listingData.start_date,
-          };
-
-          const rawImages = listingData.images || [];
-          const gallery: GalleryItem[] = rawImages.map((img) => {
-            if (typeof img === "object" && img.media) {
-              return {
-                type: "image",
-                src: getImageUrl(img.media),
-                alt: provider.name,
-              };
-            }
-            if (typeof img === "string") {
-              return {
-                type: "image",
-                src: getImageUrl(img),
-                alt: provider.name,
-              };
-            }
-            return {
-              type: "image",
-              src: "/images/placeholders/generic.jpg",
-              alt: "Placeholder",
-            };
-          });
-          if (gallery.length === 0) {
-            gallery.push({
-              type: "image",
-              src: "/images/placeholders/generic.jpg",
-              alt: provider.name,
-            });
-          }
-
-          const mappedReviews: ReviewItem[] = ratingsData.map((rating) => ({
-            id: rating.id,
-            author: extractUserName(rating.user),
-            rating: rating.rating,
-            date: rating.created_at
-              ? new Date(rating.created_at).toLocaleDateString()
-              : "Recent",
-            comment: rating.comment,
-            avatar: rating.user?.avatar || "",
-            replies:
-              rating.replies?.map((r) => ({
-                id: r.id,
-                author: r.user?.name || "User",
-                comment: r.comment,
-                date: new Date(r.created_at).toLocaleDateString(),
-                avatar: r.user?.avatar || "",
-              })) || [],
-          }));
-
-          const servicesList =
-            listingData.services?.map((s: any) =>
-              typeof s === "string" ? s : s.name
-            ) || [];
-
-          setProviderData(provider);
-          setTemplate({
-            services: servicesList,
-            pricing: listingData.pricing || [],
-            experience: listingData.experience || [],
-            faqs: listingData.faqs || [],
-            reviews: mappedReviews,
-            gallery: gallery,
-          });
+                } catch (err) {
+                  console.error(
+                    `Failed to fetch user ${rating.user_id} for rating ${rating.id}`,
+                    err
+                  );
+                }
+              }
+              return rating;
+            })
+          );
         }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
       }
+    }
+  } catch (error) {
+    console.error("Fetch error:", error);
+  }
+
+  if (!listingData) {
+    notFound();
+  }
+
+  // --- Data Mapping ---
+
+  // Socials
+  let socialLinks: SocialLinks = {};
+  if (
+    listingData.socials &&
+    Array.isArray(listingData.socials) &&
+    listingData.socials.length > 0
+  ) {
+    const socialData = listingData.socials[0];
+    socialLinks = {
+      facebook: socialData.facebook,
+      instagram: socialData.instagram,
+      twitter: socialData.twitter,
+      youtube: socialData.youtube,
+      tiktok: socialData.tiktok,
     };
-
-    fetchData();
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#93C01F]" />
-      </div>
-    );
   }
 
-  if (!providerData || !template) {
-    return notFound();
+  // Services
+  const servicesList =
+    listingData.services?.map((s: any) =>
+      typeof s === "string" ? s : s.name
+    ) || [];
+
+  // Provider Object
+  const provider: Provider = {
+    id: listingData.id,
+    name: listingData.name,
+    slug: listingData.slug,
+    description:
+      listingData.bio || listingData.description || "No description provided.",
+    location: listingData.address || listingData.city || listingData.location,
+    country: listingData.country,
+    verified: listingData.is_verified,
+    reviews: listingData.reviews_count
+      ? listingData.reviews_count.toString()
+      : "0",
+    rating: listingData.rating || 0,
+    phone: listingData.primary_phone,
+    email: listingData.email,
+    website: listingData.website,
+    socials: socialLinks,
+    startDate: listingData.start_date,
+  };
+
+  // Gallery
+  const rawImages = listingData.images || [];
+  const gallery: GalleryItem[] = rawImages.map((img) => {
+    if (typeof img === "object" && img.media) {
+      return {
+        type: "image",
+        src: getImageUrl(img.media),
+        alt: provider.name,
+      };
+    }
+    if (typeof img === "string") {
+      return { type: "image", src: getImageUrl(img), alt: provider.name };
+    }
+    return {
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: "Placeholder",
+    };
+  });
+  if (gallery.length === 0) {
+    gallery.push({
+      type: "image",
+      src: "/images/placeholders/generic.jpg",
+      alt: provider.name,
+    });
   }
 
-  const rating = Number(providerData.rating) || 0;
+  // --- Reviews Mapping ---
+  // Using the robust helper function
+  const mappedReviews: ReviewItem[] = ratingsData.map((rating) => {
+    const displayName = extractUserName(rating.user);
 
+    return {
+      id: rating.id,
+      author: displayName,
+      rating: rating.rating,
+      date: rating.created_at
+        ? new Date(rating.created_at).toLocaleDateString()
+        : "Recent",
+      comment: rating.comment,
+      avatar: rating.user?.avatar || rating.user?.profile_photo_url || "",
+    };
+  });
+
+  // Fallback to old nested reviews if new API returns nothing
+  const finalReviews =
+    mappedReviews.length > 0
+      ? mappedReviews
+      : (listingData.reviews || []).map((review, idx) => ({
+          id: review.id || idx,
+          author: review.user || "Anonymous",
+          rating: review.rating || 5,
+          date:
+            review.date ||
+            (review.created_at
+              ? new Date(review.created_at).toLocaleDateString()
+              : "Recent"),
+          comment: review.comment || "",
+          avatar: review.avatar || "",
+        }));
+
+  const template: TemplateContent = {
+    services: servicesList,
+    pricing: listingData.pricing || [],
+    experience: listingData.experience || [],
+    faqs: listingData.faqs || [],
+    reviews: finalReviews,
+    gallery: gallery,
+  };
+
+  const rating = Number(provider.rating) || 0;
+
+  // Breadcrumbs
   let parentLink = "/";
   let parentLabel = "Home";
 
@@ -992,6 +821,12 @@ export default function UniversalSlugPage({
   } else if (type === "event") {
     parentLink = "/events";
     parentLabel = "Events";
+  } else if (type === "community") {
+    parentLink = "/communities";
+    parentLabel = "Communities";
+  } else if (type === "business") {
+    parentLink = "/businesses";
+    parentLabel = "Businesses";
   }
 
   return (
@@ -1008,7 +843,7 @@ export default function UniversalSlugPage({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{providerData.name}</BreadcrumbPage>
+              <BreadcrumbPage>{provider.name}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -1018,31 +853,27 @@ export default function UniversalSlugPage({
         <main className="lg:col-span-8">
           <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
             <div className="relative w-full">
-              <HeroCarousel items={template.gallery} alt={providerData.name} />
+              <HeroCarousel items={template.gallery} alt={provider.name} />
               <div className="absolute top-4 right-6 flex gap-2 z-10">
-                <BookmarkButton slug={providerData.slug} />
+                <BookmarkButton slug={provider.slug} />
               </div>
             </div>
 
-            <ProviderHeader
-              provider={providerData}
-              rating={rating}
-              type={type}
-            />
+            <ProviderHeader provider={provider} rating={rating} type={type} />
 
             <ProviderTabs
               template={template}
-              providerName={providerData.name}
+              providerName={provider.name}
               galleryItems={template.gallery}
-              listingSlug={providerData.slug}
+              listingSlug={provider.slug}
             />
           </div>
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
-          <SidebarLocation provider={providerData} />
+          <SidebarLocation provider={provider} />
           <SidebarInfo
-            provider={providerData}
+            provider={provider}
             pricing={template.pricing}
             services={template.services}
           />

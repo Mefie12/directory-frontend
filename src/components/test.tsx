@@ -282,7 +282,7 @@ const SocialIcon = ({
   </Link>
 );
 
-// --- Review Item with Reply Dialog & Threads ---
+// --- NEW: Review Item with Reply Dialog & Threads ---
 const ReviewItemComponent = ({
   review,
   onReply,
@@ -314,7 +314,7 @@ const ReviewItemComponent = ({
               <h4 className="font-semibold text-gray-900 text-sm">
                 {review.author}
               </h4>
-              <div className="flex items-center gap-5 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5">
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -358,7 +358,7 @@ const ReviewItemComponent = ({
                     placeholder="Type your reply here..."
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    className="min-h-[100px] resize-none"
+                    className="min-h-[100px]"
                   />
                 </div>
                 <DialogFooter>
@@ -418,7 +418,10 @@ const EnhancedReviewsSection = ({
 }) => {
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
 
-  const handleReplySubmit = async (reviewId: string | number, text: string) => {
+  const handleReplySubmit = async (
+    reviewId: string | number,
+    text: string
+  ) => {
     // In a real app, you would make an API call here.
     // e.g. await fetch(`/api/reviews/${reviewId}/reply`, { method: 'POST', body: ... })
 
