@@ -13,14 +13,15 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { X, Newspaper, type LucideIcon } from "lucide-react";
 
 type UserRole = "vendor" | "customer" | "admin";
 
+// Updated interface to accept either a string URL or a Lucide Component
 interface MenuItem {
   title: string;
   url: string;
-  iconUrl: string;
+  icon: string | LucideIcon;
 }
 
 interface AppSidebarProps {
@@ -33,86 +34,76 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
     {
       title: "Home",
       url: "/dashboard/vendor",
-      iconUrl: "/images/icons/home.svg",
+      icon: "/images/icons/home.svg",
     },
     {
       title: "My Listings",
       url: "/dashboard/vendor/my-listing",
-      iconUrl: "/images/icons/listings.svg",
+      icon: "/images/icons/listings.svg",
     },
     {
       title: "Inquiries",
       url: "/dashboard/vendor/inquiries",
-      iconUrl: "/images/icons/chat.svg",
+      icon: "/images/icons/chat.svg",
     },
-    // {
-    //   title: "Analytics",
-    //   url: "/dashboard/vendor/analytics",
-    //   iconUrl: "/images/icons/curves.svg",
-    // },
     {
       title: "Settings",
       url: "/dashboard/vendor/settings",
-      iconUrl: "/images/icons/setting.svg",
+      icon: "/images/icons/setting.svg",
     },
   ],
   customer: [
-    // {
-    //   title: "Overview",
-    //   url: "/dashboard/customer",
-    //   iconUrl: "/images/icons/home.svg",
-    // },
     {
       title: "Bookmarks",
       url: "/dashboard/customer/bookmarks",
-      iconUrl: "/images/icons/bookmark.svg",
+      icon: "/images/icons/bookmark.svg",
     },
-    // {
-    //   title: "Inquiries",
-    //   url: "/dashboard/customer/inquiries",
-    //   iconUrl: "/images/icons/chat.svg",
-    // },
     {
       title: "My Events",
       url: "/dashboard/customer/my-events",
-      iconUrl: "/images/icons/d-calendar.svg",
+      icon: "/images/icons/d-calendar.svg",
     },
     {
       title: "Reviews",
       url: "/dashboard/customer/reviews",
-      iconUrl: "/images/icons/review.svg",
+      icon: "/images/icons/review.svg",
     },
     {
       title: "Settings",
       url: "/dashboard/customer/settings",
-      iconUrl: "/images/icons/setting.svg",
+      icon: "/images/icons/setting.svg",
     },
   ],
   admin: [
     {
       title: "Dashboard",
       url: "/dashboard/admin",
-      iconUrl: "/images/icons/home.svg",
+      icon: "/images/icons/home.svg",
     },
     {
       title: "Users",
       url: "/dashboard/admin/users",
-      iconUrl: "/images/icons/users.svg",
+      icon: "/images/icons/users.svg",
     },
     {
       title: "Listings",
       url: "/dashboard/admin/listings",
-      iconUrl: "/images/icons/listings.svg",
+      icon: "/images/icons/listings.svg",
+    },
+    {
+      title: "News Post",
+      url: "/dashboard/admin/news-post",
+      icon: Newspaper,
     },
     {
       title: "Reviews",
       url: "/dashboard/admin/reviews",
-      iconUrl: "/images/icons/review.svg",
+      icon: "/images/icons/review.svg",
     },
     {
       title: "Monetization",
       url: "/dashboard/admin/monetization",
-      iconUrl: "/images/icons/money.svg",
+      icon: "/images/icons/money.svg",
     },
   ],
 };
@@ -186,28 +177,41 @@ export function AppSidebar({ role }: AppSidebarProps) {
         <SidebarGroup className="bg-[#1C3C59]">
           <SidebarGroupContent className="bg-[#1C3C59]">
             <SidebarMenu className="pt-4 space-y-2">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link
-                      href={item.url}
-                      className={`flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors ${
-                        isActive(item.url) ? "bg-[#93C01F]" : ""
-                      }`}
-                    >
-                      <Image
-                        src={item.iconUrl}
-                        alt={item.title}
-                        width={20}
-                        height={20}
-                      />
-                      <span className="text-sm font-medium text-white">
-                        {item.title}
-                      </span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const isLucideIcon = typeof item.icon !== "string";
+                // If it is a component, we rename it to PascalCase for JSX rendering
+                const IconComponent = isLucideIcon
+                  ? (item.icon as LucideIcon)
+                  : null;
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <Link
+                        href={item.url}
+                        className={`flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors ${
+                          isActive(item.url) ? "bg-[#93C01F]" : ""
+                        }`}
+                      >
+                        {/* Conditional Rendering logic */}
+                        {isLucideIcon && IconComponent ? (
+                          <IconComponent className="w-5 h-5" />
+                        ) : (
+                          <Image
+                            src={item.icon as string}
+                            alt={item.title}
+                            width={20}
+                            height={20}
+                          />
+                        )}
+                        <span className="text-sm font-medium text-white">
+                          {item.title}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
