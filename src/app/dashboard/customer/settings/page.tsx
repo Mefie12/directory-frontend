@@ -9,6 +9,7 @@ import {
   Trash,
   Loader2,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -32,6 +33,7 @@ import {
 import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
 
@@ -167,8 +169,8 @@ const Button = ({
     variant === "outline"
       ? "bg-white border border-red-400 text-red-500 hover:bg-red-50"
       : disabled || isLoading
-      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-      : "bg-lime-500 text-white hover:bg-lime-600";
+        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+        : "bg-lime-500 text-white hover:bg-lime-600";
 
   return (
     <button
@@ -422,6 +424,11 @@ export default function Settings() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  const [isJoiningVendor, setIsJoiningVendor] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
   // --- Success Dialog State ---
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState({
@@ -522,7 +529,7 @@ export default function Settings() {
       setSuccessDialogOpen(true);
     } catch (error) {
       console.error(error);
-      alert("Error updating profile");
+      toast("Error updating profile");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -534,7 +541,7 @@ export default function Settings() {
 
   const handleSubmitPasswordChange = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords do not match");
+      toast("New passwords do not match");
       return;
     }
 
@@ -581,9 +588,97 @@ export default function Settings() {
       });
     } catch (error: any) {
       console.error(error);
-      alert(error.message || "Error changing password");
+      toast(error.message || "Error changing password");
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  // Handle join vendor
+  const handleJoinVendor = async () => {
+    setIsJoiningVendor(true);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const token = localStorage.getItem("authToken");
+
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const response = await fetch(`${API_URL}/api/make_vendor`, {
+        method: "PATCH",
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upgrade to vendor");
+      }
+
+      await refetchUser();
+
+      setSuccessMessage({
+        title: "Welcome Vendor",
+        description:
+          "Your account has been successfully upgraded to a vendor account.",
+      });
+
+      setSuccessDialogOpen(true);
+    } catch (error) {
+      console.error("Error joining vendor:", error);
+      toast("Failed to join as a vendor. Please try again.");
+    } finally {
+      setIsJoiningVendor(false);
+    }
+  };
+
+  // handle delete account
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const token = localStorage.getItem("authToken");
+
+      const headers = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const body = {
+        password: deletePassword,
+      };
+
+      const response = await fetch(`${API_URL}/api/delete_account`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Incorrect password or failed to delete account."
+        );
+      }
+
+      // Successful deletion
+      // 1. Clear token
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+
+      // 2. close dialog
+      setDeleteDialogOpen(false);
+
+      // 3. redirect to home screen
+      router.push("/auth/login");
+    } catch (error: any) {
+      console.error("Delete account error:", error);
+      toast(error.message || "Failed to delete account");
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -818,10 +913,14 @@ export default function Settings() {
                     </p>
                   </div>
                   <button
-                    onClick={() => router.push("/become-a-vendor")}
-                    className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer"
+                    onClick={handleJoinVendor}
+                    disabled={isJoiningVendor}
+                    className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer flex items-center gap-2"
                   >
-                    Join as a vendor
+                    {isJoiningVendor && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    {isJoiningVendor ? "Joining..." : "Join as a vendor"}
                   </button>
                 </div>
 
@@ -859,10 +958,63 @@ export default function Settings() {
                     Make sure your changes are saved before leaving.
                   </p>
                 </div>
-                <Button variant="outline" className="flex items-center gap-2">
-                  Delete
-                  <Trash size={16} />
-                </Button>
+                <Dialog
+                  open={deleteDialogOpen}
+                  onOpenChange={setDeleteDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      Delete
+                      <Trash size={16} />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md rounded-2xl">
+                    <DialogHeader>
+                      <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600">
+                        <AlertTriangle size={24} />
+                      </div>
+                      <DialogTitle className="text-center text-xl text-gray-900">
+                        Are you sure?
+                      </DialogTitle>
+                      <DialogDescription className="text-center text-gray-500 mt-2">
+                        This will permanently delete your account, listings, and
+                        remove your data from our servers.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="mt-6">
+                      <Label>Confirm Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="Enter your password to confirm"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <DialogFooter className="mt-6 flex gap-3">
+                      <DialogClose asChild>
+                        <button className="w-full px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors">
+                          Cancel
+                        </button>
+                      </DialogClose>
+                      <button
+                        onClick={handleDeleteAccount}
+                        disabled={!deletePassword || isDeletingAccount}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isDeletingAccount && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        {isDeletingAccount ? "Deleting..." : "Delete Account"}
+                      </button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </Card>
           </>
