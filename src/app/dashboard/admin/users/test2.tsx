@@ -106,6 +106,14 @@ export default function Users() {
       : null;
   }, []);
 
+  // Helper to determine suspension state consistently across the app
+  const isUserSuspended = useCallback((u: User) => {
+    return (
+      u.is_suspended ||
+      (u.status || "").toLowerCase().trim() === "suspended"
+    );
+  }, []);
+
   const extractUsersFromResponse = useCallback((data: any): User[] => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
@@ -148,11 +156,18 @@ export default function Users() {
   }, [authUser, authLoading, loadAllData]);
 
   const handleSuspendSubmit = async () => {
-    if (!selectedUser || !suspendForm.reason)
-      return toast.error("Reason required");
+    if (!selectedUser) return;
+    if (!suspendForm.reason || suspendForm.reason.length > 500) {
+      return toast.error(
+        "Reason is required and must be under 500 characters.",
+      );
+    }
+
     setIsActionLoading(true);
     try {
       const token = getAuthToken();
+
+      // Data format logic: duration is null if using custom_date
       const payload = {
         reason: suspendForm.reason,
         duration:
@@ -174,9 +189,10 @@ export default function Users() {
       );
 
       if (!res.ok) throw new Error("Suspension failed");
-      toast.success("User suspended");
+
+      toast.success("User suspended successfully");
       setIsSuspendModalOpen(false);
-      await loadAllData();
+      await loadAllData(); // Refresh list to update UI
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
@@ -193,8 +209,8 @@ export default function Users() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Unsuspension failed");
-      toast.success("User unsuspended");
-      await loadAllData();
+      toast.success("User unsuspended successfully");
+      await loadAllData(); // Refresh list to update UI
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
@@ -205,18 +221,31 @@ export default function Users() {
   useEffect(() => {
     const filtered = allData.filter((u) => {
       const status = (u.status || "").toLowerCase().trim();
-      const filter = statusFilter.toLowerCase().trim();
+      const filterValue = statusFilter.toLowerCase().trim();
       const role = (u.role || "").toLowerCase();
+      const suspended = isUserSuspended(u);
 
+      // 1. Tab Logic
       if (activeTab === "vendors" && role !== "vendor") return false;
       if (activeTab === "customers" && !["customer", "user"].includes(role))
         return false;
       if (activeTab === "admins" && role !== "admin") return false;
 
-      if (filter !== "all" && status !== filter) return false;
+      // 2. Status Logic (Crucial for filtering suspended users)
+      if (filterValue !== "all") {
+        if (filterValue === "suspended") {
+          if (!suspended) return false;
+        } else {
+          // If we are filtering by Active/Pending, we must exclude suspended users
+          if (suspended || status !== filterValue) return false;
+        }
+      }
+
+      // 3. Plan Filter
       if (planFilter !== "all" && (u.plan || "").toLowerCase() !== planFilter)
         return false;
 
+      // 4. Search Filter
       if (search) {
         const s = search.toLowerCase();
         return (
@@ -232,7 +261,15 @@ export default function Users() {
     setTotalPages(total || 1);
     const start = (currentPage - 1) * itemsPerPage;
     setDisplayData(filtered.slice(start, start + itemsPerPage));
-  }, [allData, statusFilter, planFilter, search, currentPage, activeTab]);
+  }, [
+    allData,
+    statusFilter,
+    planFilter,
+    search,
+    currentPage,
+    activeTab,
+    isUserSuspended,
+  ]);
 
   useEffect(
     () => setCurrentPage(1),
@@ -274,7 +311,7 @@ export default function Users() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search..."
-              className="pl-9"
+              className="pl-9 shadow-none"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -282,7 +319,7 @@ export default function Users() {
 
           <div className="flex gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-[130px] shadow-none">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -295,7 +332,7 @@ export default function Users() {
 
             {activeTab === "vendors" && (
               <Select value={planFilter} onValueChange={setPlanFilter}>
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-[130px] shadow-none">
                   <SelectValue placeholder="Plan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -311,12 +348,20 @@ export default function Users() {
         <div className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-200">
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                {activeTab === "vendors" && <TableHead>Plan</TableHead>}
-                <TableHead>Last Active</TableHead>
-                <TableHead>Role</TableHead>
+              <TableRow className="bg-gray-200 hover:bg-gray-200">
+                <TableHead className="font-semibold text-black">Name</TableHead>
+                <TableHead className="font-semibold text-black">
+                  Phone
+                </TableHead>
+                {activeTab === "vendors" && (
+                  <TableHead className="font-semibold text-black">
+                    Plan
+                  </TableHead>
+                )}
+                <TableHead className="font-semibold text-black">
+                  Last Active
+                </TableHead>
+                <TableHead className="font-semibold text-black">Role</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -324,22 +369,23 @@ export default function Users() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
-                    Loading...
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
                   </TableCell>
                 </TableRow>
               ) : displayData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-gray-500 font-medium"
+                  >
                     No results found.
                   </TableCell>
                 </TableRow>
               ) : (
                 displayData.map((u) => {
-                  const isSuspended =
-                    (u.status || "").toLowerCase().trim() === "suspended" ||
-                    u.is_suspended;
+                  const suspended = isUserSuspended(u);
                   return (
-                    <TableRow key={u.id} className="hover:bg-gray-50">
+                    <TableRow key={u.id} className="hover:bg-gray-50/50">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           {u.avatar ? (
@@ -352,11 +398,11 @@ export default function Users() {
                             />
                           ) : (
                             <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <UserIcon className="h-5" />
+                              <UserIcon className="h-5 w-5 text-gray-400" />
                             </div>
                           )}
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-gray-900">
                               {u.first_name} {u.last_name}
                             </div>
                             <div className="text-sm text-gray-500">
@@ -365,15 +411,17 @@ export default function Users() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{u.phone || "N/A"}</TableCell>
+                      <TableCell className="text-gray-600">
+                        {u.phone || "N/A"}
+                      </TableCell>
                       {activeTab === "vendors" && (
                         <TableCell>
-                          <Badge className="bg-[#548235]">
+                          <Badge className="bg-[#548235] hover:bg-[#548235] text-white font-normal">
                             {u.plan || "Free"}
                           </Badge>
                         </TableCell>
                       )}
-                      <TableCell>
+                      <TableCell className="text-gray-600">
                         {u.last_active
                           ? formatDistanceToNow(new Date(u.last_active), {
                               addSuffix: true,
@@ -381,45 +429,51 @@ export default function Users() {
                           : "Never"}
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-blue-500 text-white">
-                          {u.role}
+                        <Badge
+                          className={`text-white font-normal ${suspended ? "bg-red-500 hover:bg-red-500" : "bg-blue-500 hover:bg-blue-500"}`}
+                        >
+                          {suspended ? "Suspended" : u.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuItem
                               onClick={() =>
                                 router.push(`/dashboard/admin/users/${u.id}`)
                               }
                             >
-                              <Eye className="mr-2 h-4" /> View Profile
+                              <Eye className="mr-2 h-4 w-4" /> View Profile
                             </DropdownMenuItem>
-                            {isSuspended ? (
+                            {suspended ? (
                               <DropdownMenuItem
-                                className="text-green-600"
+                                className="text-green-600 focus:text-green-600 font-medium"
                                 onClick={() => handleUnsuspend(u)}
                               >
-                                <Play className="mr-2 h-4" /> Unsuspend
+                                <Play className="mr-2 h-4 w-4" /> Unsuspend
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                className="text-yellow-600"
+                                className="text-yellow-600 focus:text-yellow-600 font-medium"
                                 onClick={() => {
                                   setSelectedUser(u);
                                   setIsSuspendModalOpen(true);
                                 }}
                               >
-                                <Pause className="mr-2 h-4" /> Suspend
+                                <Pause className="mr-2 h-4 w-4" /> Suspend
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem>
-                              <MessageSquare className="mr-2 h-4" /> Message
+                              <MessageSquare className="mr-2 h-4 w-4" /> Message
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -432,51 +486,94 @@ export default function Users() {
           </Table>
         </div>
 
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
+        <div className="flex items-center justify-between px-2">
+          <p className="text-sm text-gray-500 font-medium">
             Page {currentPage} of {totalPages}
           </p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="icon"
+              className="h-8 w-8"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => p - 1)}
             >
-              <ChevronLeft />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
               size="icon"
+              className="h-8 w-8"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((p) => p + 1)}
             >
-              <ChevronRight />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
       <Dialog open={isSuspendModalOpen} onOpenChange={setIsSuspendModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Suspend User</DialogTitle>
             <DialogDescription>
               Provide a reason and duration for this account suspension.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Reason</Label>
+              <Label className="text-sm font-semibold">
+                Reason (Max 500 chars)
+              </Label>
               <Input
+                placeholder="Reason for suspension"
+                maxLength={500}
                 value={suspendForm.reason}
                 onChange={(e) =>
                   setSuspendForm({ ...suspendForm, reason: e.target.value })
                 }
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Duration</Label>
+              <Select
+                value={suspendForm.duration}
+                onValueChange={(val) =>
+                  setSuspendForm({ ...suspendForm, duration: val })
+                }
+              >
+                <SelectTrigger className="shadow-none">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1_day">1 Day</SelectItem>
+                  <SelectItem value="7_days">7 Days</SelectItem>
+                  <SelectItem value="30_days">30 Days</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                  <SelectItem value="custom">Custom Date</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {suspendForm.duration === "custom" && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Custom End Date</Label>
+                <Input
+                  type="date"
+                  value={suspendForm.custom_date}
+                  onChange={(e) =>
+                    setSuspendForm({
+                      ...suspendForm,
+                      custom_date: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setIsSuspendModalOpen(false)}
@@ -486,10 +583,10 @@ export default function Users() {
             <Button
               onClick={handleSuspendSubmit}
               disabled={isActionLoading}
-              className="bg-red-600"
+              className="bg-red-600 hover:bg-red-700 text-white border-none"
             >
               {isActionLoading ? (
-                <Loader2 className="animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 "Confirm Suspension"
               )}
