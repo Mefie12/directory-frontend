@@ -24,6 +24,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   ChevronLeft,
@@ -32,6 +40,8 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pause,
+  Loader2,
+  Play,
   Search,
   User as UserIcon,
 } from "lucide-react";
@@ -39,6 +49,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
 // --- Types ---
 interface User {
@@ -49,22 +61,19 @@ interface User {
   avatar: string;
   phone?: string;
   listings_count: string;
-  // Role determines the Tab (Vendor, Customer, Admin)
   role: "vendor" | "customer" | "user" | "admin";
   plan?: "Basic" | "Premium" | "Pro" | "Enterprise";
   last_active: string;
-  // Status determines filter (Active, Suspended)
   status: "Active" | "Pending" | "Suspended" | "Inactive";
 }
 
-// Added 'all' to the TabType
 type TabType = "all" | "vendors" | "customers" | "admins";
 
 export default function Users() {
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
 
-  // State - Default to 'all'
+  // State
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [allData, setAllData] = useState<User[]>([]);
   const [displayData, setDisplayData] = useState<User[]>([]);
@@ -81,9 +90,23 @@ export default function Users() {
 
   // Loading/Error
   const [isLoading, setIsLoading] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // --- Suspension Modal State ---
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [suspendForm, setSuspendForm] = useState({
+    reason: "",
+    duration: "1_day",
+    custom_date: "",
+  });
+
   // --- Helpers ---
+  
+  // FIX: Use NEXT_PUBLIC_ prefix and default to localhost to fix 401 error
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
   const getAuthToken = (): string | null => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("authToken");
@@ -112,49 +135,164 @@ export default function Users() {
   };
 
   // --- Fetch Data ---
+  async function loadAllData() {
+    if (authLoading) return;
+    // Don't block purely on !authUser here to ensure hooks run, check token inside
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      
+      if (!token) {
+         // Silently fail or redirect if strictly protected
+         setIsLoading(false);
+         return; 
+      }
+
+      const response = await fetch(`${API_URL}/api/all_users`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) throw new Error("Authentication failed");
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      const users = extractUsersFromResponse(data);
+      setAllData(users);
+    } catch (error) {
+      console.error(error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load users",
+      );
+      setAllData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   useEffect(() => {
-    async function loadAllData() {
-      if (authLoading) return;
-      if (!authUser) {
-        setError("Authentication required to view users");
-        setIsLoading(false);
-        return;
-      }
+    if (!authLoading && authUser) {
+      loadAllData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, authLoading]);
 
-      setIsLoading(true);
-      setError(null);
-      try {
-        const token = getAuthToken();
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+  // --- API Action Handlers ---
+  const handleOpenSuspendModal = (user: User) => {
+    setSelectedUser(user);
+    setSuspendForm({
+      reason: "",
+      duration: "1_day",
+      custom_date: "",
+    });
+    setIsSuspendModalOpen(true);
+  };
 
-        const response = await fetch(`${API_URL}/api/all_users`, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.status === 401) throw new Error("Authentication failed");
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-
-        const data = await response.json();
-        const users = extractUsersFromResponse(data);
-        setAllData(users);
-      } catch (error) {
-        setError(
-          error instanceof Error ? error.message : "Failed to load users"
-        );
-        setAllData([]);
-      } finally {
-        setIsLoading(false);
-      }
+  const handleSuspendSubmit = async () => {
+    if (!selectedUser) return;
+    if (!suspendForm.reason) {
+      toast.error("Please provide a reason for suspension.");
+      return;
     }
 
-    loadAllData();
-  }, [authUser, authLoading]);
+    // Validation: If custom is selected, custom_date is required
+    if (suspendForm.duration === "custom" && !suspendForm.custom_date) {
+      toast.error("Please select an end date for temporary suspension.");
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      const token = getAuthToken();
+      
+      if (!token) {
+        throw new Error("No authentication token found. Please log in again.");
+      }
+
+      // Payload Construction based on Backend Dev Requirements:
+      // If duration is 'custom', send duration: null and custom_date: "YYYY-MM-DD"
+      // If duration is NOT 'custom', send duration: "value" and custom_date: null
+      const payload = {
+        reason: suspendForm.reason,
+        duration: suspendForm.duration === "custom" ? null : suspendForm.duration,
+        custom_date: suspendForm.duration === "custom" ? suspendForm.custom_date : null,
+      };
+
+      console.log("Submitting to:", `${API_URL}/api/users/${selectedUser.id}/suspend`);
+      console.log("Payload:", payload);
+
+      const response = await fetch(
+        `${API_URL}/api/users/${selectedUser.id}/suspend`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Failed to suspend user: ${response.statusText}`);
+      }
+
+      toast.success("User suspended successfully");
+      setIsSuspendModalOpen(false);
+      await loadAllData(); 
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error instanceof Error ? error.message : "Error suspending user",
+      );
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleUnsuspend = async (user: User) => {
+    if (!confirm(`Are you sure you want to unsuspend ${user.first_name}?`))
+      return;
+
+    setIsActionLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) throw new Error("No token found");
+
+      const response = await fetch(
+        `${API_URL}/api/users/${user.id}/unsuspend`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unsuspend user");
+      }
+
+      toast.success("User unsuspended successfully");
+      await loadAllData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Error unsuspending user");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   // --- Filtering Logic ---
   useEffect(() => {
@@ -164,7 +302,6 @@ export default function Users() {
       // 1. Tab Logic (Role Based)
       const userRole = (user.role || "").toLowerCase();
 
-      // If activeTab is 'all', we skip this check and include everyone
       if (activeTab === "vendors") {
         if (userRole !== "vendor") return false;
       } else if (activeTab === "customers") {
@@ -181,7 +318,7 @@ export default function Users() {
         return false;
       }
 
-      // 3. Plan Filter (Only relevant for Vendors usually)
+      // 3. Plan Filter
       if (planFilter !== "all" && user.plan?.toLowerCase() !== planFilter) {
         return false;
       }
@@ -189,9 +326,7 @@ export default function Users() {
       // 4. Search Filter
       if (search) {
         const searchLower = search.toLowerCase();
-        const nameMatch = `${user.first_name || ""} ${
-          user.last_name || ""
-        }`
+        const nameMatch = `${user.first_name || ""} ${user.last_name || ""}`
           .toLowerCase()
           .includes(searchLower);
         const emailMatch = (user.email || "")
@@ -264,18 +399,13 @@ export default function Users() {
     } else {
       if (currentPage <= 3) pages.push(1, 2, 3, 4);
       else if (currentPage >= totalPages - 2)
-        pages.push(
-          totalPages - 3,
-          totalPages - 2,
-          totalPages - 1,
-          totalPages
-        );
+        pages.push(totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
       else
         pages.push(
           currentPage - 1,
           currentPage,
           currentPage + 1,
-          currentPage + 2
+          currentPage + 2,
         );
     }
     return pages;
@@ -448,7 +578,7 @@ export default function Users() {
                       <TableCell>
                         <Badge
                           className={`${getPlanBadgeVariant(
-                            user.plan || ""
+                            user.plan || "",
                           )} text-white`}
                         >
                           {user.plan || "Free"}
@@ -472,7 +602,7 @@ export default function Users() {
                     <TableCell>
                       <Badge
                         className={`${getRoleBadgeColor(
-                          user.role
+                          user.role,
                         )} text-white capitalize`}
                       >
                         {user.role || "Unknown"}
@@ -496,9 +626,22 @@ export default function Users() {
                           >
                             <Eye className="mr-2 h-4 w-4" /> View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-yellow-600">
-                            <Pause className="mr-2 h-4 w-4" /> Suspend
-                          </DropdownMenuItem>
+                          {/* Conditional Suspend/Unsuspend */}
+                          {user.status === "Suspended" ? (
+                            <DropdownMenuItem
+                              className="text-green-600"
+                              onClick={() => handleUnsuspend(user)}
+                            >
+                              <Play className="mr-2 h-4 w-4" /> Unsuspend
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="text-yellow-600"
+                              onClick={() => handleOpenSuspendModal(user)}
+                            >
+                              <Pause className="mr-2 h-4 w-4" /> Suspend
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem>
                             <MessageSquare className="mr-2 h-4 w-4" /> Message
                           </DropdownMenuItem>
@@ -563,6 +706,91 @@ export default function Users() {
           </div>
         )}
       </div>
+
+      {/* Suspend User Modal */}
+      <Dialog open={isSuspendModalOpen} onOpenChange={setIsSuspendModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Suspend User</DialogTitle>
+            <DialogDescription>
+              Suspend {selectedUser?.first_name} from the platform.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Input
+                placeholder="Violation of terms, etc."
+                value={suspendForm.reason}
+                onChange={(e) =>
+                  setSuspendForm({ ...suspendForm, reason: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Duration</Label>
+              <Select
+                value={suspendForm.duration}
+                onValueChange={(val) =>
+                  setSuspendForm({ ...suspendForm, duration: val })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1_day">1 Day</SelectItem>
+                  <SelectItem value="7_days">7 Days</SelectItem>
+                  <SelectItem value="30_days">30 Days</SelectItem>
+                  <SelectItem value="permanent">Permanent</SelectItem>
+                  <SelectItem value="custom">Custom Date</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {suspendForm.duration === "custom" && (
+              <div className="space-y-2">
+                <Label>Custom End Date</Label>
+                <Input
+                  type="date"
+                  value={suspendForm.custom_date}
+                  onChange={(e) =>
+                    setSuspendForm({
+                      ...suspendForm,
+                      custom_date: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsSuspendModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSuspendSubmit}
+              disabled={isActionLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm Suspension"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
