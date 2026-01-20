@@ -149,6 +149,7 @@ export default function Users() {
       setIsLoading(false);
     }
   }, [authLoading, API_URL, getAuthToken, extractUsersFromResponse]);
+  
 
   useEffect(() => {
     if (!authLoading && authUser) loadAllData();

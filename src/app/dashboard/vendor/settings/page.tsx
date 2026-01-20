@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
@@ -59,9 +59,12 @@ const TabLink = ({
   return (
     <Link
       href={href}
+      scroll={false} // Prevents page from jumping to top
       onClick={(e) => {
-        e.preventDefault();
-        onClick?.();
+        if (onClick) {
+          e.preventDefault();
+          onClick();
+        }
       }}
       className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
         active ? "text-lime-600" : "text-gray-500 hover:text-gray-700"
@@ -403,10 +406,13 @@ const SuccessDialog = ({
 // --- Main Settings Component ---
 export default function Settings() {
   const { refetchUser } = useAuth();
-  const [activeTab, setActiveTab] = useState("account");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Profile State
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") || "account",
+  );
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -416,6 +422,18 @@ export default function Settings() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    router.push(`?tab=${tab}`, { scroll: false });
+  };
+
   // Password State
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -424,7 +442,7 @@ export default function Settings() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const [isJoiningVendor, setIsJoiningVendor] = useState(false);
+  // const [isJoiningVendor, setIsJoiningVendor] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -595,43 +613,43 @@ export default function Settings() {
   };
 
   // Handle join vendor
-  const handleJoinVendor = async () => {
-    setIsJoiningVendor(true);
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const token = localStorage.getItem("authToken");
+  // const handleJoinVendor = async () => {
+  //   setIsJoiningVendor(true);
+  //   try {
+  //     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  //     const token = localStorage.getItem("authToken");
 
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
+  //     const headers = {
+  //       "Content-Type": "application/json",
+  //       Accept: "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //     };
 
-      const response = await fetch(`${API_URL}/api/make_vendor`, {
-        method: "PATCH",
-        headers,
-      });
+  //     const response = await fetch(`${API_URL}/api/make_vendor`, {
+  //       method: "PATCH",
+  //       headers,
+  //     });
 
-      if (!response.ok) {
-        throw new Error("Failed to upgrade to vendor");
-      }
+  //     if (!response.ok) {
+  //       throw new Error("Failed to upgrade to vendor");
+  //     }
 
-      await refetchUser();
+  //     await refetchUser();
 
-      setSuccessMessage({
-        title: "Welcome Vendor",
-        description:
-          "Your account has been successfully upgraded to a vendor account.",
-      });
+  //     setSuccessMessage({
+  //       title: "Welcome Vendor",
+  //       description:
+  //         "Your account has been successfully upgraded to a vendor account.",
+  //     });
 
-      setSuccessDialogOpen(true);
-    } catch (error) {
-      console.error("Error joining vendor:", error);
-      toast("Failed to join as a vendor. Please try again.");
-    } finally {
-      setIsJoiningVendor(false);
-    }
-  };
+  //     setSuccessDialogOpen(true);
+  //   } catch (error) {
+  //     console.error("Error joining vendor:", error);
+  //     toast("Failed to join as a vendor. Please try again.");
+  //   } finally {
+  //     setIsJoiningVendor(false);
+  //   }
+  // };
 
   // handle delete account
   const handleDeleteAccount = async () => {
@@ -660,7 +678,8 @@ export default function Settings() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Incorrect password or failed to delete account."
+          errorData.message ||
+            "Incorrect password or failed to delete account.",
         );
       }
 
@@ -709,28 +728,28 @@ export default function Settings() {
           <TabLink
             href="?tab=account"
             active={activeTab === "account"}
-            onClick={() => setActiveTab("account")}
+            onClick={() => handleTabChange("account")}
           >
             Account
           </TabLink>
           <TabLink
             href="?tab=notifications"
             active={activeTab === "notifications"}
-            onClick={() => setActiveTab("notifications")}
+            onClick={() => handleTabChange("notifications")}
           >
             Notifications
           </TabLink>
           <TabLink
             href="?tab=billing"
             active={activeTab === "billing"}
-            onClick={() => setActiveTab("billing")}
+            onClick={() => handleTabChange("billing")}
           >
             Billing
           </TabLink>
           <TabLink
             href="?tab=preferences"
             active={activeTab === "preferences"}
-            onClick={() => setActiveTab("preferences")}
+            onClick={() => handleTabChange("preferences")}
           >
             Preferences
           </TabLink>
@@ -902,7 +921,7 @@ export default function Settings() {
                 Progress & Rewards
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
+                {/* <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
                   <div className="space-y-2 max-w-sm">
                     <h4 className="text-lg font-semibold text-gray-900">
                       Grow your business with Mefie
@@ -922,7 +941,7 @@ export default function Settings() {
                     )}
                     {isJoiningVendor ? "Joining..." : "Join as a vendor"}
                   </button>
-                </div>
+                </div> */}
 
                 <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
                   <div className="relative z-10 space-y-2 max-w-sm">

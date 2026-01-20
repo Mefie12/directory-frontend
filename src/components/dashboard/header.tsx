@@ -53,6 +53,8 @@ export default function Header() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
+ 
+
   // Cast user to the extended interface to access 'subscription_plan'
   const currentUser = user as unknown as UserWithPlan;
 
@@ -90,7 +92,7 @@ export default function Header() {
     }).format(date);
   };
 
-   const getDashboardUrl = () => {
+  const getDashboardUrl = () => {
     if (!user) return "/auth/login";
 
     switch (user.role?.toLowerCase()) {
@@ -168,7 +170,7 @@ export default function Header() {
 
   const handleViewInquiry = async (id: string, link?: string) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
 
     try {
@@ -196,6 +198,8 @@ export default function Header() {
   const handleViewAll = () => {
     router.push("/dashboard/notifications");
   };
+
+   const settingsBaseUrl = isVendor ? "/dashboard/vendor/settings" : "/dashboard/customer/settings";
 
   return (
     <div className="flex items-center justify-end px-4 lg:px-10 py-1">
@@ -415,7 +419,7 @@ export default function Header() {
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link
-                  href="/billing"
+                  href={`${settingsBaseUrl}?tab=billing`}
                   className="flex items-center gap-2 cursor-pointer py-2.5"
                 >
                   <Image

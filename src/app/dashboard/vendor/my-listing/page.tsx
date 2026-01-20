@@ -156,7 +156,7 @@ export default function MyListing() {
       const data: ApiResponse = await response.json();
 
       // DEBUG: Check what the API is actually returning
-      console.log("Raw API Listings Data:", data.data);
+      // console.log("Raw API Listings Data:", data.data);
 
       const transformedListings: ListingsTableItem[] = data.data.map(
         (listing) => {
