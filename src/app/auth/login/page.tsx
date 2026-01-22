@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default function Login() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -26,6 +27,8 @@ export default function Login() {
   });
 
   const { login } = useAuth();
+
+  const redirectPath = searchParams.get("redirect") || "/";
 
   const validateForm = () => {
     const newErrors = { email: "", password: "" };
@@ -103,7 +106,7 @@ export default function Login() {
       if (token) {
         // console.log('✅ Token found:', token);
         await login(token);
-        router.push("/");
+        router.push(redirectPath);
       } else {
         // console.error('❌ No token found in response');
         setError("Login successful but no token received");
@@ -180,7 +183,7 @@ export default function Login() {
                   <p className="text-red-500 text-sm">{errors.email}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex item-center justify-between">
                   <Label htmlFor="password" className="text-sm">
@@ -193,7 +196,7 @@ export default function Login() {
                     Forgot password?
                   </Link>
                 </div>
-                
+
                 {/* WRAPPER FOR RELATIVE POSITIONING */}
                 <div className="relative">
                   <Input
@@ -236,6 +239,23 @@ export default function Login() {
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div>
+      <Suspense
+        fallback={
+          <div className="relative z-10 bg-white rounded-2xl flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-[#93C01F]" />
+            <span className="text-gray-500">Loading login...</span>
+          </div>
+        }
+      >
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

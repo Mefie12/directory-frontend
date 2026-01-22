@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import {
   MapPin,
   Star,
@@ -51,6 +51,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MediaGallery } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
+import { useAuth } from "@/context/auth-context";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -663,6 +664,17 @@ function SidebarInfo({
 }) {
   const socialLinks = provider.socials || {};
 
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleClaimBusiness = () => {
+    if (user) {
+      router.push("/claim");
+    } else {
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
+
   return (
     <Card>
       <CardContent className="pt-0.5">
@@ -676,8 +688,8 @@ function SidebarInfo({
         )}
 
         <div className="mt-4">
-          <Button className="w-full bg-[#93C01F] hover:bg-[#82ab1b]">
-            Message {provider.name.split(" ")[0]}
+          <Button onClick={handleClaimBusiness} className="w-full bg-[#93C01F] hover:bg-[#82ab1b]">
+            Claim business
           </Button>
         </div>
 

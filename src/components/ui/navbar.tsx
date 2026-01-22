@@ -91,6 +91,18 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+
+   // Routing to claim page
+  const handleClickEvent = () => {
+    if (user) {
+      // Authenticated -> Go to Claim Page
+      router.push("/claim");
+    } else {
+      // Not Authenticated -> Go to Login, then redirect to Claim Page
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
+
   // --- Helpers ---
 
   const getAuthToken = () => {
@@ -507,16 +519,16 @@ export default function Navbar() {
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="px-4 py-2 text-base font-normal text-gray-900 bg-white hover:bg-white/20 hover:text-gray-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-base font-normal text-gray-900 bg-white hover:bg-white/20 hover:text-gray-100 rounded-lg transition-colors"
                 >
                   Sign Up
                 </Link>
-                <Link
-                  href="/become-a-vendor"
-                  className="px-4 py-2 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors"
+                <Button
+                  onClick={handleClickEvent}
+                  className="px-4 py-2 h-10 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-lg transition-colors cursor-pointer"
                 >
                   Become a vendor
-                </Link>
+                </Button>
               </>
             )}
           </div>

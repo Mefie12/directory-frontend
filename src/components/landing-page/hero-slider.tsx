@@ -5,10 +5,12 @@ import { heroSlides } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
 
 export default function HeroSlider() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -23,8 +25,13 @@ export default function HeroSlider() {
   };
 
   const handleClickEvent = () => {
-    // const currentSlideData = heroSlides[currentSlide];
-    router.push("/become-a-vendor");
+    if (user) {
+      // Authenticated -> Go to Claim Page
+      router.push("/claim");
+    } else {
+      // Not Authenticated -> Go to Login, then redirect to Claim Page
+      router.push("/auth/login?redirect=/claim");
+    }
   };
 
   // Define unique colors for each slide dot
@@ -61,14 +68,14 @@ export default function HeroSlider() {
           <div className="flex space-x-2 sm:space-x-4 mt-4 px-4">
             <Button
               onClick={handleClickEvent}
-              className="py-3 sm:py-5 px-3 sm:px-4 bg-(--accent-primary) text-xs sm:text-base font-normal rounded-xl text-white hover:bg-[#FCFFDF] hover:text-black transition-all duration-300 cursor-pointer"
+              className="py-3 sm:py-5 px-3 sm:px-4 bg-(--accent-primary) text-xs sm:text-base font-normal h-10 rounded-lg text-white hover:bg-[#FCFFDF] hover:text-black transition-all duration-300 cursor-pointer"
             >
               {heroSlides[currentSlide].cta}
             </Button>
 
             <Button
               onClick={handleClickListing}
-              className="py-3 sm:py-5 px-3 sm:px-4 bg-(--accent-tertiary) text-xs sm:text-base font-normal rounded-xl text-[#0F1621] hover:bg-gray-300 transition-all duration-300 cursor-pointer"
+              className="py-3 sm:py-5 px-3 sm:px-4 bg-(--accent-tertiary) text-xs sm:text-base font-normal h-10 rounded-lg text-[#0F1621] hover:bg-gray-300 transition-all duration-300 cursor-pointer"
             >
               {heroSlides[currentSlide].cta2}
             </Button>
