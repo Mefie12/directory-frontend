@@ -14,7 +14,17 @@ import {
   ChefHat,
   BadgeCheck,
   Croissant,
+  Building2,
+  CalendarDays,
+  Users,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -163,8 +173,9 @@ export default function ClaimPage() {
     router.push(`/claim/${businessId}/verify`);
   };
 
-  const handleManualAdd = () => {
-    router.push("/claim/manual");
+  const handleManualAdd = (type: string) => {
+    // Routes to the manual claim page with the selected type query parameter
+    router.push(`/claim/manual?type=${type}`);
   };
 
   if (authLoading || !user) {
@@ -371,14 +382,62 @@ export default function ClaimPage() {
             <p className="text-gray-500 mb-4 text-sm">
               Don&apos;t see your listing in our directory?
             </p>
-            <Button
-              variant="outline"
-              onClick={handleManualAdd}
-              className="w-full max-w-sm h-12 rounded-xl border-2 border-[#93C01F] text-[#93C01F] font-semibold gap-2 hover:bg-[#93C01F] hover:text-white cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              Add it manually
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white cursor-pointer transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add it manually
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md bg-white border-0 rounded-2xl shadow-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-xl font-bold text-[#1F3A4C]">
+                    Select Listing Type
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-6 px-2">
+                  {[
+                    {
+                      id: "business",
+                      label: "Business Listing",
+                      icon: Building2,
+                      desc: "For companies, shops, and services.",
+                    },
+                    {
+                      id: "event",
+                      label: "Event Listing",
+                      icon: CalendarDays,
+                      desc: "For concerts, workshops, and gatherings.",
+                    },
+                    {
+                      id: "community",
+                      label: "Community Listing",
+                      icon: Users,
+                      desc: "For groups, clubs, and non-profits.",
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleManualAdd(item.id)}
+                      className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 group-hover:border-[#93C01F] transition-colors">
+                        <item.icon className="w-5 h-5 text-gray-500 group-hover:text-[#93C01F]" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 group-hover:text-[#93C01F]">
+                          {item.label}
+                        </h4>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

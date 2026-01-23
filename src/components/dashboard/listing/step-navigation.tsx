@@ -36,7 +36,7 @@ const steps: Step[] = [
   },
   {
     id: 5,
-    title: "Review & Submit",
+    title: "Preview & Submit",
     description: "Final review",
   },
 ];
