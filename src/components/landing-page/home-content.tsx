@@ -13,6 +13,8 @@ import { BusinessCard } from "../business-card";
 import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
+
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
@@ -93,6 +95,7 @@ const classifyListing = (
 
 export default function HomeContent() {
   const router = useRouter();
+  const { user } = useAuth();
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
@@ -100,6 +103,16 @@ export default function HomeContent() {
     []
   );
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleClickEvent = () => {
+    if (user) {
+      // Authenticated -> Go to Claim Page
+      router.push("/claim");
+    } else {
+      // Not Authenticated -> Go to Login, then redirect to Claim Page
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -402,7 +415,7 @@ export default function HomeContent() {
             <p className="text-base md:text-lg leading-relaxed">
               Join a network of vendors reaching new audiences.
             </p>
-            <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+            <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
               Join as a vendor
             </Button>
           </div>
@@ -522,7 +535,7 @@ export default function HomeContent() {
           </p>
 
           {/* CTA button */}
-          <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+          <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
             List your business today
           </Button>
         </div>

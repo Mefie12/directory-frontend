@@ -189,7 +189,7 @@ export default function ClaimPage() {
             <ArrowLeft className="w-5 h-5 text-[#93C01F]" />
           </button>
           <h1 className="text-2xl font-bold text-gray-900">
-            Find Your Business
+            Find Your Business/ Events/ Communities Listing
           </h1>
         </div>
 
@@ -304,18 +304,30 @@ export default function ClaimPage() {
                         <p className="text-gray-500 text-sm mt-0.5">
                           {business.address}
                         </p>
-                        {business.distance && (
+
+                        <div className="flex items-center gap-2 mt-2">
+                          {/* Type Badge */}
                           <Badge
-                            variant="secondary"
-                            className={`mt-2 rounded-md font-semibold text-[10px] px-2 py-0.5 ${
-                              isClaimed
-                                ? "bg-gray-200 text-gray-500"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
+                            variant="outline"
+                            className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500 bg-slate-50"
                           >
-                            {business.distance}
+                            {business.type}
                           </Badge>
-                        )}
+
+                          {/* Distance Badge */}
+                          {business.distance && (
+                            <Badge
+                              variant="secondary"
+                              className={`rounded-md font-semibold text-[10px] px-2 py-0.5 ${
+                                isClaimed
+                                  ? "bg-gray-200 text-gray-500"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {business.distance}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -357,7 +369,7 @@ export default function ClaimPage() {
           {/* Footer / Add Manual */}
           <div className="mt-16 mb-10 text-center">
             <p className="text-gray-500 mb-4 text-sm">
-              Don&apos;t see your business in our directory?
+              Don&apos;t see your listing in our directory?
             </p>
             <Button
               variant="outline"

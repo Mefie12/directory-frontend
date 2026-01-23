@@ -12,8 +12,7 @@ import EventCarousel from "@/components/events/event-carousel";
 import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-
-
+import { useAuth } from "@/context/auth-context";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -59,11 +58,11 @@ const getImageUrl = (url: string | undefined | null): string => {
 
 // Robust Date Formatter
 const formatDateTime = (dateString?: string) => {
-  if (!dateString) return "TBA"; 
-  
+  if (!dateString) return "TBA";
+
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "TBA"; 
+    if (isNaN(date.getTime())) return "TBA";
 
     // Use a shorter format for cards (e.g. "Dec 12, 2025")
     return date.toLocaleDateString("en-US", {
@@ -78,13 +77,13 @@ const formatDateTime = (dateString?: string) => {
 };
 
 const classifyListing = (
-  item: ApiListing
+  item: ApiListing,
 ): "business" | "event" | "community" => {
   const rawType = (item.type || item.listing_type || "")
     .toString()
     .trim()
     .toLowerCase();
-  
+
   // Logic: If it has a start_date, assume event
   if (item.start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
@@ -100,13 +99,22 @@ export default function EventsContent({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [events, setEvents] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [communities, setCommunities] = useState<any[]>([]); 
+  const [communities, setCommunities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const router = useRouter();
+  const { user } = useAuth();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
+
+  const handleClickEvent = () => {
+    if (user) {
+      router.push("/claim");
+    } else {
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
 
   // --- Fetch Data ---
   useEffect(() => {
@@ -169,7 +177,7 @@ export default function EventsContent({
           const commonProps = {
             id: item.id.toString(),
             name: item.name,
-            title: item.name, 
+            title: item.name,
             slug: item.slug,
             description: item.bio || item.description || "",
             image: validImages[0],
@@ -183,12 +191,12 @@ export default function EventsContent({
             // FIX: Check multiple possible date fields
             const eventDate = item.start_date || item.date || item.created_at;
             const formattedDate = formatDateTime(eventDate);
-            
+
             eventsList.push({
               ...commonProps,
               startDate: formattedDate,
-              endDate: formattedDate, 
-              price: "Free", 
+              endDate: formattedDate,
+              price: "Free",
             });
           } else if (listingType === "community") {
             communitiesList.push(commonProps);
@@ -237,7 +245,7 @@ export default function EventsContent({
   // Get events by specific category
   const getEventsByCategory = (category: string) => {
     return filteredevents.filter((e) =>
-      e.category.toLowerCase().includes(category.toLowerCase())
+      e.category.toLowerCase().includes(category.toLowerCase()),
     );
   };
 
@@ -281,7 +289,7 @@ export default function EventsContent({
           defaultValue="all"
           onChange={(value) => {
             setSelectedCategory(value);
-            setShowAllCategories(false); 
+            setShowAllCategories(false);
           }}
           containerClassName="pt-4 pb-1"
         />
@@ -377,7 +385,10 @@ export default function EventsContent({
                         Create a listing, reach new customers, and grow your
                         business within the global African community.
                       </p>
-                      <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+                      <Button
+                        onClick={handleClickEvent}
+                        className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer"
+                      >
                         List your event
                       </Button>
                     </div>
@@ -463,7 +474,10 @@ export default function EventsContent({
                     </p>
 
                     {/* CTA button */}
-                    <Button onClick={()=>router.push("/become-a-vendor")} className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+                    <Button
+                      onClick={handleClickEvent}
+                      className="bg-[#93C01F] hover:bg-[#93C956] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200"
+                    >
                       List your business today
                     </Button>
                   </div>
