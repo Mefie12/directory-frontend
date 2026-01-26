@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, Newspaper, type LucideIcon } from "lucide-react";
+import { X, Newspaper, type LucideIcon, Folder } from "lucide-react";
 
 type UserRole = "vendor" | "customer" | "admin";
 
@@ -89,6 +89,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       title: "Listings",
       url: "/dashboard/admin/listings",
       icon: "/images/icons/listings.svg",
+    },
+    {
+      title: "Categories",
+      url: "/dashboard/admin/categories",
+      icon: Folder
     },
     {
       title: "News Post",
@@ -195,7 +200,7 @@ export function AppSidebar({ role }: AppSidebarProps) {
                       >
                         {/* Conditional Rendering logic */}
                         {isLucideIcon && IconComponent ? (
-                          <IconComponent className="w-5 h-5" />
+                          <IconComponent className="w-5 h-5 text-white" />
                         ) : (
                           <Image
                             src={item.icon as string}

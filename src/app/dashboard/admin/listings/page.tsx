@@ -934,7 +934,7 @@ export default function Listings() {
           { key: "all", label: "All" },
           { key: "pending", label: "Pending" },
           { key: "flagged", label: "Flagged" },
-          { key: "categories", label: "Categories" },
+          // { key: "categories", label: "Categories" },
         ].map((tab) => (
           <Button
             key={tab.key}
