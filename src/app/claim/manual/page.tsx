@@ -16,6 +16,7 @@ import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
 import ClaimSuccess from "@/components/verify/claim-success";
+import { useAuth } from "@/context/auth-context";
 
 export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
@@ -24,6 +25,8 @@ export interface ListingFormHandle {
 // 1. Internal Logic Component (Uses SearchParams)
 function ManualLisitingForm() {
   const router = useRouter();
+
+  const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const { listingType, currentStep, setCurrentStep, setListingType } =
     useListing();
@@ -33,6 +36,14 @@ function ManualLisitingForm() {
 
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
+
+ // --- Auth Protection Effect ---
+  useEffect(() => {
+    if (!authLoading && !user) {
+      // Redirect with return URL so they come back here after login
+      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+    }
+  }, [user, authLoading, router]);
 
   // Initialize Type from URL
   useEffect(() => {
@@ -146,13 +157,13 @@ function ManualLisitingForm() {
           </div>
         </aside>
 
-        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24">
+        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-10">
           {renderStep()}
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-10">
-        <div className="flex justify-between max-w-5xl mx-auto lg:px-8 lg:py-6">
+      <div className="bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-0">
+        <div className="flex justify-between  mx-auto lg:px-8 lg:py-6">
           <div>
             {currentStep > 1 && (
               <Button
@@ -169,7 +180,7 @@ function ManualLisitingForm() {
           <Button
             onClick={handleNext}
             disabled={isSaving}
-            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px] "
           >
             {isSaving ? (
               <>

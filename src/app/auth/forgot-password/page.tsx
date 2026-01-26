@@ -62,10 +62,9 @@ export default function ForgotPassword() {
       }
 
       // Handle successful request
-      // console.log("Password reset email sent:", data);
       setSuccess(true);
       setEmail(""); // Clear the form
-    } catch  {
+    } catch {
       // console.error("Forgot password failed:", error);
     } finally {
       setIsLoading(false);
@@ -96,8 +95,8 @@ export default function ForgotPassword() {
                 alt="MeFie Logo"
                 width={110}
                 height={50}
-              className="object-cover"
-            />
+                className="object-cover"
+              />
             </Link>
             <p className="text-sm text-gray-500">
               Remember password?{" "}
@@ -120,109 +119,86 @@ export default function ForgotPassword() {
           </div>
         </CardHeader>
         <CardContent>
-          {success ? (
+          <form onSubmit={handleSubmit}>
             <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0">
-                    <svg
-                      className="w-5 h-5 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-green-800">
-                      Check your email
-                    </h3>
-                    <p className="text-sm text-green-700 mt-1">
-                      We&apos;ve sent password reset instructions to your email
-                      address. Please check your inbox and follow the link to
-                      reset your password.
-                    </p>
+              {/* Success Message added here above the label */}
+              {success && (
+                <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0">
+                      <svg
+                        className="w-5 h-5 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-green-800">
+                        Check your email
+                      </h3>
+                      <p className="text-sm text-green-700 mt-1">
+                        We&apos;ve sent password reset instructions to your
+                        email address. Please check your inbox and follow the
+                        link to reset your password.
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm">
+                  Email Address <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  className="w-full"
+                  value={email}
+                  onChange={handleInputChange}
+                  required
+                />
+                {emailError && (
+                  <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                )}
               </div>
 
-              <div className="text-center space-y-3">
-                <p className="text-sm text-gray-600">
-                  Didn&apos;t receive the email? Check your spam folder or
-                </p>
-                <Button
-                  onClick={() => setSuccess(false)}
-                  variant="outline"
-                  className="w-full text-sm border-gray-200 hover:bg-gray-50"
-                >
-                  Try another email
-                </Button>
-              </div>
+              {error && (
+                <div className="p-3 rounded-md bg-red-50 border border-red-200">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
 
-              <div className="text-center">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full text-sm bg-[#93C01F] text-white cursor-pointer hover:bg-[#7da519] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Sending..." : "Send Reset Link"}
+              </Button>
+
+              <div className="flex items-center justify-center">
                 <Link
                   href="/auth/login"
-                  className="text-sm text-[#93C01F] font-medium hover:underline"
+                  className="text-sm text-gray-600 hover:text-[#93C01F] transition-colors flex items-center justify-center gap-2"
                 >
+                  <span>
+                    <ArrowLeft className="w-4 h-4" />
+                  </span>{" "}
                   Back to Sign in
                 </Link>
               </div>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm">
-                    Email Address <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    className="w-full"
-                    value={email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {emailError && (
-                    <p className="text-red-500 text-sm mt-1">{emailError}</p>
-                  )}
-                </div>
-
-                {error && (
-                  <div className="p-3 rounded-md bg-red-50 border border-red-200">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full text-sm bg-[#93C01F] text-white cursor-pointer hover:bg-[#7da519] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? "Sending..." : "Send Reset Link"}
-                </Button>
-
-                <div className="flex items-center justify-center">
-                  <Link
-                    href="/auth/login"
-                    className="text-sm text-gray-600 hover:text-[#93C01F] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>
-                      <ArrowLeft className="w-4 h-4" />
-                    </span>{" "}
-                    Back to Sign in
-                  </Link>
-                </div>
-              </div>
-            </form>
-          )}
+          </form>
         </CardContent>
       </Card>
     </div>

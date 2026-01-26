@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Eye,
   EyeOff,
-  ChevronDown,
   Info,
   Trash,
   Loader2,
@@ -24,16 +23,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import Image from "next/image";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
+// Phone Input Imports
+import { PhoneInput } from "react-international-phone";
+import "react-international-phone/style.css";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
 
@@ -210,53 +207,6 @@ const ToggleSwitch = ({
   );
 };
 
-interface CountryCodeProps {
-  value: string;
-  onChange: (code: string) => void;
-}
-
-const CountryCodeDropdown = ({ value, onChange }: CountryCodeProps) => {
-  const countries = [
-    { code: "+1", flag: "🇺🇸" },
-    { code: "+44", flag: "🇬🇧" },
-    { code: "+233", flag: "🇬🇭" },
-    { code: "+234", flag: "🇳🇬" },
-    { code: "+91", flag: "🇮🇳" },
-  ];
-
-  const selected = countries.find((c) => c.code === value) || countries[0];
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger>
-        <div className="flex items-center gap-2 px-3 py-2.5  rounded-l-lg hover:bg-gray-50 transition-colors">
-          <span className="text-xl leading-none">{selected.flag}</span>
-          <span className="text-sm font-medium text-gray-700">
-            {selected.code}
-          </span>
-          <ChevronDown size={16} className="text-gray-500" />
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="max-h-60 overflow-y-auto ml-10 mt-1">
-        {countries.map((country) => (
-          <DropdownMenuItem
-            key={country.code}
-            onClick={() => onChange(country.code)}
-            className={`w-full cursor-pointer ${
-              selected.code === country.code ? "bg-blue-50" : ""
-            }`}
-          >
-            <div className="w-full flex items-center justify-between gap-2">
-              <span className="text-xl leading-none">{country.flag}</span>
-              <span className="text-gray-500">{country.code}</span>
-            </div>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
-
 function detectCardType(number: string) {
   const cleaned = number.replace(/\D/g, "");
   if (/^4/.test(cleaned)) return "visa";
@@ -402,12 +352,11 @@ const SuccessDialog = ({
 
 // --- Main Settings Component ---
 export default function Settings() {
-  const { refetchUser } = useAuth();
+  const { refetchUser, user } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
   const router = useRouter();
 
   // Profile State
-  const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -424,7 +373,7 @@ export default function Settings() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const [isJoiningVendor, setIsJoiningVendor] = useState(false);
+  const [isJoiningVendor] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -435,6 +384,16 @@ export default function Settings() {
     title: "",
     description: "",
   });
+
+  const handleClickEvent = () => {
+    if (user) {
+      // Authenticated -> Go to Claim Page
+      router.push("/claim");
+    } else {
+      // Not Authenticated -> Go to Login, then redirect to Claim Page
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
 
   // --- Load user data directly from API to ensure fields are populated ---
   useEffect(() => {
@@ -454,7 +413,6 @@ export default function Settings() {
 
         if (response.ok) {
           const data = await response.json();
-          // Adjust based on your API response structure (e.g. data.data or direct object)
           const userData = data.data || data;
 
           setFirstName(userData.first_name || "");
@@ -496,16 +454,15 @@ export default function Settings() {
       body.append("first_name", firstName);
       body.append("last_name", lastName);
       body.append("role", role || "user");
-      body.append("phone", phoneNumber);
+      body.append("phone", phoneNumber); // Sends full phone number with code
 
-      // Laravel trick: Send POST with _method="PATCH" to handle FormData files correctly
+      // Laravel trick
       body.append("_method", "PATCH");
 
       if (fileInputRef.current?.files?.[0]) {
         body.append("avatar", fileInputRef.current.files[0]);
       }
 
-      // Use POST for FormData compatibility
       const response = await fetch(`${API_URL}/api/update_user`, {
         method: "POST",
         headers,
@@ -516,12 +473,8 @@ export default function Settings() {
         throw new Error("Failed to update profile");
       }
 
-      // const data = await response.json();
-
-      // Refresh user data in context after successful update
       refetchUser();
 
-      // Trigger Success Dialog
       setSuccessMessage({
         title: "Profile Updated",
         description: "Your profile details have been successfully updated.",
@@ -561,7 +514,6 @@ export default function Settings() {
         new_password: passwordData.newPassword,
       };
 
-      // Changed to PATCH
       const response = await fetch(`${API_URL}/api/change_password`, {
         method: "PATCH",
         headers,
@@ -573,14 +525,12 @@ export default function Settings() {
         throw new Error(errorData.message || "Failed to change password");
       }
 
-      // Trigger Success Dialog
       setSuccessMessage({
         title: "Password Changed",
         description: "Your password has been successfully updated.",
       });
       setSuccessDialogOpen(true);
 
-      // Reset password fields
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -594,46 +544,44 @@ export default function Settings() {
     }
   };
 
-  // Handle join vendor
-  const handleJoinVendor = async () => {
-    setIsJoiningVendor(true);
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const token = localStorage.getItem("authToken");
+  // const handleJoinVendor = async () => {
+  //   setIsJoiningVendor(true);
+  //   try {
+  //     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  //     const token = localStorage.getItem("authToken");
 
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
+  //     const headers = {
+  //       "Content-Type": "application/json",
+  //       Accept: "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //     };
 
-      const response = await fetch(`${API_URL}/api/make_vendor`, {
-        method: "PATCH",
-        headers,
-      });
+  //     const response = await fetch(`${API_URL}/api/make_vendor`, {
+  //       method: "PATCH",
+  //       headers,
+  //     });
 
-      if (!response.ok) {
-        throw new Error("Failed to upgrade to vendor");
-      }
+  //     if (!response.ok) {
+  //       throw new Error("Failed to upgrade to vendor");
+  //     }
 
-      await refetchUser();
+  //     await refetchUser();
 
-      setSuccessMessage({
-        title: "Welcome Vendor",
-        description:
-          "Your account has been successfully upgraded to a vendor account.",
-      });
+  //     setSuccessMessage({
+  //       title: "Welcome Vendor",
+  //       description:
+  //         "Your account has been successfully upgraded to a vendor account.",
+  //     });
 
-      setSuccessDialogOpen(true);
-    } catch (error) {
-      console.error("Error joining vendor:", error);
-      toast("Failed to join as a vendor. Please try again.");
-    } finally {
-      setIsJoiningVendor(false);
-    }
-  };
+  //     setSuccessDialogOpen(true);
+  //   } catch (error) {
+  //     console.error("Error joining vendor:", error);
+  //     toast("Failed to join as a vendor. Please try again.");
+  //   } finally {
+  //     setIsJoiningVendor(false);
+  //   }
+  // };
 
-  // handle delete account
   const handleDeleteAccount = async () => {
     setIsDeletingAccount(true);
 
@@ -660,19 +608,16 @@ export default function Settings() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Incorrect password or failed to delete account."
+          errorData.message ||
+            "Incorrect password or failed to delete account.",
         );
       }
 
-      // Successful deletion
-      // 1. Clear token
       localStorage.removeItem("authToken");
       localStorage.removeItem("user");
 
-      // 2. close dialog
       setDeleteDialogOpen(false);
 
-      // 3. redirect to home screen
       router.push("/auth/login");
     } catch (error: any) {
       console.error("Delete account error:", error);
@@ -694,7 +639,6 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-2 lg:p-8">
-      {/* --- Success Dialog Instance --- */}
       <SuccessDialog
         open={successDialogOpen}
         onOpenChange={setSuccessDialogOpen}
@@ -736,11 +680,9 @@ export default function Settings() {
           </TabLink>
         </TabNav>
 
-        {/* Account Tab */}
         {activeTab === "account" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-              {/* Profile Details Card */}
               <Card className="rounded-2xl">
                 <CardHeader>
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -788,42 +730,27 @@ export default function Settings() {
                       />
                     </div>
 
+                    {/* --- Updated Phone Input --- */}
                     <div>
                       <Label>Phone Number</Label>
-                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                        <CountryCodeDropdown
-                          value={countryCode}
-                          onChange={setCountryCode}
-                        />
-                        <div className="w-px h-12 bg-gray-300" />
-                        <input
-                          type="tel"
-                          placeholder="Enter number"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          className="flex-1 px-4 py-2.5 outline-none text-sm"
-                        />
-                      </div>
+                      <PhoneInput
+                        defaultCountry="gh"
+                        value={phoneNumber}
+                        onChange={(phone) => setPhoneNumber(phone)}
+                        inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900"
+                        className="w-full"
+                        countrySelectorStyleProps={{
+                          buttonStyle: {
+                            paddingLeft: "12px",
+                            paddingRight: "12px",
+                            height: "36px", // Now matches input (h-11 = 44px)
+                            borderColor: "#d1d5db", // gray-300
+                            borderTopLeftRadius: "0.5rem",
+                            borderBottomLeftRadius: "0.5rem",
+                          },
+                        }}
+                      />
                     </div>
-
-                    {/* <div>
-                        <Label>Profile Picture</Label>
-                        <div className="flex items-center gap-4">
-                            {user?.avatar && (
-                                <div className="relative w-12 h-12 rounded-full overflow-hidden">
-                                    <Image src={user.avatar} alt="Profile" fill className="object-cover" />
-                                </div>
-                            )}
-                            <Button 
-                                type="button" 
-                                variant="outline" 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-fit"
-                            >
-                                <Camera size={16} /> Change Photo
-                            </Button>
-                        </div>
-                    </div> */}
 
                     <Button
                       onClick={handleUpdateProfile}
@@ -836,7 +763,6 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-              {/* Security Card */}
               <Card className="rounded-2xl">
                 <CardHeader>
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -896,7 +822,6 @@ export default function Settings() {
               </Card>
             </div>
 
-            {/* Progress & Rewards Section */}
             <div className="space-y-5 mt-4 py-4">
               <h3 className="text-xl font-semibold text-gray-900">
                 Progress & Rewards
@@ -913,7 +838,7 @@ export default function Settings() {
                     </p>
                   </div>
                   <button
-                    onClick={handleJoinVendor}
+                    onClick={handleClickEvent}
                     disabled={isJoiningVendor}
                     className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer flex items-center gap-2"
                   >
@@ -947,7 +872,6 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Delete Account Card */}
             <Card className="rounded-2xl mt-6">
               <div className="p-6 flex items-center justify-between">
                 <div>
@@ -1020,7 +944,7 @@ export default function Settings() {
           </>
         )}
 
-        {/* Notifications Tab */}
+        {/* ... Rest of your tabs (Notifications, Billing, Preferences) remain unchanged ... */}
         {activeTab === "notifications" && (
           <div className="mt-8">
             <Card className="rounded-2xl">
