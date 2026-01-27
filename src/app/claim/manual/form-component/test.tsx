@@ -254,7 +254,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       bio: rawData.description,
       description: rawData.description,
       business_reg_num: rawData.business_reg_num,
-      primary_country_code: rawData.primary_country_code, 
+      country_code: rawData.primary_country_code, 
       primary_phone: cleanPhone(rawData.primary_phone, rawData.primary_country_code),
       secondary_country_code: rawData.secondary_country_code,
       secondary_phone: rawData.secondary_phone
@@ -329,7 +329,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               email: d.email || "",
               website: d.website || "",
               primary_phone: d.primary_phone || "",
-              primary_country_code: d.primary_country_code || "+233",
+              primary_country_code: d.country_code || "+233",
               category_ids: d.categories?.map((c: any) => String(c.id)) || [],
               type: listingType,
             });
