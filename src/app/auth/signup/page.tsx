@@ -9,6 +9,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Eye, EyeOff } from "lucide-react";
+// Phone Input Imports
+import { PhoneInput } from "react-international-phone";
+import "react-international-phone/style.css";
 
 export default function Signup() {
   const router = useRouter();
@@ -149,6 +152,21 @@ export default function Signup() {
     }
   };
 
+  const handlePhoneChange = (value: string) => {
+  setFormData((prev) => ({
+    ...prev,
+    phone: value,
+  }));
+
+  // Clear phone error if it exists
+  if (errors.phone) {
+    setErrors((prev) => ({
+      ...prev,
+      phone: "",
+    }));
+  }
+};
+
   return (
     <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
       <div className="absolute inset-0 bg-black/30 rounded-2xl" />
@@ -228,7 +246,25 @@ export default function Signup() {
                   <Label htmlFor="phone" className="text-sm">
                     Phone Number <span className="text-red-500">*</span>
                   </Label>
-                  <Input
+                  <PhoneInput
+                    defaultCountry="gh"
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900 bg-gray-300"
+                    className="w-full"
+                    countrySelectorStyleProps={{
+                      buttonStyle: {
+                        paddingLeft: "12px",
+                        paddingRight: "12px",
+                        height: "36px", // Now matches input (h-11 = 44px)
+                        borderColor: "#d1d5db", // gray-300
+                        borderTopLeftRadius: "0.5rem",
+                        borderBottomLeftRadius: "0.5rem",
+                      },
+                    }}
+                    required
+                  />
+                  {/* <Input
                     id="phone"
                     type="tel"
                     placeholder="Enter your Phone Number"
@@ -236,7 +272,7 @@ export default function Signup() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                  />
+                  /> */}
                   {errors.phone && (
                     <p className="text-red-500 text-sm">{errors.phone}</p>
                   )}
