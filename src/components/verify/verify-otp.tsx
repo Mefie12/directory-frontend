@@ -11,6 +11,8 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
   const [timer, setTimer] = useState(165);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timer > 0) {
@@ -32,19 +34,74 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Email verified!");
+    try {
+      const response = await fetch(`${API_URL}/api/verify-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: business.email,
+          otp: code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Invalid verification code");
+      }
+
+      toast.success("Verification successful!");
       onNext();
-    }, 2000);
+    } catch (error: any) {
+      toast.error(
+        error.message || "Invalid verification code. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/resend-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: business.email,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to resend code");
+      }
+
+      setTimer(60); // Reset timer
+      toast.success("A new verification code has been sent to your email.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to resend code");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
-    if (isNaN(Number(value))) return;
+    // Only allow numbers
+    if (value && isNaN(Number(value))) return;
+
     const newOtp = [...otp];
-    newOtp[index] = value;
+    // Take only the last character (handles overwrite)
+    newOtp[index] = value.slice(-1);
     setOtp(newOtp);
-    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
   };
 
   const handleKeyDown = (
@@ -94,7 +151,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
         <p className="text-gray-500">
           Didn&apos;t receive a code?{" "}
           <button
-            onClick={() => toast.info("Code resent!")}
+            onClick={handleResendCode}
             className="text-[#93C01F] font-bold hover:underline"
           >
             Resend Code
