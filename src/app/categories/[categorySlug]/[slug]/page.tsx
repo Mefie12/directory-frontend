@@ -402,7 +402,7 @@ function SidebarLocation({ provider }: { provider: Provider }) {
         <div className="mt-3 relative h-40 overflow-hidden rounded-xl bg-gray-100">
           <iframe
             src={`https://maps.google.com/maps?q=${encodeURIComponent(
-              provider.name + " " + (provider.location || "")
+              provider.name + " " + (provider.location || ""),
             )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
             allowFullScreen
             loading="lazy"
@@ -572,7 +572,7 @@ export default async function CategorySlugPage({
 
           // Filter ratings for this specific listing since API returns all
           const filteredRatings = allRatings.filter(
-            (r: ApiRatingData) => r.listing_id === listingData!.id
+            (r: ApiRatingData) => r.listing_id === listingData!.id,
           );
 
           // 3. ENRICH RATINGS (Fetch User Data if missing)
@@ -589,7 +589,7 @@ export default async function CategorySlugPage({
                         Accept: "application/json",
                       },
                       next: { revalidate: 3600 }, // Cache user info aggressively
-                    }
+                    },
                   );
 
                   if (userRes.ok) {
@@ -609,12 +609,12 @@ export default async function CategorySlugPage({
                 } catch (err) {
                   console.error(
                     `Failed to fetch user ${rating.user_id} for rating ${rating.id}`,
-                    err
+                    err,
                   );
                 }
               }
               return rating;
-            })
+            }),
           );
         }
       }
@@ -649,7 +649,7 @@ export default async function CategorySlugPage({
   // Services
   const servicesList =
     listingData.services?.map((s: any) =>
-      typeof s === "string" ? s : s.name
+      typeof s === "string" ? s : s.name,
     ) || [];
 
   // Provider Object

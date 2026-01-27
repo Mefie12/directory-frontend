@@ -31,7 +31,9 @@ export const businessFormSchema = z.object({
     .min(10, "Description must be at least 10 characters long"),
   type: z.enum(["business", "event", "community"]),
   primary_phone: z.string().min(8, "Please enter a valid phone number"), // Adjusted slightly as formatting adds chars
+  primary_country_code: z.string().min(1, "Required"),
   secondary_phone: z.string().optional(),
+  secondary_country_code: z.string().optional(),
   email: z.string().email("Invalid email address"),
   website: z.string().url("Invalid URL format").optional().or(z.literal("")),
   business_reg_num: z.string().optional(),
@@ -103,7 +105,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         description: "",
         type: listingType,
         primary_phone: "",
+        primary_country_code: "+233",
         secondary_phone: "",
+        secondary_country_code: "",
         email: "",
         website: "",
         business_reg_num: "",
@@ -226,8 +230,36 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           return false;
         }
 
-        const data = form.getValues();
-        data.bio = data.description;
+        // Get current form state
+        const rawData = form.getValues();
+
+        // --- DATA CLEANING FOR API ---
+        // Most APIs requiring country_code want the phone field to be local digits only
+        const cleanPhone = (fullPhone: string, dialCode: string) => {
+          if (!fullPhone) return "";
+          const digits = fullPhone.replace(/\D/g, ""); // Remove + and spaces
+          const codeDigits = dialCode.replace(/\D/g, "");
+          // If the phone starts with the dial code, strip it
+          return digits.startsWith(codeDigits)
+            ? digits.slice(codeDigits.length)
+            : digits;
+        };
+
+        const submissionData = {
+          ...rawData,
+          bio: rawData.description,
+          // Send local number only to avoid "double dial code" errors
+          primary_phone: cleanPhone(
+            rawData.primary_phone,
+            rawData.primary_country_code,
+          ),
+          secondary_phone: rawData.secondary_phone
+            ? cleanPhone(
+                rawData.secondary_phone,
+                rawData.secondary_country_code || "",
+              )
+            : "",
+        };
 
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -246,7 +278,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify(submissionData),
           });
 
           if (!res.ok) {
@@ -326,38 +358,33 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
         {/* Phones - With React International Phone */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Primary Phone */}
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              {textConfig.label} Primary Phone Number{" "}
-              <span className="text-red-500">*</span>
+              Primary Phone Number <span className="text-red-500">*</span>
             </label>
             <Controller
               name="primary_phone"
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry="gh" // Defaulting to Ghana (based on +233 placeholder)
+                  defaultCountry="gh"
                   value={field.value}
-                  onChange={(phone) => field.onChange(phone)}
+                  onChange={(phone, meta) => {
+                    field.onChange(phone); // Stores full string for the UI
+                    // Ensure code has the + prefix for the API
+                    const dialCode = meta.country.dialCode;
+                    const formattedCode = dialCode.startsWith("+")
+                      ? dialCode
+                      : `+${dialCode}`;
+                    setValue("primary_country_code", formattedCode, {
+                      shouldValidate: true,
+                    });
+                  }}
                   inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black font-sans text-sm",
+                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
                     errors.primary_phone && "border-red-500",
                   )}
                   className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "12px",
-                    },
-                  }}
-                  style={
-                    {
-                      "--react-international-phone-border-radius": "0.5rem",
-                      "--react-international-phone-border-color": "#e5e7eb",
-                      "--react-international-phone-height": "2.5rem",
-                    } as React.CSSProperties
-                  }
                 />
               )}
             />
@@ -368,10 +395,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             )}
           </div>
 
-          {/* Secondary Phone */}
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              {textConfig.label} Secondary Phone Number (Optional)
+              Secondary Phone Number
             </label>
             <Controller
               name="secondary_phone"
@@ -380,22 +406,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 <PhoneInput
                   defaultCountry="gh"
                   value={field.value}
-                  onChange={(phone) => field.onChange(phone)}
-                  inputClassName="w-full h-10 rounded-r-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black font-sans text-sm"
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "12px",
-                    },
+                  onChange={(phone, meta) => {
+                    field.onChange(phone);
+                    const dialCode = meta.country.dialCode;
+                    const formattedCode = dialCode.startsWith("+")
+                      ? dialCode
+                      : `+${dialCode}`;
+                    setValue("secondary_country_code", formattedCode);
                   }}
-                  style={
-                    {
-                      "--react-international-phone-border-radius": "0.5rem",
-                      "--react-international-phone-border-color": "#e5e7eb",
-                      "--react-international-phone-height": "2.5rem",
-                    } as React.CSSProperties
-                  }
+                  inputClassName="w-full h-10 rounded-r-lg border-gray-300 px-4"
+                  className="w-full"
                 />
               )}
             />

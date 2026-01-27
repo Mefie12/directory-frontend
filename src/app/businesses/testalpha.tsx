@@ -168,10 +168,8 @@ export default function BusinessesContent() {
             else validImages.push("/images/placeholders/generic.jpg");
           }
 
-          const categorySlugs = item.categories?.map((c) => c.slug) || [
-            "general",
-          ];
-          const categoryName = item.categories?.[0]?.name || "General";
+          const categorySlugs = item.categories?.map(c => c.slug) || ["general"];
+const categoryName = item.categories?.[0]?.name || "General";
           const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
 
@@ -187,7 +185,7 @@ export default function BusinessesContent() {
             rating: Number(item.rating) || 0,
             reviewCount: String(item.ratings_count) || "0",
             category: categoryName,
-            categorySlugs: categorySlugs,
+  categorySlugs: categorySlugs,
             type: listingType as "business",
             country: item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
@@ -223,15 +221,16 @@ export default function BusinessesContent() {
     fetchData();
   }, []);
 
+  // --- DEBUGGED FILTERING LOGIC ---
   // The logic now ensures a direct match against the slug provided by the tabs
-  const filteredData = useMemo(() => {
-    if (selectedCategory === "all") return businesses;
+const filteredData = useMemo(() => {
+  if (selectedCategory === "all") return businesses;
 
-    return businesses.filter((b) => {
-      // Check if the selected slug exists ANYWHERE in the business categories
-      return b.categorySlugs.includes(selectedCategory);
-    });
-  }, [businesses, selectedCategory]);
+  return businesses.filter((b) => {
+    // Check if the selected slug exists ANYWHERE in the business categories
+    return b.categorySlugs.includes(selectedCategory);
+  });
+}, [businesses, selectedCategory]);
 
   const groupedBusinesses = useMemo(() => {
     return businesses.reduce(

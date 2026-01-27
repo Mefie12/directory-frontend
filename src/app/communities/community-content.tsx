@@ -99,7 +99,7 @@ export default function CommunityContent() {
   const [communities, setCommunities] = useState<ProcessedCommunity[]>([]);
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  const [apiCategories, setApiCategories] = useState<CategoryTabItem[]>([]);
+  const [, setApiCategories] = useState<CategoryTabItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const router = useRouter();
@@ -218,7 +218,7 @@ export default function CommunityContent() {
   return (
     <>
       <ScrollableCategoryTabs
-        categories={apiCategories}
+        mainCategorySlug="communities"
         defaultValue="all"
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"

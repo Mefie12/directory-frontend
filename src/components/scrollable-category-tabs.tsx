@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// --- Types ---
 export type CategoryTabItem = {
   label: string;
   value: string;
@@ -17,6 +16,7 @@ interface ApiCategory {
   name: string;
   slug: string;
   children?: ApiCategory[];
+  parent_id?: number | null;
 }
 
 export interface ScrollableCategoryTabsProps {
@@ -25,170 +25,137 @@ export interface ScrollableCategoryTabsProps {
   defaultValue?: string;
   className?: string;
   containerClassName?: string;
-  tabClassName?: string;
-  activeTabClassName?: string;
-  inactiveTabClassName?: string;
   onChange?: (value: string) => void;
 }
 
 export default function ScrollableCategoryTabs({
   categories = [],
   mainCategorySlug,
-  defaultValue,
+  defaultValue = "all",
   className,
   containerClassName,
-  tabClassName,
-  activeTabClassName,
-  inactiveTabClassName,
   onChange,
 }: ScrollableCategoryTabsProps) {
-  // --- State ---
-  // Initialize with props, but allow internal API fetch to override
+  // Reset ALL state when props change
   const [displayCategories, setDisplayCategories] = useState<CategoryTabItem[]>(
-    mainCategorySlug ? [] : categories,
-  );
-
-  const initial = defaultValue ?? "all";
-  const [value, setValue] = useState<string>(initial);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-
-  // --- Refs ---
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const buttonsRef = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  const onChangeRef = useRef(onChange);
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  const setButtonRef = useCallback(
-    (key: string, el: HTMLButtonElement | null) => {
-      buttonsRef.current[key] = el;
-    },
     [],
   );
+  const [value, setValue] = useState<string>(defaultValue);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Update internal state if parent passes new categories (and not in sub-fetch mode)
+  // Track props to detect changes
+  const prevMainCategorySlug = useRef<string | undefined>(undefined);
+  const prevCategories = useRef<CategoryTabItem[]>([]);
+
+  // Reset value when defaultValue changes
   useEffect(() => {
-    if (!mainCategorySlug && categories.length > 0) {
-      setDisplayCategories(categories);
-    }
-  }, [categories, mainCategorySlug]);
+    setValue(defaultValue);
+  }, [defaultValue]);
 
-  // --- API Integration for Subcategories ---
+  // Main effect: handle categories display
   useEffect(() => {
-    if (!mainCategorySlug) return;
+    // If categories prop is provided, use it directly
+    if (categories && categories.length > 0) {
+      // Check if categories actually changed
+      const categoriesChanged =
+        JSON.stringify(categories) !== JSON.stringify(prevCategories.current);
 
-    const fetchSubCategories = async () => {
-      setIsLoading(true);
-      try {
-        const token = localStorage.getItem("authToken");
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-        const headers: HeadersInit = {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        };
-
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`${API_URL}/api/categories`, {
-          headers,
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch categories");
-
-        const json = await response.json();
-        // Adjust logic based on whether API returns { data: [...] } or just [...]
-        const data: ApiCategory[] = Array.isArray(json)
-          ? json
-          : json.data || [];
-
-        // Find the parent category by slug
-        const parentCategory = data.find(
-          (cat) => cat.slug === mainCategorySlug,
-        );
-
-        if (
-          parentCategory &&
-          parentCategory.children &&
-          parentCategory.children.length > 0
-        ) {
-          const tabs: CategoryTabItem[] = [{ label: "All", value: "all" }];
-
-          const childTabs = parentCategory.children.map((child) => ({
-            label: child.name,
-            value: child.slug,
-          }));
-
-          tabs.push(...childTabs);
-          setDisplayCategories(tabs);
-
-          setValue("all");
-          if (onChangeRef.current) onChangeRef.current("all");
-        } else {
-          setDisplayCategories([]);
-        }
-      } catch (error) {
-        console.error("Error loading subcategories:", error);
-        setDisplayCategories([]);
-      } finally {
-        setIsLoading(false);
-        setHasFetched(true);
+      if (categoriesChanged) {
+        setDisplayCategories(categories);
+        prevCategories.current = categories;
+        // Reset to default value when categories change
+        setValue(defaultValue);
       }
-    };
+      return;
+    }
 
-    fetchSubCategories();
-  }, [mainCategorySlug]);
+    // If mainCategorySlug is provided, fetch from API
+    if (mainCategorySlug && mainCategorySlug !== prevMainCategorySlug.current) {
+      const fetchSubCategories = async () => {
+        setIsLoading(true);
+        try {
+          const API_URL =
+            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          const response = await fetch(`${API_URL}/api/categories`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          });
 
-  // --- Selection Logic ---
+          if (!response.ok)
+            throw new Error(`Server returned ${response.status}`);
+
+          const json = await response.json();
+          const data: ApiCategory[] = Array.isArray(json)
+            ? json
+            : json.data || [];
+
+          // Find the specific parent category
+          const mainCat = data.find((cat) => cat.slug === mainCategorySlug);
+
+          // Determine the "All" label based on context
+          const contextLabel =
+            mainCategorySlug.charAt(0).toUpperCase() +
+            mainCategorySlug.slice(1);
+
+          if (mainCat && mainCat.children && mainCat.children.length > 0) {
+            const tabs: CategoryTabItem[] = [
+              { label: `All ${contextLabel}`, value: "all" },
+              ...mainCat.children.map((child) => ({
+                label: child.name,
+                value: child.slug,
+              })),
+            ];
+            setDisplayCategories(tabs);
+          } else {
+            // Fallback: Show siblings or top-level if no children found
+            const filtered = data
+              .filter((cat) => !cat.parent_id)
+              .map((cat) => ({
+                label: cat.name,
+                value: cat.slug,
+              }));
+            setDisplayCategories([
+              { label: `All ${contextLabel}`, value: "all" },
+              ...filtered,
+            ]);
+          }
+
+          prevMainCategorySlug.current = mainCategorySlug;
+        } catch (error) {
+          console.error("Fetch Failure:", error);
+          setDisplayCategories([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchSubCategories();
+    }
+  }, [mainCategorySlug, categories, defaultValue]);
+
   const select = useCallback(
     (next: string) => {
       setValue(next);
-      onChange?.(next);
+      if (onChange) onChange(next);
     },
     [onChange],
   );
 
-  // Auto-scroll to selected
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const el = buttonsRef.current[value];
-      if (el && containerRef.current) {
-        el.scrollIntoView({
-          behavior: "smooth",
-          inline: "center",
-          block: "nearest",
-        });
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [value, displayCategories]);
-
-  // --- Render Logic ---
-
-  if (isLoading) {
+  if (isLoading && displayCategories.length === 0) {
     return (
       <div className={cn("w-full", className)}>
         <div
           className={cn(
-            "relative mt-1 rounded-full pt-6 mx-auto px-6 lg:px-16",
+            "relative mt-1 pt-4 mx-auto px-6 lg:px-16",
             containerClassName,
           )}
         >
-          <div className="flex w-full gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide items-center h-12">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton
-                key={i}
-                className={cn(
-                  "h-9 rounded-full shrink-0",
-                  i % 2 === 0 ? "w-24" : "w-32",
-                )}
-              />
+          <div className="flex w-full gap-2 overflow-x-auto h-12">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-9 w-24 rounded-full shrink-0" />
             ))}
           </div>
         </div>
@@ -196,28 +163,16 @@ export default function ScrollableCategoryTabs({
     );
   }
 
-  if (mainCategorySlug && hasFetched && displayCategories.length <= 1) {
-    return null;
-  }
-
-  if (!mainCategorySlug && displayCategories.length === 0) {
-    return null;
-  }
-
   return (
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "relative mt-1 rounded-full pt-6 mx-auto px-6 lg:px-16",
+          "relative mt-1 pt-4 mx-auto px-6 lg:px-16",
           containerClassName,
         )}
       >
         <div
-          ref={containerRef}
-          role="listbox"
-          aria-label="Categories"
-          tabIndex={0}
-          className="flex w-full gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide items-center h-12"
+          className="flex w-full gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide items-center h-12 no-scrollbar"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -225,30 +180,20 @@ export default function ScrollableCategoryTabs({
           }}
         >
           {displayCategories.map((cat) => {
-            const selected = value === cat.value;
+            const isSelected = value === cat.value;
             return (
               <button
                 key={cat.value}
-                ref={(el) => setButtonRef(cat.value, el)}
                 type="button"
-                role="option"
-                aria-selected={selected}
                 onClick={() => select(cat.value)}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm font-medium border transition-colors shrink-0",
-                  tabClassName,
-                  selected
-                    ? cn(
-                        "bg-[#9ACC23] text-white border-[#9ACC23]",
-                        activeTabClassName,
-                      )
-                    : cn(
-                        "bg-white text-[#0F172A] hover:bg-[#F1F5F9]",
-                        inactiveTabClassName,
-                      ),
+                  "rounded-full px-5 py-2 text-sm font-medium border transition-all shrink-0",
+                  isSelected
+                    ? "bg-[#9ACC23] text-white border-[#9ACC23] shadow-sm"
+                    : "bg-white text-gray-700 border-gray-100 hover:bg-gray-50",
                 )}
               >
-                <span>{cat.label}</span>
+                {cat.label}
               </button>
             );
           })}

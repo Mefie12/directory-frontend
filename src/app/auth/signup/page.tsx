@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -9,6 +10,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Eye, EyeOff } from "lucide-react";
+import VerifyOtp from "./_component/verify-otp";
+
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
@@ -16,10 +19,12 @@ import "react-international-phone/style.css";
 export default function Signup() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     phone: "",
+    country_code: "+233", // Initialized to match defaultCountry="gh"
     email: "",
     password: "",
   });
@@ -35,7 +40,6 @@ export default function Signup() {
 
   const { login } = useAuth();
 
-  // validation
   const validateForm = () => {
     const newErrors = {
       first_name: "",
@@ -46,19 +50,16 @@ export default function Signup() {
     };
     let isValid = true;
 
-    // First Name validation
     if (!formData.first_name.trim()) {
       newErrors.first_name = "First name is required";
       isValid = false;
     }
 
-    // Last Name validation
     if (!formData.last_name.trim()) {
       newErrors.last_name = "Last name is required";
       isValid = false;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -68,12 +69,16 @@ export default function Signup() {
       isValid = false;
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = "Password is required";
       isValid = false;
     } else if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters long";
+      isValid = false;
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
       isValid = false;
     }
 
@@ -98,74 +103,140 @@ export default function Signup() {
       return;
     }
 
-    try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const rawPhone = formData.phone.replace(/\D/g, ""); // Remove all non-digits
+    const dialCodeDigits = formData.country_code.replace(/\D/g, "");
 
+    const apiPhone = rawPhone.startsWith(dialCodeDigits)
+      ? rawPhone.slice(dialCodeDigits.length)
+      : rawPhone;
+
+    const payload = {
+      ...formData,
+      phone: apiPhone, // Send only local digits to API
+    };
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload), // Send the cleaned payload
       });
+
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || "Failed to register");
+        // If validation failed, display specific server message if available
+        throw new Error(
+          data.message || "Failed to register. Please check your details.",
+        );
       }
 
-      // Handle successful registration
-      // console.log("Registration successful:", data);
-
-      // Redirect to login page
-      const token =
-        data.token || data.access_token || data.jwt || data.data?.token;
-
-      if (token) {
-        // console.log('✅ Token found:', token);
-        await login(token);
-        router.push("/");
-      } else {
-        // console.error('❌ No token found in response');
-        setError("Login successful but no token received");
-      }
-      router.refresh();
-    } catch (error) {
-      console.error("register failed:", error);
-      setError("Failed to register");
+      // if (token) {
+      //   await login(token);
+      //   router.push("/");
+      // } else {
+      //   setError("Login successful but no token received");
+      // }
+      // router.refresh();
+      setShowOtp(true);
+    } catch (err: any) {
+      console.error("register failed:", err);
+      setError(err.message || "Failed to register");
     } finally {
       setIsLoading(false);
     }
   };
 
+ const handleVerifyOtp = async (otp: string) => {
+    setIsLoading(true);
+    setError(""); // Clear any existing errors
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const res = await fetch(`${API_URL}/api/verify_email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, otp }),
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Invalid verification code. Please try again.");
+      }
+
+      // Extract the token from the response
+      const token = data.token || data.access_token || data.jwt || data.data?.token;
+
+      if (token) {
+        // 1. Log the user in (save token to context/localStorage)
+        await login(token);
+        
+        // 2. Redirect to the home page
+        router.push("/");
+        
+        // 3. Optional: refresh to update server-side auth state
+        router.refresh(); 
+      } else {
+        setError("Verification successful, but no login token was received.");
+      }
+    } catch (err: any) {
+      console.error("OTP Verification failed:", err);
+      setError(err.message || "Verification failed. Please check the code and try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleResendOtp = async () => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const res = await fetch(`${API_URL}/api/resend_otp`, {
+        // Ensure this endpoint matches your API
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to resend code");
+
+      // You can add a success toast here if you have a toast library installed
+    } catch (err: any) {
+      setError(err.message || "Could not resend verification code");
+      throw err; // Re-throw to let the VerifyOtp component handle the local state (isResending)
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.id]: e.target.value,
+      [id]: value,
     }));
 
-    // Clear error for this field when user starts typing
-    if (errors[e.target.id as keyof typeof errors]) {
+    if (errors[id as keyof typeof errors]) {
       setErrors((prev) => ({
         ...prev,
-        [e.target.id]: "",
+        [id]: "",
       }));
     }
   };
 
-  const handlePhoneChange = (value: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    phone: value,
-  }));
+  const handlePhoneChange = (phone: string, meta: any) => {
+    const dialCode = meta.country?.dialCode || "";
 
-  // Clear phone error if it exists
-  if (errors.phone) {
-    setErrors((prev) => ({
+    setFormData((prev) => ({
       ...prev,
-      phone: "",
+      phone: phone, // Store the full string so the input works
+      country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
     }));
-  }
-};
+
+    if (errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
+    }
+  };
 
   return (
     <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
@@ -203,172 +274,148 @@ export default function Signup() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="space-y-2 grid grid-cols-1 md:grid-cols-2 space-x-4">
-                <div>
-                  <Label htmlFor="first_name" className="text-sm">
-                    First Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="first_name"
-                    type="text"
-                    placeholder="Enter your First Name"
-                    className="w-full placeholder:text-xs"
-                    value={formData.first_name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {errors.first_name && (
-                    <p className="text-red-500 text-sm">{errors.first_name}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="last_name" className="text-sm">
-                    Last Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="last_name"
-                    type="text"
-                    placeholder="Enter your Last Name"
-                    className="w-full  placeholder:text-xs"
-                    value={formData.last_name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {errors.last_name && (
-                    <p className="text-red-500 text-sm">{errors.last_name}</p>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <Label htmlFor="phone" className="text-sm">
-                    Phone Number <span className="text-red-500">*</span>
-                  </Label>
-                  <PhoneInput
-                    defaultCountry="gh"
-                    value={formData.phone}
-                    onChange={handlePhoneChange}
-                    inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900 bg-gray-300"
-                    className="w-full"
-                    countrySelectorStyleProps={{
-                      buttonStyle: {
-                        paddingLeft: "12px",
-                        paddingRight: "12px",
-                        height: "36px", // Now matches input (h-11 = 44px)
-                        borderColor: "#d1d5db", // gray-300
-                        borderTopLeftRadius: "0.5rem",
-                        borderBottomLeftRadius: "0.5rem",
-                      },
-                    }}
-                    required
-                  />
-                  {/* <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="Enter your Phone Number"
-                    className="w-full  placeholder:text-xs"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    required
-                  /> */}
-                  {errors.phone && (
-                    <p className="text-red-500 text-sm">{errors.phone}</p>
-                  )}
-                </div>
-                <Label htmlFor="email" className="text-sm">
-                  Email Address <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full  placeholder:text-xs"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm">{errors.email}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm">
-                  Password <span className="text-red-500">*</span>
-                </Label>
-
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="w-full placeholder:text-xs"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-4 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-
-                  {errors.password && (
-                    <p className="text-red-500 text-sm">{errors.password}</p>
-                  )}
-                </div>
-              </div>
-
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full text-sm bg-[#93C01F] text-white cursor-pointer"
-              >
-                {isLoading ? "Registering..." : "Register"}
-              </Button>
-
-              {/* <div className="flex items-center justify-center gap-2 text-xs text-gray-400 my-4">
-                <span className="flex-1 border-t" />
-                OR
-                <span className="flex-1 border-t" />
-              </div> */}
-
-              {/* alternative logins */}
-              {/* <div className="flex flex-col gap-2 mt-2">
-                <Button className="w-full text-sm bg-transparent text-gray-900 border border-gray-200 hover:bg-[#93C01F] hover:text-white cursor-pointer">
-                  {" "}
-                  <span>
-                    <Image
-                      src="/images/icons/google.svg"
-                      alt="Google"
-                      width={20}
-                      height={20}
+          {!showOtp ? (
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div className="space-y-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="first_name" className="text-sm">
+                      First Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="first_name"
+                      type="text"
+                      placeholder="First Name"
+                      className="w-full"
+                      value={formData.first_name}
+                      onChange={handleInputChange}
+                      required
                     />
-                  Continue with Google{" "}
-                  </span>
-                </Button>
-                <Button className="w-full text-sm bg-transparent text-gray-900 border border-gray-200 hover:bg-[#93C01F] hover:text-white cursor-pointer">
-                <span>
-                  <Image
-                    src="/images/icons/facebook-2.svg"
-                    alt="Facebook"
-                    width={20}
-                    height={20}
+                    {errors.first_name && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.first_name}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="last_name" className="text-sm">
+                      Last Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="last_name"
+                      type="text"
+                      placeholder="Last Name"
+                      className="w-full"
+                      value={formData.last_name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    {errors.last_name && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.last_name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="phone" className="text-sm">
+                      Phone Number <span className="text-red-500">*</span>
+                    </Label>
+                    <PhoneInput
+                      defaultCountry="gh"
+                      value={formData.phone}
+                      onChange={(phone, meta) => handlePhoneChange(phone, meta)}
+                      inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900"
+                      className="w-full"
+                      countrySelectorStyleProps={{
+                        buttonStyle: {
+                          paddingLeft: "12px",
+                          paddingRight: "12px",
+                          height: "36px", // Matches h-11 height
+                          borderColor: "#d1d5db",
+                          borderTopLeftRadius: "0.5rem",
+                          borderBottomLeftRadius: "0.5rem",
+                        },
+                      }}
+                      required
+                    />
+                    {errors.phone && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.phone}
+                      </p>
+                    )}
+                  </div>
+                  <Label htmlFor="email" className="text-sm">
+                    Email Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    className="w-full"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
                   />
-                </span>
-                  Continue with Facebook
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm">
+                    Password <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      className="w-full"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
+
+                {error && (
+                  <p className="text-red-500 text-sm text-center">{error}</p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full text-sm bg-[#93C01F] hover:bg-[#82ab1b] text-white cursor-pointer py-6 rounded-xl"
+                >
+                  {isLoading ? "Processing..." : "Register"}
                 </Button>
-              </div> */}
-            </div>
-          </form>
+              </div>
+            </form>
+          ) : (
+            <VerifyOtp
+              email={formData.email}
+              isLoading={isLoading}
+              onVerify={handleVerifyOtp}
+              onResend={handleResendOtp}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

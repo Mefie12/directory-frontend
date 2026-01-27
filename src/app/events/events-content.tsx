@@ -118,7 +118,7 @@ const classifyListing = (
 export default function EventsContent() {
   const [events, setEvents] = useState<ProcessedEvent[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
-  const [apiCategories, setApiCategories] = useState<CategoryTabItem[]>([]);
+  const [ ,setApiCategories] = useState<CategoryTabItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { user } = useAuth();
@@ -261,7 +261,7 @@ export default function EventsContent() {
   return (
     <>
       <ScrollableCategoryTabs
-        categories={apiCategories}
+        mainCategorySlug="events" 
         defaultValue="all"
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"
