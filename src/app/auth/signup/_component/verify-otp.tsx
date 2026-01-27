@@ -45,6 +45,19 @@ export default function VerifyOtp({
     }
   };
 
+  // Added: Auto-fill on paste logic
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const pastedData = e.clipboardData.getData("text").slice(0, 6).split("");
+    if (pastedData.every((char) => /^\d$/.test(char))) {
+      const newOtp = [...otp];
+      pastedData.forEach((char, i) => {
+        newOtp[i] = char;
+      });
+      setOtp(newOtp);
+      inputRefs.current[Math.min(pastedData.length - 1, 5)]?.focus();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -56,12 +69,12 @@ export default function VerifyOtp({
         {otp.map((digit, i) => (
           <Input
             key={i}
-            // Wrap in braces to avoid returning the element to React
             ref={(el) => {
               inputRefs.current[i] = el;
             }}
             className="w-12 h-12 text-center text-lg font-bold"
             value={digit}
+            onPaste={handlePaste} // Paste listener
             onChange={(e) => handleChange(e.target.value, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}
           />
@@ -76,18 +89,22 @@ export default function VerifyOtp({
         {isLoading ? <Loader2 className="animate-spin mr-2" /> : "Verify Code"}
       </Button>
 
-      <p className="text-center text-sm">
+      <div className="text-center text-sm">
         {timer > 0 ? (
-          `Resend in ${timer}s`
+          <span className="text-gray-500">Resend in {timer}s</span>
         ) : (
           <button
-            onClick={onResend}
-            className="text-[#93C01F] font-bold underline"
+            type="button"
+            onClick={() => {
+              onResend();
+              setTimer(60); // Reset timer on resend
+            }}
+            className="text-[#93C01F] font-bold underline hover:text-[#82ab1b]"
           >
             Resend Code
           </button>
         )}
-      </p>
+      </div>
     </div>
   );
 }

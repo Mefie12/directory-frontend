@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Eye, EyeOff } from "lucide-react";
 import VerifyOtp from "./_component/verify-otp";
+import { toast } from "sonner";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -150,9 +151,8 @@ export default function Signup() {
     }
   };
 
- const handleVerifyOtp = async (otp: string) => {
+  const handleVerifyOtp = async (otp: string) => {
     setIsLoading(true);
-    setError(""); // Clear any existing errors
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const res = await fetch(`${API_URL}/api/verify_email`, {
@@ -162,33 +162,31 @@ export default function Signup() {
       });
 
       const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Invalid verification code. Please try again.");
-      }
+      if (!res.ok) throw new Error(data.message || "Invalid OTP");
 
-      // Extract the token from the response
-      const token = data.token || data.access_token || data.jwt || data.data?.token;
+      const token =
+        data.token || data.access_token || data.jwt || data.data?.token;
 
       if (token) {
-        // 1. Log the user in (save token to context/localStorage)
         await login(token);
-        
-        // 2. Redirect to the home page
+
+        // 1. Show Success Notification
+        toast.success("Account Verified!", {
+          description: "Welcome to MeFie. You are now logged in.",
+          duration: 3000,
+        });
+
+        // 2. Redirect to the landing page (Home)
         router.push("/");
-        
-        // 3. Optional: refresh to update server-side auth state
-        router.refresh(); 
-      } else {
-        setError("Verification successful, but no login token was received.");
+        router.refresh();
       }
     } catch (err: any) {
-      console.error("OTP Verification failed:", err);
-      setError(err.message || "Verification failed. Please check the code and try again.");
+      toast.error("Verification Failed", { description: err.message });
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleResendOtp = async () => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
