@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -30,7 +31,7 @@ export const DetailsFormSchema = z.object({
         startTime: z.string(),
         endTime: z.string(),
         enabled: z.boolean(),
-      })
+      }),
     )
     .min(1, "Hours are required"),
 });
@@ -132,6 +133,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       setValue,
       watch,
       trigger,
+      reset,
       formState: { errors },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
@@ -140,10 +142,69 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
-
     const text = formTextConfig[listingType];
 
-    // --- SHARED SAVE FUNCTION ---
+    // --- 1. Fetch logic to see items you already filled ---
+    useEffect(() => {
+      const loadDetails = async () => {
+        const effectiveSlug = listingSlug || searchParams.get("slug");
+        if (!effectiveSlug) return;
+
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL =
+            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+          const res = await fetch(
+            `${API_URL}/api/listing/${effectiveSlug}/show`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            },
+          );
+
+          if (res.ok) {
+            const json = await res.json();
+            const d = json.data;
+
+            const mappedHours = form
+              .getValues("businessHours")
+              .map((defaultDay) => {
+                // Robust search: find by lowercase day name
+                const apiDay = d.opening_hours?.find(
+                  (h: any) =>
+                    h.day_of_week.toLowerCase() ===
+                    defaultDay.day_of_week.toLowerCase(),
+                );
+
+                return apiDay
+                  ? {
+                      ...defaultDay,
+                      startTime: apiDay.open_time || "09:00",
+                      endTime: apiDay.close_time || "17:00",
+                      enabled: true,
+                    }
+                  : { ...defaultDay, enabled: false };
+              });
+
+            reset({
+              address: d.address || "",
+              city: d.city || "",
+              country: d.country || "",
+              google_plus_code: d.google_plus_code || "",
+              businessHours: mappedHours,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load details for back navigation:", err);
+        }
+      };
+      loadDetails();
+    }, [listingSlug, reset, searchParams, form]);
+
+    // --- 2. Save logic using PATCH and /update ---
     const saveDataToApi = async () => {
       const isValid = await trigger();
       if (!isValid) {
@@ -152,28 +213,18 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       }
 
       const effectiveSlug = listingSlug || searchParams.get("slug");
-
       if (!effectiveSlug) {
-        toast.error("Missing listing identifier. Please restart from Step 1.");
+        toast.error("Missing listing identifier.");
         return false;
       }
 
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        toast.error("Authentication required");
-        return false;
-      }
-
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
         const data = form.getValues();
 
-        // Debug log
-        console.log("Business hours data:", data.businessHours);
-
-        // Payload matches your JSON structure
         const detailsPayload = {
           address: data.address,
           country: data.country,
@@ -181,39 +232,31 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           google_plus_code: data.google_plus_code,
         };
 
-        // Hours payload - ONLY send enabled days with non-null values
         const hoursPayload = data.businessHours
-          .filter((h: DaySchedule) => h.enabled)
+          .filter((h: DaySchedule) => h.enabled && h.startTime && h.endTime) // Only send if enabled AND has values
           .map((h: DaySchedule) => ({
-            day_of_week: h.day_of_week,
-            open_time: h.startTime,
-            close_time: h.endTime,
+            day_of_week: h.day_of_week.toLowerCase(), // Normalize to lowercase for the API
+            open_time: h.startTime || "09:00",
+            close_time: h.endTime || "17:00",
           }));
 
-        console.log("Hours payload being sent:", hoursPayload);
-        console.log("Number of enabled days:", hoursPayload.length);
-
-        // Validate at least one day is enabled
         if (hoursPayload.length === 0) {
           toast.error("Please enable at least one day for business hours");
           return false;
         }
 
-        // Update Context
-        setBusinessDetails({ ...businessDetails, ...data });
-
-        // API Calls
+        // --- API CALLS ---
         const detailsReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/address`,
+          `${API_URL}/api/listing/${effectiveSlug}/update`,
           {
-            method: "PUT",
+            method: "PATCH",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(detailsPayload),
-          }
+          },
         );
 
         const hoursReq = fetch(
@@ -226,7 +269,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(hoursPayload),
-          }
+          },
         );
 
         const [detailsRes, hoursRes] = await Promise.all([
@@ -234,28 +277,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           hoursReq,
         ]);
 
-        if (!detailsRes.ok) {
-          const err = await detailsRes.json();
-          console.error("Details API error:", err);
-          throw new Error(err.message || "Failed to update details");
+        if (!detailsRes.ok || !hoursRes.ok) {
+          throw new Error("Failed to update listing details.");
         }
 
-        if (!hoursRes.ok) {
-          const err = await hoursRes.json();
-          console.error("Hours API error:", err);
-          console.error("Hours payload that failed:", hoursPayload);
-          throw new Error(err.message || "Failed to update opening hours");
-        }
-
-        const hoursResult = await hoursRes.json();
-        console.log("Hours API success response:", hoursResult);
-
-        toast.success("Business details saved successfully!");
+        setBusinessDetails({ ...businessDetails, ...data });
+        toast.success("Details saved!");
         return true;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Update failed";
-        console.error("Save error:", error);
-        toast.error(msg);
+        toast.error(error instanceof Error ? error.message : "Update failed");
         return false;
       } finally {
         setIsSaving(false);
@@ -298,7 +328,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">{text.cityLabel}</label>
             <Input
               {...register("city")}
-              placeholder="e.g., San Francisco"
+              placeholder="e.g., Accra"
               className={cn(errors.city && "border-red-500")}
             />
             {errors.city && (
@@ -312,7 +342,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">{text.countryLabel}</label>
             <Input
               {...register("country")}
-              placeholder="e.g., United States"
+              placeholder="e.g., Ghana"
               className={cn(errors.country && "border-red-500")}
             />
             {errors.country && (
@@ -354,6 +384,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         </div>
       </div>
     );
-  }
+  },
 );
+
 BusinessDetailsForm.displayName = "BusinessDetailsForm";

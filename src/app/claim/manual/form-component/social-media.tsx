@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
 import { toast } from "sonner";
-// Import the shared handle type
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
 /* ---------------------------------------------------
@@ -16,7 +15,11 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 --------------------------------------------------- */
 export const socialMediaSchema = z.object({
   facebook: z.string().url("Invalid Facebook URL").optional().or(z.literal("")),
-  instagram: z.string().url("Invalid Instagram URL").optional().or(z.literal("")),
+  instagram: z
+    .string()
+    .url("Invalid Instagram URL")
+    .optional()
+    .or(z.literal("")),
   twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
   linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
   tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
@@ -75,15 +78,16 @@ const socialPlatforms = [
 export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
   function SocialMediaFormComponent(
     { listingSlug, listingType, onSuccess },
-    ref
+    ref,
   ) {
     const {
       register,
-      handleSubmit, // Still used for the <form> onSubmit
+      handleSubmit,
       formState: { errors },
       watch,
       trigger,
-      getValues, // ✅ Added getValues to manually retrieve data
+      getValues,
+      reset,
     } = useForm<SocialMediaFormValues>({
       resolver: zodResolver(socialMediaSchema),
       defaultValues: {
@@ -95,85 +99,112 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       },
     });
 
-    // Watch all fields to show which ones have values
     const watchedValues = watch();
 
+    // --- 1. Fetch existing socials on mount to show filled items ---
+    useEffect(() => {
+      const loadSocials = async () => {
+        if (!listingSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL =
+            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          const res = await fetch(
+            `${API_URL}/api/listing/${listingSlug}/show`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            },
+          );
+
+          if (res.ok) {
+            const json = await res.json();
+            // Map the API data back to the form structure
+            const s = json.data.social_media || {};
+            reset({
+              facebook: s.facebook || "",
+              instagram: s.instagram || "",
+              twitter: s.twitter || "",
+              linkedin: s.linkedin || "",
+              tiktok: s.tiktok || "",
+            });
+          }
+        } catch (err) {
+          console.error(
+            "Failed to load social links for back navigation:",
+            err,
+          );
+        }
+      };
+      loadSocials();
+    }, [listingSlug, reset]);
+
+    // --- 2. Save logic using PATCH and /update ---
     const handleFormSubmit = async (data: SocialMediaFormValues) => {
       try {
-        if (!listingSlug) {
-          throw new Error("Listing ID is missing. Please restart the process.");
-        }
+        if (!listingSlug) throw new Error("Listing ID is missing.");
 
         const token = localStorage.getItem("authToken");
-        if (!token) {
-          throw new Error("Authentication required");
-        }
+        if (!token) throw new Error("Authentication required");
 
-        // Filter out empty values
+        // Filter out empty values for the payload
         const socialData = Object.fromEntries(
           Object.entries(data).filter(
-            ([, value]) => value && value.trim() !== ""
-          )
+            ([, value]) => value && value.trim() !== "",
+          ),
         );
 
-        // If no social media links provided, just continue (Return TRUE)
-        if (Object.keys(socialData).length === 0) {
-          return true; 
-        }
+        // If no social media links provided, we still proceed to next step
+        if (Object.keys(socialData).length === 0) return true;
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        // Ensure this endpoint matches your backend route exactly (/social vs /socials)
-        const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+        // UPDATED: Use the /update endpoint with PATCH method
+        const endpoint = `${API_URL}/api/listing/${listingSlug}/update`;
 
         const response = await fetch(endpoint, {
-          method: "POST",
+          method: "PATCH", // Changed from POST to PATCH
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
-          body: JSON.stringify(socialData),
+          body: JSON.stringify({ social_media: socialData }), // Wrap in social_media key if API expects it
         });
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.message || "Failed to save social media links"
+            errorData.message || "Failed to save social media links",
           );
         }
 
-        toast.success("Social media links saved successfully");
+        toast.success("Social media links updated successfully");
         if (onSuccess) onSuccess();
-        
-        return true; // ✅ Returns true on success
+
+        return true;
       } catch (error) {
         console.error("Social media save error:", error);
         toast.error(
           error instanceof Error
             ? error.message
-            : "Failed to save social media links"
+            : "Failed to update social media",
         );
-        return false; // ❌ Returns false on failure
+        return false;
       }
     };
 
-    // Expose submit method to parent via ref
     useImperativeHandle(ref, () => ({
       submit: async () => {
-        // 1. Trigger Validation
         const isValid = await trigger();
         if (!isValid) {
-          toast.error("Validation failed", {
-            description: "Please check URL formats",
-          });
+          toast.error("Validation failed. Please check URL formats.");
           return false;
         }
-
-        // 2. Get Data Manually
-        const data = getValues();
-
-        // 3. Call handler DIRECTLY (Not via handleSubmit)
-        // This ensures the boolean return value is passed back to parent
-        return await handleFormSubmit(data);
+        return await handleFormSubmit(getValues());
       },
     }));
 
@@ -182,15 +213,10 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-2xl font-semibold">Social Media & Links</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {listingType === "business"
-              ? "Connect your business social media profiles"
-              : listingType === "event"
-              ? "Connect your event social media profiles"
-              : "Connect your community social media profiles"}
+            Connect your {listingType} social media profiles
           </p>
         </div>
 
-        {/* Used handleSubmit here just for standard form behavior (enter key) */}
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {socialPlatforms.map((platform) => {
@@ -211,9 +237,9 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                       type="url"
                       placeholder={platform.placeholder}
                       className={cn(
-                        "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
+                        "h-10 rounded-lg border-gray-300 px-4 text-gray-800 focus-visible:ring-2 focus-visible:ring-black",
                         errors[platform.id as keyof SocialMediaFormValues] &&
-                          "border-red-500 focus-visible:ring-red-500"
+                          "border-red-500",
                       )}
                     />
                     {hasValue && (
@@ -224,29 +250,18 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                       </div>
                     )}
                   </div>
-                  {errors[platform.id as keyof SocialMediaFormValues] && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {
-                        errors[platform.id as keyof SocialMediaFormValues]
-                          ?.message
-                      }
-                    </p>
-                  )}
                 </div>
               );
             })}
           </div>
-
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <span className="font-semibold">Tip:</span> Adding social media
-              links helps customers connect with you on multiple platforms. You
-              can leave fields empty if you don&apos;t have a presence on that
-              platform.
+              <span className="font-semibold">Tip:</span> Fields can be left
+              empty if you don&apos;t have a presence on that platform.
             </p>
           </div>
         </form>
       </div>
     );
-  }
+  },
 );

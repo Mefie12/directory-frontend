@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
@@ -121,6 +122,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       setValue,
       trigger,
       control, // Required for Phone Input
+      reset,
       formState: { errors },
     } = form;
 
@@ -222,79 +224,129 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
     };
 
     // --- 3. Submit Handler ---
-    useImperativeHandle(ref, () => ({
-      async submit() {
-        const isValid = await trigger();
-        if (!isValid) {
-          toast.error("Please correct the errors in the form.");
-          return false;
-        }
+   useImperativeHandle(ref, () => ({
+  async submit() {
+    // 1. Manually trigger validation
+    const isValid = await trigger();
+    if (!isValid) {
+      toast.error("Please correct the errors in the form.");
+      return false;
+    }
 
-        // Get current form state
-        const rawData = form.getValues();
+    const rawData = form.getValues();
 
-        // --- DATA CLEANING FOR API ---
-        // Most APIs requiring country_code want the phone field to be local digits only
-        const cleanPhone = (fullPhone: string, dialCode: string) => {
-          if (!fullPhone) return "";
-          const digits = fullPhone.replace(/\D/g, ""); // Remove + and spaces
-          const codeDigits = dialCode.replace(/\D/g, "");
-          // If the phone starts with the dial code, strip it
-          return digits.startsWith(codeDigits)
-            ? digits.slice(codeDigits.length)
-            : digits;
-        };
+    // Helper to extract the local phone digits
+    const cleanPhone = (fullPhone: string, dialCode: string) => {
+      if (!fullPhone) return "";
+      const digits = fullPhone.replace(/\D/g, ""); 
+      const codeDigits = dialCode.replace(/\D/g, "");
+      return digits.startsWith(codeDigits)
+        ? digits.slice(codeDigits.length)
+        : digits;
+    };
 
-        const submissionData = {
-          ...rawData,
-          bio: rawData.description,
-          // Send local number only to avoid "double dial code" errors
-          primary_phone: cleanPhone(
-            rawData.primary_phone,
-            rawData.primary_country_code,
-          ),
-          secondary_phone: rawData.secondary_phone
-            ? cleanPhone(
-                rawData.secondary_phone,
-                rawData.secondary_country_code || "",
-              )
-            : "",
-        };
+    // 2. Map data to API structure
+    const submissionData = {
+      name: rawData.name,
+      email: rawData.email,
+      website: rawData.website,
+      type: listingType,
+      bio: rawData.description,
+      description: rawData.description,
+      business_reg_num: rawData.business_reg_num,
+      country_code: rawData.primary_country_code, 
+      primary_phone: cleanPhone(rawData.primary_phone, rawData.primary_country_code),
+      secondary_country_code: rawData.secondary_country_code,
+      secondary_phone: rawData.secondary_phone
+        ? cleanPhone(rawData.secondary_phone, rawData.secondary_country_code || "")
+        : "",
+      category_ids: rawData.category_ids.map((id) => Number(id)),
+    };
 
-        const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const token = localStorage.getItem("authToken");
+    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
+    try {
+      // UPDATED LOGIC HERE:
+      // If listingSlug exists, use the /update endpoint with PATCH
+      const endpoint = listingSlug
+        ? `${API_URL}/api/listing/${listingSlug}/update` 
+        : `${API_URL}/api/listing/profile`;
+
+      const method = listingSlug ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("API Error Response:", json);
+        throw new Error(json.message || "Submission failed");
+      }
+
+      // Return result to parent to trigger setCurrentStep(currentStep + 1)
+      return json.data || json;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to save";
+      toast.error(msg);
+      return false;
+    }
+  },
+}));
+    
+
+    useEffect(() => {
+      const loadExistingData = async () => {
+        if (!listingSlug) return;
         try {
-          const endpoint = listingSlug
-            ? `${API_URL}/api/listing/${listingSlug}`
-            : `${API_URL}/api/listing/profile`;
-
-          const method = listingSlug ? "PUT" : "POST";
-
-          const res = await fetch(endpoint, {
-            method,
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const res = await fetch(
+            `${API_URL}/api/listing/${listingSlug}/show`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
             },
-            body: JSON.stringify(submissionData),
-          });
+          );
 
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Submission failed");
+          if (res.ok) {
+            const json = await res.json();
+            const d = json.data;
+            // Populate the form with data from the API
+            reset({
+              name: d.name || "",
+              description: d.bio || d.description || "",
+              email: d.email || "",
+              website: d.website || "",
+              primary_phone: d.primary_phone || "",
+              primary_country_code: d.country_code || "+233",
+              category_ids: d.categories?.map((c: any) => String(c.id)) || [],
+              type: listingType,
+            });
+
+            // If categories exist, set the main category ID for the UI logic
+            if (d.categories?.[0]?.parent_id) {
+              setSelectedMainCategoryId(String(d.categories[0].parent_id));
+            } else if (d.categories?.[0]) {
+              setSelectedMainCategoryId(String(d.categories[0].id));
+            }
           }
-
-          const json = await res.json();
-          return json.data || json;
         } catch (error) {
-          const msg = error instanceof Error ? error.message : "Failed to save";
-          toast.error(msg);
-          return false;
+          console.error("Back navigation load failed", error);
         }
-      },
-    }));
+      };
+      loadExistingData();
+    }, [listingSlug, reset, listingType]);
 
     return (
       <div className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6">
