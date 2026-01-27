@@ -60,7 +60,7 @@ interface ProcessedBusiness {
   name: string;
   slug: string;
   description: string;
-  image: string;
+  image: string; // Changed to string to satisfy component props and fix TS2322
   images: string[];
   location: string;
   verified: boolean;
@@ -73,13 +73,13 @@ interface ProcessedBusiness {
   createdAt: Date;
 }
 
-// Fixed: Added missing properties to satisfy Event interface
+// Interface for EventSectionCarousel
 interface ProcessedEvent extends ProcessedBusiness {
   type: "event";
   title: string;
   startDate: string;
-  endDate: string; // Fixed TS2322
-  date: string; // Fixed TS2322
+  endDate: string; 
+  date: string;
 }
 
 // --- Helpers ---
@@ -144,35 +144,50 @@ export default function BusinessesContent() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings?per_page=100`, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
+        // Fetching Categories the same way as Listings
+        const [listingsRes, categoriesRes] = await Promise.all([
+          fetch(`${API_URL}/api/listings?per_page=100`, {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          }),
+          fetch(`${API_URL}/api/categories`, {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          }),
+        ]);
 
-        if (!response.ok) throw new Error("Failed to fetch listings");
+        if (!listingsRes.ok) throw new Error("Failed to fetch listings");
+        if (!categoriesRes.ok) throw new Error("Failed to fetch categories");
 
-        const json = await response.json();
-        const data: ApiListing[] = json.data || json.listings || [];
+        const listingsJson = await listingsRes.json();
+        const categoriesJson = await categoriesRes.json();
+
+        // 1. Process Categories
+        const rawCats: ApiCategory[] = categoriesJson.data || categoriesJson.categories || [];
+        const formattedCats: CategoryTabItem[] = [
+          { label: "All", value: "all" },
+          ...rawCats.map((c) => ({ label: c.name, value: c.slug })),
+        ];
+        setApiCategories(formattedCats);
+
+        // 2. Process Listings
+        const data: ApiListing[] = listingsJson.data || listingsJson.listings || [];
 
         const businessesList: ProcessedBusiness[] = [];
-        const eventsList: any[] = [];
+        const eventsList: ProcessedEvent[] = [];
 
         data.forEach((item) => {
-          // Robust Image Logic
           const rawImages = Array.isArray(item.images) ? item.images : [];
 
           const validImages = rawImages
             .filter((img): img is string | ApiImage => {
               if (typeof img === "string") return true;
               if (img && typeof img === "object" && "media" in img) {
-                const badStatuses = [
-                  "processing",
-                  "failed",
-                  "pending",
-                  "error",
-                ];
+                const badStatuses = ["processing", "failed", "pending", "error"];
                 return !badStatuses.includes(img.media);
               }
               return false;
@@ -184,8 +199,7 @@ export default function BusinessesContent() {
 
           if (validImages.length === 0) {
             if (item.image) validImages.push(getImageUrl(item.image));
-            else if (item.cover_image)
-              validImages.push(getImageUrl(item.cover_image));
+            else if (item.cover_image) validImages.push(getImageUrl(item.cover_image));
             else validImages.push("/images/placeholders/generic.jpg");
           }
 
@@ -199,7 +213,7 @@ export default function BusinessesContent() {
             name: item.name,
             slug: item.slug,
             description: item.bio || item.description || "",
-            image: validImages[0],
+            image: validImages[0], // Explicitly string
             images: validImages,
             location: location,
             verified: item.is_verified || false,
@@ -213,15 +227,13 @@ export default function BusinessesContent() {
           };
 
           if (listingType === "event") {
-            // FIX: Check multiple date fields
             const eventDate = item.start_date || item.date || item.created_at;
-
             eventsList.push({
               ...commonProps,
+              type: "event",
               title: item.name,
-              // Use robust formatter
               startDate: formatDate(eventDate),
-              endDate: formatDate(eventDate),
+              endDate: formatDate(item.end_date || eventDate),
               date: formatDate(eventDate),
             });
           } else if (listingType === "business") {
@@ -232,50 +244,13 @@ export default function BusinessesContent() {
         setBusinesses(businessesList);
         setEvents(eventsList);
       } catch (error) {
-        console.error("Failed to fetch business page data", error);
+        console.error("Failed to fetch page data", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, []);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const response = await fetch(`${API_URL}/api/categories`, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch categories");
-
-        const json = await response.json();
-        const data = Array.isArray(json) ? json : json.data || [];
-
-        // Convert API categories to CategoryTabItem format
-        const tabs: CategoryTabItem[] = [{ label: "All", value: "all" }];
-
-        // Add all top-level categories
-        const categoryTabs = data.map((category: ApiCategory) => ({
-          label: category.name,
-          value: category.slug,
-          // Optional: add count if needed
-        }));
-
-        tabs.push(...categoryTabs);
-        setApiCategories(tabs);
-      } catch (error) {
-        console.error("Failed to fetch categories", error);
-      }
-    };
-
-    fetchCategories();
   }, []);
 
   // --- Dynamic Grouping Logic ---
@@ -298,7 +273,6 @@ export default function BusinessesContent() {
 
   const filteredData = useMemo(() => {
     if (selectedCategory === "all") return businesses;
-    // Filter by Slug for accuracy
     return businesses.filter((b) => b.categorySlug === selectedCategory);
   }, [businesses, selectedCategory]);
 
@@ -310,7 +284,7 @@ export default function BusinessesContent() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <ScrollableCategoryTabs
-        mainCategorySlug="business"
+        categories={apiCategories}
         defaultValue="all"
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"

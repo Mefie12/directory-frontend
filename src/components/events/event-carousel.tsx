@@ -1,13 +1,42 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// event-carousel.tsx
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Event } from "@/lib/data";
+// Remove this import:
+// import type { Event } from "@/lib/data";
 import { Button } from "../ui/button";
 import { EventCardScroll } from "./event-card-scroll";
 
+import type { ProcessedEvent } from "@/types/event";
+
+// Define or import the ProcessedEvent type
+// interface ProcessedEvent {
+//   id: string;
+//   name: string;
+//   title: string;
+//   slug: string;
+//   description: string;
+//   image: string;
+//   images: string[];
+//   location: string;
+//   verified: boolean;
+//   category: string;
+//   categorySlug: string;
+//   type: "event";
+//   country: string;
+//   createdAt: Date;
+//   startDate: string;
+//   endDate: string;
+//   date: string;
+//   price: string;
+//   rating: number;
+//   reviewCount: number;
+// }
+
 interface EventSectionCarouselProps {
-  events: Event[];
+  events: ProcessedEvent[]; // Changed from Event[] to ProcessedEvent[]
   title?: string;
   showTitle?: boolean;
   showNavigation?: boolean;
@@ -72,27 +101,27 @@ export default function EventCarousel({
 
           {/* Navigation Buttons */}
           {showNavigation && (
-          <div className="hidden md:flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollPrev}
-              disabled={!canScrollPrev}
-              className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-700" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollNext}
-              disabled={!canScrollNext}
-              className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
-            >
-              <ChevronRight className="w-5 h-5 text-[#275782]" />
-            </Button>
-          </div>
-        )}
+            <div className="hidden md:flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollPrev}
+                disabled={!canScrollPrev}
+                className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-700" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollNext}
+                disabled={!canScrollNext}
+                className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-50"
+              >
+                <ChevronRight className="w-5 h-5 text-[#275782]" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -105,7 +134,7 @@ export default function EventCarousel({
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.75rem)] lg:flex-[0_0_calc(50%-0.75rem)]"
             >
               <EventCardScroll
-                event={eventItem}
+                event={eventItem as any}
                 onViewDetails={onViewDetails}
                 onGetTickets={onGetTickets}
               />

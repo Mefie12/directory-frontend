@@ -5,12 +5,36 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import type { Event } from "@/lib/data";
+// import type { Event } from "@/lib/data";
 import { EventCard } from "./event-card";
 import { Button } from "./ui/button";
 
+
+interface ProcessedEvent {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string; // Ensure this is string, not string | string[]
+  images: string[];
+  location: string;
+  verified: boolean;
+  rating: number;
+  reviewCount: number;
+  category: string;
+  categorySlug: string;
+  type: "business" | "event" | "community";
+  country: string;
+  createdAt: Date;
+  title: string;
+  startDate: string;
+  endDate: string;
+  date: string;
+}
+
+
 interface EventSectionCarouselProps {
-  events: Event[];
+  events: ProcessedEvent[];
   title?: string;
   showNavigation?: boolean;
 }

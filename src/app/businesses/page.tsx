@@ -1,10 +1,10 @@
 import NavigationTab from "@/components/navigation-tab";
-import { businessCategories } from "@/lib/data";
+// import { businessCategories } from "@/lib/data";
 import BusinessesContent from "./businesses-content";
 
 export default async function Businesses() {
   // Use categories from data.ts
-  const categories = businessCategories;
+  // const categories = businessCategories;
   // const businesses = featuredBusinesses;
   
   return (
@@ -14,7 +14,9 @@ export default async function Businesses() {
         <NavigationTab />
         
         {/* Category Tabs & Content */}
-        <BusinessesContent categories={categories} />
+        <BusinessesContent 
+        // categories={categories} />
+        />
       </div>
     </div>
   );

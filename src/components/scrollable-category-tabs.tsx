@@ -1,10 +1,9 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useCallback, useRef, useState, useEffect } from "react";
-import { Skeleton } from "@/components/ui/skeleton"; // Import Shadcn Skeleton
+import { Skeleton } from "@/components/ui/skeleton";
 
 // --- Types ---
 export type CategoryTabItem = {
@@ -44,22 +43,20 @@ export default function ScrollableCategoryTabs({
   onChange,
 }: ScrollableCategoryTabsProps) {
   // --- State ---
-  // If API mode, start empty. If static mode, use props.
+  // Initialize with props, but allow internal API fetch to override
   const [displayCategories, setDisplayCategories] = useState<CategoryTabItem[]>(
-    mainCategorySlug ? [] : categories
+    mainCategorySlug ? [] : categories,
   );
 
   const initial = defaultValue ?? "all";
   const [value, setValue] = useState<string>(initial);
   const [isLoading, setIsLoading] = useState(false);
-  // Track if we have attempted a fetch to avoid hiding content prematurely
   const [hasFetched, setHasFetched] = useState(false);
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonsRef = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Stable ref for onChange to prevent loops
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -69,16 +66,19 @@ export default function ScrollableCategoryTabs({
     (key: string, el: HTMLButtonElement | null) => {
       buttonsRef.current[key] = el;
     },
-    []
+    [],
   );
 
-  // --- API Integration ---
+  // Update internal state if parent passes new categories (and not in sub-fetch mode)
   useEffect(() => {
-    // If NOT in API mode, just use static props and exit
-    if (!mainCategorySlug) {
-      if (categories.length > 0) setDisplayCategories(categories);
-      return;
+    if (!mainCategorySlug && categories.length > 0) {
+      setDisplayCategories(categories);
     }
+  }, [categories, mainCategorySlug]);
+
+  // --- API Integration for Subcategories ---
+  useEffect(() => {
+    if (!mainCategorySlug) return;
 
     const fetchSubCategories = async () => {
       setIsLoading(true);
@@ -102,14 +102,17 @@ export default function ScrollableCategoryTabs({
 
         if (!response.ok) throw new Error("Failed to fetch categories");
 
-        const data: ApiCategory[] = await response.json();
+        const json = await response.json();
+        // Adjust logic based on whether API returns { data: [...] } or just [...]
+        const data: ApiCategory[] = Array.isArray(json)
+          ? json
+          : json.data || [];
 
         // Find the parent category by slug
         const parentCategory = data.find(
-          (cat) => cat.slug === mainCategorySlug
+          (cat) => cat.slug === mainCategorySlug,
         );
 
-        // Check if there are valid children
         if (
           parentCategory &&
           parentCategory.children &&
@@ -125,11 +128,9 @@ export default function ScrollableCategoryTabs({
           tabs.push(...childTabs);
           setDisplayCategories(tabs);
 
-          // Only reset to 'all' if we actually found categories
           setValue("all");
           if (onChangeRef.current) onChangeRef.current("all");
         } else {
-          // No children found - Set empty to trigger hide
           setDisplayCategories([]);
         }
       } catch (error) {
@@ -142,7 +143,6 @@ export default function ScrollableCategoryTabs({
     };
 
     fetchSubCategories();
-    // Dependency array MUST NOT include 'categories' or 'onChange' to prevent loops
   }, [mainCategorySlug]);
 
   // --- Selection Logic ---
@@ -151,7 +151,7 @@ export default function ScrollableCategoryTabs({
       setValue(next);
       onChange?.(next);
     },
-    [onChange]
+    [onChange],
   );
 
   // Auto-scroll to selected
@@ -171,25 +171,22 @@ export default function ScrollableCategoryTabs({
 
   // --- Render Logic ---
 
-  // 1. Loading State (Shadcn Skeletons)
   if (isLoading) {
     return (
       <div className={cn("w-full", className)}>
         <div
           className={cn(
             "relative mt-1 rounded-full pt-6 mx-auto px-6 lg:px-16",
-            containerClassName
+            containerClassName,
           )}
         >
           <div className="flex w-full gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide items-center h-12">
-            {/* Render a row of pill-shaped skeletons */}
             {[...Array(6)].map((_, i) => (
               <Skeleton
                 key={i}
                 className={cn(
                   "h-9 rounded-full shrink-0",
-                  // Vary widths slightly for a natural look
-                  i % 2 === 0 ? "w-24" : "w-32"
+                  i % 2 === 0 ? "w-24" : "w-32",
                 )}
               />
             ))}
@@ -199,12 +196,10 @@ export default function ScrollableCategoryTabs({
     );
   }
 
-  // 2. Hide if API fetch finished but no categories found (or only 'All' which implies no subcategories)
   if (mainCategorySlug && hasFetched && displayCategories.length <= 1) {
     return null;
   }
 
-  // 3. Hide if Static mode but empty
   if (!mainCategorySlug && displayCategories.length === 0) {
     return null;
   }
@@ -214,7 +209,7 @@ export default function ScrollableCategoryTabs({
       <div
         className={cn(
           "relative mt-1 rounded-full pt-6 mx-auto px-6 lg:px-16",
-          containerClassName
+          containerClassName,
         )}
       >
         <div
@@ -245,12 +240,12 @@ export default function ScrollableCategoryTabs({
                   selected
                     ? cn(
                         "bg-[#9ACC23] text-white border-[#9ACC23]",
-                        activeTabClassName
+                        activeTabClassName,
                       )
                     : cn(
                         "bg-white text-[#0F172A] hover:bg-[#F1F5F9]",
-                        inactiveTabClassName
-                      )
+                        inactiveTabClassName,
+                      ),
                 )}
               >
                 <span>{cat.label}</span>

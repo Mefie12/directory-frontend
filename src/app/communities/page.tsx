@@ -1,6 +1,6 @@
 import NavigationTab from "@/components/navigation-tab";
 import CommunityContent from "./community-content";
-import { communityCategories } from "@/lib/data";
+// import { communityCategories } from "@/lib/data";
 
 export default async function CommunityPage() {
   return (
@@ -11,7 +11,7 @@ export default async function CommunityPage() {
 
         {/* Category Tabs & Content */}
         <CommunityContent
-          categories={communityCategories}
+          // categories={communityCategories}
           // communities={communityCards}
         />
       </div>
