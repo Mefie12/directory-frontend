@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -17,6 +18,7 @@ import {
   Building2,
   CalendarDays,
   Users,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -46,6 +48,7 @@ interface Business {
   type: string;
   status: "claimable" | "claimed" | "pending";
   images?: (ApiImage | string)[];
+  slug?: string;
 }
 
 export default function ClaimPage() {
@@ -58,6 +61,7 @@ export default function ClaimPage() {
   const [results, setResults] = useState<Business[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   // --- Helper: Get Full Image URL ---
   const getImageUrl = (
@@ -99,8 +103,15 @@ export default function ClaimPage() {
 
   // --- API search logic ---
   const searchBusinesses = useCallback(async () => {
-    if (!nameQuery.trim() && !locationQuery.trim()) {
-      setResults([]);
+    const nameTrimmed = nameQuery.trim();
+    const locationTrimmed = locationQuery.trim();
+
+    // Condition: Only search if the name/query field has 4 or more characters
+    if (nameTrimmed.length < 4) {
+      if (hasSearched) {
+        setResults([]);
+        setHasSearched(false);
+      }
       return;
     }
 
@@ -111,44 +122,51 @@ export default function ClaimPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const token = localStorage.getItem("authToken");
 
-      // Construct query parameters
-      const params = new URLSearchParams();
-      if (nameQuery) params.append("name", nameQuery);
-      if (locationQuery) params.append("location", locationQuery);
+      const url = new URL(`${API_URL}/api/search`);
 
-      const response = await fetch(
-        `${API_URL}/api/businesses/search?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-      if (!response.ok) throw new Error("Failed to fetch businesses");
+      // FIXED: Use 'q' as the primary search parameter
+      url.searchParams.append("q", nameTrimmed);
+
+      // If your backend also supports location as a separate filter:
+      if (locationTrimmed) {
+        url.searchParams.append("location", locationTrimmed);
+      }
+
+      const headers: HeadersInit = {
+        Accept: "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers,
+      });
 
       const data = await response.json();
 
-      // Handle different response structures (data.data vs direct array)
+      if (!response.ok) {
+        throw new Error(
+          data.message || `Error ${response.status}: Failed to fetch`,
+        );
+      }
+
       const businesses = Array.isArray(data) ? data : data.data || [];
       setResults(businesses);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Search error:", error);
-      toast.error("Failed to search businesses. Please try again.");
+      if (error.name !== "AbortError") {
+        toast.error(error.message || "Failed to search businesses.");
+      }
       setResults([]);
     } finally {
       setIsSearching(false);
     }
-  }, [nameQuery, locationQuery]);
+  }, [nameQuery, locationQuery, hasSearched]);
 
-  // --- Debounce Effect ---
-  // Wait 500ms after user stops typing before calling API
   useEffect(() => {
     const timer = setTimeout(() => {
       searchBusinesses();
     }, 500);
-
     return () => clearTimeout(timer);
   }, [nameQuery, locationQuery, searchBusinesses]);
 
@@ -168,9 +186,43 @@ export default function ClaimPage() {
     }
   };
 
-  const handleClaim = (businessId: string) => {
-    // Navigate to next step
-    router.push(`/claim/${businessId}/verify`);
+  // --- Claim Logic ---
+  const handleClaim = async (business: Business) => {
+    setClaimingId(business.id);
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const token = localStorage.getItem("authToken");
+
+      // Use business.slug if available, otherwise fallback to id
+      const identifier = business.slug || business.id;
+      const url = `${API_URL}/api/listing/${identifier}/claim`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to initiate claim");
+      }
+
+      toast.success("Claim initiated! Please verify your listing.");
+
+      // Navigate to next step with the identifier
+      router.push(`/claim/${identifier}/verify`);
+    } catch (error: any) {
+      console.error("Claim error:", error);
+      toast.error(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   const handleManualAdd = (type: string) => {
@@ -233,7 +285,7 @@ export default function ClaimPage() {
       </div>
 
       {/* Search results */}
-      <div className="bg-gray-100  min-h-[400px] border-t border-gray-200">
+      <div className="bg-gray-100  min-h-screen border-t border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="mt-10 mb-4 flex items-center gap-3">
             <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
@@ -268,7 +320,7 @@ export default function ClaimPage() {
                 const displayImage = hasImage
                   ? getImageUrl(business.images![0])
                   : null;
-
+                const isThisClaiming = claimingId === business.id;
                 return (
                   <div
                     key={business.id}
@@ -350,10 +402,15 @@ export default function ClaimPage() {
                         </div>
                       ) : (
                         <Button
-                          onClick={() => handleClaim(business.id)}
-                          className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium"
+                          disabled={isThisClaiming}
+                          onClick={() => handleClaim(business)}
+                          className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium min-w-[100px]"
                         >
-                          Claim
+                          {isThisClaiming ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Claim"
+                          )}
                         </Button>
                       )}
                     </div>

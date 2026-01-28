@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
@@ -19,40 +17,7 @@ import {
 import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
-// --- FIXED DATE/TIME LOGIC ---
-
-/**
- * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
- * Required by backend format H:i
- */
-const convertToHHmm = (time: string | undefined | null): string => {
-  if (!time) return "09:00";
-
-  const cleaned = time.trim().toUpperCase();
-
-  // Handle HH:mm:ss or HH:mm
-  const timeMatch = cleaned.match(/^(\d{1,2}):(\d{2})/);
-  if (timeMatch && !cleaned.includes("AM") && !cleaned.includes("PM")) {
-    return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
-  }
-
-  // Handle 12-hour format (hh:mm AM/PM)
-  const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
-  if (amPmMatch) {
-    let hours = parseInt(amPmMatch[1]);
-    const minutes = amPmMatch[2];
-    const period = amPmMatch[3];
-
-    if (period === "PM" && hours < 12) hours += 12;
-    else if (period === "AM" && hours === 12) hours = 0;
-
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
-  }
-
-  return "09:00"; // Default fallback to prevent 422
-};
-
-// --- Updated Schema ---
+// --- Schema ---
 export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
@@ -62,20 +27,13 @@ export const DetailsFormSchema = z.object({
     .array(
       z.object({
         day_of_week: z.string(),
-        // Schema now validates format after conversion
-        startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-          message: "Format must be HH:mm (24h)",
-        }),
-        endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-          message: "Format must be HH:mm (24h)",
-        }),
+        startTime: z.string(),
+        endTime: z.string(),
         enabled: z.boolean(),
-      }),
+      })
     )
     .min(1, "Hours are required"),
 });
-
-// --- END FIXED DATE/TIME LOGIC ---
 
 const formTextConfig = {
   business: {
@@ -109,15 +67,16 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  initialData?: DetailsFormValues;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, initialData }, ref) => {
     const searchParams = useSearchParams();
 
     const form = useForm<DetailsFormValues>({
       resolver: zodResolver(DetailsFormSchema),
-      defaultValues: {
+      defaultValues: initialData || {
         address: "",
         country: "",
         city: "",
@@ -169,12 +128,17 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       },
     });
 
+    useEffect(() => {
+        if (initialData) {
+            form.reset(initialData);
+        }
+    }, [initialData, form]);
+
     const {
       register,
       setValue,
       watch,
       trigger,
-      reset,
       formState: { errors },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
@@ -183,97 +147,40 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
+
     const text = formTextConfig[listingType];
 
-    useEffect(() => {
-      const loadDetails = async () => {
-        const effectiveSlug = listingSlug || searchParams.get("slug");
-        if (!effectiveSlug) return;
-
-        try {
-          const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-          const res = await fetch(
-            `${API_URL}/api/listing/${effectiveSlug}/show`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
-            },
-          );
-
-          if (res.ok) {
-            const json = await res.json();
-            const d = json.data;
-
-            // Log this to verify the exact key names the backend is sending
-            // console.log("API RAW DATA:", d);
-
-            const mappedHours = form
-              .getValues("businessHours")
-              .map((defaultDay) => {
-                const defaultDayLower = defaultDay.day_of_week.toLowerCase();
-                const apiDay = d.opening_hours?.find(
-                  (h: any) => h.day_of_week?.toLowerCase() === defaultDayLower,
-                );
-
-                return apiDay
-                  ? {
-                      ...defaultDay,
-                      startTime: convertToHHmm(apiDay.open_time),
-                      endTime: convertToHHmm(apiDay.close_time),
-                      enabled: true,
-                    }
-                  : { ...defaultDay, enabled: false };
-              });
-
-            // FIXED RESET: Mapping keys explicitly
-            // Use fallbacks to ensure fields are never 'undefined'
-            reset({
-              address: d.address || d.location?.address || "",
-              city: d.city || d.location?.city || "",
-              country: d.country || d.location?.country || "Ghana",
-              google_plus_code:
-                d.google_plus_code || d.location?.google_plus_code || "",
-              businessHours: mappedHours,
-            });
-          }
-        } catch (err) {
-          console.error("Failed to load details:", err);
-        }
-      };
-      loadDetails();
-    }, [listingSlug, reset, searchParams, form]);
-
+    // --- SHARED SAVE FUNCTION ---
     const saveDataToApi = async () => {
-      // Re-format all times to ensure HH:mm before triggering validation
-      const currentValues = form.getValues("businessHours");
-      const sanitized = currentValues.map((h) => ({
-        ...h,
-        startTime: convertToHHmm(h.startTime),
-        endTime: convertToHHmm(h.endTime),
-      }));
-      setValue("businessHours", sanitized);
-
       const isValid = await trigger();
       if (!isValid) {
-        if (errors.businessHours) toast.error("Check time formats (HH:mm)");
+        toast.error("Please fix errors in the form");
         return false;
       }
 
       const effectiveSlug = listingSlug || searchParams.get("slug");
-      if (!effectiveSlug) return false;
+
+      if (!effectiveSlug) {
+        toast.error("Missing listing identifier. Please restart from Step 1.");
+        return false;
+      }
 
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      if (!token) {
+        toast.error("Authentication required");
+        return false;
+      }
+
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
         const data = form.getValues();
 
+        // Debug log
+        // console.log("Business hours data:", data.businessHours);
+
+        // Payload matches your JSON structure
         const detailsPayload = {
           address: data.address,
           country: data.country,
@@ -281,26 +188,39 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           google_plus_code: data.google_plus_code,
         };
 
-        const enabledHours = data.businessHours
+        // Hours payload - ONLY send enabled days with non-null values
+        const hoursPayload = data.businessHours
           .filter((h: DaySchedule) => h.enabled)
           .map((h: DaySchedule) => ({
             day_of_week: h.day_of_week,
-            open_time: h.startTime, // Already sanitized to HH:mm
+            open_time: h.startTime,
             close_time: h.endTime,
           }));
 
-        // Try different payload structures based on backend strictness
+        console.log("Hours payload being sent:", hoursPayload);
+        console.log("Number of enabled days:", hoursPayload.length);
+
+        // Validate at least one day is enabled
+        if (hoursPayload.length === 0) {
+          toast.error("Please enable at least one day for business hours");
+          return false;
+        }
+
+        // Update Context
+        setBusinessDetails({ ...businessDetails, ...data });
+
+        // API Calls
         const detailsReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/update`,
+          `${API_URL}/api/listing/${effectiveSlug}/address`,
           {
-            method: "PATCH",
+            method: "PUT",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(detailsPayload),
-          },
+          }
         );
 
         const hoursReq = fetch(
@@ -312,8 +232,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(enabledHours),
-          },
+            body: JSON.stringify(hoursPayload),
+          }
         );
 
         const [detailsRes, hoursRes] = await Promise.all([
@@ -321,20 +241,28 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           hoursReq,
         ]);
 
-        if (!detailsRes.ok || !hoursRes?.ok) {
-          const hoursError = !hoursRes.ok ? await hoursRes.json() : null;
-          if (hoursError?.errors) {
-            Object.entries(hoursError.errors).forEach(
-              ([key, val]: [string, any]) => toast.error(`${key}: ${val[0]}`),
-            );
-          }
-          throw new Error("Update failed");
+        if (!detailsRes.ok) {
+          const err = await detailsRes.json();
+          console.error("Details API error:", err);
+          throw new Error(err.message || "Failed to update details");
         }
 
-        setBusinessDetails({ ...businessDetails, ...data });
-        toast.success("Details saved!");
+        if (!hoursRes.ok) {
+          const err = await hoursRes.json();
+          console.error("Hours API error:", err);
+          console.error("Hours payload that failed:", hoursPayload);
+          throw new Error(err.message || "Failed to update opening hours");
+        }
+
+        const hoursResult = await hoursRes.json();
+        console.log("Hours API success response:", hoursResult);
+
+        toast.success("Business details saved successfully!");
         return true;
       } catch (error) {
+        const msg = error instanceof Error ? error.message : "Update failed";
+        console.error("Save error:", error);
+        toast.error(msg);
         return false;
       } finally {
         setIsSaving(false);
@@ -377,7 +305,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">{text.cityLabel}</label>
             <Input
               {...register("city")}
-              placeholder="e.g., Accra"
+              placeholder="e.g., San Francisco"
               className={cn(errors.city && "border-red-500")}
             />
             {errors.city && (
@@ -391,7 +319,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">{text.countryLabel}</label>
             <Input
               {...register("country")}
-              placeholder="e.g., Ghana"
+              placeholder="e.g., United States"
               className={cn(errors.country && "border-red-500")}
             />
             {errors.country && (
@@ -420,26 +348,19 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div>
             <BusinessHoursSelector
               value={currentHours}
-              onChange={(val) => {
-                // Sanitization happens here so Zod stays happy
-                const formatted = val.map((d: DaySchedule) => ({
-                  ...d,
-                  startTime: convertToHHmm(d.startTime),
-                  endTime: convertToHHmm(d.endTime),
-                }));
-                setValue("businessHours", formatted, { shouldValidate: true });
-              }}
+              onChange={(val) =>
+                setValue("businessHours", val, { shouldValidate: true })
+              }
             />
             {errors.businessHours && (
               <p className="text-red-500 text-xs mt-1">
-                Please check time format (HH:mm)
+                {errors.businessHours.message}
               </p>
             )}
           </div>
         </div>
       </div>
     );
-  },
+  }
 );
-
 BusinessDetailsForm.displayName = "BusinessDetailsForm";

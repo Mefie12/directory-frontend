@@ -22,85 +22,56 @@ export default function VerifyBusinessPage() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
 
   // Data State
-  const [businessData, setBusinessData] = useState<any>(null);
+  const [businessData] = useState<any>(null);
   const [wasAlreadyVerified, setWasAlreadyVerified] = useState(false);
 
   // --- Fetch Data on Mount ---
   useEffect(() => {
-    const initPage = async () => {
+    const checkUserStatus = async () => {
       try {
         const token = localStorage.getItem("authToken");
-        const businessId = params?.businessId;
-
         if (!token) {
           router.push("/auth/login");
           return;
         }
 
-        // Parallel Fetch: Get Business Details AND User Status simultaneously
-        const [businessRes, userRes] = await Promise.all([
-          // 1. Fetch Target Business Details
-          fetch(`${API_URL}/api/businesses/${businessId}`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-          // 2. Fetch Current User Status (Using your API docs)
-          fetch(`${API_URL}/api/user`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-        ]);
+        // ONLY fetch the User status to determine where to start the flow
+        const userRes = await fetch(`${API_URL}/api/user`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-        // --- Handle Business Response ---
-        if (businessRes.ok) {
-          const bJson = await businessRes.json();
-          // Adjust based on if your API returns { data: ... } or just the object
-          setBusinessData(bJson.data || bJson);
-        } else {
-          toast.error("Could not load business details.");
-          router.back();
-          return;
-        }
-
-        // --- Handle User Verification Logic ---
         if (userRes.ok) {
           const uJson = await userRes.json();
           const userData = uJson.data || uJson;
 
-          // CHECK: Is the email_verified_at column not null?
-          // If it has a date, they are verified.
+          // Check if the user has already verified their email
           const isVerified = !!userData.email_verified_at;
 
           if (isVerified) {
             setWasAlreadyVerified(true);
-            setCurrentView(3); // SKIP to Claim Submission
+            setCurrentView(3); // SKIP verification, start at Organization Setup
           } else {
             setWasAlreadyVerified(false);
-            setCurrentView(1); // START at Email Verification
+            setCurrentView(1); // Start at Email Verification
           }
         } else {
-          // If user fetch fails, default to unverified for safety
-          console.error("Failed to fetch user profile");
           setCurrentView(1);
         }
       } catch (error) {
         console.error("Initialization Error:", error);
-        toast.error("An error occurred loading the page.");
+        toast.error("Failed to load user status.");
       } finally {
         setIsLoadingState(false);
       }
     };
 
     if (params?.businessId) {
-      initPage();
+      checkUserStatus();
     }
   }, [API_URL, params, router]);
 

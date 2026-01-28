@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form"; // Added Controller
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -16,27 +15,19 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react"; // Restored imports
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
-// Phone Input Imports
-import { PhoneInput } from "react-international-phone";
-import "react-international-phone/style.css";
-
-// --- Validation Schema ---
+// Validation Schema
 export const businessFormSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters long"),
+  name: z.string().min(1, "Name is required"),
   category_ids: z.array(z.string()).min(1, "At least one category is required"),
-  description: z
-    .string()
-    .min(10, "Description must be at least 10 characters long"),
+  description: z.string().min(1, "Description is required"),
   type: z.enum(["business", "event", "community"]),
-  primary_phone: z.string().min(8, "Please enter a valid phone number"), // Adjusted slightly as formatting adds chars
-  primary_country_code: z.string().min(1, "Required"),
+  primary_phone: z.string().min(1, "Phone number is required"),
   secondary_phone: z.string().optional(),
-  secondary_country_code: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  website: z.string().url("Invalid URL format").optional().or(z.literal("")),
+  website: z.string().url().optional().or(z.literal("")),
   business_reg_num: z.string().optional(),
   bio: z.string().optional(),
 });
@@ -54,26 +45,23 @@ interface Category {
 interface Props {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  initialData?: BusinessFormValues; // Add this
 }
 
-// Config for dynamic labels
 const basicInfoConfig = {
   business: {
-    label: "Business",
     nameLabel: "Business Name",
     namePlaceholder: "Enter business name",
     descriptionLabel: "Business Description",
     descriptionPlaceholder: "Short description about your business",
   },
   event: {
-    label: "Event",
     nameLabel: "Event Name",
     namePlaceholder: "Enter event name",
     descriptionLabel: "Event Description",
     descriptionPlaceholder: "Short description about your event",
   },
   community: {
-    label: "Community",
     nameLabel: "Community Name",
     namePlaceholder: "Enter community name",
     descriptionLabel: "Community Description",
@@ -82,7 +70,7 @@ const basicInfoConfig = {
 };
 
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, initialData }, ref) => {
     // --- State ---
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
@@ -93,22 +81,19 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
     const [selectedMainCategory, setSelectedMainCategory] =
       useState<Category | null>(null);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Loading state for categories
     const [error, setError] = useState<string | null>(null);
 
     // --- Form ---
     const form = useForm<BusinessFormValues>({
       resolver: zodResolver(businessFormSchema),
-      mode: "onChange",
-      defaultValues: {
+      defaultValues: initialData || {
         name: "",
         category_ids: [],
         description: "",
         type: listingType,
         primary_phone: "",
-        primary_country_code: "+233",
         secondary_phone: "",
-        secondary_country_code: "",
         email: "",
         website: "",
         business_reg_num: "",
@@ -116,26 +101,24 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       },
     });
 
+    // Add an effect to reset form when data arrives (crucial for async fetching)
+    useEffect(() => {
+      if (initialData) {
+        form.reset(initialData);
+      }
+    }, [initialData, form]);
+
     const {
       register,
       watch,
       setValue,
       trigger,
-      control, // Required for Phone Input
-      reset,
       formState: { errors },
     } = form;
-
-    useEffect(() => {
-      if (listingType) {
-        setValue("type", listingType);
-      }
-    }, [listingType, setValue]);
-
     const currentCategoryIds = watch("category_ids") || [];
     const textConfig = basicInfoConfig[listingType];
 
-    // --- 1. Fetch Categories Logic ---
+    // --- 1. Fetch Categories Logic (Fixed) ---
     useEffect(() => {
       const fetchCategories = async () => {
         try {
@@ -143,7 +126,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           setError(null);
 
           const token = localStorage.getItem("authToken");
-          if (!token) return;
+          if (!token) return; // Optional: Handle no token UI
 
           const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
@@ -156,12 +139,13 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           if (!response.ok) {
             throw new Error(
-              `HTTP ${response.status}: Failed to fetch categories`,
+              `HTTP ${response.status}: Failed to fetch categories`
             );
           }
 
           const data = await response.json();
 
+          // Robust Data Parsing
           let categoriesData: Category[] = [];
           if (Array.isArray(data)) {
             categoriesData = data;
@@ -173,8 +157,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           setCategories(categoriesData);
 
+          // Filter Main Categories
           const mainCats = categoriesData.filter(
-            (cat) => cat.parent_id === null,
+            (cat) => cat.parent_id === null
           );
           setMainCategories(mainCats);
         } catch (error) {
@@ -186,14 +171,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       };
 
       fetchCategories();
-    }, []);
+    }, []); // Dependency array is empty -> Runs once on mount
 
-    // --- 2. Category Selection Logic ---
+    // --- 2. Category Selection Logic (Restored your exact UI logic) ---
+
     const handleMainCategoryChange = (categoryId: string) => {
+      // 1. Ensure categoryId is a string for comparison
       const idStr = String(categoryId);
 
       const selectedCategory = categories.find(
-        (cat) => String(cat.id) === idStr,
+        (cat) => String(cat.id) === idStr
       );
 
       if (!selectedCategory) return;
@@ -201,85 +188,66 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       setSelectedMainCategoryId(idStr);
       setSelectedMainCategory(selectedCategory);
 
+      // Find subcategories (Comparing string to string)
       const subCats = categories.filter(
-        (cat) => String(cat.parent_id) === idStr,
+        (cat) => String(cat.parent_id) === idStr
       );
       setSubCategories(subCats);
 
+      // 2. FORCE STRING: Reset selection to just this main category
       setValue("category_ids", [idStr], { shouldValidate: true });
     };
 
     const handleSubcategoryClick = (subCategoryId: string) => {
+      // 1. FORCE STRING: Convert input to string immediately
       const idStr = String(subCategoryId);
+
       const currentIds = form.getValues("category_ids") || [];
 
       let newIds: string[] = [];
       if (currentIds.includes(idStr)) {
+        // Remove
         newIds = currentIds.filter((id) => id !== idStr);
       } else {
+        // Add
         newIds = [...currentIds, idStr];
       }
 
       setValue("category_ids", newIds, { shouldValidate: true });
     };
 
-    // --- 3. Submit Handler ---
+    // --- 3. Submit Handler (Exposed to Parent) ---
     useImperativeHandle(ref, () => ({
       async submit() {
-        // 1. Manually trigger validation
         const isValid = await trigger();
         if (!isValid) {
-          toast.error("Please correct the errors in the form.");
+          toast.error("Please fill all required fields");
+          console.error("Validation Errors:", form.formState.errors);
+          console.log("Current Form Values:", form.getValues());
+
+          // Check specific common failures
+          const values = form.getValues();
+          if (!values.category_ids || values.category_ids.length === 0) {
+            toast.error("Please select at least one category");
+          } else {
+            toast.error("Please fill all required fields");
+          }
           return false;
         }
 
-        const rawData = form.getValues();
-
-        // Helper to extract the local phone digits
-        const cleanPhone = (fullPhone: string, dialCode: string) => {
-          if (!fullPhone) return "";
-          const digits = fullPhone.replace(/\D/g, "");
-          const codeDigits = dialCode.replace(/\D/g, "");
-          return digits.startsWith(codeDigits)
-            ? digits.slice(codeDigits.length)
-            : digits;
-        };
-
-        // 2. Map data to API structure
-        const submissionData = {
-          name: rawData.name,
-          email: rawData.email,
-          website: rawData.website,
-          type: listingType,
-          bio: rawData.description,
-          description: rawData.description,
-          business_reg_num: rawData.business_reg_num,
-          primary_country_code: rawData.primary_country_code,
-          primary_phone: cleanPhone(
-            rawData.primary_phone,
-            rawData.primary_country_code,
-          ),
-          secondary_country_code: rawData.secondary_country_code,
-          secondary_phone: rawData.secondary_phone
-            ? cleanPhone(
-                rawData.secondary_phone,
-                rawData.secondary_country_code || "",
-              )
-            : "",
-          category_ids: rawData.category_ids.map((id) => Number(id)),
-        };
+        const data = form.getValues();
+        // Map description to bio as per your previous requirement
+        data.bio = data.description;
 
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         try {
-          // UPDATED LOGIC HERE:
-          // If listingSlug exists, use the /update endpoint with PATCH
           const endpoint = listingSlug
-            ? `${API_URL}/api/listing/${listingSlug}/update`
+            ? `${API_URL}/api/listing/${listingSlug}`
             : `${API_URL}/api/listing/profile`;
 
-          const method = listingSlug ? "PATCH" : "POST";
+          const method = listingSlug ? "PUT" : "POST";
 
           const res = await fetch(endpoint, {
             method,
@@ -288,18 +256,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(submissionData),
+            body: JSON.stringify(data),
           });
 
-          const json = await res.json();
-
           if (!res.ok) {
-            console.error("API Error Response:", json);
-            throw new Error(json.message || "Submission failed");
+            const err = await res.json();
+            throw new Error(err.message || "Submission failed");
           }
 
-          // Return result to parent to trigger setCurrentStep(currentStep + 1)
-          return json.data || json;
+          const json = await res.json();
+          return json.data || json; // Return success data
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Failed to save";
           toast.error(msg);
@@ -307,61 +273,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         }
       },
     }));
-
-    useEffect(() => {
-      const loadExistingData = async () => {
-        if (!listingSlug) return;
-        try {
-          const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
-            },
-          );
-
-          if (res.ok) {
-            const json = await res.json();
-            const d = json.data;
-
-            // Reconstruct full strings so PhoneInput recognizes the country flag
-            const fullPrimaryPhone = `${d.country_code || ""}${d.primary_phone || ""}`;
-            const fullSecondaryPhone = d.secondary_phone
-              ? `${d.secondary_country_code || ""}${d.secondary_phone}`
-              : "";
-
-            // Populate the form with data from the API
-            reset({
-              name: d.name || "",
-              description: d.bio || d.description || "",
-              email: d.email || "",
-              website: d.website || "",
-              primary_phone: fullPrimaryPhone,
-              primary_country_code: d.primary_country_code || "+233",
-              secondary_phone: fullSecondaryPhone,
-              secondary_country_code: d.secondary_country_code || "+233",
-              category_ids: d.categories?.map((c: any) => String(c.id)) || [],
-              business_reg_num: d.business_reg_num || "",
-              type: listingType,
-            });
-
-            // If categories exist, set the main category ID for the UI logic
-            if (d.categories?.[0]?.parent_id) {
-              setSelectedMainCategoryId(String(d.categories[0].parent_id));
-            } else if (d.categories?.[0]) {
-              setSelectedMainCategoryId(String(d.categories[0].id));
-            }
-          }
-        } catch (error) {
-          console.error("Back navigation load failed", error);
-        }
-      };
-      loadExistingData();
-    }, [listingSlug, reset, listingType]);
 
     return (
       <div className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6">
@@ -371,13 +282,13 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             {listingType === "business"
               ? "Tell us about your business"
               : listingType === "event"
-                ? "Tell us about your event"
-                : "Tell us about your community"}
+              ? "Tell us about your event"
+              : "Tell us about your community"}
           </p>
         </div>
 
-        {/* Listing Type (Hidden) */}
-        <div className="space-y-1 hidden">
+        {/* Listing Type */}
+        <div className="space-y-1">
           <label className="font-medium text-sm">Listing Type</label>
           <Input
             value={listingType}
@@ -388,15 +299,13 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
         {/* Name */}
         <div className="space-y-1">
-          <label className="font-medium text-sm">
-            {textConfig.nameLabel} <span className="text-red-500">*</span>
-          </label>
+          <label className="font-medium text-sm">{textConfig.nameLabel}</label>
           <Input
             {...register("name")}
             placeholder={textConfig.namePlaceholder}
             className={cn(
               "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.name && "border-red-500 focus-visible:ring-red-500",
+              errors.name && "border-red-500 focus-visible:ring-red-500"
             )}
           />
           {errors.name && (
@@ -406,16 +315,14 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
         {/* Email */}
         <div className="space-y-1">
-          <label className="font-medium text-sm">
-            Email Address <span className="text-red-500">*</span>
-          </label>
+          <label className="font-medium text-sm">Email Address *</label>
           <Input
             {...register("email")}
             type="email"
             placeholder="example@domain.com"
             className={cn(
               "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.email && "border-red-500 focus-visible:ring-red-500",
+              errors.email && "border-red-500 focus-visible:ring-red-500"
             )}
           />
           {errors.email && (
@@ -423,46 +330,17 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           )}
         </div>
 
-        {/* Phones - With React International Phone */}
+        {/* Phones */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">
-              Primary Phone Number <span className="text-red-500">*</span>
-            </label>
-            <Controller
-              name="primary_phone"
-              control={control}
-              render={({ field }) => (
-                <PhoneInput
-                  defaultCountry="gh"
-                  value={field.value}
-                  onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
-                    const dialCode = meta.country.dialCode;
-                    const formattedCode = dialCode.startsWith("+")
-                      ? dialCode
-                      : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
-                    setValue("primary_country_code", formattedCode, {
-                      shouldValidate: true,
-                    });
-                  }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
-                />
+            <label className="font-medium text-sm">Primary Phone *</label>
+            <Input
+              {...register("primary_phone")}
+              placeholder="+233 000 000 0000"
+              className={cn(
+                "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
+                errors.primary_phone &&
+                  "border-red-500 focus-visible:ring-red-500"
               )}
             />
             {errors.primary_phone && (
@@ -474,54 +352,20 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              Secondary Phone Number
+              Secondary Phone (Optional)
             </label>
-            <Controller
-              name="secondary_phone"
-              control={control}
-              render={({ field }) => (
-                <PhoneInput
-                  defaultCountry="gh"
-                  value={field.value}
-                  onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
-                    const dialCode = meta.country.dialCode;
-                    const formattedCode = dialCode.startsWith("+")
-                      ? dialCode
-                      : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
-                    setValue("secondary_country_code", formattedCode, {
-                      shouldValidate: true,
-                    });
-                  }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
-                />
-              )}
+            <Input
+              {...register("secondary_phone")}
+              placeholder="+233 000 000 0000"
+              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
             />
           </div>
         </div>
 
-        {/* Category Selection - With Updated Text */}
+        {/* Category Selection */}
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="font-medium text-sm">
-              {textConfig.label} Main Category{" "}
-              <span className="text-red-500">*</span>
-            </label>
+            <label className="font-medium text-sm">Main Category *</label>
             {loading ? (
               <div className="flex items-center space-x-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -541,14 +385,14 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(
                     "h-10 w-full rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
                     errors.category_ids &&
-                      "border-red-500 focus-visible:ring-red-500",
+                      "border-red-500 focus-visible:ring-red-500"
                   )}
                 >
                   <SelectValue
                     placeholder={
                       mainCategories.length === 0
                         ? "No categories available"
-                        : `Select ${textConfig.label.toLowerCase()} main category`
+                        : "Select main category"
                     }
                   />
                 </SelectTrigger>
@@ -563,19 +407,25 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             )}
           </div>
 
-          {/* Subcategories & Summary Text */}
+          {/* Subcategories as Pills */}
           {selectedMainCategoryId && subCategories.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="font-medium text-sm">
-                  Select {textConfig.label} Subcategories (Optional)
+                  Subcategories (Optional)
                 </label>
+                <span className="text-xs text-gray-500">
+                  Showing sub-categories for:{" "}
+                  <span className="font-semibold">
+                    {selectedMainCategory?.name || "No main category selected"}
+                  </span>
+                </span>
               </div>
-
               <div className="flex flex-wrap gap-2 min-h-[60px] p-3 border border-gray-200 rounded-lg bg-white">
                 {subCategories.map((subcategory) => {
+                  // Use ID string comparison
                   const isSelected = currentCategoryIds.includes(
-                    subcategory.id.toString(),
+                    subcategory.id.toString()
                   );
                   return (
                     <button
@@ -589,7 +439,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                         "border hover:shadow-md flex items-center gap-2",
                         isSelected
                           ? "bg-[#93C01F] text-white border-[#93C01F]"
-                          : "bg-white text-gray-900 border-gray-300 hover:border-[#93C01F] hover:bg-[#F4F9E8]",
+                          : "bg-white text-gray-900 border-gray-300 hover:border-[#93C01F] hover:bg-[#F4F9E8]"
                       )}
                     >
                       {subcategory.name}
@@ -598,31 +448,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   );
                 })}
               </div>
-
-              {/* Updated Categories Summary Text */}
-              <div className="flex flex-col gap-1 mt-2 p-3 bg-gray-50 rounded-md border border-gray-100">
-                <p className="text-sm text-gray-700">
-                  <span className="font-bold text-gray-900">
-                    Main Category:
-                  </span>{" "}
-                  {selectedMainCategory?.name}
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {currentCategoryIds.length} categories selected
                 </p>
-
-                {currentCategoryIds.filter(
-                  (id) => id !== String(selectedMainCategory?.id),
-                ).length > 0 && (
-                  <p className="text-sm text-gray-700 mt-1">
-                    <span className="font-bold text-gray-900">
-                      Subcategories:
-                    </span>{" "}
-                    {subCategories
-                      .filter((sub) =>
-                        currentCategoryIds.includes(String(sub.id)),
-                      )
-                      .map((sub) => sub.name)
-                      .join(", ")}
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -642,16 +471,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               {...register("website")}
               type="url"
               placeholder="https://example.com"
-              className={cn(
-                "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-                errors.website && "border-red-500 focus-visible:ring-red-500",
-              )}
+              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
             />
-            {errors.website && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.website.message}
-              </p>
-            )}
           </div>
 
           {listingType === "business" && (
@@ -671,15 +492,14 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         {/* Description */}
         <div className="space-y-1">
           <label className="font-medium text-sm">
-            {textConfig.descriptionLabel}{" "}
-            <span className="text-red-500">*</span>
+            {textConfig.descriptionLabel}
           </label>
           <Textarea
             {...register("description")}
             placeholder={textConfig.descriptionPlaceholder}
             className={cn(
               "min-h-[140px] rounded-lg border-gray-300 p-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black resize-none",
-              errors.description && "border-red-500 focus-visible:ring-red-500",
+              errors.description && "border-red-500 focus-visible:ring-red-500"
             )}
           />
           {errors.description && (
@@ -690,7 +510,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         </div>
       </div>
     );
-  },
+  }
 );
 
 BasicInformationForm.displayName = "BasicInformationForm";

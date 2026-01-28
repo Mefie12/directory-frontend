@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, Newspaper, type LucideIcon, Folder } from "lucide-react";
+import { X, Newspaper, type LucideIcon, Folder, MapPin } from "lucide-react";
 
 type UserRole = "vendor" | "customer" | "admin";
 
@@ -89,6 +89,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       title: "Listings",
       url: "/dashboard/admin/listings",
       icon: "/images/icons/listings.svg",
+    },
+    {
+      title: "My Listings",
+      url: "/dashboard/admin/my-listings",
+      icon:  MapPin,
     },
     {
       title: "Categories",

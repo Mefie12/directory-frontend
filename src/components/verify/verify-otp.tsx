@@ -13,6 +13,8 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
+  const listingIdentifier = business?.slug || business?.id;
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timer > 0) {
@@ -33,18 +35,32 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
       toast.error("Please enter the complete 6-digit code");
       return;
     }
+
+    if (!listingIdentifier) {
+      toast.error("Listing identifier not found. Please restart the claim.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const token = localStorage.getItem("authToken");
+
+      // API Cross-check: URL must include the identifier and use POST
+      const response = await fetch(
+        `${API_URL}/api/listing/${listingIdentifier}/verify_claim`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            otp: code,
+            email: business.email,
+          }),
         },
-        body: JSON.stringify({
-          email: business.email,
-          otp: code,
-        }),
-      });
+      );
 
       const data = await response.json();
 
@@ -52,40 +68,43 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
         throw new Error(data.message || "Invalid verification code");
       }
 
-      toast.success("Verification successful!");
+      toast.success("Listing verified successfully!");
       onNext();
     } catch (error: any) {
-      toast.error(
-        error.message || "Invalid verification code. Please try again.",
-      );
+      toast.error(error.message || "Verification failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
+    if (!listingIdentifier) return;
+
     try {
-      const response = await fetch(`${API_URL}/api/resend-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const token = localStorage.getItem("authToken");
+
+      // API Cross-check: URL must include the identifier and use POST
+      const response = await fetch(
+        `${API_URL}/api/listing/${listingIdentifier}/resend_otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            email: business.email,
+          }),
         },
-        body: JSON.stringify({
-          email: business.email,
-        }),
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to resend code");
-      }
+      if (!response.ok) throw new Error("Failed to resend code");
 
-      setTimer(60); // Reset timer
-      toast.success("A new verification code has been sent to your email.");
+      setTimer(60);
+      toast.success("Code resent successfully.");
     } catch (error: any) {
       toast.error(error.message || "Failed to resend code");
-    } finally {
-      setIsLoading(false);
     }
   };
 
