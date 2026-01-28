@@ -19,18 +19,22 @@ import "react-international-phone/style.css";
 
 export default function Signup() {
   const router = useRouter();
+  const { login } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [, setError] = useState("");
+
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     phone: "",
-    country_code: "+233", // Initialized to match defaultCountry="gh"
+    country_code: "+233",
     email: "",
     password: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+
   const [errors, setErrors] = useState({
     first_name: "",
     last_name: "",
@@ -38,8 +42,6 @@ export default function Signup() {
     email: "",
     password: "",
   });
-
-  const { login } = useAuth();
 
   const validateForm = () => {
     const newErrors = {
@@ -55,7 +57,6 @@ export default function Signup() {
       newErrors.first_name = "First name is required";
       isValid = false;
     }
-
     if (!formData.last_name.trim()) {
       newErrors.last_name = "Last name is required";
       isValid = false;
@@ -70,10 +71,7 @@ export default function Signup() {
       isValid = false;
     }
 
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-      isValid = false;
-    } else if (formData.password.length < 6) {
+    if (!formData.password || formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters long";
       isValid = false;
     }
@@ -91,30 +89,19 @@ export default function Signup() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    setErrors({
-      first_name: "",
-      last_name: "",
-      phone: "",
-      email: "",
-      password: "",
-    });
 
     if (!validateForm()) {
       setIsLoading(false);
       return;
     }
 
-    const rawPhone = formData.phone.replace(/\D/g, ""); // Remove all non-digits
+    const rawPhone = formData.phone.replace(/\D/g, "");
     const dialCodeDigits = formData.country_code.replace(/\D/g, "");
-
     const apiPhone = rawPhone.startsWith(dialCodeDigits)
       ? rawPhone.slice(dialCodeDigits.length)
       : rawPhone;
 
-    const payload = {
-      ...formData,
-      phone: apiPhone, // Send only local digits to API
-    };
+    const payload = { ...formData, phone: apiPhone };
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
@@ -124,28 +111,25 @@ export default function Signup() {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(payload), // Send the cleaned payload
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        // If validation failed, display specific server message if available
-        throw new Error(
-          data.message || "Failed to register. Please check your details.",
-        );
+      if (!response.ok) throw new Error(data.message || "Registration failed.");
+
+      const token = data.token || data.access_token || data.data?.token;
+      if (token) {
+        await login(token);
       }
 
-      // if (token) {
-      //   await login(token);
-      //   router.push("/");
-      // } else {
-      //   setError("Login successful but no token received");
-      // }
-      // router.refresh();
+      toast.success("Registration Successful!", {
+        description: "Please check your email for the verification code.",
+      });
+
       setShowOtp(true);
     } catch (err: any) {
-      console.error("register failed:", err);
       setError(err.message || "Failed to register");
+      toast.error("Registration Failed", { description: err.message });
     } finally {
       setIsLoading(false);
     }
@@ -155,33 +139,35 @@ export default function Signup() {
     setIsLoading(true);
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const storedToken = localStorage.getItem("authToken");
+
       const res = await fetch(`${API_URL}/api/verify_email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(storedToken && { Authorization: `Bearer ${storedToken}` }),
+        },
         body: JSON.stringify({ email: formData.email, otp }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Invalid OTP");
+      if (!res.ok)
+        throw new Error(data.message || "Invalid OTP code provided.");
 
-      const token =
-        data.token || data.access_token || data.jwt || data.data?.token;
-
-      if (token) {
-        await login(token);
-
-        // 1. Show Success Notification
-        toast.success("Account Verified!", {
-          description: "Welcome to MeFie. You are now logged in.",
-          duration: 3000,
-        });
-
-        // 2. Redirect to the landing page (Home)
-        router.push("/");
-        router.refresh();
+      const newToken = data.token || data.access_token || data.data?.token;
+      if (newToken) {
+        await login(newToken);
       }
+
+      toast.success("Account Verified!", {
+        description: "Welcome to MeFie! Redirecting to landing page...",
+      });
+
+      router.push("/");
+      router.refresh();
     } catch (err: any) {
-      toast.error("Verification Failed", { description: err.message });
+      toast.error("Verification Error", { description: err.message });
     } finally {
       setIsLoading(false);
     }
@@ -191,49 +177,33 @@ export default function Signup() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const res = await fetch(`${API_URL}/api/resend_otp`, {
-        // Ensure this endpoint matches your API
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: formData.email }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to resend code");
-
-      // You can add a success toast here if you have a toast library installed
+      if (!res.ok) throw new Error("Failed to resend");
+      toast.success("OTP Resent successfully.");
     } catch (err: any) {
-      setError(err.message || "Could not resend verification code");
-      throw err; // Re-throw to let the VerifyOtp component handle the local state (isResending)
+      toast.error("Resend Failed", { description: err.message });
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: value,
-    }));
-
+    setFormData((prev) => ({ ...prev, [id]: value }));
     if (errors[id as keyof typeof errors]) {
-      setErrors((prev) => ({
-        ...prev,
-        [id]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [id]: "" }));
     }
   };
 
   const handlePhoneChange = (phone: string, meta: any) => {
     const dialCode = meta.country?.dialCode || "";
-
     setFormData((prev) => ({
       ...prev,
-      phone: phone, // Store the full string so the input works
+      phone: phone,
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
     }));
-
-    if (errors.phone) {
-      setErrors((prev) => ({ ...prev, phone: "" }));
-    }
+    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
   };
 
   return (
@@ -245,13 +215,11 @@ export default function Signup() {
             <Link href="/">
               <Image
                 src="/images/logos/login-logo.png"
-                alt="MeFie Logo"
+                alt="Logo"
                 width={110}
                 height={50}
-                className="object-cover"
               />
             </Link>
-
             <p className="text-sm text-gray-500">
               Already have an account?{" "}
               <Link
@@ -262,149 +230,81 @@ export default function Signup() {
               </Link>
             </p>
           </div>
-          <div className="space-y-1 mt-0">
-            <h2 className="text-4xl font-semibold text-gray-900">
-              Let&apos;s get started
+          <div className="mt-2">
+            <h2 className="text-3xl font-semibold text-gray-900">
+              {!showOtp ? "Create account" : "Verify Email"}
             </h2>
-            <p className="text-gray-500 text-base">
-              Please enter your details to continue
-            </p>
           </div>
         </CardHeader>
         <CardContent>
           {!showOtp ? (
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="space-y-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="first_name" className="text-sm">
-                      First Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="first_name"
-                      type="text"
-                      placeholder="First Name"
-                      className="w-full"
-                      value={formData.first_name}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    {errors.first_name && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.first_name}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="last_name" className="text-sm">
-                      Last Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="last_name"
-                      type="text"
-                      placeholder="Last Name"
-                      className="w-full"
-                      value={formData.last_name}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    {errors.last_name && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.last_name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <Label htmlFor="phone" className="text-sm">
-                      Phone Number <span className="text-red-500">*</span>
-                    </Label>
-                    <PhoneInput
-                      defaultCountry="gh"
-                      value={formData.phone}
-                      onChange={(phone, meta) => handlePhoneChange(phone, meta)}
-                      inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900"
-                      className="w-full"
-                      countrySelectorStyleProps={{
-                        buttonStyle: {
-                          paddingLeft: "12px",
-                          paddingRight: "12px",
-                          height: "36px", // Matches h-11 height
-                          borderColor: "#d1d5db",
-                          borderTopLeftRadius: "0.5rem",
-                          borderBottomLeftRadius: "0.5rem",
-                        },
-                      }}
-                      required
-                    />
-                    {errors.phone && (
-                      <p className="text-red-500 text-xs mt-1">
-                        {errors.phone}
-                      </p>
-                    )}
-                  </div>
-                  <Label htmlFor="email" className="text-sm">
-                    Email Address <span className="text-red-500">*</span>
-                  </Label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">First Name</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    className="w-full"
-                    value={formData.email}
+                    id="first_name"
+                    placeholder="John"
+                    value={formData.first_name}
                     onChange={handleInputChange}
                     required
                   />
-                  {errors.email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm">
-                    Password <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      className="w-full"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.password}
-                    </p>
-                  )}
+                <div>
+                  <Label className="text-xs">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    placeholder="Doe"
+                    value={formData.last_name}
+                    onChange={handleInputChange}
+                    required
+                  />
                 </div>
-
-                {error && (
-                  <p className="text-red-500 text-sm text-center">{error}</p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full text-sm bg-[#93C01F] hover:bg-[#82ab1b] text-white cursor-pointer py-6 rounded-xl"
-                >
-                  {isLoading ? "Processing..." : "Register"}
-                </Button>
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Phone Number</Label>
+                <PhoneInput
+                  defaultCountry="gh"
+                  placeholder="Enter phone number"
+                  value={formData.phone}
+                  onChange={(phone, meta) => handlePhoneChange(phone, meta)}
+                  inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4"
+                />
+                <Label className="text-xs">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                />
+                <Label className="text-xs">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-[#93C01F] hover:bg-[#82ab1b] py-6 rounded-xl"
+              >
+                {isLoading ? "Creating..." : "Sign Up"}
+              </Button>
             </form>
           ) : (
             <VerifyOtp

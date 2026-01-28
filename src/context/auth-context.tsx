@@ -21,6 +21,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isAuthenticated: boolean; // Add this
   login: (token: string) => Promise<void>;
   logout: () => void;
   refetchUser: () => void;
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Add this
 
   const fetchUserProfile = async (token: string) => {
     // console.log(
@@ -115,22 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // 👇 ADD THIS LINE to satisfy the User interface
           email: raw?.email || "",
-          last_name: "",
-          first_name: "",
-          phone: ""
+          last_name: raw?.last_name || "",
+          first_name: raw?.first_name || "",
+          phone: raw?.phone || ""
         };
 
         // console.log("👤 Final mapped user:", mappedUser);
         setUser(mappedUser);
+        setIsAuthenticated(true); // Set authenticated to true
       } else {
         // console.log("❌ All user endpoints failed, clearing token");
         localStorage.removeItem("authToken");
         setUser(null);
+        setIsAuthenticated(false); // Set authenticated to false
       }
     } catch {
       // console.error("🚨 Failed to fetch user:", err);
       localStorage.removeItem("authToken");
       setUser(null);
+      setIsAuthenticated(false); // Set authenticated to false
     } finally {
       setLoading(false);
     }
@@ -147,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       // console.log("🔑 No token found, setting loading to false");
       setLoading(false);
+      setIsAuthenticated(false); // Set authenticated to false
     }
   }, []);
 
@@ -154,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // console.log("🔑 Login called with token:", token);
     localStorage.setItem("authToken", token);
     // console.log("💾 Token saved to localStorage");
+    setIsAuthenticated(false); // Reset to false while fetching
     await fetchUserProfile(token);
   };
 
@@ -161,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // console.log("🚪 Logout called");
     localStorage.removeItem("authToken");
     setUser(null);
+    setIsAuthenticated(false); // Set authenticated to false
   };
 
   const refetchUser = () => {
@@ -168,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("authToken");
     if (token) {
       fetchUserProfile(token);
+    } else {
+      setIsAuthenticated(false); // Set authenticated to false if no token
     }
   };
 
@@ -176,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
+        isAuthenticated, // Add this to the value
         login,
         logout,
         refetchUser,
