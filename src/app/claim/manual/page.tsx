@@ -15,8 +15,9 @@ import { BusinessDetailsForm } from "./form-component/business-details";
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
-import ClaimSuccess from "@/components/verify/claim-success";
+
 import { useAuth } from "@/context/auth-context";
+import ClaimStatus from "@/components/verify/claim-status";
 
 export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
@@ -37,11 +38,13 @@ function ManualLisitingForm() {
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
 
- // --- Auth Protection Effect ---
+  // --- Auth Protection Effect ---
   useEffect(() => {
     if (!authLoading && !user) {
       // Redirect with return URL so they come back here after login
-      router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      router.push(
+        `/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
     }
   }, [user, authLoading, router]);
 
@@ -121,7 +124,7 @@ function ManualLisitingForm() {
       case 6:
         // Pass a mock object or data derived from state for the success view
         return (
-          <ClaimSuccess
+          <ClaimStatus
             business={{
               name: "Your New Listing",
               address: "Pending Review",

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LayoutDashboard, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function ClaimSuccess({ business }: any) {
+export default function ClaimStatus({ business }: any) {
   const router = useRouter();
 
   return (

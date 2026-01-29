@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import VerifyEmail from "@/components/verify/verify-email";
 import VerifyOtp from "@/components/verify/verify-otp";
 import ClaimSubmission from "@/components/verify/claim-submission";
-import ClaimSuccess from "@/components/verify/claim-success";
+import ClaimSuccess from "@/components/verify/claim-status";
 import { toast } from "sonner";
 import OrganizationSetup from "@/components/verify/organization-setup";
 

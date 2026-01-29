@@ -15,7 +15,7 @@ import { BusinessDetailsForm } from "./form-component/business-details";
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
-import ClaimSuccess from "@/components/verify/claim-success";
+import ClaimStatus from "@/components/verify/claim-status";
 import VerifyOtp from "@/components/verify/verify-otp"; // Import the verification component
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
@@ -167,7 +167,7 @@ function ManualLisitingForm() {
         );
       case 7:
         return (
-          <ClaimSuccess
+          <ClaimStatus
             business={{
               name: "Your New Listing",
               address: "Successfully Verified",
