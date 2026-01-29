@@ -15,6 +15,7 @@ import {
   MessageSquare,
   CornerDownRight,
   Loader2,
+  Clock, // Added for hours icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,13 @@ interface ApiReview {
   replies?: ReviewReply[];
 }
 
+// Added OpeningHour Interface
+interface OpeningHour {
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
+}
+
 interface ApiListingData {
   id: number;
   name: string;
@@ -147,6 +155,7 @@ interface ApiListingData {
   pricing?: PricingItem[];
   start_date?: string;
   type?: string;
+  opening_hours?: OpeningHour[]; // Added to API Data interface
 }
 
 // --- UI Interfaces ---
@@ -218,6 +227,7 @@ interface TemplateContent {
   faqs: FAQItem[];
   reviews: ReviewItem[];
   gallery: GalleryItem[];
+  hours: OpeningHour[]; // Added to Template content
 }
 
 // --- Helper Functions ---
@@ -353,7 +363,7 @@ const ReviewItemComponent = ({
                 </DialogHeader>
                 <div className="py-4">
                   <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-600 italic border-l-2 border-gray-300">
-                    &quot;{review.comment}&quot;
+                    {review.comment}
                   </div>
                   <Textarea
                     placeholder="Type your reply here..."
@@ -441,7 +451,7 @@ const EnhancedReviewsSection = ({
           };
         }
         return review;
-      })
+      }),
     );
   };
 
@@ -638,7 +648,7 @@ function SidebarLocation({ provider }: { provider: Provider }) {
         <div className="mt-3 relative h-40 overflow-hidden rounded-xl bg-gray-100">
           <iframe
             src={`https://maps.google.com/maps?q=${encodeURIComponent(
-              provider.name + " " + (provider.location || "")
+              provider.name + " " + (provider.location || ""),
             )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
             allowFullScreen
             loading="lazy"
@@ -657,10 +667,12 @@ function SidebarInfo({
   provider,
   pricing,
   services,
+  hours, // Added Prop
 }: {
   provider: Provider;
   pricing: PricingItem[];
   services: string[];
+  hours: OpeningHour[]; // Added Prop
 }) {
   const socialLinks = provider.socials || {};
 
@@ -688,10 +700,37 @@ function SidebarInfo({
         )}
 
         <div className="mt-4">
-          <Button onClick={handleClaimBusiness} className="w-full bg-[#93C01F] hover:bg-[#82ab1b]">
+          <Button
+            onClick={handleClaimBusiness}
+            className="w-full bg-[#93C01F] hover:bg-[#82ab1b]"
+          >
             Claim business
           </Button>
         </div>
+
+        {/* Business Hours Section - Added below Claim button */}
+        {hours && hours.length > 0 && (
+          <div className="mt-6">
+            <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
+              <Clock className="h-5 w-5 text-[#93C01F]" /> Business Hours
+            </h5>
+            <div className="space-y-2">
+              {hours.map((h, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between text-sm py-1 border-b border-gray-50 last:border-0"
+                >
+                  <span className="text-gray-500 font-medium">
+                    {h.day_of_week}
+                  </span>
+                  <span className="text-gray-900 font-semibold">
+                    {h.open_time} - {h.close_time}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Divider />
 
@@ -804,7 +843,7 @@ export default function UniversalSlugPage({
               "Content-Type": "application/json",
               Accept: "application/json",
             },
-          }
+          },
         );
 
         if (listingResponse.ok) {
@@ -826,7 +865,7 @@ export default function UniversalSlugPage({
               const ratingsJson = await ratingsResponse.json();
               const allRatings = ratingsJson.data || [];
               const filteredRatings = allRatings.filter(
-                (r: ApiRatingData) => r.listing_id === listingData.id
+                (r: ApiRatingData) => r.listing_id === listingData.id,
               );
 
               // 3. Enrich Ratings (User Data)
@@ -838,7 +877,7 @@ export default function UniversalSlugPage({
                   ) {
                     try {
                       const userRes = await fetch(
-                        `${API_URL}/api/users/${rating.user_id}`
+                        `${API_URL}/api/users/${rating.user_id}`,
                       );
                       if (userRes.ok) {
                         const userJson = await userRes.json();
@@ -861,7 +900,7 @@ export default function UniversalSlugPage({
                     }
                   }
                   return rating;
-                })
+                }),
               );
             }
           }
@@ -953,7 +992,7 @@ export default function UniversalSlugPage({
 
           const servicesList =
             listingData.services?.map((s: any) =>
-              typeof s === "string" ? s : s.name
+              typeof s === "string" ? s : s.name,
             ) || [];
 
           setProviderData(provider);
@@ -964,6 +1003,7 @@ export default function UniversalSlugPage({
             faqs: listingData.faqs || [],
             reviews: mappedReviews,
             gallery: gallery,
+            hours: listingData.opening_hours || [], // Set hours here
           });
         }
       } catch (error) {
@@ -1057,6 +1097,7 @@ export default function UniversalSlugPage({
             provider={providerData}
             pricing={template.pricing}
             services={template.services}
+            hours={template.hours} // Passed prop
           />
         </aside>
       </div>

@@ -288,7 +288,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         </div>
 
         {/* Listing Type */}
-        <div className="space-y-1">
+        <div className="space-y-1 hidden">
           <label className="font-medium text-sm">Listing Type</label>
           <Input
             value={listingType}

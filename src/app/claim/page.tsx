@@ -124,7 +124,7 @@ export default function ClaimPage() {
 
       const url = new URL(`${API_URL}/api/search`);
 
-      // FIXED: Use 'q' as the primary search parameter
+      // Use 'q' as the primary search parameter
       url.searchParams.append("q", nameTrimmed);
 
       // If your backend also supports location as a separate filter:
@@ -324,7 +324,7 @@ export default function ClaimPage() {
                 return (
                   <div
                     key={business.id}
-                    className={`flex items-center justify-between p-5 rounded-2xl border transition-all ${
+                    className={`flex items-center justify-between px-4 py-4 rounded-2xl border transition-all ${
                       isClaimed
                         ? "bg-gray-50 border-gray-200 border-dashed opacity-75"
                         : "bg-white border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300"
@@ -345,7 +345,7 @@ export default function ClaimPage() {
                               src={displayImage}
                               alt={business.name}
                               fill
-                              className={`object-cover ${
+                              className={`object-cover w-full h-full ${
                                 isClaimed ? "grayscale opacity-50" : ""
                               }`}
                             />

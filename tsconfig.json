@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "src/app/dashboard/user/my-events"  ],
+, "src/app/dashboard/customer/my-events"  ],
   "exclude": ["node_modules"]
 }
