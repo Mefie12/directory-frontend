@@ -15,7 +15,8 @@ import {
   MessageSquare,
   CornerDownRight,
   Loader2,
-  Clock, // Added for hours icon
+  Clock,
+  AlertCircle, // Added for hours icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -702,10 +703,28 @@ function SidebarInfo({
         <div className="mt-4">
           <Button
             onClick={handleClaimBusiness}
-            className="w-full bg-[#93C01F] hover:bg-[#82ab1b]"
+            disabled={provider.verified} // Disabled when claimed
+            className={`w-full ${
+              provider.verified
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
+            }`}
           >
-            Claim business
+            {provider.verified ? "Claimed" : "Claim business"}
           </Button>
+
+          {/* Challenge claim link - Added below Claim button */}
+          {provider.verified && (
+            <div className="mt-3 text-center">
+              <Link
+                href={`/support/challenge-claim?slug=${provider.slug}`}
+                className="text-[10px] text-gray-400 hover:text-red-500 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
+              >
+                <AlertCircle className="h-3 w-3" />
+                Is this a mistake? Challenge this claim
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Business Hours Section - Added below Claim button */}

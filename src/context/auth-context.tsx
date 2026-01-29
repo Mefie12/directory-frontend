@@ -47,9 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Try different possible user endpoints
       const endpoints = [
         "/api/user",
-        "/api/auth/user",
-        "/api/profile",
-        "/api/me",
+        // "/api/auth/user",
+        // "/api/profile",
+        // "/api/me",
       ];
 
       let userData = null;
