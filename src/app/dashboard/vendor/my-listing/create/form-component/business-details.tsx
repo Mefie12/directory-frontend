@@ -18,6 +18,8 @@ import {
 } from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
+import { countries } from "country-data-list";
 
 // --- FIXED DATE/TIME LOGIC ---
 
@@ -184,6 +186,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
+
+     const selectedCountryName = watch("country");
 
     useEffect(() => {
       const loadDetails = async () => {
@@ -389,10 +393,20 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.countryLabel}</label>
-            <Input
+            {/* <Input
               {...register("country")}
               placeholder="e.g., Ghana"
               className={cn(errors.country && "border-red-500")}
+            /> */}
+            <CountryDropdown
+              placeholder="Select your country"
+              defaultValue={
+                countries.all.find((c) => c.name === selectedCountryName)
+                  ?.alpha3
+              }
+              onChange={(country: Country) =>
+                setValue("country", country.name, { shouldValidate: true })
+              }
             />
             {errors.country && (
               <p className="text-red-500 text-xs">{errors.country.message}</p>
