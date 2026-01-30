@@ -145,7 +145,7 @@ export default function EventsContent() {
 
         // Fetch Categories and Listings in parallel as requested
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/listings?per_page=100`),
+          fetch(`${API_URL}/api/approved_listings?per_page=100`),
           fetch(`${API_URL}/api/categories`),
         ]);
 

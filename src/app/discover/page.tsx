@@ -115,7 +115,7 @@ export default function Discover() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings`, {
+        const response = await fetch(`${API_URL}/api/approved_listings`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",

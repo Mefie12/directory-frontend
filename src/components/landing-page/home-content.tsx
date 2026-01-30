@@ -123,7 +123,7 @@ export default function HomeContent() {
         // FIX: Added '?per_page=100' query param.
         // This requests 100 items instead of the default (usually 15).
         // This ensures we get enough Events and Communities to fill the carousel.
-        const response = await fetch(`${API_URL}/api/listings`, {
+        const response = await fetch(`${API_URL}/api/approved_listings`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",

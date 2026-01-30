@@ -15,7 +15,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, Newspaper, type LucideIcon, Folder, MapPin } from "lucide-react";
 
-type UserRole = "vendor" | "customer" | "admin" | "agent";
+type UserRole = "vendor" | "customer" | "admin" | "listing_agent";
 
 // Updated interface to accept either a string URL or a Lucide Component
 interface MenuItem {
@@ -90,11 +90,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       url: "/dashboard/admin/listings",
       icon: "/images/icons/listings.svg",
     },
-    {
-      title: "My Listings",
-      url: "/dashboard/admin/my-listings",
-      icon: MapPin,
-    },
+    // {
+    //   title: "My Listings",
+    //   url: "/dashboard/admin/my-listings",
+    //   icon: MapPin,
+    // },
     {
       title: "Categories",
       url: "/dashboard/admin/categories",
@@ -116,11 +116,11 @@ const navigationItems: Record<UserRole, MenuItem[]> = {
       icon: "/images/icons/money.svg",
     },
   ],
-  agent: [
+  listing_agent: [
     {
       title: "Dashboard",
-      url: "/dashboard/listing-agent",
-      icon: "/images/icons/home.svg",
+      url: "/dashboard/listing-agent/my-listings",
+      icon:  MapPin,
     },
   ],
 };

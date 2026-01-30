@@ -123,7 +123,7 @@ export default function CommunityContent() {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/listings?per_page=100`),
+          fetch(`${API_URL}/api/approved_listings?per_page=100`),
           fetch(`${API_URL}/api/categories`)
         ]);
 

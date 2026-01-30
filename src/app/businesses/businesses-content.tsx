@@ -123,7 +123,7 @@ export default function BusinessesContent() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listings?per_page=100`, {
+        const response = await fetch(`${API_URL}/api/approved_listings?per_page=100`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
