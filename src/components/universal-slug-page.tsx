@@ -680,6 +680,15 @@ function SidebarInfo({
   const { user } = useAuth();
   const router = useRouter();
 
+  const format12Hour = (time: string) => {
+    if (!time) return "";
+    const [hours, minutes] = time.split(":");
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${h}:${minutes} ${ampm}`;
+  };
+
   const handleClaimBusiness = () => {
     if (user) {
       router.push("/claim");
@@ -743,7 +752,7 @@ function SidebarInfo({
                     {h.day_of_week}
                   </span>
                   <span className="text-gray-900 font-semibold">
-                    {h.open_time} - {h.close_time}
+                    {format12Hour(h.open_time)} - {format12Hour(h.close_time)}
                   </span>
                 </div>
               ))}

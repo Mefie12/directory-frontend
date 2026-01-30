@@ -21,7 +21,6 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries } from "country-data-list";
 
-// --- FIXED DATE/TIME LOGIC ---
 
 /**
  * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
