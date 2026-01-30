@@ -74,6 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             userData = data;
             // successfulEndpoint = endpoint;
             break;
+          } else if (res.status === 401) {
+            localStorage.removeItem("authToken");
+            setUser(null);
+            setIsAuthenticated(false);
+            setLoading(false);
+            return; // Kill the function here
           } else if (res.status === 405) {
             // console.log(`⚠️ ${endpoint} returned 405 - Method Not Allowed`);
             // Try with POST method
@@ -107,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // console.log("🔍 Extracted raw user data:", raw);
 
         const mappedUser: User = {
-          name: raw?.name ||
+          name:
+            raw?.name ||
             raw?.username ||
             `${raw?.first_name ?? ""} ${raw?.last_name ?? ""}`.trim() ||
             raw?.email?.split("@")[0] ||
@@ -119,23 +126,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: raw?.email || "",
           last_name: raw?.last_name || "",
           first_name: raw?.first_name || "",
-          phone: raw?.phone || ""
+          phone: raw?.phone || "",
         };
 
         // console.log("👤 Final mapped user:", mappedUser);
         setUser(mappedUser);
         setIsAuthenticated(true); // Set authenticated to true
-      } else {
-        // console.log("❌ All user endpoints failed, clearing token");
-        localStorage.removeItem("authToken");
-        setUser(null);
-        setIsAuthenticated(false); // Set authenticated to false
       }
-    } catch {
-      // console.error("🚨 Failed to fetch user:", err);
-      localStorage.removeItem("authToken");
-      setUser(null);
-      setIsAuthenticated(false); // Set authenticated to false
+      // } else {
+      //   // console.log("❌ All user endpoints failed, clearing token");
+      //   localStorage.removeItem("authToken");
+      //   setUser(null);
+      //   setIsAuthenticated(false); // Set authenticated to false
+      // }
+    } catch  (err) {
+      console.error("🚨 Failed to fetch user:", err);
+      // localStorage.removeItem("authToken");
+      // setUser(null);
+      // setIsAuthenticated(false); // Set authenticated to false
     } finally {
       setLoading(false);
     }
