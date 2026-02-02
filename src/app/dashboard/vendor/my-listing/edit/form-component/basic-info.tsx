@@ -27,13 +27,14 @@ export const businessFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
   type: z.enum(["business", "event", "community"]),
   primary_phone: z.string().min(8, "Please enter a valid phone number"),
-  primary_country_code: z.string().min(1, "Required"),
-  secondary_phone: z.string().optional(),
-  secondary_country_code: z.string().optional(),
+  primary_country_code: z.string().min(1, "Required").optional().nullable(),
+  secondary_phone: z.string().optional().nullable(),
+  secondary_country_code: z.string().optional().nullable(),
   email: z.string().email("Invalid email address"),
-  website: z.string().url().optional().or(z.literal("")),
-  business_reg_num: z.string().optional(),
-  bio: z.string().optional(),
+  website: z.string().url().optional().nullable().or(z.literal("")),
+
+  business_reg_num: z.string().optional().nullable(),
+  bio: z.string().optional().nullable(),
 });
 
 export type BusinessFormValues = z.infer<typeof businessFormSchema>;
@@ -228,14 +229,19 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       async submit() {
         const isValid = await trigger();
         if (!isValid) {
+          console.log("❌ FORM ERRORS:", form.formState.errors);
           toast.error("Please correct the errors in the form.");
           return false;
         }
 
         const rawData = form.getValues();
 
-        const cleanPhone = (fullPhone: string, dialCode: string) => {
-          if (!fullPhone) return "";
+        const cleanPhone = (
+          fullPhone: string | null | undefined,
+          dialCode: string | null | undefined,
+        ) => {
+          // If either is missing, return an empty string to keep the API happy
+          if (!fullPhone || !dialCode) return "";
           const digits = fullPhone.replace(/\D/g, "");
           const codeDigits = dialCode.replace(/\D/g, "");
           return digits.startsWith(codeDigits)

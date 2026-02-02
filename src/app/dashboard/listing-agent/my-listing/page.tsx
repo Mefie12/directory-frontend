@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Loader2,
-  Edit,
+  // Edit,
   MapPin,
   Tag,
   User,
@@ -337,7 +337,7 @@ export default function MyListing() {
           showPagination={true}
           itemsPerPage={6}
           onViewClick={setViewListing}
-          onEditClick={handleEdit}
+          // onEditClick={handleEdit}
           onDeleteClick={(id: string) => setDeleteListingId(id)}
         />
       ) : (
@@ -366,14 +366,14 @@ export default function MyListing() {
                   >
                     ← Back
                   </div>
-                  <Button
+                  {/* <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => handleEdit(viewListing)}
                   >
                     <Edit className="w-4 h-4" />
-                  </Button>
+                  </Button> */}
                 </div>
                 <h2 className="text-2xl font-bold">{viewListing.name}</h2>
               </div>
@@ -532,12 +532,12 @@ export default function MyListing() {
                 >
                   Close
                 </Button>
-                <Button
+                {/* <Button
                   className="flex-1 bg-[#93C01F] hover:bg-[#82ab1b]"
                   onClick={() => handleEdit(viewListing)}
                 >
                   Edit Listing
-                </Button>
+                </Button> */}
               </div>
             </>
           )}
