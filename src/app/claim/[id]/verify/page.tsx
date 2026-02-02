@@ -9,7 +9,7 @@ import VerifyOtp from "@/components/verify/verify-otp";
 import ClaimSubmission from "@/components/verify/claim-submission";
 import ClaimSuccess from "@/components/verify/claim-status";
 import { toast } from "sonner";
-import OrganizationSetup from "@/components/verify/organization-setup";
+// import OrganizationSetup from "@/components/verify/organization-setup";
 
 export default function VerifyBusinessPage() {
   const router = useRouter();
@@ -97,9 +97,9 @@ export default function VerifyBusinessPage() {
         return "Verify via Email";
       case 2:
         return "Verification";
+      // case 3:
+      //   return "Organization Setup";
       case 3:
-        return "Organization Setup";
-      case 4:
         return "Claim Submission";
       default:
         return "";
@@ -150,18 +150,18 @@ export default function VerifyBusinessPage() {
           />
         )}
 
-        {currentView === 3 && (
+        {/* {currentView === 3 && (
           <OrganizationSetup onNext={() => setCurrentView(4)} />
-        )}
+        )} */}
 
-        {currentView === 4 && (
+        {currentView === 3 && (
           <ClaimSubmission
             business={businessData}
             onNext={() => setCurrentView(4)}
           />
         )}
 
-        {currentView === 5 && <ClaimSuccess business={businessData} />}
+        {currentView === 4 && <ClaimSuccess business={businessData} />}
       </div>
     </div>
   );

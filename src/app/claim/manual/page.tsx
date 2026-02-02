@@ -18,7 +18,7 @@ import { ReviewSubmitStep } from "./form-component/review";
 
 import { useAuth } from "@/context/auth-context";
 import ClaimStatus from "@/components/verify/claim-status";
-import { toast } from "sonner";
+// import { toast } from "sonner";
 
 export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
@@ -40,43 +40,23 @@ function ManualLisitingForm() {
   const initialized = useRef(false);
 
   // --- Auth Protection Effect ---
-  // useEffect(() => {
-  //   if (authLoading) return; // Still loading auth state
-  //   if (!user) {
-  //     // Redirect with return URL so they come back here after login
-  //     router.push(
-  //       `/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-  //     );
-  //   } else {
-  //     const userRole = user.role?.toLowerCase(); //if standard user or someone else tries to access it, send them home
-  //     if (userRole !== "vendor" && userRole !== "admin") {
-  //       toast.error("You do not have permission to access the listing creator.");
-  //       router.push("/dashboard"); // Send to their default dashboard surface
-  //     }
-  //   }
-  // }, [user, authLoading, router]);
   useEffect(() => {
-    if (authLoading) return; 
-
+    if (authLoading) return; // Still loading auth state
     if (!user) {
-      router.push("/auth/login"); 
-    } else {
-      const userRole = user.role?.toLowerCase();
-      
-      // 2. Role Guard
-      if (userRole !== "vendor" && userRole !== "admin") {
-        toast.error("Access Denied.");
-        router.push("/dashboard"); 
-        return;
-      }
-
-      // 3. Redirect Handling
-      if (window.location.search.includes("redirect")) {
-        // Clear the URL and send them to the clean dashboard
-        router.push("/dashboard");
-      }
+      // Redirect with return URL so they come back here after login
+      router.push(
+        `/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
     }
+    // } else {
+    //   const userRole = user.role?.toLowerCase(); //if standard user or someone else tries to access it, send them home
+    //   if (userRole !== "vendor" && userRole !== "admin") {
+    //     toast.error("You do not have permission to access the listing creator.");
+    //     router.push("/dashboard"); // Send to their default dashboard surface
+    //   }
+    // }
   }, [user, authLoading, router]);
+ 
 
   // Initialize Type from URL
   useEffect(() => {

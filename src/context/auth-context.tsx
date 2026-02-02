@@ -177,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("authToken");
     setUser(null);
     setIsAuthenticated(false); // Set authenticated to false
+    window.location.href = "/auth/login"; // Redirect to login page
   };
 
   const refetchUser = () => {

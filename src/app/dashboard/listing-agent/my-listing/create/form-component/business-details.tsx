@@ -20,6 +20,13 @@ import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries } from "country-data-list";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 /**
  * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
@@ -416,11 +423,42 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">
               {text.googlePlusCodeLabel}
             </label>
-            <Input
-              {...register("google_plus_code")}
-              placeholder="e.g., 849VCWC8+R9"
-              className={cn(errors.google_plus_code && "border-red-500")}
-            />
+            <div className="flex items-center gap-1.5">
+              <label className="font-medium text-sm">
+                {text.googlePlusCodeLabel}
+              </label>
+              {/* Tooltip Implementation */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <HelpCircle size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] p-3">
+                    <div className="space-y-2 text-xs">
+                      <p className="font-semibold">What is a Plus Code?</p>
+                      <p>
+                        It works like a street address. They can help you get
+                        and use a simple digital address.
+                      </p>
+                      <p className="font-semibold">How to find it:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Open Google Maps.</li>
+                        <li>Search for your location.</li>
+                        <li>Tap the location name/address.</li>
+                        <li>
+                          Look for the plus code icon (e.g., 849VCWC8+R9).
+                        </li>
+                      </ol>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             {errors.google_plus_code && (
               <p className="text-red-500 text-xs">
                 {errors.google_plus_code.message}
