@@ -691,9 +691,9 @@ function SidebarInfo({
 
   const handleClaimBusiness = () => {
     if (user) {
-      router.push("/claim");
+      router.push(`/claim/${provider.id}/verify`);
     } else {
-      router.push("/auth/login?redirect=/claim");
+      router.push(`/auth/login?redirect=/claim/${provider.id}/verify`);
     }
   };
 
