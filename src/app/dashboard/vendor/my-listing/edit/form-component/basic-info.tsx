@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Loader2, X } from "lucide-react"; // Restored imports
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+import { PhoneInput } from "react-international-phone";
+import "react-international-phone/style.css";
 
 // Validation Schema
 export const businessFormSchema = z.object({
@@ -24,8 +26,10 @@ export const businessFormSchema = z.object({
   category_ids: z.array(z.string()).min(1, "At least one category is required"),
   description: z.string().min(1, "Description is required"),
   type: z.enum(["business", "event", "community"]),
-  primary_phone: z.string().min(1, "Phone number is required"),
+  primary_phone: z.string().min(8, "Please enter a valid phone number"),
+  primary_country_code: z.string().min(1, "Required"),
   secondary_phone: z.string().optional(),
+  secondary_country_code: z.string().optional(),
   email: z.string().email("Invalid email address"),
   website: z.string().url().optional().or(z.literal("")),
   business_reg_num: z.string().optional(),
@@ -93,7 +97,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         description: "",
         type: listingType,
         primary_phone: "",
+        primary_country_code: "+233",
         secondary_phone: "",
+        secondary_country_code: "+233",
         email: "",
         website: "",
         business_reg_num: "",
@@ -113,6 +119,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       watch,
       setValue,
       trigger,
+      control,
       formState: { errors },
     } = form;
     const currentCategoryIds = watch("category_ids") || [];
@@ -139,7 +146,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           if (!response.ok) {
             throw new Error(
-              `HTTP ${response.status}: Failed to fetch categories`
+              `HTTP ${response.status}: Failed to fetch categories`,
             );
           }
 
@@ -159,7 +166,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           // Filter Main Categories
           const mainCats = categoriesData.filter(
-            (cat) => cat.parent_id === null
+            (cat) => cat.parent_id === null,
           );
           setMainCategories(mainCats);
         } catch (error) {
@@ -180,7 +187,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       const idStr = String(categoryId);
 
       const selectedCategory = categories.find(
-        (cat) => String(cat.id) === idStr
+        (cat) => String(cat.id) === idStr,
       );
 
       if (!selectedCategory) return;
@@ -190,7 +197,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
       // Find subcategories (Comparing string to string)
       const subCats = categories.filter(
-        (cat) => String(cat.parent_id) === idStr
+        (cat) => String(cat.parent_id) === idStr,
       );
       setSubCategories(subCats);
 
@@ -221,33 +228,53 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       async submit() {
         const isValid = await trigger();
         if (!isValid) {
-          toast.error("Please fill all required fields");
-          console.error("Validation Errors:", form.formState.errors);
-          console.log("Current Form Values:", form.getValues());
-
-          // Check specific common failures
-          const values = form.getValues();
-          if (!values.category_ids || values.category_ids.length === 0) {
-            toast.error("Please select at least one category");
-          } else {
-            toast.error("Please fill all required fields");
-          }
+          toast.error("Please correct the errors in the form.");
           return false;
         }
 
-        const data = form.getValues();
-        // Map description to bio as per your previous requirement
-        data.bio = data.description;
+        const rawData = form.getValues();
+
+        const cleanPhone = (fullPhone: string, dialCode: string) => {
+          if (!fullPhone) return "";
+          const digits = fullPhone.replace(/\D/g, "");
+          const codeDigits = dialCode.replace(/\D/g, "");
+          return digits.startsWith(codeDigits)
+            ? digits.slice(codeDigits.length)
+            : digits;
+        };
+
+        const submissionData = {
+          name: rawData.name,
+          email: rawData.email,
+          website: rawData.website,
+          type: listingType,
+          bio: rawData.description,
+          description: rawData.description,
+          business_reg_num: rawData.business_reg_num,
+          primary_country_code: rawData.primary_country_code,
+          primary_phone: cleanPhone(
+            rawData.primary_phone,
+            rawData.primary_country_code,
+          ),
+          secondary_country_code: rawData.secondary_country_code,
+          secondary_phone: rawData.secondary_phone
+            ? cleanPhone(
+                rawData.secondary_phone,
+                rawData.secondary_country_code || "",
+              )
+            : "",
+          category_ids: rawData.category_ids.map((id) => Number(id)),
+        };
 
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         try {
           const endpoint = listingSlug
-            ? `${API_URL}/api/listing/${listingSlug}`
+            ? `${API_URL}/api/listing/${listingSlug}/update`
             : `${API_URL}/api/listing/profile`;
 
-          const method = listingSlug ? "PUT" : "POST";
+          const method = listingSlug ? "PATCH" : "POST";
 
           const res = await fetch(endpoint, {
             method,
@@ -256,19 +283,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               Accept: "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify(submissionData),
           });
 
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Submission failed");
-          }
-
           const json = await res.json();
-          return json.data || json; // Return success data
+          if (!res.ok) throw new Error(json.message || "Submission failed");
+          return json.data || json;
         } catch (error) {
-          const msg = error instanceof Error ? error.message : "Failed to save";
-          toast.error(msg);
+          toast.error(
+            error instanceof Error ? error.message : "Failed to save",
+          );
           return false;
         }
       },
@@ -282,8 +306,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             {listingType === "business"
               ? "Tell us about your business"
               : listingType === "event"
-              ? "Tell us about your event"
-              : "Tell us about your community"}
+                ? "Tell us about your event"
+                : "Tell us about your community"}
           </p>
         </div>
 
@@ -305,7 +329,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             placeholder={textConfig.namePlaceholder}
             className={cn(
               "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.name && "border-red-500 focus-visible:ring-red-500"
+              errors.name && "border-red-500 focus-visible:ring-red-500",
             )}
           />
           {errors.name && (
@@ -322,7 +346,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             placeholder="example@domain.com"
             className={cn(
               "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-              errors.email && "border-red-500 focus-visible:ring-red-500"
+              errors.email && "border-red-500 focus-visible:ring-red-500",
             )}
           />
           {errors.email && (
@@ -334,13 +358,38 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">Primary Phone *</label>
-            <Input
-              {...register("primary_phone")}
-              placeholder="+233 000 000 0000"
-              className={cn(
-                "h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-                errors.primary_phone &&
-                  "border-red-500 focus-visible:ring-red-500"
+            <Controller
+              name="primary_phone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  defaultCountry="gh"
+                  value={field.value ?? ""}
+                  onChange={(phone, meta) => {
+                    field.onChange(phone);
+                    const dialCode = meta.country.dialCode;
+                    setValue(
+                      "primary_country_code",
+                      dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
+                      { shouldValidate: true },
+                    );
+                  }}
+                  inputClassName={cn(
+                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
+                    errors.primary_phone && "border-red-500",
+                  )}
+                  className="w-full"
+                  countrySelectorStyleProps={{
+                    buttonStyle: {
+                      paddingLeft: "12px",
+                      paddingRight: "8px",
+                      height: "36px", // Matches h-10
+                      borderTopLeftRadius: "0.5rem",
+                      borderBottomLeftRadius: "0.5rem",
+                      borderColor: "#d1d5db",
+                    },
+                  }}
+                />
               )}
             />
             {errors.primary_phone && (
@@ -354,10 +403,41 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">
               Secondary Phone (Optional)
             </label>
-            <Input
-              {...register("secondary_phone")}
-              placeholder="+233 000 000 0000"
-              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
+            <Controller
+              name="secondary_phone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  defaultCountry="gh"
+                  value={field.value ?? ""}
+                  onChange={(phone, meta) => {
+                    field.onChange(phone); // Update the full string
+                    const dialCode = meta.country.dialCode;
+                    const formattedCode = dialCode.startsWith("+")
+                      ? dialCode
+                      : `+${dialCode}`;
+                    // Force the country code field to update based on the component's detection
+                    setValue("secondary_country_code", formattedCode, {
+                      shouldValidate: true,
+                    });
+                  }}
+                  inputClassName={cn(
+                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
+                    errors.primary_phone && "border-red-500",
+                  )}
+                  className="w-full"
+                  countrySelectorStyleProps={{
+                    buttonStyle: {
+                      paddingLeft: "12px",
+                      paddingRight: "8px",
+                      height: "36px", // Matches h-10
+                      borderTopLeftRadius: "0.5rem",
+                      borderBottomLeftRadius: "0.5rem",
+                      borderColor: "#d1d5db",
+                    },
+                  }}
+                />
+              )}
             />
           </div>
         </div>
@@ -385,7 +465,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(
                     "h-10 w-full rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
                     errors.category_ids &&
-                      "border-red-500 focus-visible:ring-red-500"
+                      "border-red-500 focus-visible:ring-red-500",
                   )}
                 >
                   <SelectValue
@@ -425,7 +505,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 {subCategories.map((subcategory) => {
                   // Use ID string comparison
                   const isSelected = currentCategoryIds.includes(
-                    subcategory.id.toString()
+                    subcategory.id.toString(),
                   );
                   return (
                     <button
@@ -439,7 +519,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                         "border hover:shadow-md flex items-center gap-2",
                         isSelected
                           ? "bg-[#93C01F] text-white border-[#93C01F]"
-                          : "bg-white text-gray-900 border-gray-300 hover:border-[#93C01F] hover:bg-[#F4F9E8]"
+                          : "bg-white text-gray-900 border-gray-300 hover:border-[#93C01F] hover:bg-[#F4F9E8]",
                       )}
                     >
                       {subcategory.name}
@@ -499,7 +579,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             placeholder={textConfig.descriptionPlaceholder}
             className={cn(
               "min-h-[140px] rounded-lg border-gray-300 p-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black resize-none",
-              errors.description && "border-red-500 focus-visible:ring-red-500"
+              errors.description && "border-red-500 focus-visible:ring-red-500",
             )}
           />
           {errors.description && (
@@ -510,7 +590,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 BasicInformationForm.displayName = "BasicInformationForm";

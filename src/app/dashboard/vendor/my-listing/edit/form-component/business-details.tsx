@@ -4,7 +4,7 @@ import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react";
+import { HelpCircle, MapPin } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams } from "next/navigation";
 
@@ -16,6 +16,14 @@ import {
 } from "@/components/dashboard/listing/business-hours";
 import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
+import { countries } from "country-data-list";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // --- Schema ---
 export const DetailsFormSchema = z.object({
@@ -30,7 +38,7 @@ export const DetailsFormSchema = z.object({
         startTime: z.string(),
         endTime: z.string(),
         enabled: z.boolean(),
-      })
+      }),
     )
     .min(1, "Hours are required"),
 });
@@ -129,9 +137,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     });
 
     useEffect(() => {
-        if (initialData) {
-            form.reset(initialData);
-        }
+      if (initialData) {
+        form.reset(initialData);
+      }
     }, [initialData, form]);
 
     const {
@@ -147,6 +155,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
+
+    const selectedCountryName = watch("country");
 
     const text = formTextConfig[listingType];
 
@@ -220,7 +230,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(detailsPayload),
-          }
+          },
         );
 
         const hoursReq = fetch(
@@ -233,7 +243,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(hoursPayload),
-          }
+          },
         );
 
         const [detailsRes, hoursRes] = await Promise.all([
@@ -317,10 +327,20 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.countryLabel}</label>
-            <Input
+            {/* <Input
               {...register("country")}
               placeholder="e.g., United States"
               className={cn(errors.country && "border-red-500")}
+            /> */}
+            <CountryDropdown
+              placeholder="Select your country"
+              defaultValue={
+                countries.all.find((c) => c.name === selectedCountryName)
+                  ?.alpha3
+              }
+              onChange={(country: Country) =>
+                setValue("country", country.name, { shouldValidate: true })
+              }
             />
             {errors.country && (
               <p className="text-red-500 text-xs">{errors.country.message}</p>
@@ -328,9 +348,42 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div className="space-y-1">
-            <label className="font-medium text-sm">
-              {text.googlePlusCodeLabel}
-            </label>
+            <div className="flex items-center gap-1.5">
+              <label className="font-medium text-sm">
+                {text.googlePlusCodeLabel}
+              </label>
+              {/* Tooltip Implementation */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <HelpCircle size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] p-3">
+                    <div className="space-y-2 text-xs">
+                      <p className="font-semibold">What is a Plus Code?</p>
+                      <p>
+                        It works like a street address. They can help you get
+                        and use a simple digital address.
+                      </p>
+                      <p className="font-semibold">How to find it:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Open Google Maps.</li>
+                        <li>Search for your location.</li>
+                        <li>Tap the location name/address.</li>
+                        <li>
+                          Look for the plus code icon (e.g., 849VCWC8+R9).
+                        </li>
+                      </ol>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Input
               {...register("google_plus_code")}
               placeholder="e.g., 849VCWC8+R9"
@@ -361,6 +414,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 BusinessDetailsForm.displayName = "BusinessDetailsForm";
