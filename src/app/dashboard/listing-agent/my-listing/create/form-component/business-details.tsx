@@ -6,7 +6,7 @@ import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react";
+import { HelpCircle, MapPin } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams } from "next/navigation";
 
@@ -26,40 +26,35 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
 
-/**
- * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
- * Required by backend format H:i
- */
+// --- Mapbox Imports Updated ---
+import {
+  AddressAutofill,
+  AddressMinimap,
+  useConfirmAddress,
+} from "@mapbox/search-js-react";
+
+
+
 const convertToHHmm = (time: string | undefined | null): string => {
   if (!time) return "09:00";
-
   const cleaned = time.trim().toUpperCase();
-
-  // Handle HH:mm:ss or HH:mm
   const timeMatch = cleaned.match(/^(\d{1,2}):(\d{2})/);
   if (timeMatch && !cleaned.includes("AM") && !cleaned.includes("PM")) {
     return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
   }
-
-  // Handle 12-hour format (hh:mm AM/PM)
   const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
   if (amPmMatch) {
     let hours = parseInt(amPmMatch[1]);
     const minutes = amPmMatch[2];
     const period = amPmMatch[3];
-
     if (period === "PM" && hours < 12) hours += 12;
     else if (period === "AM" && hours === 12) hours = 0;
-
     return `${hours.toString().padStart(2, "0")}:${minutes}`;
   }
-
-  return "09:00"; // Default fallback to prevent 422
+  return "09:00";
 };
 
-// --- Updated Schema ---
 export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
@@ -69,7 +64,6 @@ export const DetailsFormSchema = z.object({
     .array(
       z.object({
         day_of_week: z.string(),
-        // Schema now validates format after conversion
         startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
           message: "Format must be HH:mm (24h)",
         }),
@@ -81,8 +75,6 @@ export const DetailsFormSchema = z.object({
     )
     .min(1, "Hours are required"),
 });
-
-// --- END FIXED DATE/TIME LOGIC ---
 
 const formTextConfig = {
   business: {
@@ -121,6 +113,18 @@ type Props = {
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug }, ref) => {
     const searchParams = useSearchParams();
+    const [mounted, setMounted] = useState(false);
+    const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+
+    // --- Mapbox Confirmation Hook ---
+    const { formRef, showConfirm } = useConfirmAddress({
+      accessToken: MAPBOX_TOKEN,
+    });
+    const [minimapFeature, setMinimapFeature] = useState<any>();
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
     const form = useForm<DetailsFormValues>({
       resolver: zodResolver(DetailsFormSchema),
@@ -185,25 +189,20 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       formState: { errors },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
-
-    const [, setIsSaving] = useState(false);
-
+    const [isSaving, setIsSaving] = useState(false);
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
-
     const selectedCountryName = watch("country");
 
     useEffect(() => {
       const loadDetails = async () => {
         const effectiveSlug = listingSlug || searchParams.get("slug");
         if (!effectiveSlug) return;
-
         try {
           const token = localStorage.getItem("authToken");
           const API_URL =
             process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
           const res = await fetch(
             `${API_URL}/api/listing/${effectiveSlug}/show`,
             {
@@ -213,14 +212,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               },
             },
           );
-
           if (res.ok) {
             const json = await res.json();
             const d = json.data;
-
-            // Log this to verify the exact key names the backend is sending
-            // console.log("API RAW DATA:", d);
-
             const mappedHours = form
               .getValues("businessHours")
               .map((defaultDay) => {
@@ -228,7 +222,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 const apiDay = d.opening_hours?.find(
                   (h: any) => h.day_of_week?.toLowerCase() === defaultDayLower,
                 );
-
                 return apiDay
                   ? {
                       ...defaultDay,
@@ -238,9 +231,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     }
                   : { ...defaultDay, enabled: false };
               });
-
-            // FIXED RESET: Mapping keys explicitly
-            // Use fallbacks to ensure fields are never 'undefined'
             reset({
               address: d.address || d.location?.address || "",
               city: d.city || d.location?.city || "",
@@ -258,7 +248,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     }, [listingSlug, reset, searchParams, form]);
 
     const saveDataToApi = async () => {
-      // Re-format all times to ensure HH:mm before triggering validation
+      // 1. Mapbox Confirmation Modal (from Code A logic)
+      const result = await showConfirm();
+      if (result.type === "change") {
+        return false; // Stop submission to let user confirm suggested address
+      }
+
       const currentValues = form.getValues("businessHours");
       const sanitized = currentValues.map((h) => ({
         ...h,
@@ -275,30 +270,26 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
       const effectiveSlug = listingSlug || searchParams.get("slug");
       if (!effectiveSlug) return false;
-
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
         const data = form.getValues();
-
         const detailsPayload = {
           address: data.address,
           country: data.country,
           city: data.city,
           google_plus_code: data.google_plus_code,
         };
-
         const enabledHours = data.businessHours
           .filter((h: DaySchedule) => h.enabled)
           .map((h: DaySchedule) => ({
             day_of_week: h.day_of_week,
-            open_time: h.startTime, // Already sanitized to HH:mm
+            open_time: h.startTime,
             close_time: h.endTime,
           }));
 
-        // Try different payload structures based on backend strictness
         const detailsReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/update`,
           {
@@ -311,7 +302,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             body: JSON.stringify(detailsPayload),
           },
         );
-
         const hoursReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
           {
@@ -329,16 +319,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsReq,
           hoursReq,
         ]);
-
-        if (!detailsRes.ok || !hoursRes?.ok) {
-          const hoursError = !hoursRes.ok ? await hoursRes.json() : null;
-          if (hoursError?.errors) {
-            Object.entries(hoursError.errors).forEach(
-              ([key, val]: [string, any]) => toast.error(`${key}: ${val[0]}`),
-            );
-          }
-          throw new Error("Update failed");
-        }
+        if (!detailsRes.ok || !hoursRes?.ok) throw new Error("Update failed");
 
         setBusinessDetails({ ...businessDetails, ...data });
         toast.success("Details saved!");
@@ -356,8 +337,28 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       },
     }));
 
+    // --- Mapbox Handler Updated ---
+    const handleRetrieve = (res: any) => {
+      const feature = res.features[0];
+      if (feature) {
+        setMinimapFeature(feature); // For visual map
+        const placeName =
+          feature.properties.full_address || feature.properties.name || "";
+        const city = feature.properties.context?.place?.name || "";
+        const country = feature.properties.context?.country?.name || "";
+
+        setValue("address", placeName, { shouldValidate: true });
+        if (city) setValue("city", city, { shouldValidate: true });
+        if (country) setValue("country", country, { shouldValidate: true });
+      }
+    };
+
     return (
-      <div className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6">
+      <form
+        ref={formRef}
+        className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6"
+        onSubmit={(e) => e.preventDefault()}
+      >
         <div>
           <h2 className="text-2xl font-semibold">Details & Media</h2>
           <p className="text-sm text-gray-500 mt-1">{text.subtitle}</p>
@@ -367,14 +368,27 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.addressLabel}</label>
             <div className="relative">
-              <Input
-                {...register("address")}
-                placeholder={text.addressPlaceholder}
-                className={cn(errors.address && "border-red-500")}
-              />
+              {mounted && MAPBOX_TOKEN ? (
+                <AddressAutofill
+                  accessToken={MAPBOX_TOKEN}
+                  onRetrieve={handleRetrieve}
+                >
+                  <Input
+                    {...register("address")}
+                    autoComplete="shipping address-line1"
+                    placeholder={text.addressPlaceholder}
+                    className={cn(errors.address && "border-red-500")}
+                  />
+                </AddressAutofill>
+              ) : (
+                <Input
+                  {...register("address")}
+                  placeholder={text.addressPlaceholder}
+                />
+              )}
               <MapPin
                 size={18}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
               />
             </div>
             {errors.address && (
@@ -386,6 +400,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <label className="font-medium text-sm">{text.cityLabel}</label>
             <Input
               {...register("city")}
+              autoComplete="shipping address-level2"
               placeholder="e.g., Accra"
               className={cn(errors.city && "border-red-500")}
             />
@@ -395,15 +410,20 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
         </div>
 
+        {/* --- Minimap Implementation from Code A --- */}
+        {mounted && minimapFeature && (
+          <div className="h-48 w-full rounded-xl overflow-hidden border border-gray-100 shadow-inner">
+            <AddressMinimap
+              feature={minimapFeature}
+              show={!!minimapFeature}
+              accessToken={MAPBOX_TOKEN}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.countryLabel}</label>
-            {/* <Input
-              {...register("country")}
-              placeholder="e.g., Ghana"
-              className={cn(errors.country && "border-red-500")}
-            /> */}
-
             <CountryDropdown
               placeholder="Select your country"
               defaultValue={
@@ -420,14 +440,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div className="space-y-1">
-            <label className="font-medium text-sm">
-              {text.googlePlusCodeLabel}
-            </label>
             <div className="flex items-center gap-1.5">
               <label className="font-medium text-sm">
                 {text.googlePlusCodeLabel}
               </label>
-              {/* Tooltip Implementation */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -442,14 +458,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     <div className="space-y-2 text-xs">
                       <p className="font-semibold">What is a Plus Code?</p>
                       <p>
-                        It works like a street address. They can help you get
-                        and use a simple digital address.
+                        A simple digital address that works like a street
+                        address.
                       </p>
                       <p className="font-semibold">How to find it:</p>
                       <ol className="list-decimal list-inside space-y-1">
-                        <li>Open Google Maps.</li>
-                        <li>Search for your location.</li>
-                        <li>Tap the location name/address.</li>
+                        <li>Open Google Maps and tap your location.</li>
                         <li>
                           Look for the plus code icon (e.g., 849VCWC8+R9).
                         </li>
@@ -459,6 +473,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 </Tooltip>
               </TooltipProvider>
             </div>
+            <Input
+              {...register("google_plus_code")}
+              placeholder="e.g., 849VCWC8+R9"
+              className={cn(errors.google_plus_code && "border-red-500")}
+            />
             {errors.google_plus_code && (
               <p className="text-red-500 text-xs">
                 {errors.google_plus_code.message}
@@ -472,7 +491,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <BusinessHoursSelector
               value={currentHours}
               onChange={(val) => {
-                // Sanitization happens here so Zod stays happy
                 const formatted = val.map((d: DaySchedule) => ({
                   ...d,
                   startTime: convertToHHmm(d.startTime),
@@ -488,7 +506,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             )}
           </div>
         </div>
-      </div>
+      </form>
     );
   },
 );

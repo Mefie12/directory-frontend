@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
@@ -25,7 +27,33 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// --- Schema ---
+// --- Mapbox Imports Integrated from Code C ---
+import { AddressAutofill, AddressMinimap, useConfirmAddress } from "@mapbox/search-js-react";
+
+/**
+ * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
+ * Required by backend format H:i
+ */
+const convertToHHmm = (time: string | undefined | null): string => {
+  if (!time) return "09:00";
+  const cleaned = time.trim().toUpperCase();
+  const timeMatch = cleaned.match(/^(\d{1,2}):(\d{2})/);
+  if (timeMatch && !cleaned.includes("AM") && !cleaned.includes("PM")) {
+    return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
+  }
+  const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
+  if (amPmMatch) {
+    let hours = parseInt(amPmMatch[1]);
+    const minutes = amPmMatch[2];
+    const period = amPmMatch[3];
+    if (period === "PM" && hours < 12) hours += 12;
+    else if (period === "AM" && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+  }
+  return "09:00";
+};
+
+// --- Updated Schema matching Code C (Regex validation) ---
 export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
@@ -35,8 +63,12 @@ export const DetailsFormSchema = z.object({
     .array(
       z.object({
         day_of_week: z.string(),
-        startTime: z.string(),
-        endTime: z.string(),
+        startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+          message: "Format must be HH:mm (24h)",
+        }),
+        endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+          message: "Format must be HH:mm (24h)",
+        }),
         enabled: z.boolean(),
       }),
     )
@@ -81,6 +113,18 @@ type Props = {
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug, initialData }, ref) => {
     const searchParams = useSearchParams();
+    const [mounted, setMounted] = useState(false);
+    const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+
+    // --- Mapbox Logic from Code C ---
+    const { formRef, showConfirm } = useConfirmAddress({
+      accessToken: MAPBOX_TOKEN
+    });
+    const [minimapFeature, setMinimapFeature] = useState<any>();
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
     const form = useForm<DetailsFormValues>({
       resolver: zodResolver(DetailsFormSchema),
@@ -90,48 +134,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         city: "",
         google_plus_code: "",
         businessHours: [
-          {
-            day_of_week: "Monday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: true,
-          },
-          {
-            day_of_week: "Tuesday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: true,
-          },
-          {
-            day_of_week: "Wednesday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: true,
-          },
-          {
-            day_of_week: "Thursday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: true,
-          },
-          {
-            day_of_week: "Friday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: true,
-          },
-          {
-            day_of_week: "Saturday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: false,
-          },
-          {
-            day_of_week: "Sunday",
-            startTime: "09:00",
-            endTime: "17:00",
-            enabled: false,
-          },
+          { day_of_week: "Monday", startTime: "09:00", endTime: "17:00", enabled: true },
+          { day_of_week: "Tuesday", startTime: "09:00", endTime: "17:00", enabled: true },
+          { day_of_week: "Wednesday", startTime: "09:00", endTime: "17:00", enabled: true },
+          { day_of_week: "Thursday", startTime: "09:00", endTime: "17:00", enabled: true },
+          { day_of_week: "Friday", startTime: "09:00", endTime: "17:00", enabled: true },
+          { day_of_week: "Saturday", startTime: "09:00", endTime: "17:00", enabled: false },
+          { day_of_week: "Sunday", startTime: "09:00", endTime: "17:00", enabled: false },
         ],
       },
     });
@@ -142,151 +151,114 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       }
     }, [initialData, form]);
 
-    const {
-      register,
-      setValue,
-      watch,
-      trigger,
-      formState: { errors },
-    } = form;
+    const { register, setValue, watch, trigger, reset, formState: { errors } } = form;
     const { businessDetails, setBusinessDetails } = useListing();
-
-    const [, setIsSaving] = useState(false);
-
-    const currentHours =
-      (watch("businessHours") as unknown as DaySchedule[]) || [];
-
+    const [isSaving, setIsSaving] = useState(false);
+    const currentHours = (watch("businessHours") as unknown as DaySchedule[]) || [];
+    const text = formTextConfig[listingType];
     const selectedCountryName = watch("country");
 
-    const text = formTextConfig[listingType];
+    useEffect(() => {
+      const loadDetails = async () => {
+        const effectiveSlug = listingSlug || searchParams.get("slug");
+        if (!effectiveSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          const res = await fetch(`${API_URL}/api/listing/${effectiveSlug}/show`, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const d = json.data;
+            const mappedHours = form.getValues("businessHours").map((defaultDay) => {
+              const defaultDayLower = defaultDay.day_of_week.toLowerCase();
+              const apiDay = d.opening_hours?.find((h: any) => h.day_of_week?.toLowerCase() === defaultDayLower);
+              return apiDay ? { ...defaultDay, startTime: convertToHHmm(apiDay.open_time), endTime: convertToHHmm(apiDay.close_time), enabled: true } : { ...defaultDay, enabled: false };
+            });
+            reset({
+              address: d.address || d.location?.address || "",
+              city: d.city || d.location?.city || "",
+              country: d.country || d.location?.country || "Ghana",
+              google_plus_code: d.google_plus_code || d.location?.google_plus_code || "",
+              businessHours: mappedHours,
+            });
+          }
+        } catch (err) { console.error("Failed to load details:", err); }
+      };
+      loadDetails();
+    }, [listingSlug, reset, searchParams, form]);
 
-    // --- SHARED SAVE FUNCTION ---
+    // --- Save function logic matched to Code C ---
     const saveDataToApi = async () => {
+      // 1. Mapbox Confirmation (Logic from Code C)
+      const result = await showConfirm();
+      if (result.type === 'change') return false;
+
+      // 2. Sanitize Hours before validation (Logic from Code C)
+      const currentValues = form.getValues("businessHours");
+      const sanitized = currentValues.map((h) => ({ ...h, startTime: convertToHHmm(h.startTime), endTime: convertToHHmm(h.endTime) }));
+      setValue("businessHours", sanitized);
+
       const isValid = await trigger();
       if (!isValid) {
-        toast.error("Please fix errors in the form");
+        if (errors.businessHours) toast.error("Check time formats (HH:mm)");
         return false;
       }
 
       const effectiveSlug = listingSlug || searchParams.get("slug");
-
-      if (!effectiveSlug) {
-        toast.error("Missing listing identifier. Please restart from Step 1.");
-        return false;
-      }
-
+      if (!effectiveSlug) return false;
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        toast.error("Authentication required");
-        return false;
-      }
-
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
         const data = form.getValues();
+        
+        // Payload and Endpoint matched to Code C's logic
+        const detailsPayload = { address: data.address, country: data.country, city: data.city, google_plus_code: data.google_plus_code };
+        const enabledHours = data.businessHours.filter((h: DaySchedule) => h.enabled).map((h: DaySchedule) => ({ day_of_week: h.day_of_week, open_time: h.startTime, close_time: h.endTime }));
+        
+        const detailsReq = fetch(`${API_URL}/api/listing/${effectiveSlug}/update`, { 
+          method: "PATCH", 
+          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` }, 
+          body: JSON.stringify(detailsPayload) 
+        });
 
-        // Debug log
-        // console.log("Business hours data:", data.businessHours);
+        const hoursReq = fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, { 
+          method: "POST", 
+          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` }, 
+          body: JSON.stringify(enabledHours) 
+        });
 
-        // Payload matches your JSON structure
-        const detailsPayload = {
-          address: data.address,
-          country: data.country,
-          city: data.city,
-          google_plus_code: data.google_plus_code,
-        };
+        const [detailsRes, hoursRes] = await Promise.all([detailsReq, hoursReq]);
+        if (!detailsRes.ok || !hoursRes?.ok) throw new Error("Update failed");
 
-        // Hours payload - ONLY send enabled days with non-null values
-        const hoursPayload = data.businessHours
-          .filter((h: DaySchedule) => h.enabled)
-          .map((h: DaySchedule) => ({
-            day_of_week: h.day_of_week,
-            open_time: h.startTime,
-            close_time: h.endTime,
-          }));
-
-        console.log("Hours payload being sent:", hoursPayload);
-        console.log("Number of enabled days:", hoursPayload.length);
-
-        // Validate at least one day is enabled
-        if (hoursPayload.length === 0) {
-          toast.error("Please enable at least one day for business hours");
-          return false;
-        }
-
-        // Update Context
         setBusinessDetails({ ...businessDetails, ...data });
-
-        // API Calls
-        const detailsReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/address`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(detailsPayload),
-          },
-        );
-
-        const hoursReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(hoursPayload),
-          },
-        );
-
-        const [detailsRes, hoursRes] = await Promise.all([
-          detailsReq,
-          hoursReq,
-        ]);
-
-        if (!detailsRes.ok) {
-          const err = await detailsRes.json();
-          console.error("Details API error:", err);
-          throw new Error(err.message || "Failed to update details");
-        }
-
-        if (!hoursRes.ok) {
-          const err = await hoursRes.json();
-          console.error("Hours API error:", err);
-          console.error("Hours payload that failed:", hoursPayload);
-          throw new Error(err.message || "Failed to update opening hours");
-        }
-
-        const hoursResult = await hoursRes.json();
-        console.log("Hours API success response:", hoursResult);
-
-        toast.success("Business details saved successfully!");
+        toast.success("Details saved!");
         return true;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : "Update failed";
-        console.error("Save error:", error);
-        toast.error(msg);
-        return false;
-      } finally {
-        setIsSaving(false);
+      } catch (error) { return false; } finally { setIsSaving(false); }
+    };
+
+    useImperativeHandle(ref, () => ({ async submit() { return await saveDataToApi(); } }));
+
+    // --- Mapbox Retrieve logic matching Code C ---
+    const handleRetrieve = (res: any) => {
+      const feature = res.features[0];
+      if (feature) {
+        setMinimapFeature(feature);
+        const placeName = feature.properties.full_address || feature.properties.name || "";
+        const city = feature.properties.context?.place?.name || "";
+        const country = feature.properties.context?.country?.name || "";
+
+        setValue("address", placeName, { shouldValidate: true });
+        if (city) setValue("city", city, { shouldValidate: true });
+        if (country) setValue("country", country, { shouldValidate: true });
       }
     };
 
-    useImperativeHandle(ref, () => ({
-      async submit() {
-        return await saveDataToApi();
-      },
-    }));
-
     return (
-      <div className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6">
+      <form ref={formRef} className="w-full max-w-5xl space-y-6 mx-auto p-0.5 lg:p-6" onSubmit={(e) => e.preventDefault()}>
         <div>
           <h2 className="text-2xl font-semibold">Details & Media</h2>
           <p className="text-sm text-gray-500 mt-1">{text.subtitle}</p>
@@ -296,88 +268,73 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.addressLabel}</label>
             <div className="relative">
-              <Input
-                {...register("address")}
-                placeholder={text.addressPlaceholder}
-                className={cn(errors.address && "border-red-500")}
-              />
-              <MapPin
-                size={18}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-              />
+              {mounted && MAPBOX_TOKEN ? (
+                <AddressAutofill accessToken={MAPBOX_TOKEN} onRetrieve={handleRetrieve}>
+                  <Input
+                    {...register("address")}
+                    autoComplete="shipping address-line1"
+                    placeholder={text.addressPlaceholder}
+                    className={cn(errors.address && "border-red-500")}
+                  />
+                </AddressAutofill>
+              ) : (
+                <Input {...register("address")} placeholder={text.addressPlaceholder} />
+              )}
+              <MapPin size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
-            {errors.address && (
-              <p className="text-red-500 text-xs">{errors.address.message}</p>
-            )}
+            {errors.address && <p className="text-red-500 text-xs">{errors.address.message}</p>}
           </div>
 
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.cityLabel}</label>
             <Input
               {...register("city")}
-              placeholder="e.g., San Francisco"
+              autoComplete="shipping address-level2"
+              placeholder="e.g., Accra"
               className={cn(errors.city && "border-red-500")}
             />
-            {errors.city && (
-              <p className="text-red-500 text-xs">{errors.city.message}</p>
-            )}
+            {errors.city && <p className="text-red-500 text-xs">{errors.city.message}</p>}
           </div>
         </div>
+
+        {/* --- Minimap Implementation from Code C --- */}
+        {mounted && minimapFeature && (
+          <div className="h-48 w-full rounded-xl overflow-hidden border border-gray-100 shadow-inner">
+            <AddressMinimap
+              feature={minimapFeature}
+              show={!!minimapFeature}
+              accessToken={MAPBOX_TOKEN}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">{text.countryLabel}</label>
-            {/* <Input
-              {...register("country")}
-              placeholder="e.g., United States"
-              className={cn(errors.country && "border-red-500")}
-            /> */}
             <CountryDropdown
               placeholder="Select your country"
-              defaultValue={
-                countries.all.find((c) => c.name === selectedCountryName)
-                  ?.alpha3
-              }
-              onChange={(country: Country) =>
-                setValue("country", country.name, { shouldValidate: true })
-              }
+              defaultValue={countries.all.find((c) => c.name === selectedCountryName)?.alpha3}
+              onChange={(country: Country) => setValue("country", country.name, { shouldValidate: true })}
             />
-            {errors.country && (
-              <p className="text-red-500 text-xs">{errors.country.message}</p>
-            )}
+            {errors.country && <p className="text-red-500 text-xs">{errors.country.message}</p>}
           </div>
 
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
-              <label className="font-medium text-sm">
-                {text.googlePlusCodeLabel}
-              </label>
-              {/* Tooltip Implementation */}
+              <label className="font-medium text-sm">{text.googlePlusCodeLabel}</label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <HelpCircle size={14} />
-                    </button>
+                    <button type="button" className="text-gray-400 hover:text-gray-600 transition-colors"><HelpCircle size={14} /></button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[280px] p-3">
                     <div className="space-y-2 text-xs">
                       <p className="font-semibold">What is a Plus Code?</p>
-                      <p>
-                        It works like a street address. They can help you get
-                        and use a simple digital address.
-                      </p>
+                      <p>A simple digital address that works like a street address.</p>
                       <p className="font-semibold">How to find it:</p>
                       <ol className="list-decimal list-inside space-y-1">
-                        <li>Open Google Maps.</li>
-                        <li>Search for your location.</li>
-                        <li>Tap the location name/address.</li>
-                        <li>
-                          Look for the plus code icon (e.g., 849VCWC8+R9).
-                        </li>
+                        <li>Open Google Maps and tap your location.</li>
+                        <li>Look for the plus code icon (e.g., 849VCWC8+R9).</li>
                       </ol>
                     </div>
                   </TooltipContent>
@@ -389,11 +346,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               placeholder="e.g., 849VCWC8+R9"
               className={cn(errors.google_plus_code && "border-red-500")}
             />
-            {errors.google_plus_code && (
-              <p className="text-red-500 text-xs">
-                {errors.google_plus_code.message}
-              </p>
-            )}
+            {errors.google_plus_code && <p className="text-red-500 text-xs">{errors.google_plus_code.message}</p>}
           </div>
         </div>
 
@@ -401,19 +354,22 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div>
             <BusinessHoursSelector
               value={currentHours}
-              onChange={(val) =>
-                setValue("businessHours", val, { shouldValidate: true })
-              }
+              onChange={(val) => {
+                // Santization logic from Code C ensures Zod validation passes
+                const formatted = val.map((d: DaySchedule) => ({ 
+                  ...d, 
+                  startTime: convertToHHmm(d.startTime), 
+                  endTime: convertToHHmm(d.endTime) 
+                }));
+                setValue("businessHours", formatted, { shouldValidate: true });
+              }}
             />
-            {errors.businessHours && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.businessHours.message}
-              </p>
-            )}
+            {errors.businessHours && <p className="text-red-500 text-xs mt-1">Please check time format (HH:mm)</p>}
           </div>
         </div>
-      </div>
+      </form>
     );
   },
 );
+
 BusinessDetailsForm.displayName = "BusinessDetailsForm";

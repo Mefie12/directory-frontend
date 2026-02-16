@@ -3,35 +3,45 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import dynamic from "next/dynamic"; // 1. Added dynamic import
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
 import { ListingProvider, useListing } from "@/context/listing-form-context";
 
-// Child Forms (Ensure these imports match your file structure)
+// Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
-import { BusinessDetailsForm } from "./form-component/business-details";
+// 2. Replaced static import with dynamic client-only import
+const BusinessDetailsForm = dynamic(
+  () => import("./form-component/business-details").then((mod) => mod.BusinessDetailsForm),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+);
+
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
 
 import { useAuth } from "@/context/auth-context";
 import ClaimStatus from "@/components/verify/claim-status";
-// import { toast } from "sonner";
 
 export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
 }
 
-// 1. Internal Logic Component (Uses SearchParams)
+// Internal Logic Component
 function ManualLisitingForm() {
   const router = useRouter();
-
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
-  const { listingType, currentStep, setCurrentStep, setListingType } =
-    useListing();
+  const { listingType, currentStep, setCurrentStep, setListingType } = useListing();
 
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
@@ -39,26 +49,15 @@ function ManualLisitingForm() {
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
 
-  // --- Auth Protection Effect ---
   useEffect(() => {
-    if (authLoading) return; // Still loading auth state
+    if (authLoading) return;
     if (!user) {
-      // Redirect with return URL so they come back here after login
       router.push(
         `/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
       );
     }
-    // } else {
-    //   const userRole = user.role?.toLowerCase(); //if standard user or someone else tries to access it, send them home
-    //   if (userRole !== "vendor" && userRole !== "admin") {
-    //     toast.error("You do not have permission to access the listing creator.");
-    //     router.push("/dashboard"); // Send to their default dashboard surface
-    //   }
-    // }
   }, [user, authLoading, router]);
- 
 
-  // Initialize Type from URL
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -84,20 +83,12 @@ function ManualLisitingForm() {
     }
 
     if (!formRef.current) return;
-
     setIsSaving(true);
 
     try {
       const result = await formRef.current.submit();
-
       if (result) {
-        if (
-          currentStep === 1 &&
-          typeof result === "object" &&
-          result !== null &&
-          "slug" in result
-        ) {
-          // Cast strictly if you know the shape, or use unknown check
+        if (currentStep === 1 && typeof result === "object" && result !== null && "slug" in result) {
           setListingSlug((result as { slug: string }).slug);
         }
         setCurrentStep(currentStep + 1);
@@ -132,13 +123,11 @@ function ManualLisitingForm() {
       case 5:
         return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
       case 6:
-        // Pass a mock object or data derived from state for the success view
         return (
           <ClaimStatus
             business={{
               name: "Your New Listing",
               address: "Pending Review",
-              // You can pass the slug here if needed by the component
             }}
           />
         );
@@ -163,7 +152,7 @@ function ManualLisitingForm() {
             <div className="hidden lg:block">
               <StepNavigation
                 currentStep={currentStep}
-                onStepClick={() => {}} // Optional: Allow clicking steps to navigate if validated
+                onStepClick={() => {}}
                 listingType={listingType}
               />
             </div>
@@ -176,15 +165,10 @@ function ManualLisitingForm() {
       </div>
 
       <div className="bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-0">
-        <div className="flex justify-between  mx-auto lg:px-8 lg:py-6">
+        <div className="flex justify-between mx-auto lg:px-8 lg:py-6">
           <div>
             {currentStep > 1 && (
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={isSaving}
-                className="w-24"
-              >
+              <Button variant="outline" onClick={handleBack} disabled={isSaving} className="w-24">
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
             )}
@@ -193,7 +177,7 @@ function ManualLisitingForm() {
           <Button
             onClick={handleNext}
             disabled={isSaving}
-            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px] "
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
           >
             {isSaving ? (
               <>
@@ -216,7 +200,6 @@ function ManualLisitingForm() {
   );
 }
 
-// 2. Default Page Export with Suspense Boundary
 export default function CreateListingPage() {
   return (
     <ListingProvider>
@@ -225,9 +208,7 @@ export default function CreateListingPage() {
           fallback={
             <div className="h-[50vh] flex flex-col items-center justify-center gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-[#93C01F]" />
-              <p className="text-gray-500 font-medium">
-                Initializing editor...
-              </p>
+              <p className="text-gray-500 font-medium">Initializing editor...</p>
             </div>
           }
         >
