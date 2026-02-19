@@ -72,8 +72,9 @@ export default function Navbar() {
         return "/dashboard/admin";
       case "user":
         return "/dashboard/customer/bookmarks";
+      case "listing_agent":
       case "agent":
-        return "/dashboard/listing-agent/my-listings";
+        return "/dashboard/listing-agent/my-listing";
       default:
         return "/dashboard";
     }

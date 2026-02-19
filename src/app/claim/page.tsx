@@ -18,7 +18,6 @@ import {
   Building2,
   CalendarDays,
   Users,
-  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,7 +43,7 @@ interface Business {
   id: string;
   name: string;
   address: string;
-  distance?: string; // Optional: Backend might calculate this based on user coords
+  distance?: string;
   type: string;
   status: "claimable" | "claimed" | "pending";
   images?: (ApiImage | string)[];
@@ -61,17 +60,13 @@ export default function ClaimPage() {
   const [results, setResults] = useState<Business[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   // --- Helper: Get Full Image URL ---
   const getImageUrl = (
     imageEntry: ApiImage | string | undefined | null,
   ): string => {
     if (!imageEntry) return "/images/placeholders/generic.jpg";
-
     let url = "";
-
-    // Handle object vs string
     if (
       typeof imageEntry === "object" &&
       imageEntry !== null &&
@@ -81,15 +76,8 @@ export default function ClaimPage() {
     } else if (typeof imageEntry === "string") {
       url = imageEntry;
     }
-
     if (!url) return "/images/placeholders/generic.jpg";
-
-    // Return as-is if absolute URL
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      return url;
-    }
-
-    // Append API base URL if relative
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     return `${API_URL}/${url.replace(/^\//, "")}`;
   };
@@ -97,7 +85,7 @@ export default function ClaimPage() {
   // --- Auth Protection ---
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/auth/login"); // Adjust to your actual login route
+      router.push("/auth/login");
     }
   }, [user, authLoading, router]);
 
@@ -106,7 +94,6 @@ export default function ClaimPage() {
     const nameTrimmed = nameQuery.trim();
     const locationTrimmed = locationQuery.trim();
 
-    // Condition: Only search if the name/query field has 4 or more characters
     if (nameTrimmed.length < 4) {
       if (hasSearched) {
         setResults([]);
@@ -121,42 +108,25 @@ export default function ClaimPage() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const token = localStorage.getItem("authToken");
-
       const url = new URL(`${API_URL}/api/search`);
-
-      // Use 'q' as the primary search parameter
       url.searchParams.append("q", nameTrimmed);
-
-      // If your backend also supports location as a separate filter:
-      if (locationTrimmed) {
-        url.searchParams.append("location", locationTrimmed);
-      }
+      if (locationTrimmed) url.searchParams.append("location", locationTrimmed);
 
       const headers: HeadersInit = {
         Accept: "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
       };
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers,
-      });
-
+      const response = await fetch(url.toString(), { method: "GET", headers });
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.message || `Error ${response.status}: Failed to fetch`,
-        );
-      }
-
+      if (!response.ok) throw new Error(data.message || "Failed to fetch");
       const businesses = Array.isArray(data) ? data : data.data || [];
       setResults(businesses);
     } catch (error: any) {
       console.error("Search error:", error);
-      if (error.name !== "AbortError") {
-        toast.error(error.message || "Failed to search businesses.");
-      }
+      if (error.name !== "AbortError")
+        toast.error("Failed to search businesses.");
       setResults([]);
     } finally {
       setIsSearching(false);
@@ -170,7 +140,6 @@ export default function ClaimPage() {
     return () => clearTimeout(timer);
   }, [nameQuery, locationQuery, searchBusinesses]);
 
-  // --- Helpers ---
   const getBusinessIcon = (type: string) => {
     switch (type) {
       case "coffee":
@@ -178,7 +147,7 @@ export default function ClaimPage() {
       case "roastery":
         return <ChefHat className="w-6 h-6 text-slate-700" />;
       case "express":
-        return <BadgeCheck className="w-6 h-6 text-gray-400" />; // Gray for claimed
+        return <BadgeCheck className="w-6 h-6 text-gray-400" />;
       case "bakery":
         return <Croissant className="w-6 h-6 text-slate-700" />;
       default:
@@ -186,47 +155,14 @@ export default function ClaimPage() {
     }
   };
 
-  // --- Claim Logic ---
-  const handleClaim = async (business: Business) => {
-    setClaimingId(business.id);
-
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const token = localStorage.getItem("authToken");
-
-      // Use business.slug if available, otherwise fallback to id
-      const identifier = business.slug || business.id;
-      const url = `${API_URL}/api/listing/${identifier}/claim`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to initiate claim");
-      }
-
-      toast.success("Claim initiated! Please verify your listing.");
-
-      // Navigate to next step with the identifier
-      router.push(`/claim/${identifier}/verify`);
-    } catch (error: any) {
-      console.error("Claim error:", error);
-      toast.error(error.message || "Something went wrong. Please try again.");
-    } finally {
-      setClaimingId(null);
-    }
+  // --- Claim Logic (Modified: Routing only) ---
+  const handleClaim = (business: Business) => {
+    const identifier = business.slug || business.id;
+    // Navigate directly to the verify page
+    router.push(`/claim/${identifier}/verify`);
   };
 
   const handleManualAdd = (type: string) => {
-    // Routes to the manual claim page with the selected type query parameter
     router.push(`/claim/manual?type=${type}`);
   };
 
@@ -242,7 +178,6 @@ export default function ClaimPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <div className="max-w-3xl mx-auto px-4 pt-8 pb-6 bg-white">
         <div className="flex items-center gap-4 mb-8 mt-20">
           <button
@@ -256,7 +191,6 @@ export default function ClaimPage() {
           </h1>
         </div>
 
-        {/* Search Inputs */}
         <div className="space-y-4">
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -284,8 +218,7 @@ export default function ClaimPage() {
         </div>
       </div>
 
-      {/* Search results */}
-      <div className="bg-gray-100  min-h-screen border-t border-gray-200">
+      <div className="bg-gray-100 min-h-screen border-t border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="mt-10 mb-4 flex items-center gap-3">
             <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
@@ -293,17 +226,15 @@ export default function ClaimPage() {
             </span>
             <Badge
               variant="secondary"
-              className="bg-slate-200 text-slate-600 hover:bg-slate-200 px-2.5 rounded-full text-xs font-semibold"
+              className="bg-slate-200 text-slate-600 px-2.5 rounded-full text-xs font-semibold"
             >
               {results.length} found
             </Badge>
             <div className="h-px bg-gray-100 flex-1 ml-2"></div>
           </div>
 
-          {/* Results List */}
           <div className="space-y-4">
             {isSearching ? (
-              // Loading Skeleton
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
                   <div
@@ -315,77 +246,55 @@ export default function ClaimPage() {
             ) : results.length > 0 ? (
               results.map((business) => {
                 const isClaimed = business.status === "claimed";
+                const displayImage =
+                  business.images && business.images.length > 0
+                    ? getImageUrl(business.images[0])
+                    : null;
 
-                const hasImage = business.images && business.images.length > 0;
-                const displayImage = hasImage
-                  ? getImageUrl(business.images![0])
-                  : null;
-                const isThisClaiming = claimingId === business.id;
                 return (
                   <div
                     key={business.id}
                     className={`flex items-center justify-between px-4 py-4 rounded-2xl border transition-all ${
                       isClaimed
                         ? "bg-gray-50 border-gray-200 border-dashed opacity-75"
-                        : "bg-white border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300"
+                        : "bg-white border-gray-200 shadow-sm hover:shadow-md"
                     }`}
                   >
                     <div className="flex items-center gap-5">
-                      {/* Icon or Image Logic */}
-                      <div
-                        className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border ${
-                          isClaimed
-                            ? "bg-gray-100 border-gray-200"
-                            : "bg-white border-gray-100"
-                        }`}
-                      >
+                      <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border">
                         {displayImage ? (
                           <div className="relative w-full h-full">
                             <Image
                               src={displayImage}
                               alt={business.name}
                               fill
-                              className={`object-cover w-full h-full ${
-                                isClaimed ? "grayscale opacity-50" : ""
-                              }`}
+                              className={`object-cover ${isClaimed ? "grayscale opacity-50" : ""}`}
                             />
                           </div>
                         ) : (
                           getBusinessIcon(business.type)
                         )}
                       </div>
-
-                      {/* Text Details */}
                       <div>
                         <h3
-                          className={`font-bold text-lg ${
-                            isClaimed ? "text-gray-500" : "text-slate-900"
-                          }`}
+                          className={`font-bold text-lg ${isClaimed ? "text-gray-500" : "text-slate-900"}`}
                         >
                           {business.name}
                         </h3>
                         <p className="text-gray-500 text-sm mt-0.5">
                           {business.address}
                         </p>
-
                         <div className="flex items-center gap-2 mt-2">
-                          {/* Type Badge */}
                           <Badge
                             variant="outline"
-                            className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500 bg-slate-50"
+                            className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border-slate-200 text-slate-500 bg-slate-50"
                           >
                             {business.type}
                           </Badge>
-
-                          {/* Distance Badge */}
                           {business.distance && (
                             <Badge
                               variant="secondary"
-                              className={`rounded-md font-semibold text-[10px] px-2 py-0.5 ${
-                                isClaimed
-                                  ? "bg-gray-200 text-gray-500"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
+                              className="rounded-md font-semibold text-[10px] px-2 py-0.5"
                             >
                               {business.distance}
                             </Badge>
@@ -394,7 +303,6 @@ export default function ClaimPage() {
                       </div>
                     </div>
 
-                    {/* Action Button */}
                     <div>
                       {isClaimed ? (
                         <div className="px-4 py-2">
@@ -402,15 +310,10 @@ export default function ClaimPage() {
                         </div>
                       ) : (
                         <Button
-                          disabled={isThisClaiming}
                           onClick={() => handleClaim(business)}
                           className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium min-w-[100px]"
                         >
-                          {isThisClaiming ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            "Claim"
-                          )}
+                          Claim
                         </Button>
                       )}
                     </div>
@@ -434,7 +337,6 @@ export default function ClaimPage() {
             )}
           </div>
 
-          {/* Footer / Add Manual */}
           <div className="mt-16 mb-10 text-center">
             <p className="text-gray-500 mb-4 text-sm">
               Don&apos;t see your listing in our directory?
@@ -443,10 +345,9 @@ export default function ClaimPage() {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white cursor-pointer transition-all"
+                  className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white transition-all"
                 >
-                  <Plus className="w-5 h-5" />
-                  Add it manually
+                  <Plus className="w-5 h-5" /> Add it manually
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md bg-white border-0 rounded-2xl shadow-xl">
@@ -479,7 +380,7 @@ export default function ClaimPage() {
                     <button
                       key={item.id}
                       onClick={() => handleManualAdd(item.id)}
-                      className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all text-left group cursor-pointer"
+                      className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all text-left group"
                     >
                       <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 group-hover:border-[#93C01F] transition-colors">
                         <item.icon className="w-5 h-5 text-gray-500 group-hover:text-[#93C01F]" />

@@ -12,11 +12,37 @@ export default function VerifyEmail({ business, onNext }: any) {
 
   const handleSendCode = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const token = localStorage.getItem("authToken");
+
+      const response = await fetch(`${API_URL}/api/verify_user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: business.email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || "Verification code sent!");
+        onNext();
+      } else {
+        throw new Error(data.message || "Failed to send verification code.");
+      }
+    } catch (error: any) {
+      console.error("Verification error:", error);
+      toast.error(error.message || "Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
-      toast.success("Verification code sent!");
-      onNext();
-    }, 1500);
+    }
   };
 
   return (

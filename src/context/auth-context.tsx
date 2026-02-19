@@ -9,6 +9,7 @@ import {
 } from "react";
 
 interface User {
+  id: string;
   phone: string;
   last_name: string;
   first_name: string;
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // console.log("🔍 Extracted raw user data:", raw);
 
         const mappedUser: User = {
+          id: raw?.id || "",
           name:
             raw?.name ||
             raw?.username ||

@@ -9,13 +9,13 @@ import {
   Upload,
   CheckCircle2,
   ArrowRight,
-  ChevronDown,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "../ui/textarea";
+import { Input } from "@/components/ui/input"; // Ensure you have this import
 import {
   Select,
   SelectContent,
@@ -28,9 +28,11 @@ export default function ClaimSubmission({ business, onNext }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [method, setMethod] = useState<"documents" | "email">("documents");
   const [file, setFile] = useState<string | null>(null);
+  const [fileObject, setFileObject] = useState<File | null>(null); // Store the actual File object
   const [role, setRole] = useState("Owner");
+  const [businessEmail, setBusinessEmail] = useState(""); // State for email input
+  const [notes, setNotes] = useState("");
 
-  // Ref for the hidden file input
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
@@ -40,35 +42,106 @@ export default function ClaimSubmission({ business, onNext }: any) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Basic validation (example: max 10MB)
       if (selectedFile.size > 10 * 1024 * 1024) {
         toast.error("File is too large. Max 10MB allowed.");
         return;
       }
       setFile(selectedFile.name);
+      setFileObject(selectedFile); // Save the file object for the API
       toast.success("File uploaded successfully");
     }
   };
 
   const handleRemoveFile = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering upload click if nested
+    e.stopPropagation();
     setFile(null);
+    setFileObject(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleSubmit = () => {
-    if (!file && method === "documents") {
+  const handleSubmit = async () => {
+    const slug = business.slug || business.id;
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+    const token = localStorage.getItem("authToken");
+
+    // --- Validation ---
+    if (method === "documents" && !fileObject) {
       toast.error("Please upload a document to proceed.");
+      return;
+    }
+    if (method === "email" && !businessEmail) {
+      toast.error("Please enter your business email.");
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      if (method === "email") {
+        // --- API Integration for Email Claim ---
+        const response = await fetch(
+          `${API_URL}/api/listing/${slug}/claim_by_email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              email: businessEmail,
+              role: role,
+            }),
+          },
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          toast.success(data.message || "Verification code sent!");
+          onNext();
+        } else {
+          throw new Error(
+            data.message || "Failed to initiate email verification.",
+          );
+        }
+      } else {
+        // --- API Integration for Document Submission ---
+        const url = `${API_URL}/api/listing/${slug}/claim`;
+
+        const body = new FormData();
+        if (fileObject) {
+          body.append("document", fileObject);
+        }
+        body.append("role", role);
+        if (notes) body.append("notes", notes);
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            // Note: Don't set Content-Type for FormData, browser does it automatically with the boundary
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body,
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          toast.success(data.message || "Evidence submitted for review.");
+          onNext();
+        } else {
+          throw new Error(data.message || "Failed to submit document claim.");
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong.");
+    } finally {
       setIsLoading(false);
-      onNext();
-    }, 1500);
+    }
   };
 
   return (
@@ -84,7 +157,7 @@ export default function ClaimSubmission({ business, onNext }: any) {
         </div>
         <div className="w-16 h-12 bg-gray-700 rounded-md overflow-hidden relative border border-gray-600">
           <Image
-            src={business.image}
+            src={business.image || "/images/placeholders/generic.jpg"}
             alt="Business"
             fill
             className="object-cover"
@@ -98,13 +171,10 @@ export default function ClaimSubmission({ business, onNext }: any) {
           <span className="w-5 h-5 rounded-full bg-[#1F3A4C]/10 text-[#1F3A4C] flex items-center justify-center text-xs font-bold">
             01
           </span>
-          <h4 className="font-bold text-[#1F3A4C]">
-            Your Role at this Business
-          </h4>
+          <h4 className="font-bold text-[#1F3A4C]">Your Role</h4>
         </div>
-        <div className="relative">
-          <Select value={role} onValueChange={setRole}>
-          <SelectTrigger className="w-full h-12 bg-white border border-gray-200 rounded-lg px-4 py-3.5 text-gray-700 font-medium focus:ring-2 focus:ring-[#93C01F] shadow-xs">
+        <Select value={role} onValueChange={setRole}>
+          <SelectTrigger className="w-full h-12 bg-white border border-gray-200 rounded-lg px-4 font-medium shadow-xs">
             <SelectValue placeholder="Select your role" />
           </SelectTrigger>
           <SelectContent>
@@ -113,11 +183,6 @@ export default function ClaimSubmission({ business, onNext }: any) {
             <SelectItem value="Employee">Employee</SelectItem>
           </SelectContent>
         </Select>
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-        </div>
-        <p className="text-xs text-gray-500 mt-2 italic">
-          Providing an accurate role helps us route your verification faster.
-        </p>
       </div>
 
       {/* 02 Verification Method */}
@@ -155,64 +220,70 @@ export default function ClaimSubmission({ business, onNext }: any) {
         </div>
       </div>
 
-      {/* 03 Evidence Upload */}
+      {/* 03 Conditional Input Section */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-5 h-5 rounded-full bg-[#1F3A4C]/10 text-[#1F3A4C] flex items-center justify-center text-xs font-bold">
             03
           </span>
-          <h4 className="font-bold text-[#1F3A4C]">Evidence Upload</h4>
+          <h4 className="font-bold text-[#1F3A4C]">
+            {method === "documents"
+              ? "Evidence Upload"
+              : "Verify Email Address"}
+          </h4>
         </div>
 
-        {/* Hidden File Input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png"
-        />
-
-        {/* Upload Area Trigger */}
-        {!file && (
-          <div
-            onClick={handleUploadClick}
-            className="border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 hover:border-[#93C01F]/50 transition-colors mb-3 group"
-          >
-            <div className="w-12 h-12 bg-[#1F3A4C]/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-[#93C01F]/10 transition-colors">
-              <Upload className="w-6 h-6 text-[#1F3A4C] group-hover:text-[#93C01F] transition-colors" />
-            </div>
-            <p className="text-sm font-bold text-gray-900">
-              Tap to upload files
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              PDF, JPG, PNG (Max 10MB)
-            </p>
-          </div>
-        )}
-
-        {/* Uploaded File Banner */}
-        {file && (
-          <div className="bg-[#1F3A4C] rounded-lg p-3 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded bg-white/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-[#93C01F]" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white leading-none truncate max-w-[200px]">
-                  {file}
+        {method === "documents" ? (
+          <>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png"
+            />
+            {!file ? (
+              <div
+                onClick={handleUploadClick}
+                className="border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-100 transition-colors"
+              >
+                <Upload className="w-6 h-6 text-[#1F3A4C] mb-3" />
+                <p className="text-sm font-bold text-gray-900">
+                  Tap to upload files
                 </p>
-                <p className="text-[10px] text-[#93C01F] font-bold mt-1">
-                  UPLOADED SUCCESSFULLY
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, JPG, PNG (Max 10MB)
                 </p>
               </div>
-            </div>
-            <button
-              onClick={handleRemoveFile}
-              className="text-gray-400 hover:text-white transition-colors p-1"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            ) : (
+              <div className="bg-[#1F3A4C] rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-[#93C01F]" />
+                  <p className="text-sm font-bold text-white truncate max-w-[200px]">
+                    {file}
+                  </p>
+                </div>
+                <button
+                  onClick={handleRemoveFile}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="e.g. contact@business.com"
+              value={businessEmail}
+              onChange={(e) => setBusinessEmail(e.target.value)}
+              className="h-12 border-gray-200 focus:ring-[#93C01F] rounded-lg"
+            />
+            <p className="text-xs text-gray-500 italic">
+              We will send a verification code to this address.
+            </p>
           </div>
         )}
       </div>
@@ -226,24 +297,24 @@ export default function ClaimSubmission({ business, onNext }: any) {
           <h4 className="font-bold text-[#1F3A4C]">Evidence Notes</h4>
         </div>
         <Textarea
-          placeholder="Provide any additional context or details about your evidence..."
-          className="w-full h-24 bg-white border border-gray-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#93C01F] resize-none shadow-none"
+          placeholder="Provide any additional context..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full h-24 rounded-xl p-4 text-sm focus:ring-[#93C01F] resize-none"
         />
-        <p className="text-right text-[10px] text-gray-400 mt-1 font-medium">
-          0/500 CHARACTERS
-        </p>
       </div>
 
       <Button
         onClick={handleSubmit}
-        disabled={isLoading || (!file && method === "documents")}
-        className="w-full bg-[#93C01F] hover:bg-[#7ea919] text-white h-12 text-base font-medium rounded-lg flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+        disabled={isLoading}
+        className="w-full bg-[#93C01F] hover:bg-[#7ea919] text-white h-12 text-base font-medium rounded-lg flex items-center justify-center gap-2"
       >
         {isLoading ? (
           <Loader2 className="animate-spin" />
         ) : (
           <>
-            Submit Evidence <ArrowRight className="w-5 h-5" />
+            {method === "email" ? "Send Code & Continue" : "Submit Evidence"}
+            <ArrowRight className="w-5 h-5" />
           </>
         )}
       </Button>

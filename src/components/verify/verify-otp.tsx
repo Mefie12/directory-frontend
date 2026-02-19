@@ -47,7 +47,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
 
       // API Cross-check: URL must include the identifier and use POST
       const response = await fetch(
-        `${API_URL}/api/listing/${listingIdentifier}/verify_claim`,
+        `${API_URL}/api/listing/${listingIdentifier}/verify_claim_by_email `,
         {
           method: "POST",
           headers: {
