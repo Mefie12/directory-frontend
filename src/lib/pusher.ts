@@ -15,8 +15,8 @@ class PusherService {
     this.userId = userId;
 
     // Initialize Pusher
-    this.pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER!,
+    this.pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY! || "f6310d64ef8e198f63e4", {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER! || "mt1",
       forceTLS: true,
       authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/broadcasting/auth`,
     });
