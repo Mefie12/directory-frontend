@@ -114,7 +114,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
-    const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "pk.eyJ1IjoiZmFyZmV0dC10ZWNoIiwiYSI6ImNtbDZlbzY3eTBid2szZXF3ODN1c3pmd2QifQ.DiP5jDE4e6aO2bCvxisdFg";
+    const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
     // --- Mapbox Confirmation Hook ---
     const { formRef, showConfirm } = useConfirmAddress({
