@@ -219,8 +219,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const detailsPayload = { address: data.address, country: data.country, city: data.city, google_plus_code: data.google_plus_code };
         const enabledHours = data.businessHours.filter((h: DaySchedule) => h.enabled).map((h: DaySchedule) => ({ day_of_week: h.day_of_week, open_time: h.startTime, close_time: h.endTime }));
         
-        const detailsReq = fetch(`${API_URL}/api/listing/${effectiveSlug}/update`, { 
-          method: "PATCH", 
+        const detailsReq = fetch(`${API_URL}/api/listing/${effectiveSlug}/address`, { 
+          method: "PUT", 
           headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` }, 
           body: JSON.stringify(detailsPayload) 
         });

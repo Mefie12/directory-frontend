@@ -163,10 +163,10 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         // UPDATED: Use the /update endpoint with PATCH method
-        const endpoint = `${API_URL}/api/listing/${listingSlug}/update`;
+        const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
-          method: "PATCH", // Changed from POST to PATCH
+          method: "POST", // Changed from POST to PATCH
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

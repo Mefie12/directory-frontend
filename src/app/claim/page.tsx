@@ -219,8 +219,8 @@ export default function ClaimPage() {
       </div>
 
       <div className="bg-gray-100 min-h-screen border-t border-gray-200">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <div className="mt-10 mb-4 flex items-center gap-3">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="mt-1 mb-4 flex items-center gap-3">
             <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
               Search Results
             </span>
@@ -337,7 +337,7 @@ export default function ClaimPage() {
             )}
           </div>
 
-          <div className="mt-16 mb-10 text-center">
+          <div className="mt-8 mb-10 text-center">
             <p className="text-gray-500 mb-4 text-sm">
               Don&apos;t see your listing in our directory?
             </p>
