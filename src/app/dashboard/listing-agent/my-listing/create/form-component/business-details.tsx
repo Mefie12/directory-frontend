@@ -293,7 +293,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const detailsReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/address`,
           {
-            method: "PATCH",
+            method: "PUT",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
