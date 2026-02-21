@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "../ui/textarea";
-import { Input } from "@/components/ui/input"; // Ensure you have this import
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,6 +23,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// --- Helper: Get Full Image URL ---
+const getImageUrl = (imageEntry: any): string => {
+  if (!imageEntry) return "/images/placeholders/generic.jpg";
+  
+  let url = "";
+  // Handle object with media property (API format)
+  if (typeof imageEntry === "object" && imageEntry !== null && "media" in imageEntry) {
+    url = imageEntry.media;
+  } else if (typeof imageEntry === "string") {
+    url = imageEntry;
+  }
+  
+  if (!url) return "/images/placeholders/generic.jpg";
+  // Return as-is if already a full URL
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  
+  // Prepend API URL for relative paths
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+};
 
 export default function ClaimSubmission({ business, onNext }: any) {
   const [isLoading, setIsLoading] = useState(false);
@@ -157,7 +178,7 @@ export default function ClaimSubmission({ business, onNext }: any) {
         </div>
         <div className="w-16 h-12 bg-gray-700 rounded-md overflow-hidden relative border border-gray-600">
           <Image
-            src={business.image || "/images/placeholders/generic.jpg"}
+            src={getImageUrl(business.image || business.images?.[0])}
             alt="Business"
             fill
             className="object-cover"

@@ -9,86 +9,108 @@ import VerifyOtp from "@/components/verify/verify-otp";
 import ClaimSubmission from "@/components/verify/claim-submission";
 import ClaimSuccess from "@/components/verify/claim-status";
 import { toast } from "sonner";
-// import OrganizationSetup from "@/components/verify/organization-setup";
 
 export default function VerifyBusinessPage() {
   const router = useRouter();
   const params = useParams();
+  const listingId = params?.id as string;
+  
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
   // --- State ---
-  const [isLoadingState, setIsLoadingState] = useState(true);
-  const [currentView, setCurrentView] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<1 | 2 | 3 | 4>(1);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-
-  // Data State
-  const [businessData] = useState<any>(null);
-  const [wasAlreadyVerified, setWasAlreadyVerified] = useState(false);
+  const [businessData, setBusinessData] = useState<any>(null);
+  const [isVerified, setIsVerified] = useState(false);
 
   // --- Fetch Data on Mount ---
   useEffect(() => {
-    const checkUserStatus = async () => {
+    const initializePage = async () => {
+      const token = localStorage.getItem("authToken");
+      
+      if (!token) {
+        router.push("/auth/login");
+        return;
+      }
+
+      if (!listingId) {
+        toast.error("Invalid listing");
+        router.push("/claim");
+        return;
+      }
+
       try {
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          router.push("/auth/login");
-          return;
-        }
+        // Fetch user verification status and business data in parallel
+        const [userResponse, businessResponse] = await Promise.all([
+          fetch(`${API_URL}/api/user`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_URL}/api/listing/${listingId}/show`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-        // ONLY fetch the User status to determine where to start the flow
-        const userRes = await fetch(`${API_URL}/api/user`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (userRes.ok) {
-          const uJson = await userRes.json();
-          const userData = uJson.data || uJson;
-
-          // Check if the user has already verified their email
-          const isVerified = !!userData.email_verified_at;
-
-          if (isVerified) {
-            setWasAlreadyVerified(true);
-            setCurrentView(3); // SKIP verification, start at Organization Setup
-          } else {
-            setWasAlreadyVerified(false);
-            setCurrentView(1); // Start at Email Verification
-          }
+        // Handle user verification status
+        if (userResponse.ok) {
+          const userJson = await userResponse.json();
+          const userData = userJson.data || userJson;
+          const verified = !!userData.email_verified_at;
+          setIsVerified(verified);
+          
+          // Set view based on verification status
+          // Verified users go directly to claim submission (view 3)
+          // Unverified users start at email verification (view 1)
+          setCurrentView(verified ? 3 : 1);
         } else {
+          // Default to email verification if API fails
           setCurrentView(1);
         }
+
+        // Handle business data
+        if (businessResponse.ok) {
+          const businessJson = await businessResponse.json();
+          setBusinessData(businessJson.data || businessJson);
+        } else {
+          console.error("Failed to fetch business data");
+          toast.error("Failed to load business details");
+        }
       } catch (error) {
-        console.error("Initialization Error:", error);
-        toast.error("Failed to load user status.");
+        console.error("Initialization error:", error);
+        toast.error("Failed to initialize page");
+        setCurrentView(1);
       } finally {
-        setIsLoadingState(false);
+        setIsLoading(false);
       }
     };
 
-    if (params?.businessId) {
-      checkUserStatus();
-    }
-  }, [API_URL, params, router]);
+    initializePage();
+  }, [API_URL, listingId, router]);
 
-  // --- Navigation Handler ---
+  // --- Navigation Handlers ---
   const handleBack = () => {
-    // If we auto-skipped verification steps, 'Back' should exit the flow entirely
-    if (wasAlreadyVerified && currentView === 3) {
+    // If at claim submission (view 3) and was verified, exit flow
+    if (isVerified && currentView === 3) {
       router.back();
       return;
     }
-    // If we are at the start of the manual flow, 'Back' exits the flow
+    // If at start of manual verification flow, exit
     if (currentView === 1) {
       router.back();
       return;
     }
-    // Otherwise go back one internal step
-    setCurrentView(currentView - 1);
+    // Otherwise go back one step
+    setCurrentView((prev) => (prev - 1) as 1 | 2 | 3 | 4);
   };
 
   const getTitle = () => {
@@ -97,17 +119,17 @@ export default function VerifyBusinessPage() {
         return "Verify via Email";
       case 2:
         return "Verification";
-      // case 3:
-      //   return "Organization Setup";
       case 3:
         return "Claim Submission";
+      case 4:
+        return "";
       default:
         return "";
     }
   };
 
   // --- Loading State ---
-  if (isLoadingState || !businessData) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#1F3A4C] animate-spin mb-2" />
@@ -117,13 +139,13 @@ export default function VerifyBusinessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-6 px-4 mt-20">
-      {/* Header - Hidden on Success page */}
+    <div className="h-screen bg-gray-50 flex flex-col items-center  py-6 px-4 mt-20">
+      {/* Header - Hidden on Success page (view 4) */}
       {currentView < 4 && (
         <div className="w-full max-w-md flex items-center justify-between mb-6">
           <button
             onClick={handleBack}
-            className="p-2 bg-white hover:bg-gray-100 rounded-full cursor-pointer transition-colors border border-gray-100 shadow-sm"
+            className="p-2 bg-white hover:bg-gray-100 rounded-full cursor-pointer transition-colors border border-gray-100 "
           >
             <ArrowLeft className="w-5 h-5 text-[#93C01F]" />
           </button>
@@ -149,10 +171,6 @@ export default function VerifyBusinessPage() {
             onNext={() => setCurrentView(3)}
           />
         )}
-
-        {/* {currentView === 3 && (
-          <OrganizationSetup onNext={() => setCurrentView(4)} />
-        )} */}
 
         {currentView === 3 && (
           <ClaimSubmission
