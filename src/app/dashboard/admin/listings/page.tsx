@@ -561,7 +561,7 @@ export default function Listings() {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
-        `${API_URL}/api/admin_listings/${listingToDelete}`,
+        `${API_URL}/api/listing/${listingToDelete}`,
         {
           method: "DELETE",
           headers: {
@@ -604,7 +604,7 @@ export default function Listings() {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
-        `${API_URL}/api/admin_listings/${listingSlug}/update_status`,
+        `${API_URL}/api/listing/${listingSlug}/update_status`,
         {
           method: "PATCH",
           headers: {
