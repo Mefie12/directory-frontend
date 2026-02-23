@@ -147,6 +147,7 @@ interface ApiListingData {
   rating?: number | string;
   reviews_count?: number | string;
   is_verified?: boolean;
+  claim_status?: string;
   images?: (ApiImage | string)[];
   socials?: ApiSocialItem[];
   services?: any[];
@@ -181,6 +182,7 @@ interface Provider {
   location?: string;
   country?: string;
   verified?: boolean;
+  claim_status?: string;
   reviews?: number | string;
   rating: number | string;
   phone?: string;
@@ -690,12 +692,12 @@ function SidebarInfo({
   };
 
   const handleClaimBusiness = () => {
-    if (user) {
-      router.push(`/claim/${provider.id}/verify`);
-    } else {
-      router.push(`/auth/login?redirect=/claim/${provider.id}/verify`);
-    }
-  };
+  if (user) {
+    router.push(`/claim/${provider.slug}/verify`);
+  } else {
+    router.push(`/auth/login?redirect=/claim/${provider.slug}/verify`);
+  }
+};
 
   return (
     <Card>
@@ -712,25 +714,25 @@ function SidebarInfo({
         <div className="mt-4">
           <Button
             onClick={handleClaimBusiness}
-            disabled={provider.verified} // Disabled when claimed
+            disabled={!!provider.claim_status} // Disabled when claimed
             className={`w-full ${
-              provider.verified
+              provider.claim_status
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
             }`}
           >
-            {provider.verified ? "Claimed" : "Claim business"}
+            {provider.claim_status ? "Claimed" : "Claim business"}
           </Button>
 
           {/* Challenge claim link - Added below Claim button */}
-          {provider.verified && (
+          {provider.claim_status && (
             <div className="mt-3 text-center">
               <Link
                 href={`/support/challenge-claim?slug=${provider.slug}`}
-                className="text-[10px] text-gray-400 hover:text-red-500 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
+                className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
               >
                 <AlertCircle className="h-3 w-3" />
-                Is this a mistake? Challenge this claim
+                Is this a mistake? <span className="text-[#93C01F] hover:underline hover:underline-offset-2">Challenge this claim</span>
               </Link>
             </div>
           )}
@@ -958,6 +960,7 @@ export default function UniversalSlugPage({
               listingData.address || listingData.city || listingData.location,
             country: listingData.country,
             verified: listingData.is_verified,
+            claim_status: listingData.claim_status, 
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()
               : "0",
