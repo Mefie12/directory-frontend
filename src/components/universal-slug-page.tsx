@@ -728,7 +728,7 @@ function SidebarInfo({
           {provider.claim_status && (
             <div className="mt-3 text-center">
               <Link
-                href={`/support/challenge-claim?slug=${provider.slug}`}
+                href={`/claim/${provider.slug}/verify`}
                 className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
               >
                 <AlertCircle className="h-3 w-3" />
