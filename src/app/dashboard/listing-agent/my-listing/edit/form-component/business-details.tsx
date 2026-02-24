@@ -302,6 +302,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             close_time: h.endTime,
           }));
 
+
         const detailsReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/address`,
           {
@@ -332,12 +333,27 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsReq,
           hoursReq,
         ]);
-        if (!detailsRes.ok || !hoursRes?.ok) throw new Error("Update failed");
+
+        // Log API responses
+        const detailsJson = await detailsRes.json();
+        const hoursJson = hoursRes.ok ? await hoursRes.json() : null;
+
+
+
+        if (!detailsRes.ok || !hoursRes?.ok) {
+          console.error("❌ Update failed - Details:", detailsJson);
+          console.error("❌ Update failed - Hours:", hoursJson);
+          throw new Error("Update failed");
+        }
 
         setBusinessDetails({ ...businessDetails, ...data });
         toast.success("Details saved!");
         return true;
       } catch (error) {
+        console.error("❌ Save error:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Failed to save details",
+        );
         return false;
       } finally {
         setIsSaving(false);

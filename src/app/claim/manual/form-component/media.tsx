@@ -284,7 +284,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             <p className="font-semibold text-blue-800">Supported Formats:</p>
             <ul className="list-disc pl-4 mt-1 space-y-1 text-blue-700">
               <li>
-                <strong>Images:</strong> JPEG, PNG, JPG, WEBP
+                <strong>Images:</strong> JPEG, PNG, JPG
               </li>
               <li>
                 <strong>Videos:</strong> MP4, MOV, WEBM

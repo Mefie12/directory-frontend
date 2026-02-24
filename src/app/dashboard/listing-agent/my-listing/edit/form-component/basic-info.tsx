@@ -229,7 +229,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       async submit() {
         const isValid = await trigger();
         if (!isValid) {
-          console.log("❌ FORM ERRORS:", form.formState.errors);
           toast.error("Please correct the errors in the form.");
           return false;
         }

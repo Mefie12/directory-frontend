@@ -12,7 +12,11 @@ interface Props {
 }
 
 // Helper to check if we need compression
-const shouldCompressImage = (file: File): boolean => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const shouldCompressImage = (file: any): boolean => {
+  // If it's not a File object (e.g., existing image from API), skip compression
+  if (!file || typeof file !== 'object' || !('type' in file)) return false;
+  
   // Only compress images, not videos
   if (!file.type.startsWith("image/")) return false;
 
@@ -21,7 +25,13 @@ const shouldCompressImage = (file: File): boolean => {
 };
 
 // Smart compression - only for large images
-const smartCompressImage = async (file: File): Promise<File> => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const smartCompressImage = async (file: any): Promise<any> => {
+  // Skip compression for non-File objects (e.g., existing images from API)
+  if (!file || typeof file !== 'object' || !('type' in file)) {
+    return file;
+  }
+  
   if (!shouldCompressImage(file)) return file;
 
   return new Promise((resolve) => {
@@ -63,11 +73,7 @@ const smartCompressImage = async (file: File): Promise<File> => {
                 file.name.replace(/\.[^/.]+$/, ".jpg"), // Change extension to .jpg
                 { type: "image/jpeg", lastModified: Date.now() }
               );
-              console.log(
-                `Compressed: ${file.name} ${(file.size / 1024 / 1024).toFixed(
-                  2
-                )}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
-              );
+
               resolve(compressedFile);
             } else {
               resolve(file);
@@ -91,18 +97,37 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     const [isUploading, setIsUploading] = useState(false);
 
     const uploadWithChunking = async () => {
-      if (!media.coverPhoto) {
+      // Check if we have cover photo (either new or existing)
+      const hasNewCover = media.coverPhoto && typeof media.coverPhoto === 'object' && 'type' in media.coverPhoto;
+      const hasExistingCover = media.coverPhoto && typeof media.coverPhoto === 'object' && 'url' in media.coverPhoto;
+      const hasAnyCover = hasNewCover || hasExistingCover;
+      
+      // Forgiving: Allow proceeding without cover if existing images exist
+      if (!hasAnyCover) {
         toast.error("Cover photo is required");
         return false;
       }
 
-      const totalFiles = [media.coverPhoto, ...media.images].length;
-      if (totalFiles < 4) {
-        toast.error(
-          `Please upload 4 media files total (1 cover + 3 gallery). Currently: ${totalFiles}`
-        );
-        return false;
+      // Count new files only (File objects, not existing images)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const countNewFiles = (files: any[]) => files.filter(f => f && typeof f === 'object' && 'type' in f).length;
+      const newCoverCount = hasNewCover ? 1 : 0;
+      const newGalleryCount = countNewFiles(media.images);
+      const totalNewFiles = newCoverCount + newGalleryCount;
+      
+      // Forgiving: Check existing images
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existingGalleryCount = media.images.filter((f: any) => f && typeof f === 'object' && 'url' in f).length;
+      const totalExistingFiles = (hasExistingCover ? 1 : 0) + existingGalleryCount;
+      
+      // If no new files added but we have existing images, allow saving
+      if (totalNewFiles === 0 && totalExistingFiles >= 1) {
+
+        return true;
       }
+
+      // Forgiving: Allow proceeding with any number of files (no minimum requirement)
+      // Users can upload more later if needed
 
       try {
         setIsUploading(true);
@@ -110,35 +135,27 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         // Prepare all files in correct order
-        const allFiles = [media.coverPhoto, ...media.images];
-
-        // Show file sizes
-        console.log("File sizes before compression:");
-        allFiles.forEach((file, i) => {
-          console.log(
-            `${i}: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)}MB - ${
-              file.type
-            }`
-          );
-        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allFiles: any[] = [media.coverPhoto, ...media.images];
+        
+        // Filter to only include new files (File objects), not existing images
+        const newFiles = allFiles.filter((file) => {
+          return file && typeof file === 'object' && 'type' in file;
+        }) as File[];
+        
+        // Filter to only include new files
 
         // Smart compression - only compress large images
         toast.loading("Optimizing files for upload...");
         const optimizedFiles = await Promise.all(
-          allFiles.map(smartCompressImage)
+          newFiles.map(smartCompressImage)
         );
 
-        // Calculate total size
-        const totalSizeMB =
-          optimizedFiles.reduce((sum, file) => sum + file.size, 0) /
-          1024 /
-          1024;
-        console.log(`Total optimized size: ${totalSizeMB.toFixed(2)}MB`);
 
         // Strategy: Try to upload all at once first, fallback to chunking if fails
         const attemptBulkUpload = async (files: File[]): Promise<boolean> => {
           try {
-            toast.loading("Uploading all files at once...");
+            toast.loading(`Uploading ${files.length} file(s)...`);
 
             const formData = new FormData();
             files.forEach((file) => {
@@ -168,7 +185,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             clearTimeout(timeoutId);
 
             if (response.status === 413) {
-              console.log("Bulk upload rejected (413), switching to chunking");
+
               return false;
             }
 
@@ -177,14 +194,12 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               throw new Error(error.message || "Bulk upload failed");
             }
 
-            const result = await response.json();
-            console.log("Bulk upload successful:", result);
             return true;
           } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
-              console.log("Bulk upload timeout, switching to chunking");
+              // Timeout - will try chunked
             } else {
-              console.log("Bulk upload failed:", error);
+              // Will try chunked
             }
             return false;
           }
@@ -237,12 +252,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 );
               }
 
-              const result = await response.json();
-              console.log(
-                `Chunk ${chunkNumber} uploaded successfully:`,
-                result
-              );
-
               // Track success
               chunk.forEach((_, idx) => {
                 uploadedFiles.push({ index: i + idx, success: true });
@@ -271,7 +280,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const bulkSuccess = await attemptBulkUpload(optimizedFiles);
 
         if (!bulkSuccess) {
-          console.log("Switching to chunked upload strategy");
+
           toast.info("Uploading in chunks for better reliability...");
           const chunkedSuccess = await uploadChunked(optimizedFiles);
 
@@ -331,7 +340,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               files={media.coverPhoto ? [media.coverPhoto] : []}
               onChange={(files) => setMedia({ ...media, coverPhoto: files[0] })}
               emptyText="Upload cover media"
-              accept="image/*,video/*"
+              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webm"
               maxSize={50 * 1024 * 1024} // 50MB limit
             />
           </div>
@@ -347,7 +356,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               onChange={(files) => setMedia({ ...media, images: files })}
               multiple={true}
               maxFiles={3}
-              accept="image/*,video/*"
+              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webp"
               maxSize={50 * 1024 * 1024} // 50MB limit
               emptyText="Upload 3 gallery media files"
             />

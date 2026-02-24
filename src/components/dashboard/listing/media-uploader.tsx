@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/tooltip";
 import Image from "next/image";
 
+// Support both File objects and existing image objects with url property
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FileOrImage = any;
+
 interface FileUploaderProps {
   label: string;
   multiple?: boolean;
-  files: File[];
-  onChange: (files: File[]) => void;
+  files: FileOrImage[];
+  onChange: (files: FileOrImage[]) => void;
   emptyText?: string;
   maxFiles?: number;
   accept?: string;
@@ -32,7 +36,7 @@ export function FileUploader({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
+    const selectedFiles = Array.from(e.target.files || []) as FileOrImage[];
     if (multiple) {
       onChange([...files, ...selectedFiles]);
     } else {
@@ -100,27 +104,34 @@ export function FileUploader({
             multiple ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
           )}
         >
-          {files.map((file, index) => (
-            <div key={index} className="relative group">
-              <Image
-                src={URL.createObjectURL(file)}
-                alt={file.name}
-                width={400}
-                height={300}
-                className="w-full h-32 object-cover rounded-lg border"
-              />
-              <button
-                type="button"
-                onClick={() => removeFile(index)}
-                className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {file.name}
-              </p>
-            </div>
-          ))}
+          {files.map((file, index) => {
+            // Check if it's an existing image (has url property) or a new File
+            const isExistingImage = 'url' in file;
+            const fileSrc = isExistingImage ? file.url : URL.createObjectURL(file as File);
+            const fileName = isExistingImage ? (file.name || 'existing-image') : (file as File).name;
+            
+            return (
+              <div key={index} className="relative group">
+                <Image
+                  src={fileSrc}
+                  alt={fileName}
+                  width={400}
+                  height={300}
+                  className="w-full h-32 object-cover rounded-lg border"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <p className="text-xs text-muted-foreground mt-1 truncate">
+                  {fileName}
+                </p>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground text-center py-4">

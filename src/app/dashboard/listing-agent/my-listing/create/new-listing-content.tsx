@@ -168,7 +168,7 @@ export default function ListingContent() {
                 Saving...
               </>
             ) : currentStep === 5 ? (
-              "Publish Listing"
+              "Save Listing"
             ) : (
               <>
                 Save & Continue <ChevronRight className="w-4 h-4 ml-1" />

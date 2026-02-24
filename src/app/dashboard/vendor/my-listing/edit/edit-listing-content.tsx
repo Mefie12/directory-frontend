@@ -35,6 +35,7 @@ interface ApiHour {
 
 interface ApiImage {
   media: string;
+  id?: number;
 }
 
 export default function EditListingContent() {
@@ -105,17 +106,32 @@ export default function EditListingContent() {
 
         // --- MAP API DATA TO CONTEXT ---
 
-        // 1. Basic Info
-        // We use 'as any' to bypass the Context type mismatch (category vs category_ids)
-        // allowing the data to flow through to the Child Form which expects category_ids.
+        // console.log("📡 API Response for listing:", JSON.stringify(data, null, 2));
+
      
+        // Convert ISO country code (e.g., "GH") to dial code (e.g., "+233") for phone input
+        const countryCodeToDialCode: Record<string, string> = {
+          GH: "+233",
+          NG: "+234",
+          KE: "+254",
+          US: "+1",
+          UK: "+44",
+        };
+
+        const getDialCode = (isoCode: string | null) => {
+          if (!isoCode) return "+233";
+          return countryCodeToDialCode[isoCode] || `+${isoCode}`;
+        };
+
         setBasicInfo({
           name: data.name,
           category_ids: data.categories?.map((c: ApiCategory) => String(c.id)) || [],
           description: data.bio || data.description,
           type: data.type,
-          primary_phone: data.primary_phone,
-          secondary_phone: data.secondary_phone,
+          primary_phone: data.primary_phone || "",
+          primary_country_code: getDialCode(data.primary_country_code),
+          secondary_phone: data.secondary_phone || "",
+          secondary_country_code: data.secondary_phone ? getDialCode(data.secondary_country_code) : "",
           email: data.email,
           website: data.website,
           business_reg_num: data.business_reg_num,
@@ -167,11 +183,22 @@ export default function EditListingContent() {
           );
 
           if (validImages.length > 0) {
-            // FIX: Store API URLs. Cast to 'any' to bypass File[] type constraint in context
+            // Map API images to the format expected by FileUploader (with url property)
+            const mappedImages = validImages.map((img: ApiImage) => ({
+              url: img.media,
+              name: img.media.split('/').pop() || 'existing-image',
+              id: img.id
+            }));
+            
+            // First image is cover, rest are gallery
+            const coverPhoto = mappedImages.length > 0 ? mappedImages[0] : null;
+            const galleryImages = mappedImages.slice(1);
+            
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (setMedia as any)((prev: any) => ({
               ...prev,
-              images: validImages, 
+              coverPhoto: coverPhoto,
+              images: galleryImages, 
             }));
           }
         }

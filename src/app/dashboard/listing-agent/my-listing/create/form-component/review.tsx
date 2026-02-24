@@ -8,6 +8,7 @@ import { Pencil, Loader2, MapPin, Mail, Clock, Tag } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
+import { useRouter } from "next/navigation";
 
 interface Props {
   listingSlug: string;
@@ -37,6 +38,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
     useEffect(() => {
@@ -54,7 +56,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Authorization: `Bearer ${token}`,
                 Accept: "application/json",
               },
-            }
+            },
           );
 
           if (res.ok) {
@@ -77,32 +79,16 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
-          const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+          // Show success toast
+          toast.success("Listing Submitted Successfully!");
 
-          // Assuming there is a specific endpoint to change status to 'published'
-          // If your API uses a generic update, change this to the update endpoint
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
-            {
-              method: "PATCH", // or PUT/PATCH depending on backend route
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify({ status: "published" }),
-            }
-          );
+          // Route to dashboard
+          router.push("/dashboard/vendor/my-listing");
 
-          if (!res.ok) throw new Error("Publish failed");
-
-          toast.success("Listing Published Successfully!");
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to publish listing");
+          toast.error("Failed to submit listing");
           return false;
         }
       },
@@ -249,7 +235,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         </Card>
       </div>
     );
-  }
+  },
 );
 
 ReviewSubmitStep.displayName = "ReviewSubmitStep";

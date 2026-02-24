@@ -449,39 +449,19 @@ export default function MyListing() {
                       Media
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {viewListing.allImages.length > 0 ? (
-                      <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group">
-                        <Image
-                          src={viewListing.allImages[0]}
-                          alt="Cover image"
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          unoptimized={true}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (!target.src.includes("placeholder")) {
-                              target.src = "/images/placeholder-listing.png";
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300">
-                        No cover image
-                      </div>
-                    )}
-
-                    {viewListing.allImages.length > 1 &&
-                      viewListing.allImages.slice(1, 4).map((img, index) => (
-                        <div
-                          key={index}
-                          className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
-                        >
+                  
+                  {/* Cover Photo Section */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#93C01F]"></span>
+                      Cover Photo
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {viewListing.allImages.length > 0 ? (
+                        <div className="aspect-video bg-gray-100 rounded-lg relative overflow-hidden group">
                           <Image
-                            src={img}
-                            alt={`Media ${index + 1}`}
+                            src={viewListing.allImages[0]}
+                            alt="Cover image"
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, 50vw"
@@ -493,18 +473,69 @@ export default function MyListing() {
                               }
                             }}
                           />
+                          <div className="absolute top-2 left-2 bg-[#93C01F] text-white text-xs px-2 py-1 rounded">
+                            Cover
+                          </div>
                         </div>
-                      ))}
+                      ) : (
+                        <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm border border-dashed border-gray-300">
+                          No cover image
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                    {viewListing.allImages.length < 4 && (
-                      <div
-                        onClick={() => handleEdit(viewListing)}
-                        className="aspect-square bg-gray-50 rounded-lg flex flex-col gap-2 items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-100 border border-dashed border-gray-300 transition-all"
-                      >
-                        <Plus className="w-5 h-5 opacity-50" />
-                        <span>Add Media</span>
-                      </div>
-                    )}
+                  {/* Gallery Section */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                      Gallery Photos
+                      {viewListing.allImages.length > 1 && (
+                        <span className="text-xs text-gray-400 font-normal">
+                          ({viewListing.allImages.length - 1} photos)
+                        </span>
+                      )}
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      {viewListing.allImages.length > 1 ? (
+                        viewListing.allImages.slice(1, 7).map((img, index) => (
+                          <div
+                            key={index}
+                            className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
+                          >
+                            <Image
+                              src={img}
+                              alt={`Gallery ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 33vw, 33vw"
+                              unoptimized={true}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.src.includes("placeholder")) {
+                                  target.src = "/images/placeholder-listing.png";
+                                }
+                              }}
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-3 py-8 text-center text-gray-400 text-sm">
+                          No gallery photos
+                        </div>
+                      )}
+
+                      {/* Add Media Button */}
+                      {viewListing.allImages.length < 7 && (
+                        <div
+                          onClick={() => handleEdit(viewListing)}
+                          className="aspect-square bg-gray-50 rounded-lg flex flex-col gap-1 items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-100 border border-dashed border-gray-300 transition-all"
+                        >
+                          <Plus className="w-4 h-4 opacity-50" />
+                          <span>Add</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

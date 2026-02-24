@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { forwardRef, useImperativeHandle, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,9 +36,12 @@ interface ApiListingData {
 
 export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
-    const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
+    // Get data from context for form values
+    const context = useListing();
+    const { media, basicInfo, businessDetails } = context;
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
     useEffect(() => {
@@ -45,11 +50,11 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           const token = localStorage.getItem("authToken");
           const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-          // Using GET request as per your docs to fetch the data
+          // Using GET request to fetch the data
           const res = await fetch(
             `${API_URL}/api/listing/${listingSlug}/show`,
             {
-              method: "PATCH",
+              method: "GET",
               headers: {
                 Authorization: `Bearer ${token}`,
                 Accept: "application/json",
@@ -73,35 +78,20 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       }
     }, [listingSlug]);
 
-    // 2. Handle the final "Publish" action
+    // 2. Handle the final "Update Listing" action - show success and redirect to dashboard
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
-          const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          // Assuming there is a specific endpoint to change status to 'published'
-          // If your API uses a generic update, change this to the update endpoint
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
-            {
-              method: "POST", // or PUT/PATCH depending on backend route
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify({ status: "published" }),
-            }
-          );
-
-          if (!res.ok) throw new Error("Publish failed");
-
-          toast.success("Listing Published Successfully!");
+          // Show success toast
+          toast.success("Listing Updated Successfully!");
+          
+          // Route to dashboard
+          router.push("/dashboard/vendor/my-listing");
+          
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to publish listing");
+          toast.error("Failed to update listing");
           return false;
         }
       },
@@ -115,15 +105,29 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       );
     }
 
-    // Prepare Display Data (Prefer API data, fallback to "Not provided")
-    const displayImage =
-      listingData?.primary_image ||
-      (media.coverPhoto ? URL.createObjectURL(media.coverPhoto) : null);
-    const locationStr =
-      [listingData?.city, listingData?.country].filter(Boolean).join(", ") ||
-      "Location pending";
-    const categoryStr =
-      listingData?.categories?.map((c) => c.name).join(", ") || "Uncategorized";
+    // Prepare Display Data - Use context data as primary, fallback to API data
+    const getCoverPhotoUrl = (coverPhoto: any) => {
+      if (!coverPhoto) return null;
+      // If it's an existing image with url, use that
+      if (coverPhoto && typeof coverPhoto === 'object' && 'url' in coverPhoto) {
+        return coverPhoto.url;
+      }
+      // Otherwise it's a new File object
+      return URL.createObjectURL(coverPhoto);
+    };
+    
+    // Use context data first, fall back to API data
+    const displayName = basicInfo?.name || listingData?.name || "Not provided";
+    const displayDescription = basicInfo?.description || listingData?.bio || "Not provided";
+    const displayEmail = businessDetails?.email || listingData?.email || "Not provided";
+    const displayAddress = businessDetails?.address || listingData?.address || "Not provided";
+    const displayCity = listingData?.city || "";
+    const displayCountry = listingData?.country || "";
+    const locationStr = [displayCity, displayCountry].filter(Boolean).join(", ") || "Location pending";
+    
+    // For categories, we need to get them from listingData since basicInfo has category_ids
+    const displayImage = getCoverPhotoUrl(media.coverPhoto) || listingData?.primary_image;
+    const categoryStr = listingData?.categories?.map((c) => c.name).join(", ") || "Uncategorized";
 
     return (
       <div className="space-y-6 px-4 py-6">
@@ -176,7 +180,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   Business Name
                 </span>
                 <p className="text-sm text-gray-600">
-                  {listingData?.name || "Not provided"}
+                  {displayName}
                 </p>
               </div>
 
@@ -194,7 +198,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   <MapPin className="w-3 h-3" /> Location
                 </span>
                 <p className="text-sm text-gray-600">{locationStr}</p>
-                <p className="text-xs text-gray-400">{listingData?.address}</p>
+                <p className="text-xs text-gray-400">{displayAddress}</p>
               </div>
 
               {/* Email */}
@@ -203,7 +207,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   <Mail className="w-3 h-3" /> Email
                 </span>
                 <p className="text-sm text-gray-600">
-                  {listingData?.email || "Not provided"}
+                  {displayEmail}
                 </p>
               </div>
 
@@ -241,7 +245,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Description
               </h4>
               <p className="text-sm text-gray-800 leading-relaxed">
-                {listingData?.bio || "No description provided"}
+                {displayDescription}
               </p>
             </div>
           </CardContent>
