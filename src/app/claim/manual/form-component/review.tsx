@@ -56,7 +56,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Authorization: `Bearer ${token}`,
                 Accept: "application/json",
               },
-            }
+            },
           );
 
           if (res.ok) {
@@ -81,14 +81,14 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         try {
           // Show success toast
           toast.success("Listing Submitted Successfully!");
-          
+
           // Route to dashboard
           router.push("/dashboard/vendor/my-listing");
-          
+
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to update listing");
+          toast.error("Failed to submit listing");
           return false;
         }
       },
@@ -135,11 +135,11 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
               <Image
-                src="/images/placeholders/generic.jpg"
-                width={48}
-                height={48}
-                alt="Placeholder"
-                className="opacity-20"
+                src="/images/no-image.jpg"
+                width={100}
+                height={100}
+                alt="No Image"
+                className="opacity-50"
               />
               <span>No cover photo uploaded</span>
             </div>
@@ -235,7 +235,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         </Card>
       </div>
     );
-  }
+  },
 );
 
 ReviewSubmitStep.displayName = "ReviewSubmitStep";

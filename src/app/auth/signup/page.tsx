@@ -232,7 +232,7 @@ export default function Signup() {
           </div>
           <div className="mt-2">
             <h2 className="text-3xl font-semibold text-gray-900">
-              {!showOtp ? "Create account" : "Verify Email"}
+              {!showOtp ? "Create account" : ""}
             </h2>
           </div>
         </CardHeader>

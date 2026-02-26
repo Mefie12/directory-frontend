@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { forwardRef, useImperativeHandle, useState } from "react";
@@ -12,7 +13,7 @@ interface Props {
 }
 
 // Helper to check if we need compression
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const shouldCompressImage = (file: any): boolean => {
   // If it's not a File object (e.g., existing image from API), skip compression
   if (!file || typeof file !== 'object' || !('type' in file)) return false;
@@ -25,7 +26,7 @@ const shouldCompressImage = (file: any): boolean => {
 };
 
 // Smart compression - only for large images
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const smartCompressImage = async (file: any): Promise<any> => {
   // Skip compression for non-File objects (e.g., existing images from API)
   if (!file || typeof file !== 'object' || !('type' in file)) {
@@ -99,35 +100,17 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     const uploadWithChunking = async () => {
       // Check if we have cover photo (either new or existing)
       const hasNewCover = media.coverPhoto && typeof media.coverPhoto === 'object' && 'type' in media.coverPhoto;
-      const hasExistingCover = media.coverPhoto && typeof media.coverPhoto === 'object' && 'url' in media.coverPhoto;
-      const hasAnyCover = hasNewCover || hasExistingCover;
       
-      // Forgiving: Allow proceeding without cover if existing images exist
-      if (!hasAnyCover) {
-        toast.error("Cover photo is required");
-        return false;
-      }
-
-      // Count new files only (File objects, not existing images)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const countNewFiles = (files: any[]) => files.filter(f => f && typeof f === 'object' && 'type' in f).length;
+      // Check if there are any new files to upload
+      const countNewFiles = (files: unknown[]) => files.filter((f: unknown) => f && typeof f === 'object' && f !== null && 'type' in f).length;
       const newCoverCount = hasNewCover ? 1 : 0;
       const newGalleryCount = countNewFiles(media.images);
       const totalNewFiles = newCoverCount + newGalleryCount;
       
-      // Forgiving: Check existing images
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existingGalleryCount = media.images.filter((f: any) => f && typeof f === 'object' && 'url' in f).length;
-      const totalExistingFiles = (hasExistingCover ? 1 : 0) + existingGalleryCount;
-      
-      // If no new files added but we have existing images, allow saving
-      if (totalNewFiles === 0 && totalExistingFiles >= 1) {
-
+      // If no new files to upload, allow proceeding
+      if (totalNewFiles === 0) {
         return true;
       }
-
-      // Forgiving: Allow proceeding with any number of files (no minimum requirement)
-      // Users can upload more later if needed
 
       try {
         setIsUploading(true);
@@ -135,7 +118,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         // Prepare all files in correct order
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const allFiles: any[] = [media.coverPhoto, ...media.images];
         
         // Filter to only include new files (File objects), not existing images
@@ -305,7 +287,21 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
     useImperativeHandle(ref, () => ({
       async submit() {
-        return await uploadWithChunking();
+        // If there are new files, upload in background without waiting
+        const hasNewCover = media.coverPhoto && typeof media.coverPhoto === 'object' && 'type' in media.coverPhoto;
+
+        const hasNewGallery = media.images.some((f: any) => f && typeof f === 'object' && 'type' in f);
+        
+        if (hasNewCover || hasNewGallery) {
+          // Start upload in background and don't await it
+          uploadWithChunking().then((success) => {
+            if (!success) {
+              console.error("Background upload failed");
+            }
+          });
+        }
+        // Always return true to allow user to proceed immediately
+        return true;
       },
     }));
 
@@ -314,7 +310,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Upload 4 media files (images or videos). First file will be the
+            Upload up to 4 media files (images or videos). First file will be the
             cover.
           </p>
           <div className="text-xs text-muted-foreground mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
@@ -330,7 +326,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
         <div className="space-y-6">
           <div>
-            <h3 className="font-medium mb-2">Cover Media (Required)</h3>
+            <h3 className="font-medium mb-2">Cover Media</h3>
             <p className="text-sm text-muted-foreground mb-3">
               First file in upload queue. Best to use an image for best results.
             </p>
@@ -346,7 +342,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div>
-            <h3 className="font-medium mb-2">Gallery Media (Required: 3)</h3>
+            <h3 className="font-medium mb-2">Gallery Media (Optional)</h3>
             <p className="text-sm text-muted-foreground mb-3">
               These will be files 2-4 in the upload queue.
             </p>

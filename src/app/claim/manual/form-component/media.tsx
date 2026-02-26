@@ -64,24 +64,16 @@ const smartCompressImage = async (file: File): Promise<File> => {
               const compressedFile = new File(
                 [blob],
                 file.name.replace(/\.[^/.]+$/, ".jpg"),
-                { type: "image/jpeg", lastModified: Date.now() }
+                { type: "image/jpeg", lastModified: Date.now() },
               );
-              console.log(
-                `Compressed Image: ${file.name} ${(
-                  file.size /
-                  1024 /
-                  1024
-                ).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(
-                  2
-                )}MB`
-              );
+
               resolve(compressedFile);
             } else {
               resolve(file);
             }
           },
           "image/jpeg",
-          0.85
+          0.85,
         );
       };
       img.onerror = () => resolve(file);
@@ -98,17 +90,13 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     const [isUploading, setIsUploading] = useState(false);
 
     const uploadWithChunking = async () => {
-      if (!media.coverPhoto) {
-        toast.error("Cover media is required");
-        return false;
-      }
-
-      const totalFiles = [media.coverPhoto, ...media.images].length;
-      if (totalFiles < 4) {
-        toast.error(
-          `Please upload 4 media files total. Currently: ${totalFiles}`
-        );
-        return false;
+      // Check if there are any files to upload
+      const hasCover = !!media.coverPhoto;
+      const hasGallery = media.images.length > 0;
+      
+      if (!hasCover && !hasGallery) {
+        // No files to upload, return true to allow proceeding
+        return true;
       }
 
       try {
@@ -116,12 +104,12 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const allFiles = [media.coverPhoto, ...media.images];
+        const allFiles = [media.coverPhoto, ...media.images].filter(Boolean) as File[];
 
         // 1. Optimize Images (Videos are skipped)
         toast.loading("Preparing files...");
         const optimizedFiles = await Promise.all(
-          allFiles.map(smartCompressImage)
+          allFiles.map(smartCompressImage),
         );
 
         // 2. Strategy: Attempt Bulk Upload first
@@ -151,15 +139,12 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 },
                 body: formData,
                 signal: controller.signal,
-              }
+              },
             );
 
             clearTimeout(timeoutId);
 
             if (response.status === 413) {
-              console.log(
-                "Bulk upload too large (413), switching to sequential upload"
-              );
               return false;
             }
 
@@ -173,8 +158,8 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             }
 
             return true;
-          } catch (error) {
-            console.log("Bulk upload failed, trying sequential:", error);
+          } catch {
+            // Try sequential upload
             return false;
           }
         };
@@ -192,7 +177,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             const totalFiles = files.length;
 
             toast.loading(
-              `Uploading file ${currentFileIndex} of ${totalFiles}...`
+              `Uploading file ${currentFileIndex} of ${totalFiles}...`,
             );
 
             try {
@@ -214,7 +199,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                     Accept: "application/json",
                   },
                   body: formData,
-                }
+                },
               );
 
               if (!response.ok) {
@@ -228,7 +213,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             } catch (error) {
               console.error(
                 `Failed to upload file ${currentFileIndex}:`,
-                error
+                error,
               );
               chunk.forEach((_, idx) => {
                 uploadedFiles.push({ index: i + idx, success: false });
@@ -258,7 +243,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       } catch (error) {
         console.error("Upload error:", error);
         toast.error(
-          error instanceof Error ? error.message : "Media upload failed"
+          error instanceof Error ? error.message : "Media upload failed",
         );
         return false;
       } finally {
@@ -269,7 +254,17 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
     useImperativeHandle(ref, () => ({
       async submit() {
-        return await uploadWithChunking();
+        // If there are files, upload in background without waiting
+        if (media.coverPhoto || media.images.length > 0) {
+          // Start upload in background and don't await it
+          uploadWithChunking().then((success) => {
+            if (!success) {
+              console.error("Background upload failed");
+            }
+          });
+        }
+        // Always return true to allow user to proceed immediately
+        return true;
       },
     }));
 
@@ -278,7 +273,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Upload exactly 4 files. The first file will be your cover.
+            Upload up to 4 files. The first file will be your cover.
           </p>
           <div className="text-xs text-muted-foreground mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <p className="font-semibold text-blue-800">Supported Formats:</p>
@@ -306,7 +301,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Cover Media (Required)
+                Cover Media
               </h3>
               {media.coverPhoto && (
                 <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
@@ -326,7 +321,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               files={media.coverPhoto ? [media.coverPhoto] : []}
               onChange={(files) => setMedia({ ...media, coverPhoto: files[0] })}
               emptyText="Click to upload Cover (Image or Video)"
-              accept="image/*,video/mp4,video/quicktime,video/webm"
+              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webm"
               maxSize={MAX_FILE_SIZE_BYTES}
             />
           </div>
@@ -335,16 +330,16 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Gallery Media (Required: 3)
+                Gallery Media (Optional)
               </h3>
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${
-                  media.images.length === 3
+                  media.images.length > 0
                     ? "bg-green-100 text-green-700"
-                    : "bg-yellow-100 text-yellow-700"
+                    : "bg-gray-100 text-gray-500"
                 }`}
               >
-                {media.images.length}/3 Selected
+                {media.images.length > 0 ? `${media.images.length} Selected` : "0 Selected"}
               </span>
             </div>
             <p className="text-sm text-gray-500 mb-3">
@@ -357,9 +352,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               onChange={(files) => setMedia({ ...media, images: files })}
               multiple={true}
               maxFiles={3}
-              accept="image/*,video/mp4,video/quicktime,video/webm"
+              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webp"
               maxSize={MAX_FILE_SIZE_BYTES}
-              emptyText="Upload 3 gallery items"
+              emptyText="Upload up to 3 gallery items"
             />
           </div>
 
@@ -373,7 +368,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 }
               >
                 {[media.coverPhoto, ...media.images].filter(Boolean).length}/4
-                Ready to upload
+                {isUploading ? " Uploading..." : " Ready to upload"}
               </span>
             </div>
             {isUploading && (
@@ -385,7 +380,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 MediaUploadStep.displayName = "MediaUploadStep";
