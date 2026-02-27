@@ -93,7 +93,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       // Check if there are any files to upload
       const hasCover = !!media.coverPhoto;
       const hasGallery = media.images.length > 0;
-
+      
       if (!hasCover && !hasGallery) {
         // No files to upload, return true to allow proceeding
         return true;
@@ -104,9 +104,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const allFiles = [media.coverPhoto, ...media.images].filter(
-          Boolean,
-        ) as File[];
+        const allFiles = [media.coverPhoto, ...media.images].filter(Boolean) as File[];
 
         // 1. Optimize Images (Videos are skipped)
         toast.loading("Preparing files...");
@@ -302,7 +300,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           {/* Cover Media */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium text-gray-900">Cover Media</h3>
+              <h3 className="font-medium text-gray-900">
+                Cover Media
+              </h3>
               {media.coverPhoto && (
                 <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
                   {media.coverPhoto.type.startsWith("video")
@@ -339,9 +339,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                     : "bg-gray-100 text-gray-500"
                 }`}
               >
-                {media.images.length > 0
-                  ? `${media.images.length} Selected`
-                  : "0 Selected"}
+                {media.images.length > 0 ? `${media.images.length} Selected` : "0 Selected"}
               </span>
             </div>
             <p className="text-sm text-gray-500 mb-3">

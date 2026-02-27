@@ -9,6 +9,13 @@ interface BasicInfo {
   category: string;
   subcategory: string;
   description: string;
+  // Event-specific fields
+  event_start_date?: string;
+  event_end_date?: string;
+  event_start_time?: string;
+  event_end_time?: string;
+  event_type?: string;
+  event_location?: string;
 }
 
 export interface DaySchedule {
@@ -23,6 +30,14 @@ interface BusinessDetails {
   email: string;
   businessHours: DaySchedule[];
   tags: string[];
+  // Event-specific fields
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string;
+  event_currency?: string;
+  event_ticket_url?: string;
+  event_online_url?: string;
 }
 
 // --- 1. NEW: Define Social Media Interface ---

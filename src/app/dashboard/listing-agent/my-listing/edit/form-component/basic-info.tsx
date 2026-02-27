@@ -35,6 +35,13 @@ export const businessFormSchema = z.object({
 
   business_reg_num: z.string().optional().nullable(),
   bio: z.string().optional().nullable(),
+  // Event-specific fields
+  event_start_date: z.string().optional(),
+  event_end_date: z.string().optional(),
+  event_start_time: z.string().optional(),
+  event_end_time: z.string().optional(),
+  event_type: z.string().optional(),
+  event_location: z.string().optional(),
 });
 
 export type BusinessFormValues = z.infer<typeof businessFormSchema>;
@@ -105,6 +112,13 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         website: "",
         business_reg_num: "",
         bio: "",
+        // Event-specific default values
+        event_start_date: "",
+        event_end_date: "",
+        event_start_time: "",
+        event_end_time: "",
+        event_type: "",
+        event_location: "",
       },
     });
 
@@ -248,7 +262,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             : digits;
         };
 
-        const submissionData = {
+        // 2. Map data to API structure
+        const submissionData: Record<string, unknown> = {
           name: rawData.name,
           email: rawData.email,
           website: rawData.website,
@@ -270,6 +285,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             : "",
           category_ids: rawData.category_ids.map((id) => Number(id)),
         };
+
+        // Add event-specific fields if this is an event listing
+        if (listingType === "event") {
+          submissionData.event_start_date = rawData.event_start_date;
+          submissionData.event_end_date = rawData.event_end_date;
+          submissionData.event_start_time = rawData.event_start_time;
+          submissionData.event_end_time = rawData.event_end_time;
+          submissionData.event_type = rawData.event_type;
+          submissionData.event_location = rawData.event_location;
+        }
 
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -593,6 +618,99 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             </p>
           )}
         </div>
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Event Details</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Event Start Date */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Start Date</label>
+                <Input
+                  {...register("event_start_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
+                />
+              </div>
+
+              {/* Event End Date */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event End Date</label>
+                <Input
+                  {...register("event_end_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
+                />
+              </div>
+
+              {/* Event Start Time */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Start Time</label>
+                <Input
+                  {...register("event_start_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
+                />
+              </div>
+
+              {/* Event End Time */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event End Time</label>
+                <Input
+                  {...register("event_end_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Event Type */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Type</label>
+                <Controller
+                  name="event_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1_day">1 Day</SelectItem>
+                        <SelectItem value="2-days">2 Days</SelectItem>
+                        <SelectItem value="multi_days">Multi Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+
+              {/* Event Location */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Location</label>
+                <Controller
+                  name="event_location"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                        <SelectValue placeholder="Select location type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="in_person">In Person</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   },

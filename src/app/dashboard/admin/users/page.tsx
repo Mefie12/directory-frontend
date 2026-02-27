@@ -61,14 +61,14 @@ interface User {
   avatar: string;
   phone?: string;
   listings_count: string;
-  role: "vendor" | "customer" | "user" | "admin";
+  role: "vendor" | "customer" | "user" | "admin" | "listing_agent";
   plan?: "Basic" | "Premium" | "Pro" | "Enterprise";
   last_active: string;
   status: "Active" | "Pending" | "Suspended" | "Inactive";
   is_suspended?: boolean;
 }
 
-type TabType = "all" | "vendors" | "customers" | "admins";
+type TabType = "all" | "vendors" | "customers" | "admins" | "listing_agents";
 
 export default function Users() {
   const router = useRouter();
@@ -149,11 +149,50 @@ export default function Users() {
       setIsLoading(false);
     }
   }, [authLoading, API_URL, getAuthToken, extractUsersFromResponse]);
-  
 
   useEffect(() => {
     if (!authLoading && authUser) loadAllData();
   }, [authUser, authLoading, loadAllData]);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setIsActionLoading(true);
+    try {
+      const token = getAuthToken();
+
+      // Mapping internal UI role values to API endpoint suffixes
+      const endpointSuffixMap: Record<string, string> = {
+        admin: "make_admin",
+        vendor: "make_vendor",
+        user: "make_user",
+        customer: "make_user", // Assuming customer and user share the same endpoint
+        listing_agent: "make_listing_agent",
+      };
+
+      const suffix = endpointSuffixMap[newRole];
+      if (!suffix) throw new Error("Invalid role selection");
+
+      const res = await fetch(`${API_URL}/api/users/${userId}/${suffix}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update user role");
+      }
+
+      toast.success(`User role updated to ${newRole.replace("_", " ")}`);
+      await loadAllData(); // Refresh the table
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   const handleSuspendSubmit = async () => {
     if (!selectedUser) return;
@@ -456,11 +495,29 @@ export default function Users() {
                           : "Never"}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={`text-white font-normal ${suspended ? "bg-red-500 hover:bg-red-500" : "bg-blue-500 hover:bg-blue-500"}`}
-                        >
-                          {suspended ? "Suspended" : u.role}
-                        </Badge>
+                        {suspended ? (
+                          <Badge className="bg-red-500 hover:bg-red-500 text-white font-normal">
+                            Suspended
+                          </Badge>
+                        ) : (
+                          <Select
+                            disabled={isActionLoading}
+                            defaultValue={u.role}
+                            onValueChange={(val) => handleRoleChange(u.id, val)}
+                          >
+                            <SelectTrigger className="w-[100px] h-8 text-xs shadow-none border-gray-300 focus:ring-0 rounded-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="vendor">Vendor</SelectItem>
+                              <SelectItem value="listing_agent">
+                                Listing Agent
+                              </SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

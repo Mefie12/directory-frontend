@@ -74,6 +74,14 @@ export const DetailsFormSchema = z.object({
       }),
     )
     .min(1, "Hours are required"),
+  // Event-specific fields
+  event_venue: z.string().optional(),
+  event_city: z.string().optional(),
+  event_country: z.string().optional(),
+  event_price: z.string().optional(),
+  event_currency: z.string().optional(),
+  event_ticket_url: z.string().url("Invalid URL format").optional().or(z.literal("")),
+  event_online_url: z.string().url("Invalid URL format").optional().or(z.literal("")),
 });
 
 const formTextConfig = {
@@ -177,6 +185,14 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             enabled: false,
           },
         ],
+        // Event-specific default values
+        event_venue: "",
+        event_city: "",
+        event_country: "",
+        event_price: "",
+        event_currency: "",
+        event_ticket_url: "",
+        event_online_url: "",
       },
     });
 
@@ -276,12 +292,23 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       try {
         setIsSaving(true);
         const data = form.getValues();
-        const detailsPayload = {
+        const detailsPayload: Record<string, unknown> = {
           address: data.address,
           country: data.country,
           city: data.city,
           google_plus_code: data.google_plus_code,
         };
+
+        // Add event-specific fields if listing type is event
+        if (listingType === "event") {
+          detailsPayload.event_venue = data.event_venue;
+          detailsPayload.event_city = data.event_city;
+          detailsPayload.event_country = data.event_country;
+          detailsPayload.event_price = data.event_price;
+          detailsPayload.event_currency = data.event_currency;
+          detailsPayload.event_ticket_url = data.event_ticket_url;
+          detailsPayload.event_online_url = data.event_online_url;
+        }
         const enabledHours = data.businessHours
           .filter((h: DaySchedule) => h.enabled)
           .map((h: DaySchedule) => ({
@@ -506,6 +533,107 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             )}
           </div>
         </div>
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+          <div className="space-y-6 pt-4 border-t">
+            <h3 className="text-lg font-semibold">Event Location & Pricing</h3>
+            
+            {/* Event Venue */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Event Venue
+              </label>
+              <Input
+                {...register("event_venue")}
+                placeholder="Enter venue name or address"
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+            </div>
+
+            {/* Event City & Country */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Event City
+                </label>
+                <Input
+                  {...register("event_city")}
+                  placeholder="Enter event city"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Event Country
+                </label>
+                <Input
+                  {...register("event_country")}
+                  placeholder="Enter event country"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Event Price & Currency */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Ticket Price
+                </label>
+                <Input
+                  {...register("event_price")}
+                  placeholder="e.g., 50 or Free"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Currency
+                </label>
+                <Input
+                  {...register("event_currency")}
+                  placeholder="e.g., GHS, USD"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Ticket URL */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Ticket Purchase URL (Optional)
+              </label>
+              <Input
+                {...register("event_ticket_url")}
+                placeholder="https://..."
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+              {errors.event_ticket_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_ticket_url.message}
+                </p>
+              )}
+            </div>
+
+            {/* Online URL */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Event Online URL (Optional)
+              </label>
+              <Input
+                {...register("event_online_url")}
+                placeholder="https://..."
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+              {errors.event_online_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_online_url.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </form>
     );
   },
