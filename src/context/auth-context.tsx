@@ -134,6 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // console.log("👤 Final mapped user:", mappedUser);
         setUser(mappedUser);
         setIsAuthenticated(true); // Set authenticated to true
+        
+        // Store user role in localStorage for immediate access after login
+        localStorage.setItem("userRole", mappedUser.role);
       }
       // } else {
       //   // console.log("❌ All user endpoints failed, clearing token");

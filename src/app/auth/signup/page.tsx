@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import VerifyOtp from "./_component/verify-otp";
 import { toast } from "sonner";
 
@@ -17,14 +17,18 @@ import { toast } from "sonner";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 
-export default function Signup() {
+function SignupForm() {
   const router = useRouter();
   const { login } = useAuth();
+
+   const searchParams = useSearchParams();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [, setError] = useState("");
+
+  const redirectPath = searchParams.get("redirect") || "/";
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -158,6 +162,23 @@ export default function Signup() {
       const newToken = data.token || data.access_token || data.data?.token;
       if (newToken) {
         await login(newToken);
+        
+        // Role-based routing after signup/verification - read from localStorage since state may not be immediately available
+        const userRole = localStorage.getItem("userRole")?.toLowerCase() || "";
+        if (userRole === "admin") {
+          // Admin goes to admin dashboard
+          router.push("/dashboard/admin");
+        } 
+        else if (userRole === "vendor" || userRole === "listing_agent" || userRole === "agent") {
+          // Vendors and listing agents go to my listings
+          router.push("/dashboard/vendor/my-listing");
+        }
+        else {
+          // Regular users go to home page
+          router.push(redirectPath);
+        }
+        router.refresh();
+        return;
       }
 
       toast.success("Account Verified!", {
@@ -316,6 +337,24 @@ export default function Signup() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+
+export default function SignUpPage() {
+  return (
+    <div>
+      <Suspense
+        fallback={
+          <div className="relative z-10 bg-white rounded-2xl flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-[#93C01F]" />
+            <span className="text-gray-500">Loading signup...</span>
+          </div>
+        }
+      >
+        <SignupForm />
+      </Suspense>
     </div>
   );
 }

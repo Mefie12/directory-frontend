@@ -106,7 +106,22 @@ function LoginForm() {
       if (token) {
         // console.log('✅ Token found:', token);
         await login(token);
-        router.push(redirectPath);
+        
+        // Role-based routing after login - read from localStorage since state may not be immediately available
+        const userRole = localStorage.getItem("userRole")?.toLowerCase() || "";
+        
+        if (userRole === "admin") {
+          // Admin goes to admin dashboard
+          router.push("/dashboard/admin");
+        } 
+        else if (userRole === "vendor" || userRole === "listing_agent" || userRole === "agent") {
+          // Vendors and listing agents go to my listings
+          router.push("/dashboard/vendor/my-listing");
+        }
+        else {
+          // Regular users go to home page or redirect path
+          router.push(redirectPath);
+        }
       } else {
         // console.error('❌ No token found in response');
         setError("Login successful but no token received");
@@ -147,7 +162,7 @@ function LoginForm() {
             <p className="text-sm text-gray-500">
               Don&apos;t have an account?{" "}
               <Link
-                href="/auth/signup"
+                 href={`/auth/signup?redirect=${redirectPath}`}
                 className="text-[#93C01F] font-medium hover:underline"
               >
                 Sign up

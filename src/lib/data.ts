@@ -15,7 +15,7 @@ export const heroSlides: HeroSlide[] = [
     description:
       "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero1.jpg",
-    cta: "Join as a vendor",
+    cta: "List your business",
     cta2: "Explore listing",
     link: "/become-a-vendor",
   },
@@ -25,7 +25,7 @@ export const heroSlides: HeroSlide[] = [
     description:
       "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero2.jpg",
-    cta: "Join as a vendor",
+    cta: "List your business",
     cta2: "Explore listing",
     link: "/discover",
   },
@@ -35,7 +35,7 @@ export const heroSlides: HeroSlide[] = [
     description:
       "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
     image: "/images/backgroundImages/hero3.jpg",
-    cta: "Join as a vendor",
+    cta: "List your business",
     cta2: "Explore listing",
     link: "/become-a-vendor",
   },

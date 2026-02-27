@@ -16,12 +16,12 @@ interface StepNavigationProps {
 const steps: Step[] = [
   {
     id: 1,
-    title: "Basic Information",
+    title: "Listing Information",
     description: "Name, category, and description",
   },
   {
     id: 2,
-    title: "Business Details",
+    title: "Listing Details",
     description: "Location and contact info",
   },
   {
