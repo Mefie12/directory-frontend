@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -106,19 +106,21 @@ function LoginForm() {
       if (token) {
         // console.log('✅ Token found:', token);
         await login(token);
-        
+
         // Role-based routing after login - read from localStorage since state may not be immediately available
         const userRole = localStorage.getItem("userRole")?.toLowerCase() || "";
-        
+
         if (userRole === "admin") {
           // Admin goes to admin dashboard
           router.push("/dashboard/admin");
-        } 
-        else if (userRole === "vendor" || userRole === "listing_agent" || userRole === "agent") {
+        } else if (
+          userRole === "vendor" ||
+          userRole === "listing_agent" ||
+          userRole === "agent"
+        ) {
           // Vendors and listing agents go to my listings
           router.push("/dashboard/vendor/my-listing");
-        }
-        else {
+        } else {
           // Regular users go to home page or redirect path
           router.push(redirectPath);
         }
@@ -162,13 +164,26 @@ function LoginForm() {
             <p className="text-sm text-gray-500">
               Don&apos;t have an account?{" "}
               <Link
-                 href={`/auth/signup?redirect=${redirectPath}`}
+                href={`/auth/signup?redirect=${redirectPath}`}
                 className="text-[#93C01F] font-medium hover:underline"
               >
                 Sign up
               </Link>
             </p>
           </div>
+
+          {/* <div className="-mt-10 px-2">
+            <Link
+              href="/"
+              className="flex items-center text-[#93C01F] text-sm gap-2"
+            >
+              <span>
+                <ArrowLeft size={16} />
+              </span>
+              Back to Home
+            </Link>
+          </div> */}
+
           <div className="space-y-1 mt-0">
             <h2 className="text-4xl font-semibold text-gray-900">
               Sign in to mefie
@@ -250,6 +265,18 @@ function LoginForm() {
               >
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
+
+              <div className=" px-2">
+                <Link
+                  href="/"
+                  className="flex items-center justify-center text-[#93C01F] text-sm gap-2"
+                >
+                  <span>
+                    <ArrowLeft size={16} />
+                  </span>
+                  Back to Home
+                </Link>
+              </div>
             </div>
           </form>
         </CardContent>
