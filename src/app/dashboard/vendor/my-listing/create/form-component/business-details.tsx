@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import { HelpCircle, MapPin } from "lucide-react";
@@ -26,6 +26,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 // --- Mapbox Imports Updated ---
 import {
@@ -33,8 +40,6 @@ import {
   AddressMinimap,
   useConfirmAddress,
 } from "@mapbox/search-js-react";
-
-
 
 const convertToHHmm = (time: string | undefined | null): string => {
   if (!time) return "09:00";
@@ -75,13 +80,23 @@ export const DetailsFormSchema = z.object({
     )
     .min(1, "Hours are required"),
   // Event-specific fields
-  event_venue: z.string().optional(),
-  event_city: z.string().optional(),
-  event_country: z.string().optional(),
   event_price: z.string().optional(),
   event_currency: z.string().optional(),
-  event_ticket_url: z.string().url("Invalid URL format").optional().or(z.literal("")),
-  event_online_url: z.string().url("Invalid URL format").optional().or(z.literal("")),
+  event_ticket_url: z
+    .string()
+    .url("Invalid URL format")
+    .optional()
+    .or(z.literal("")),
+  event_online_url: z
+    .string()
+    .url("Invalid URL format")
+    .optional()
+    .or(z.literal("")),
+  event_start_date: z.string().optional(),
+  event_end_date: z.string().optional(),
+  event_start_time: z.string().optional(),
+  event_end_time: z.string().optional(),
+  event_type: z.string().optional(),
 });
 
 const formTextConfig = {
@@ -186,13 +201,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           },
         ],
         // Event-specific default values
-        event_venue: "",
-        event_city: "",
-        event_country: "",
         event_price: "",
         event_currency: "",
         event_ticket_url: "",
         event_online_url: "",
+        event_start_date: "",
+        event_end_date: "",
+        event_start_time: "",
+        event_end_time: "",
+        event_type: "",
       },
     });
 
@@ -201,6 +218,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       setValue,
       watch,
       trigger,
+      control,
       reset,
       formState: { errors },
     } = form;
@@ -264,28 +282,40 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     }, [listingSlug, reset, searchParams, form]);
 
     const saveDataToApi = async () => {
+      
       // 1. Mapbox Confirmation Modal (from Code A logic)
       const result = await showConfirm();
       if (result.type === "change") {
         return false; // Stop submission to let user confirm suggested address
       }
 
-      const currentValues = form.getValues("businessHours");
-      const sanitized = currentValues.map((h) => ({
-        ...h,
-        startTime: convertToHHmm(h.startTime),
-        endTime: convertToHHmm(h.endTime),
-      }));
-      setValue("businessHours", sanitized);
+      // Skip business hours processing for events
+      if (listingType !== "event") {
+        const currentValues = form.getValues("businessHours");
+        const sanitized = currentValues.map((h) => ({
+          ...h,
+          startTime: convertToHHmm(h.startTime),
+          endTime: convertToHHmm(h.endTime),
+        }));
+        setValue("businessHours", sanitized);
 
-      const isValid = await trigger();
-      if (!isValid) {
-        if (errors.businessHours) toast.error("Check time formats (HH:mm)");
-        return false;
+        const isValid = await trigger(["address", "country", "city", "google_plus_code", "businessHours"]);
+        if (!isValid) {
+          if (errors.businessHours) toast.error("Check time formats (HH:mm)");
+          return false;
+        }
+      } else {
+        // For events, only validate address fields
+        const isValid = await trigger(["address", "country", "city", "google_plus_code"]);
+        if (!isValid) {
+          return false;
+        }
       }
 
       const effectiveSlug = listingSlug || searchParams.get("slug");
-      if (!effectiveSlug) return false;
+      if (!effectiveSlug) {
+        return false;
+      }
       const token = localStorage.getItem("authToken");
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
@@ -301,21 +331,28 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         // Add event-specific fields if listing type is event
         if (listingType === "event") {
-          detailsPayload.event_venue = data.event_venue;
-          detailsPayload.event_city = data.event_city;
-          detailsPayload.event_country = data.event_country;
           detailsPayload.event_price = data.event_price;
           detailsPayload.event_currency = data.event_currency;
           detailsPayload.event_ticket_url = data.event_ticket_url;
           detailsPayload.event_online_url = data.event_online_url;
+          detailsPayload.event_start_date = data.event_start_date;
+          detailsPayload.event_end_date = data.event_end_date;
+          detailsPayload.event_start_time = data.event_start_time;
+          detailsPayload.event_end_time = data.event_end_time;
+          detailsPayload.event_type = data.event_type;
         }
-        const enabledHours = data.businessHours
-          .filter((h: DaySchedule) => h.enabled)
-          .map((h: DaySchedule) => ({
-            day_of_week: h.day_of_week,
-            open_time: h.startTime,
-            close_time: h.endTime,
-          }));
+
+
+        // Only prepare business hours for non-event listings
+        const enabledHours = listingType !== "event"
+          ? data.businessHours
+              .filter((h: DaySchedule) => h.enabled)
+              .map((h: DaySchedule) => ({
+                day_of_week: h.day_of_week,
+                open_time: h.startTime,
+                close_time: h.endTime,
+              }))
+          : [];
 
         const detailsReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/address`,
@@ -329,24 +366,35 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             body: JSON.stringify(detailsPayload),
           },
         );
-        const hoursReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(enabledHours),
-          },
-        );
 
-        const [detailsRes, hoursRes] = await Promise.all([
-          detailsReq,
-          hoursReq,
-        ]);
-        if (!detailsRes.ok || !hoursRes?.ok) throw new Error("Update failed");
+        // Only send business hours for non-event listings
+        const hoursReq = listingType !== "event"
+          ? fetch(
+              `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(enabledHours),
+              },
+            )
+          : null;
+
+        const requests = [detailsReq];
+        if (hoursReq) requests.push(hoursReq);
+
+
+        
+        const responses = await Promise.all(requests);
+        const [detailsRes, hoursRes] = responses;
+
+        
+        if (!detailsRes.ok || (hoursRes && !hoursRes.ok)) {
+          throw new Error("Update failed");
+        }
 
         setBusinessDetails({ ...businessDetails, ...data });
         toast.success("Details saved!");
@@ -387,7 +435,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         onSubmit={(e) => e.preventDefault()}
       >
         <div>
-          <h2 className="text-2xl font-semibold">Details & Media</h2>
+          <h2 className="text-2xl font-semibold">Details</h2>
           <p className="text-sm text-gray-500 mt-1">{text.subtitle}</p>
         </div>
 
@@ -513,126 +561,160 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <BusinessHoursSelector
-              value={currentHours}
-              onChange={(val) => {
-                const formatted = val.map((d: DaySchedule) => ({
-                  ...d,
-                  startTime: convertToHHmm(d.startTime),
-                  endTime: convertToHHmm(d.endTime),
-                }));
-                setValue("businessHours", formatted, { shouldValidate: true });
-              }}
+        {listingType !== "event" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <BusinessHoursSelector
+                value={currentHours}
+                onChange={(val) => {
+                  const formatted = val.map((d: DaySchedule) => ({
+                    ...d,
+                    startTime: convertToHHmm(d.startTime),
+                    endTime: convertToHHmm(d.endTime),
+                  }));
+                  setValue("businessHours", formatted, {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+              {errors.businessHours && (
+                <p className="text-red-500 text-xs mt-1">
+                  Please check time format (HH:mm)
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Event Details</h3>
+
+            {/* Event Date */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Start Date</label>
+                <Input
+                  {...register("event_start_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">End Date</label>
+                <Input
+                  {...register("event_end_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Event Time */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Start Time</label>
+                <Input
+                  {...register("event_start_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">End Time</label>
+                <Input
+                  {...register("event_end_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Event Type */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Type</label>
+                <Controller
+                  name="event_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1_day">1 Day</SelectItem>
+                        <SelectItem value="2-days">2 Days</SelectItem>
+                        <SelectItem value="multi_days">Multi Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+        <div className="space-y-6 pt-4 border-t">
+          <h3 className="text-lg font-semibold">Event Location & Pricing</h3>
+
+          {/* Event Price & Currency */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="font-medium text-sm">Ticket Price</label>
+              <Input
+                {...register("event_price")}
+                placeholder="e.g., 50 or Free"
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-medium text-sm">Currency</label>
+              <Input
+                {...register("event_currency")}
+                placeholder="e.g., GHS, USD"
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+            </div>
+          </div>
+
+          {/* Ticket URL */}
+          <div className="space-y-1">
+            <label className="font-medium text-sm">
+              Ticket Purchase URL (Optional)
+            </label>
+            <Input
+              {...register("event_ticket_url")}
+              placeholder="https://..."
+              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
             />
-            {errors.businessHours && (
+            {errors.event_ticket_url && (
               <p className="text-red-500 text-xs mt-1">
-                Please check time format (HH:mm)
+                {errors.event_ticket_url.message}
+              </p>
+            )}
+          </div>
+
+          {/* Online URL */}
+          <div className="space-y-1">
+            <label className="font-medium text-sm">
+              Event Online URL (Optional)
+            </label>
+            <Input
+              {...register("event_online_url")}
+              placeholder="https://..."
+              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+            />
+            {errors.event_online_url && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.event_online_url.message}
               </p>
             )}
           </div>
         </div>
-
-        {/* Event-specific fields - Only show for events */}
-        {listingType === "event" && (
-          <div className="space-y-6 pt-4 border-t">
-            <h3 className="text-lg font-semibold">Event Location & Pricing</h3>
-            
-            {/* Event Venue */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">
-                Event Venue
-              </label>
-              <Input
-                {...register("event_venue")}
-                placeholder="Enter venue name or address"
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
-            </div>
-
-            {/* Event City & Country */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="font-medium text-sm">
-                  Event City
-                </label>
-                <Input
-                  {...register("event_city")}
-                  placeholder="Enter event city"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="font-medium text-sm">
-                  Event Country
-                </label>
-                <Input
-                  {...register("event_country")}
-                  placeholder="Enter event country"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-                />
-              </div>
-            </div>
-
-            {/* Event Price & Currency */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="font-medium text-sm">
-                  Ticket Price
-                </label>
-                <Input
-                  {...register("event_price")}
-                  placeholder="e.g., 50 or Free"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="font-medium text-sm">
-                  Currency
-                </label>
-                <Input
-                  {...register("event_currency")}
-                  placeholder="e.g., GHS, USD"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-                />
-              </div>
-            </div>
-
-            {/* Ticket URL */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">
-                Ticket Purchase URL (Optional)
-              </label>
-              <Input
-                {...register("event_ticket_url")}
-                placeholder="https://..."
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
-              {errors.event_ticket_url && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.event_ticket_url.message}
-                </p>
-              )}
-            </div>
-
-            {/* Online URL */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">
-                Event Online URL (Optional)
-              </label>
-              <Input
-                {...register("event_online_url")}
-                placeholder="https://..."
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
-              {errors.event_online_url && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.event_online_url.message}
-                </p>
-              )}
-            </div>
-          </div>
         )}
       </form>
     );

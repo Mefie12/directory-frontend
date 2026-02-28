@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import { HelpCircle, MapPin } from "lucide-react";
@@ -26,6 +26,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 // --- Mapbox Imports Integrated from Code C ---
 import {
@@ -77,6 +84,24 @@ export const DetailsFormSchema = z.object({
       }),
     )
     .min(1, "Hours are required"),
+  // Event-specific fields
+  event_price: z.string().optional(),
+  event_currency: z.string().optional(),
+  event_ticket_url: z
+    .string()
+    .url("Invalid URL format")
+    .optional()
+    .or(z.literal("")),
+  event_online_url: z
+    .string()
+    .url("Invalid URL format")
+    .optional()
+    .or(z.literal("")),
+  event_start_date: z.string().optional(),
+  event_end_date: z.string().optional(),
+  event_start_time: z.string().optional(),
+  event_end_time: z.string().optional(),
+  event_type: z.string().optional(),
 });
 
 const formTextConfig = {
@@ -181,6 +206,16 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             enabled: false,
           },
         ],
+        // Event-specific default values
+        event_price: "",
+        event_currency: "",
+        event_ticket_url: "",
+        event_online_url: "",
+        event_start_date: "",
+        event_end_date: "",
+        event_start_time: "",
+        event_end_time: "",
+        event_type: "",
       },
     });
 
@@ -195,6 +230,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       setValue,
       watch,
       trigger,
+      control,
       reset,
       formState: { errors },
     } = form;
@@ -288,20 +324,35 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const data = form.getValues();
 
         // Payload and Endpoint matched to Code C's logic
-        const detailsPayload = {
+        const detailsPayload: Record<string, any> = {
           address: data.address,
           country: data.country,
           city: data.city,
           google_plus_code: data.google_plus_code,
         };
-        const enabledHours = data.businessHours
-          .filter((h: DaySchedule) => h.enabled)
-          .map((h: DaySchedule) => ({
-            day_of_week: h.day_of_week,
-            open_time: h.startTime,
-            close_time: h.endTime,
-          }));
 
+        // Add event-specific fields if listing type is event
+        if (listingType === "event") {
+          detailsPayload.event_price = data.event_price;
+          detailsPayload.event_currency = data.event_currency;
+          detailsPayload.event_ticket_url = data.event_ticket_url;
+          detailsPayload.event_online_url = data.event_online_url;
+          detailsPayload.event_start_date = data.event_start_date;
+          detailsPayload.event_end_date = data.event_end_date;
+          detailsPayload.event_start_time = data.event_start_time;
+          detailsPayload.event_end_time = data.event_end_time;
+          detailsPayload.event_type = data.event_type;
+        }
+
+        const enabledHours = listingType !== "event"
+          ? data.businessHours
+              .filter((h: DaySchedule) => h.enabled)
+              .map((h: DaySchedule) => ({
+                day_of_week: h.day_of_week,
+                open_time: h.startTime,
+                close_time: h.endTime,
+              }))
+          : [];
 
         const detailsReq = fetch(
           `${API_URL}/api/listing/${effectiveSlug}/address`,
@@ -337,8 +388,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Log API responses
         const detailsJson = await detailsRes.json();
         const hoursJson = hoursRes.ok ? await hoursRes.json() : null;
-
-
 
         if (!detailsRes.ok || !hoursRes?.ok) {
           console.error("❌ Update failed - Details:", detailsJson);
@@ -515,27 +564,162 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <BusinessHoursSelector
-              value={currentHours}
-              onChange={(val) => {
-                // Santization logic from Code C ensures Zod validation passes
-                const formatted = val.map((d: DaySchedule) => ({
-                  ...d,
-                  startTime: convertToHHmm(d.startTime),
-                  endTime: convertToHHmm(d.endTime),
-                }));
-                setValue("businessHours", formatted, { shouldValidate: true });
-              }}
-            />
-            {errors.businessHours && (
-              <p className="text-red-500 text-xs mt-1">
-                Please check time format (HH:mm)
-              </p>
-            )}
+        {listingType === "event" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <BusinessHoursSelector
+                value={currentHours}
+                onChange={(val) => {
+                  // Santization logic from Code C ensures Zod validation passes
+                  const formatted = val.map((d: DaySchedule) => ({
+                    ...d,
+                    startTime: convertToHHmm(d.startTime),
+                    endTime: convertToHHmm(d.endTime),
+                  }));
+                  setValue("businessHours", formatted, {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+              {errors.businessHours && (
+                <p className="text-red-500 text-xs mt-1">
+                  Please check time format (HH:mm)
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Event Details</h3>
+
+            {/* Event Date */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Start Date</label>
+                <Input
+                  {...register("event_start_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">End Date</label>
+                <Input
+                  {...register("event_end_date")}
+                  type="date"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Event Time */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Start Time</label>
+                <Input
+                  {...register("event_start_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">End Time</label>
+                <Input
+                  {...register("event_end_time")}
+                  type="time"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Event Type */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Event Type</label>
+                <Controller
+                  name="event_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1_day">1 Day</SelectItem>
+                        <SelectItem value="2-days">2 Days</SelectItem>
+                        <SelectItem value="multi_days">Multi Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Event-specific fields - Only show for events */}
+        {listingType === "event" && (
+          <div className="space-y-6 pt-4 border-t">
+            <h3 className="text-lg font-semibold">Event Location & Pricing</h3>
+
+            {/* Event Price & Currency */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Ticket Price</label>
+                <Input
+                  {...register("event_price")}
+                  placeholder="e.g., 50 or Free"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Currency</label>
+                <Input
+                  {...register("event_currency")}
+                  placeholder="e.g., GHS, USD"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Ticket URL */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Ticket Purchase URL (Optional)
+              </label>
+              <Input
+                {...register("event_ticket_url")}
+                placeholder="https://..."
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+              {errors.event_ticket_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_ticket_url.message}
+                </p>
+              )}
+            </div>
+
+            {/* Online URL */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Event Online URL (Optional)
+              </label>
+              <Input
+                {...register("event_online_url")}
+                placeholder="https://..."
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+              {errors.event_online_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_online_url.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </form>
     );
   },

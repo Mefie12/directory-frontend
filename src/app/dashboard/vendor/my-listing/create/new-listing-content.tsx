@@ -67,18 +67,18 @@ export default function ListingContent() {
       const result = await formRef.current.submit();
 
       if (result) {
-        if (
-          currentStep === 1 &&
-          typeof result === "object" &&
-          result !== null &&
-          "slug" in result
-        ) {
-          setListingSlug((result as { slug: string }).slug);
+        // Check for slug - could be in result.data or directly in result
+        const resultObj = result as Record<string, unknown>;
+        const slug = (resultObj.data as Record<string, unknown>)?.slug || resultObj.slug;
+        
+        
+        if (currentStep === 1 && slug) {
+          setListingSlug(slug as string);
         }
 
         // Fixed: Pass the new number value directly instead of a callback function
         setCurrentStep(currentStep + 1);
-      }
+      } 
     } catch (error) {
       console.error("Step submission failed", error);
     } finally {
