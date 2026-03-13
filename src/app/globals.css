@@ -150,3 +150,10 @@
   margin: 5px;
 }
 
+[data-sonner-toaster] [data-close-button] {
+  opacity: 1 !important;
+}
+
+[data-sonner-toaster] [data-close-button]:hover {
+  opacity: 0.8 !important;
+}

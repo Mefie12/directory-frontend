@@ -64,7 +64,7 @@ export const DetailsFormSchema = z.object({
   address: z.string().min(1, "Address is required"),
   country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
-  google_plus_code: z.string().min(1, "Google Plus Code is required"),
+  google_plus_code: z.string().optional(),
   businessHours: z
     .array(
       z.object({
@@ -96,7 +96,7 @@ export const DetailsFormSchema = z.object({
   event_end_date: z.string().optional(),
   event_start_time: z.string().optional(),
   event_end_time: z.string().optional(),
-  event_type: z.string().optional(),
+  event_location: z.string().optional(),
 });
 
 const formTextConfig = {
@@ -209,7 +209,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         event_end_date: "",
         event_start_time: "",
         event_end_time: "",
-        event_type: "",
+        event_location: "",
       },
     });
 
@@ -282,7 +282,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     }, [listingSlug, reset, searchParams, form]);
 
     const saveDataToApi = async () => {
-      
       // 1. Mapbox Confirmation Modal (from Code A logic)
       const result = await showConfirm();
       if (result.type === "change") {
@@ -299,14 +298,25 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         }));
         setValue("businessHours", sanitized);
 
-        const isValid = await trigger(["address", "country", "city", "google_plus_code", "businessHours"]);
+        const isValid = await trigger([
+          "address",
+          "country",
+          "city",
+          "google_plus_code",
+          "businessHours",
+        ]);
         if (!isValid) {
           if (errors.businessHours) toast.error("Check time formats (HH:mm)");
           return false;
         }
       } else {
         // For events, only validate address fields
-        const isValid = await trigger(["address", "country", "city", "google_plus_code"]);
+        const isValid = await trigger([
+          "address",
+          "country",
+          "city",
+          "google_plus_code",
+        ]);
         if (!isValid) {
           return false;
         }
@@ -322,15 +332,16 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       try {
         setIsSaving(true);
         const data = form.getValues();
-        const detailsPayload: Record<string, unknown> = {
-          address: data.address,
-          country: data.country,
-          city: data.city,
-          google_plus_code: data.google_plus_code,
-        };
+        // Build payload based on listing type - events need different field names
+        const detailsPayload: Record<string, unknown> = {};
 
-        // Add event-specific fields if listing type is event
         if (listingType === "event") {
+          // For events: use event-specific field names and EXCLUDE google_plus_code
+          detailsPayload.event_venue = data.address;
+          detailsPayload.event_city = data.city;
+          detailsPayload.event_country = data.country;
+
+          // Add event-specific fields
           detailsPayload.event_price = data.event_price;
           detailsPayload.event_currency = data.event_currency;
           detailsPayload.event_ticket_url = data.event_ticket_url;
@@ -339,39 +350,46 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsPayload.event_end_date = data.event_end_date;
           detailsPayload.event_start_time = data.event_start_time;
           detailsPayload.event_end_time = data.event_end_time;
-          detailsPayload.event_type = data.event_type;
+          detailsPayload.event_location = data.event_location;
+        } else {
+          // For business/community: use standard field names including google_plus_code
+          detailsPayload.address = data.address;
+          detailsPayload.city = data.city;
+          detailsPayload.country = data.country;
+          detailsPayload.google_plus_code = data.google_plus_code;
         }
 
-
         // Only prepare business hours for non-event listings
-        const enabledHours = listingType !== "event"
-          ? data.businessHours
-              .filter((h: DaySchedule) => h.enabled)
-              .map((h: DaySchedule) => ({
-                day_of_week: h.day_of_week,
-                open_time: h.startTime,
-                close_time: h.endTime,
-              }))
-          : [];
+        const enabledHours =
+          listingType !== "event"
+            ? data.businessHours
+                .filter((h: DaySchedule) => h.enabled)
+                .map((h: DaySchedule) => ({
+                  day_of_week: h.day_of_week,
+                  open_time: h.startTime,
+                  close_time: h.endTime,
+                }))
+            : [];
 
-        const detailsReq = fetch(
-          `${API_URL}/api/listing/${effectiveSlug}/address`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(detailsPayload),
+        const detailsEndpoint =
+          listingType === "event"
+            ? `${API_URL}/api/listing/${effectiveSlug}/eventDetails`
+            : `${API_URL}/api/listing/${effectiveSlug}/address`;
+
+        const detailsReq = fetch(detailsEndpoint, {
+          method: listingType === "event" ? "PATCH" : "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        );
+          body: JSON.stringify(detailsPayload),
+        });
 
         // Only send business hours for non-event listings
-        const hoursReq = listingType !== "event"
-          ? fetch(
-              `${API_URL}/api/listing/${effectiveSlug}/opening_hours`,
-              {
+        const hoursReq =
+          listingType !== "event"
+            ? fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -379,19 +397,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify(enabledHours),
-              },
-            )
-          : null;
+              })
+            : null;
 
         const requests = [detailsReq];
         if (hoursReq) requests.push(hoursReq);
 
-
-        
         const responses = await Promise.all(requests);
         const [detailsRes, hoursRes] = responses;
 
-        
         if (!detailsRes.ok || (hoursRes && !hoursRes.ok)) {
           throw new Error("Update failed");
         }
@@ -514,51 +528,53 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             )}
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <label className="font-medium text-sm">
-                {text.googlePlusCodeLabel}
-              </label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <HelpCircle size={14} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[280px] p-3">
-                    <div className="space-y-2 text-xs">
-                      <p className="font-semibold">What is a Plus Code?</p>
-                      <p>
-                        A simple digital address that works like a street
-                        address.
-                      </p>
-                      <p className="font-semibold">How to find it:</p>
-                      <ol className="list-decimal list-inside space-y-1">
-                        <li>Open Google Maps and tap your location.</li>
-                        <li>
-                          Look for the plus code icon (e.g., 849VCWC8+R9).
-                        </li>
-                      </ol>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          {listingType !== "event" && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <label className="font-medium text-sm">
+                  {text.googlePlusCodeLabel}
+                </label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <HelpCircle size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] p-3">
+                      <div className="space-y-2 text-xs">
+                        <p className="font-semibold">What is a Plus Code?</p>
+                        <p>
+                          A simple digital address that works like a street
+                          address.
+                        </p>
+                        <p className="font-semibold">How to find it:</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Open Google Maps and tap your location.</li>
+                          <li>
+                            Look for the plus code icon (e.g., 849VCWC8+R9).
+                          </li>
+                        </ol>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input
+                {...register("google_plus_code")}
+                placeholder="e.g., 849VCWC8+R9"
+                className={cn(errors.google_plus_code && "border-red-500")}
+              />
+              {errors.google_plus_code && (
+                <p className="text-red-500 text-xs">
+                  {errors.google_plus_code.message}
+                </p>
+              )}
             </div>
-            <Input
-              {...register("google_plus_code")}
-              placeholder="e.g., 849VCWC8+R9"
-              className={cn(errors.google_plus_code && "border-red-500")}
-            />
-            {errors.google_plus_code && (
-              <p className="text-red-500 text-xs">
-                {errors.google_plus_code.message}
-              </p>
-            )}
-          </div>
+          )}
         </div>
 
         {listingType !== "event" && (
@@ -588,7 +604,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         {/* Event-specific fields - Only show for events */}
         {listingType === "event" && (
-          <div className="space-y-6">
+          <div className="space-y-6 pt-4 border-t">
             <h3 className="text-lg font-semibold">Event Details</h3>
 
             {/* Event Date */}
@@ -634,19 +650,19 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {/* Event Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Event Type</label>
+                <label className="font-medium text-sm">Event Location</label>
                 <Controller
-                  name="event_type"
+                  name="event_location"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
-                        <SelectValue placeholder="Select event type" />
+                        <SelectValue placeholder="Select event location" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1_day">1 Day</SelectItem>
-                        <SelectItem value="2-days">2 Days</SelectItem>
-                        <SelectItem value="multi_days">Multi Days</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="in_person">In-Person</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -658,63 +674,79 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         {/* Event-specific fields - Only show for events */}
         {listingType === "event" && (
-        <div className="space-y-6 pt-4 border-t">
-          <h3 className="text-lg font-semibold">Event Location & Pricing</h3>
+          <div className="space-y-6 pt-4 border-t">
+            <h3 className="text-lg font-semibold">Event Ticketing</h3>
 
-          {/* Event Price & Currency */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Event Price & Currency */}
             <div className="space-y-1">
               <label className="font-medium text-sm">Ticket Price</label>
-              <Input
-                {...register("event_price")}
-                placeholder="e.g., 50 or Free"
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
+              <div className="flex">
+                <Controller
+                  name="event_currency"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="py-[19px] rounded-l-lg rounded-r-none border-r border-gray-300 px-2 text-gray-800 w-[100px]">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GHS">GHS</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <Input
+                  {...register("event_price")}
+                  placeholder="e.g., 50 or Free"
+                  type="number"
+                  className="h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1"
+                />
+              </div>
             </div>
+
+            {/* Ticket URL */}
             <div className="space-y-1">
-              <label className="font-medium text-sm">Currency</label>
+              <label className="font-medium text-sm">
+                Ticket Purchase URL (Optional)
+              </label>
               <Input
-                {...register("event_currency")}
-                placeholder="e.g., GHS, USD"
+                {...register("event_ticket_url")}
+                placeholder="https://..."
+                type="url"
                 className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
               />
+              {errors.event_ticket_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_ticket_url.message}
+                </p>
+              )}
+            </div>
+
+            {/* Online URL */}
+            <div className="space-y-1">
+              <label className="font-medium text-sm">
+                Event Online URL (Optional)
+              </label>
+              <Input
+                {...register("event_online_url")}
+                placeholder="https://..."
+                type="url"
+                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+              />
+              {errors.event_online_url && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.event_online_url.message}
+                </p>
+              )}
             </div>
           </div>
-
-          {/* Ticket URL */}
-          <div className="space-y-1">
-            <label className="font-medium text-sm">
-              Ticket Purchase URL (Optional)
-            </label>
-            <Input
-              {...register("event_ticket_url")}
-              placeholder="https://..."
-              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-            />
-            {errors.event_ticket_url && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.event_ticket_url.message}
-              </p>
-            )}
-          </div>
-
-          {/* Online URL */}
-          <div className="space-y-1">
-            <label className="font-medium text-sm">
-              Event Online URL (Optional)
-            </label>
-            <Input
-              {...register("event_online_url")}
-              placeholder="https://..."
-              className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-            />
-            {errors.event_online_url && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.event_online_url.message}
-              </p>
-            )}
-          </div>
-        </div>
         )}
       </form>
     );

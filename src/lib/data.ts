@@ -11,31 +11,31 @@ export interface HeroSlide {
 export const heroSlides: HeroSlide[] = [
   {
     id: 1,
-    title: "Discover African-Owned Businesses & Events",
+    title: "Discover Trusted Ghanaian Businesses & Events Worldwide",
     description:
-      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+      "A curated platform connecting people around the world to Ghanaian businesses, cultural experiences, and events. Mefie makes it easier to discover, support, and experience the very best of Ghana globally.",
     image: "/images/backgroundImages/hero1.jpg",
-    cta: "List your business",
+    cta: "Apply to Be Listed",
     cta2: "Explore listing",
     link: "/become-a-vendor",
   },
   {
     id: 2,
-    title: "Discover African-Owned Businesses & Events",
+    title: "Discover Trusted Ghanaian Businesses & Events Worldwide",
     description:
-      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+      "A curated platform connecting people around the world to Ghanaian businesses, cultural experiences, and events. Mefie makes it easier to discover, support, and experience the very best of Ghana globally.",
     image: "/images/backgroundImages/hero2.jpg",
-    cta: "List your business",
+    cta: "Apply to Be Listed",
     cta2: "Explore listing",
     link: "/discover",
   },
   {
     id: 3,
-    title: "Discover African-Owned Businesses & Events",
+    title: "Discover Trusted Ghanaian Businesses & Events Worldwide",
     description:
-      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+      "A curated platform connecting people around the world to Ghanaian businesses, cultural experiences, and events. Mefie makes it easier to discover, support, and experience the very best of Ghana globally.",
     image: "/images/backgroundImages/hero3.jpg",
-    cta: "List your business",
+    cta: "Apply to Be Listed",
     cta2: "Explore listing",
     link: "/become-a-vendor",
   },

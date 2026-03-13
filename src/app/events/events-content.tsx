@@ -6,7 +6,7 @@ import ScrollableCategoryTabs, {
   CategoryTabItem,
 } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
-import { communityCards } from "@/lib/data"; // Removed unused EventsCategory import
+// import { communityCards } from "@/lib/data"; // Removed unused EventsCategory import
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
@@ -118,7 +118,7 @@ const classifyListing = (
 export default function EventsContent() {
   const [events, setEvents] = useState<ProcessedEvent[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
-  const [ ,setApiCategories] = useState<CategoryTabItem[]>([]);
+  const [, setApiCategories] = useState<CategoryTabItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { user } = useAuth();
@@ -261,7 +261,7 @@ export default function EventsContent() {
   return (
     <>
       <ScrollableCategoryTabs
-        mainCategorySlug="events" 
+        mainCategorySlug="events"
         defaultValue="all"
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"
@@ -354,11 +354,13 @@ export default function EventsContent() {
                       Explore all
                     </Link>
                   </div>
-                  <CommunitySectionCarousel
-                    communities={
-                      communities.length > 0 ? communities : communityCards
-                    }
-                  />
+                  {communities.length > 0 ? (
+                    <CommunitySectionCarousel communities={communities} />
+                  ) : (
+                    <div className="py-8 text-center text-gray-500">
+                      No communities found.
+                    </div>
+                  )}
                 </div>
 
                 <div className="py-12 px-4 lg:px-16">

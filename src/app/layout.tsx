@@ -103,7 +103,12 @@ export default function RootLayout({
         <AuthProvider>
           <BookmarkProvider>
             <LayoutWrapper>{children}</LayoutWrapper>
-            <Toaster />
+            <Toaster
+              closeButton
+              visibleToasts={9}
+              duration={10000}
+              position="bottom-right"
+            />
           </BookmarkProvider>
         </AuthProvider>
         {/* <Footer /> */}
