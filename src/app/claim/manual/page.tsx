@@ -187,7 +187,7 @@ function ManualLisitingForm() {
             ) : currentStep === 6 ? (
               "Go to Dashboard"
             ) : currentStep === 5 ? (
-              "Publish Listing"
+              "Submit Listing"
             ) : (
               <>
                 Save & Continue <ChevronRight className="w-4 h-4 ml-1" />

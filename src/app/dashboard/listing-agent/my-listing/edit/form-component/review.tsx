@@ -1,15 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { forwardRef, useImperativeHandle, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { Card, CardContent } from "@/components/ui/card";
-import { Pencil, Loader2, MapPin, Mail, Clock, Tag } from "lucide-react";
+import {
+  Pencil,
+  Loader2,
+  MapPin,
+  Mail,
+  Clock,
+  Tag,
+  Globe,
+  Calendar,
+} from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
+import { useRouter } from "next/navigation";
 
 interface Props {
   listingSlug: string;
@@ -20,25 +28,30 @@ interface Props {
 // Interface matching your API response
 interface ApiListingData {
   name: string;
+  type: string;
   primary_image: string | null;
+  images?: { media: string }[];
   categories: { name: string }[];
   address: string | null;
   city: string | null;
   country: string | null;
   email: string | null;
+  website?: string | null;
   opening_hours: {
     day_of_week: string;
     open_time: string;
     close_time: string;
   }[];
   bio: string | null;
+  event_start_date: string | null;
+  event_end_date: string | null;
+  event_start_time: string | null;
+  event_end_time: string | null;
 }
 
 export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
-    // Get data from context for form values
-    const context = useListing();
-    const { media, basicInfo, businessDetails } = context;
+    const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -50,7 +63,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           const token = localStorage.getItem("authToken");
           const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-          // Using GET request to fetch the data
+          // Using GET request as per your docs to fetch the data
           const res = await fetch(
             `${API_URL}/api/listing/${listingSlug}/show`,
             {
@@ -59,7 +72,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Authorization: `Bearer ${token}`,
                 Accept: "application/json",
               },
-            }
+            },
           );
 
           if (res.ok) {
@@ -78,20 +91,20 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       }
     }, [listingSlug]);
 
-    // 2. Handle the final "Update Listing" action - show success and redirect to dashboard
+    // 2. Handle the final "Publish" action
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
           // Show success toast
-          toast.success("Listing Updated Successfully!");
-          
+          toast.success("Listing Submitted Successfully!");
+
           // Route to dashboard
-          router.push("/dashboard/vendor/my-listing");
-          
+          router.push("/dashboard/listing-agent/my-listing");
+
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to update listing");
+          toast.error("Failed to submit listing");
           return false;
         }
       },
@@ -105,69 +118,92 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       );
     }
 
-    // Prepare Display Data - Use context data as primary, fallback to API data
-    const getCoverPhotoUrl = (coverPhoto: any) => {
-      if (!coverPhoto) return null;
-      // If it's an existing image with url, use that
-      if (coverPhoto && typeof coverPhoto === 'object' && 'url' in coverPhoto) {
-        return coverPhoto.url;
-      }
-      // Otherwise it's a new File object
-      return URL.createObjectURL(coverPhoto);
-    };
-    
-    // Use context data first, fall back to API data
-    const displayName = basicInfo?.name || listingData?.name || "Not provided";
-    const displayDescription = basicInfo?.description || listingData?.bio || "Not provided";
-    const displayEmail = businessDetails?.email || listingData?.email || "Not provided";
-    const displayAddress = businessDetails?.address || listingData?.address || "Not provided";
-    const displayCity = listingData?.city || "";
-    const displayCountry = listingData?.country || "";
-    const locationStr = [displayCity, displayCountry].filter(Boolean).join(", ") || "Location pending";
-    
-    // For categories, we need to get them from listingData since basicInfo has category_ids
-    const displayImage = getCoverPhotoUrl(media.coverPhoto) || listingData?.primary_image;
-    const categoryStr = listingData?.categories?.map((c) => c.name).join(", ") || "Uncategorized";
+    const isEvent = listingData?.type === "event";
+
+    const displayWebsite = listingData?.website;
+
+    // Prepare Display Data
+    const displayImage =
+      listingData?.primary_image ||
+      // Look for the first image in the images array from API
+      listingData?.images?.[0]?.media ||
+      // Fallback to local state if API hasn't returned anything yet
+      (media.coverPhoto instanceof File
+        ? URL.createObjectURL(media.coverPhoto)
+        : typeof media.coverPhoto === "string"
+          ? media.coverPhoto
+          : null);
+
+    // Process additional images for gallery
+    const galleryImages = listingData?.images?.slice(0, 3) || [];
+
+    const locationStr =
+      [listingData?.city, listingData?.country].filter(Boolean).join(", ") ||
+      "Location pending";
+    const categoryStr =
+      listingData?.categories?.map((c) => c.name).join(", ") || "Uncategorized";
 
     return (
       <div className="space-y-6 px-4 py-6">
         <div>
-          <h2 className="text-xl font-semibold mb-1">Review & Publish</h2>
+          <h2 className="text-xl font-semibold mb-1">Preview & Publish</h2>
           <p className="text-sm text-muted-foreground">
             Review your details before publishing
           </p>
         </div>
 
         {/* Cover Photo Section */}
-        <div className="relative w-full h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-          {displayImage ? (
-            <Image
-              src={displayImage}
-              alt="Cover"
-              className="w-full h-full object-cover"
-              width={800}
-              height={400}
-              unoptimized // Needed if using blob URLs or external API images
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+        <div className="space-y-3">
+          <div className="relative w-full h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+            {displayImage ? (
               <Image
-                src="/images/no-image.jpg"
-                width={100}
-                height={100}
-                alt="No Image"
-                className="opacity-50"
+                src={displayImage}
+                alt="Cover"
+                className="w-full h-full object-cover"
+                width={800}
+                height={400}
+                unoptimized
               />
-              <span>No cover photo uploaded</span>
-            </div>
-          )}
-          <Button
-            size="icon"
-            variant="secondary"
-            className="absolute top-4 right-4 rounded-full h-10 w-10 shadow-sm"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <span>No cover photo uploaded</span>
+              </div>
+            )}
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute top-4 right-4 rounded-full h-10 w-10 shadow-sm"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Additional Images Grid */}
+          <div className="grid grid-cols-3 gap-3 h-24">
+            {[0, 1, 2].map((i) => {
+              const imgSrc = galleryImages[i]?.media;
+              return (
+                <div
+                  key={i}
+                  className="relative rounded-md overflow-hidden bg-gray-100 border border-gray-200"
+                >
+                  {imgSrc ? (
+                    <Image
+                      src={imgSrc}
+                      alt={`Gallery ${i}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+                      Empty
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Main Information Card */}
@@ -177,10 +213,10 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               {/* Name */}
               <div className="space-y-1">
                 <span className="text-sm font-medium text-gray-900">
-                  Business Name
+                  {isEvent ? "Event Name" : "Business Name"}
                 </span>
                 <p className="text-sm text-gray-600">
-                  {displayName}
+                  {listingData?.name || "Not provided"}
                 </p>
               </div>
 
@@ -198,7 +234,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   <MapPin className="w-3 h-3" /> Location
                 </span>
                 <p className="text-sm text-gray-600">{locationStr}</p>
-                <p className="text-xs text-gray-400">{displayAddress}</p>
+                <p className="text-xs text-gray-400">{listingData?.address}</p>
               </div>
 
               {/* Email */}
@@ -207,36 +243,71 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   <Mail className="w-3 h-3" /> Email
                 </span>
                 <p className="text-sm text-gray-600">
-                  {displayEmail}
+                  {listingData?.email || "Not provided"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                  <Globe className="w-3 h-3" /> Website
+                </span>
+                <p className="text-sm text-gray-600 truncate underline decoration-[#93C01F]/30">
+                  {displayWebsite}
                 </p>
               </div>
 
               {/* Hours */}
-              <div className="space-y-1 col-span-1 md:col-span-2">
-                <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1">
-                  <Clock className="w-3 h-3" /> Business Hours
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {listingData?.opening_hours &&
-                  listingData.opening_hours.length > 0 ? (
-                    listingData.opening_hours.map((h, i) => (
-                      <div
-                        key={i}
-                        className="text-xs text-gray-600 bg-gray-50 p-2 rounded border"
-                      >
-                        <span className="font-semibold block">
-                          {h.day_of_week}
-                        </span>
-                        {h.open_time
-                          ? `${h.open_time} - ${h.close_time}`
-                          : "Closed"}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">No hours set</p>
-                  )}
-                </div>
-              </div>
+              {isEvent ? (
+                <>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-3 h-3" /> Event Dates
+                    </span>
+                    <p className="text-sm text-gray-600">
+                      {listingData?.event_start_date || "N/A"} to{" "}
+                      {listingData?.event_end_date || "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <Clock className="w-3 h-3" /> Event Time
+                    </span>
+                    <p className="text-sm text-gray-600">
+                      {listingData?.event_start_time || "N/A"} -{" "}
+                      {listingData?.event_end_time || "N/A"}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1 col-span-1 md:col-span-2">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1">
+                      <Clock className="w-3 h-3" /> Business Hours
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {listingData?.opening_hours?.length ? (
+                        listingData.opening_hours.map((h, i) => (
+                          <div
+                            key={i}
+                            className="text-xs text-gray-600 bg-gray-50 p-2 rounded border"
+                          >
+                            <span className="font-semibold block">
+                              {h.day_of_week}
+                            </span>
+                            {h.open_time
+                              ? `${h.open_time} - ${h.close_time}`
+                              : "Closed"}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No hours set
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Description Box */}
@@ -245,14 +316,14 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Description
               </h4>
               <p className="text-sm text-gray-800 leading-relaxed">
-                {displayDescription}
+                {listingData?.bio || "No description provided"}
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
     );
-  }
+  },
 );
 
 ReviewSubmitStep.displayName = "ReviewSubmitStep";

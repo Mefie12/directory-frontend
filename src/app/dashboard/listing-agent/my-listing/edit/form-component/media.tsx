@@ -326,7 +326,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
         <div className="space-y-6">
           <div>
-            <h3 className="font-medium mb-2">Cover Media</h3>
+            <h3 className="font-medium mb-2">Cover Media ( 1 Photo)</h3>
             <p className="text-sm text-muted-foreground mb-3">
               First file in upload queue. Best to use an image for best results.
             </p>
@@ -342,7 +342,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div>
-            <h3 className="font-medium mb-2">Gallery Media (Optional)</h3>
+            <h3 className="font-medium mb-2">Gallery Media ( Up to 3 Photos and videos)</h3>
             <p className="text-sm text-muted-foreground mb-3">
               These will be files 2-4 in the upload queue.
             </p>

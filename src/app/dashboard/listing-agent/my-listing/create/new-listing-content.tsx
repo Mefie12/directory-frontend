@@ -54,7 +54,7 @@ export default function ListingContent() {
         setIsSaving(true);
         await formRef.current.submit();
         setIsSaving(false);
-        router.push("/dashboard/vendor/my-listing");
+        router.push("/dashboard/listing-agent/my-listing");
       }
       return;
     }
@@ -168,7 +168,7 @@ export default function ListingContent() {
                 Saving...
               </>
             ) : currentStep === 5 ? (
-              "Save Listing"
+              "Submit Listing"
             ) : (
               <>
                 Save & Continue <ChevronRight className="w-4 h-4 ml-1" />

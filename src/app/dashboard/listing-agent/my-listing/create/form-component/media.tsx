@@ -301,7 +301,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Cover Media
+                Cover Media ( 1 Photo)
               </h3>
               {media.coverPhoto && (
                 <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
@@ -330,7 +330,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Gallery Media (Optional)
+               Gallery Media ( Up to 3 Photos and videos)
               </h3>
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${

@@ -7,18 +7,29 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
-import { Loader2, X } from "lucide-react"; // Restored imports
+import { Loader2 } from "lucide-react";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+
+// --- Helper function to validate URL (allows without protocol) ---
+const isValidUrl = (url: string): boolean => {
+  if (!url) return true; // Empty is valid (optional field)
+  // Allow URLs with or without protocol
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to normalize URL (add https:// if missing) ---
+const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url;
+};
 
 // Validation Schema
 export const businessFormSchema = z.object({
@@ -31,7 +42,13 @@ export const businessFormSchema = z.object({
   secondary_phone: z.string().optional().nullable(),
   secondary_country_code: z.string().optional().nullable(),
   email: z.string().email("Invalid email address"),
-  website: z.string().url().optional().nullable().or(z.literal("")),
+  website: z.string()
+    .optional()
+    .nullable()
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid URL format",
+    }),
 
   business_reg_num: z.string().optional().nullable(),
   bio: z.string().optional().nullable(),
@@ -206,23 +223,23 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       setValue("category_ids", [idStr], { shouldValidate: true });
     };
 
-    const handleSubcategoryClick = (subCategoryId: string) => {
-      // 1. FORCE STRING: Convert input to string immediately
-      const idStr = String(subCategoryId);
+    // const handleSubcategoryClick = (subCategoryId: string) => {
+    //   // 1. FORCE STRING: Convert input to string immediately
+    //   const idStr = String(subCategoryId);
 
-      const currentIds = form.getValues("category_ids") || [];
+    //   const currentIds = form.getValues("category_ids") || [];
 
-      let newIds: string[] = [];
-      if (currentIds.includes(idStr)) {
-        // Remove
-        newIds = currentIds.filter((id) => id !== idStr);
-      } else {
-        // Add
-        newIds = [...currentIds, idStr];
-      }
+    //   let newIds: string[] = [];
+    //   if (currentIds.includes(idStr)) {
+    //     // Remove
+    //     newIds = currentIds.filter((id) => id !== idStr);
+    //   } else {
+    //     // Add
+    //     newIds = [...currentIds, idStr];
+    //   }
 
-      setValue("category_ids", newIds, { shouldValidate: true });
-    };
+    //   setValue("category_ids", newIds, { shouldValidate: true });
+    // };
 
     // --- 3. Submit Handler (Exposed to Parent) ---
     useImperativeHandle(ref, () => ({
@@ -252,7 +269,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         const submissionData: Record<string, unknown> = {
           name: rawData.name,
           email: rawData.email,
-          website: rawData.website,
+          website: normalizeUrl(rawData.website || ""),
           type: listingType,
           bio: rawData.description,
           description: rawData.description,
@@ -451,7 +468,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         {/* Category Selection */}
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="font-medium text-sm">Main Category *</label>
+            <label className="font-medium text-sm">
+              Main Category <span className="text-red-500">*</span>
+            </label>
             {loading ? (
               <div className="flex items-center space-x-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -462,81 +481,67 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             ) : error ? (
               <div className="text-red-500 text-sm">{error}</div>
             ) : (
-              <Select
+              <SearchableSelect
+                options={mainCategories.map((category) => ({
+                  value: String(category.id),
+                  label: category.name,
+                }))}
                 value={selectedMainCategoryId}
-                onValueChange={handleMainCategoryChange}
+                onChange={handleMainCategoryChange}
+                placeholder={
+                  mainCategories.length === 0
+                    ? "No categories available"
+                    : "Select main category"
+                }
+                searchPlaceholder="Search main category..."
                 disabled={loading || mainCategories.length === 0}
-              >
-                <SelectTrigger
-                  className={cn(
-                    "h-10 w-full rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black",
-                    errors.category_ids &&
-                      "border-red-500 focus-visible:ring-red-500",
-                  )}
-                >
-                  <SelectValue
-                    placeholder={
-                      mainCategories.length === 0
-                        ? "No categories available"
-                        : "Select main category"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {mainCategories.map((category) => (
-                    <SelectItem key={category.id} value={String(category.id)}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                error={
+                  errors.category_ids
+                    ? "Main category is required"
+                    : undefined
+                }
+              />
             )}
           </div>
 
-          {/* Subcategories as Pills */}
+          {/* Subcategory - Single Selection with SearchableSelect */}
           {selectedMainCategoryId && subCategories.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="font-medium text-sm">
-                  Subcategories (Optional)
+                  Subcategory (Optional)
                 </label>
-                <span className="text-xs text-gray-500">
-                  Showing sub-categories for:{" "}
-                  <span className="font-semibold">
-                    {selectedMainCategory?.name || "No main category selected"}
-                  </span>
-                </span>
               </div>
-              <div className="flex flex-wrap gap-2 min-h-[60px] p-3 border border-gray-200 rounded-lg bg-white">
-                {subCategories.map((subcategory) => {
-                  // Use ID string comparison
-                  const isSelected = currentCategoryIds.includes(
-                    subcategory.id.toString(),
-                  );
-                  return (
-                    <button
-                      key={subcategory.id}
-                      type="button"
-                      onClick={() =>
-                        handleSubcategoryClick(String(subcategory.id))
-                      }
-                      className={cn(
-                        "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                        "border hover:shadow-md flex items-center gap-2",
-                        isSelected
-                          ? "bg-[#93C01F] text-white border-[#93C01F]"
-                          : "bg-white text-gray-900 border-gray-300 hover:border-[#93C01F] hover:bg-[#F4F9E8]",
-                      )}
-                    >
-                      {subcategory.name}
-                      {isSelected && <X className="w-3 h-3" />}
-                    </button>
-                  );
-                })}
-              </div>
+
+              <SearchableSelect
+                options={subCategories.map((subcategory) => ({
+                  value: String(subcategory.id),
+                  label: subcategory.name,
+                }))}
+                value={
+                  currentCategoryIds.find(
+                    (id) =>
+                      id !== String(selectedMainCategory?.id) &&
+                      subCategories.some(
+                        (sub) => String(sub.id) === id,
+                      )
+                  ) || ""
+                }
+                onChange={(subCategoryId) => {
+                  // Clear existing subcategories and add the new one
+                  const newIds = [selectedMainCategoryId];
+                  if (subCategoryId) {
+                    newIds.push(subCategoryId);
+                  }
+                  setValue("category_ids", newIds, { shouldValidate: true });
+                }}
+                placeholder="Select sub category (optional)"
+                searchPlaceholder="Search sub category..."
+              />
+
               <div className="flex items-center justify-between">
                 <p className="text-xs text-gray-500">
-                  {currentCategoryIds.length} categories selected
+                  {currentCategoryIds.length} category selected
                 </p>
               </div>
             </div>
@@ -556,7 +561,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             <Input
               {...register("website")}
               type="url"
-              placeholder="https://example.com"
+              placeholder="www.example.com"
               className="h-10 rounded-lg border-gray-300 px-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black"
             />
           </div>

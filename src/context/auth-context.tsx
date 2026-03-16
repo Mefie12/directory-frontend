@@ -26,6 +26,7 @@ interface AuthContextType {
   login: (token: string) => Promise<void>;
   logout: () => void;
   refetchUser: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -154,6 +155,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+
+  const refreshUser = async () => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      // We await this to ensure the state is updated before the caller continues
+      await fetchUserProfile(token);
+    }
+  };
+
   // Check for existing token on mount
   useEffect(() => {
     // console.log("🔍 AuthProvider mounting, checking for token...");
@@ -204,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refetchUser,
+        refreshUser,
       }}
     >
       {children}

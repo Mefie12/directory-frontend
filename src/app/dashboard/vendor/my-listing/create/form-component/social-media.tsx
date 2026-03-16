@@ -10,19 +10,56 @@ import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
+// --- Helper function to validate URL (allows without protocol) ---
+const isValidUrl = (url: string): boolean => {
+  if (!url) return true; // Empty is valid (optional field)
+  // Allow URLs with or without protocol
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to normalize URL (add https:// if missing) ---
+const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url;
+};
+
 /* ---------------------------------------------------
    SCHEMA
 --------------------------------------------------- */
 export const socialMediaSchema = z.object({
-  facebook: z.string().url("Invalid Facebook URL").optional().or(z.literal("")),
-  instagram: z
-    .string()
-    .url("Invalid Instagram URL")
+  facebook: z.string()
     .optional()
-    .or(z.literal("")),
-  twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
-  linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
-  tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid Facebook URL",
+    }),
+  instagram: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid Instagram URL",
+    }),
+  twitter: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid Twitter URL",
+    }),
+  linkedin: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid LinkedIn URL",
+    }),
+  tiktok: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid TikTok URL",
+    }),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -39,35 +76,35 @@ const socialPlatforms = [
     id: "facebook",
     name: "Facebook",
     icon: Facebook,
-    placeholder: "https://facebook.com/yourpage",
+    placeholder: "facebook.com/yourpage",
     color: "text-blue-600",
   },
   {
     id: "instagram",
     name: "Instagram",
     icon: Instagram,
-    placeholder: "https://instagram.com/yourprofile",
+    placeholder: "instagram.com/yourprofile",
     color: "text-pink-600",
   },
   {
     id: "twitter",
     name: "Twitter",
     icon: Twitter,
-    placeholder: "https://twitter.com/yourhandle",
+    placeholder: "twitter.com/yourhandle",
     color: "text-blue-400",
   },
   {
     id: "linkedin",
     name: "LinkedIn",
     icon: Linkedin,
-    placeholder: "https://linkedin.com/company/yourcompany",
+    placeholder: "linkedin.com/company/yourcompany",
     color: "text-blue-700",
   },
   {
     id: "tiktok",
     name: "Tiktok",
     icon: Globe,
-    placeholder: "https://tiktok.com/@yourprofile",
+    placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
   },
 ];
@@ -150,11 +187,14 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         if (!token) throw new Error("Authentication required");
 
         // Filter out empty values for the payload
-        const socialData = Object.fromEntries(
-          Object.entries(data).filter(
+        // Also normalize URLs to add https:// if missing
+        const normalizedData = Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [key, normalizeUrl(value || "")]).filter(
             ([, value]) => value && value.trim() !== "",
           ),
         );
+
+        const socialData = normalizedData;
 
         // If no social media links provided, we still proceed to next step
         if (Object.keys(socialData).length === 0) return true;

@@ -20,6 +20,22 @@ import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries } from "country-data-list";
+
+// --- Helper function to validate URL (allows without protocol) ---
+const isValidUrl = (url: string): boolean => {
+  if (!url) return true; // Empty is valid (optional field)
+  // Allow URLs with or without protocol
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to normalize URL (add https:// if missing) ---
+const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url;
+};
 import {
   Tooltip,
   TooltipContent,
@@ -87,16 +103,18 @@ export const DetailsFormSchema = z.object({
   // Event-specific fields
   event_price: z.string().optional(),
   event_currency: z.string().optional(),
-  event_ticket_url: z
-    .string()
-    .url("Invalid URL format")
+  event_ticket_url: z.string()
     .optional()
-    .or(z.literal("")),
-  event_online_url: z
-    .string()
-    .url("Invalid URL format")
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid URL format",
+    }),
+  event_online_url: z.string()
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .refine((val) => isValidUrl(val || ""), {
+      message: "Invalid URL format",
+    }),
   event_start_date: z.string().optional(),
   event_end_date: z.string().optional(),
   event_start_time: z.string().optional(),
@@ -335,8 +353,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           // Add event-specific fields
           detailsPayload.event_price = data.event_price;
           detailsPayload.event_currency = data.event_currency;
-          detailsPayload.event_ticket_url = data.event_ticket_url;
-          detailsPayload.event_online_url = data.event_online_url;
+          detailsPayload.event_ticket_url = normalizeUrl(data.event_ticket_url || "");
+          detailsPayload.event_online_url = normalizeUrl(data.event_online_url || "");
           detailsPayload.event_start_date = data.event_start_date;
           detailsPayload.event_end_date = data.event_end_date;
           detailsPayload.event_start_time = data.event_start_time;
@@ -647,14 +665,14 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {/* Event Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Event Location</label>
+                <label className="font-medium text-sm">Event Type</label>
                 <Controller
                   name="event_location"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
-                        <SelectValue placeholder="Select event location" />
+                        <SelectValue placeholder="Select event type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="online">Online</SelectItem>
@@ -675,73 +693,75 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             <h3 className="text-lg font-semibold">Event Ticketing</h3>
 
             {/* Event Price & Currency */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">Ticket Price</label>
-              <div className="flex">
-                <Controller
-                  name="event_currency"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger className="py-[19px] rounded-l-lg rounded-r-none border-r border-gray-300 px-2 text-gray-800 w-[100px]">
-                        <SelectValue placeholder="Currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="GHS">GHS</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <Input
-                  {...register("event_price")}
-                  placeholder="e.g., 50 or Free"
-                  type="number"
-                  className="h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Ticket Price</label>
+                <div className="flex">
+                  <Controller
+                    name="event_currency"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger className="py-[19px] rounded-l-lg rounded-r-none border-r border-gray-300 px-2 text-gray-800 w-[100px]">
+                          <SelectValue placeholder="Currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="GHS">GHS</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <Input
+                    {...register("event_price")}
+                    placeholder="e.g., 50 or Free"
+                    type="number"
+                    className="h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Ticket URL */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">
-                Ticket Purchase URL (Optional)
-              </label>
-              <Input
-                {...register("event_ticket_url")}
-                placeholder="https://..."
-                type="url"
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
-              {errors.event_ticket_url && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.event_ticket_url.message}
-                </p>
-              )}
-            </div>
+              {/* Ticket URL */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Ticket Purchase URL (Optional)
+                </label>
+                <Input
+                  {...register("event_ticket_url")}
+                  placeholder="www.example.com/tickets"
+                  type="url"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+                {errors.event_ticket_url && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.event_ticket_url.message}
+                  </p>
+                )}
+              </div>
 
-            {/* Online URL */}
-            <div className="space-y-1">
-              <label className="font-medium text-sm">
-                Event Online URL (Optional)
-              </label>
-              <Input
-                {...register("event_online_url")}
-                placeholder="https://..."
-                type="url"
-                className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-              />
-              {errors.event_online_url && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.event_online_url.message}
-                </p>
-              )}
+              {/* Online URL */}
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Event Online URL (Optional)
+                </label>
+                <Input
+                  {...register("event_online_url")}
+                  placeholder="www.example.com/live-stream"
+                  type="url"
+                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                />
+                {errors.event_online_url && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.event_online_url.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}

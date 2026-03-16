@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { Card, CardContent } from "@/components/ui/card";
-import { Pencil, Loader2, MapPin, Mail, Clock, Tag } from "lucide-react";
+import { Pencil, Loader2, MapPin, Mail, Clock, Tag, Globe, Calendar } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
@@ -19,18 +19,25 @@ interface Props {
 // Interface matching your API response
 interface ApiListingData {
   name: string;
+  type: string;
   primary_image: string | null;
+  images?: { media: string }[];
   categories: { name: string }[];
   address: string | null;
   city: string | null;
   country: string | null;
   email: string | null;
+  website?: string | null;
   opening_hours: {
     day_of_week: string;
     open_time: string;
     close_time: string;
   }[];
   bio: string | null;
+  event_start_date: string | null;
+  event_end_date: string | null;
+  event_start_time: string | null;
+  event_end_time: string | null;
 }
 
 export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
@@ -83,7 +90,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           toast.success("Listing Submitted Successfully!");
 
           // Route to dashboard
-          router.push("/dashboard/vendor/my-listing");
+          router.push("/dashboard/listing-agent/my-listing");
 
           return true;
         } catch (error) {
@@ -102,10 +109,18 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       );
     }
 
+    const isEvent = listingData?.type === "event";
+
+    const displayWebsite = listingData?.website;
+
     // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =
       listingData?.primary_image ||
       (media.coverPhoto ? URL.createObjectURL(media.coverPhoto) : null);
+
+    // Process additional images for gallery
+    const galleryImages = listingData?.images?.slice(0, 3) || [];
+
     const locationStr =
       [listingData?.city, listingData?.country].filter(Boolean).join(", ") ||
       "Location pending";
@@ -122,35 +137,57 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         </div>
 
         {/* Cover Photo Section */}
-        <div className="relative w-full h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-          {displayImage ? (
-            <Image
-              src={displayImage}
-              alt="Cover"
-              className="w-full h-full object-cover"
-              width={800}
-              height={400}
-              unoptimized // Needed if using blob URLs or external API images
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+        <div className="space-y-3">
+          <div className="relative w-full h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+            {displayImage ? (
               <Image
-                src="/images/no-image.jpg"
-                width={100}
-                height={100}
-                alt="No Image"
-                className="opacity-50"
+                src={displayImage}
+                alt="Cover"
+                className="w-full h-full object-cover"
+                width={800}
+                height={400}
+                unoptimized
               />
-              <span>No cover photo uploaded</span>
-            </div>
-          )}
-          <Button
-            size="icon"
-            variant="secondary"
-            className="absolute top-4 right-4 rounded-full h-10 w-10 shadow-sm"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <span>No cover photo uploaded</span>
+              </div>
+            )}
+            <Button
+              size="icon"
+              variant="secondary"
+              className="absolute top-4 right-4 rounded-full h-10 w-10 shadow-sm"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Additional Images Grid */}
+          <div className="grid grid-cols-3 gap-3 h-24">
+            {[0, 1, 2].map((i) => {
+              const imgSrc = galleryImages[i]?.media;
+              return (
+                <div
+                  key={i}
+                  className="relative rounded-md overflow-hidden bg-gray-100 border border-gray-200"
+                >
+                  {imgSrc ? (
+                    <Image
+                      src={imgSrc}
+                      alt={`Gallery ${i}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+                      Empty
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Main Information Card */}
@@ -160,7 +197,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               {/* Name */}
               <div className="space-y-1">
                 <span className="text-sm font-medium text-gray-900">
-                  Business Name
+                  {isEvent ? "Event Name" : "Business Name"}
                 </span>
                 <p className="text-sm text-gray-600">
                   {listingData?.name || "Not provided"}
@@ -194,32 +231,50 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 </p>
               </div>
 
-              {/* Hours */}
-              <div className="space-y-1 col-span-1 md:col-span-2">
-                <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1">
-                  <Clock className="w-3 h-3" /> Business Hours
+              <div className="space-y-1">
+                <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                  <Globe className="w-3 h-3" /> Website
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {listingData?.opening_hours &&
-                  listingData.opening_hours.length > 0 ? (
-                    listingData.opening_hours.map((h, i) => (
-                      <div
-                        key={i}
-                        className="text-xs text-gray-600 bg-gray-50 p-2 rounded border"
-                      >
-                        <span className="font-semibold block">
-                          {h.day_of_week}
-                        </span>
-                        {h.open_time
-                          ? `${h.open_time} - ${h.close_time}`
-                          : "Closed"}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">No hours set</p>
-                  )}
-                </div>
+                <p className="text-sm text-gray-600 truncate underline decoration-[#93C01F]/30">
+                  {displayWebsite}
+                </p>
               </div>
+
+              {/* Hours */}
+              {isEvent ? (
+                <>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Calendar className="w-3 h-3" /> Event Dates</span>
+                    <p className="text-sm text-gray-600">
+                      {listingData?.event_start_date || "N/A"} to {listingData?.event_end_date || "N/A"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Clock className="w-3 h-3" /> Event Time</span>
+                    <p className="text-sm text-gray-600">
+                      {listingData?.event_start_time || "N/A"} - {listingData?.event_end_time || "N/A"}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Globe className="w-3 h-3" /> Website</span>
+                    <p className="text-sm text-gray-600 truncate underline decoration-[#93C01F]/30">{listingData?.website || "Not provided"}</p>
+                  </div>
+                  <div className="space-y-1 col-span-1 md:col-span-2">
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1"><Clock className="w-3 h-3" /> Business Hours</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {listingData?.opening_hours?.length ? listingData.opening_hours.map((h, i) => (
+                        <div key={i} className="text-xs text-gray-600 bg-gray-50 p-2 rounded border">
+                          <span className="font-semibold block">{h.day_of_week}</span>
+                          {h.open_time ? `${h.open_time} - ${h.close_time}` : "Closed"}
+                        </div>
+                      )) : <p className="text-sm text-gray-500 italic">No hours set</p>}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Description Box */}
