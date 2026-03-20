@@ -92,11 +92,11 @@ export const DetailsFormSchema = z.object({
     .url("Invalid URL format")
     .optional()
     .or(z.literal("")),
-  event_start_date: z.string().optional(),
-  event_end_date: z.string().optional(),
-  event_start_time: z.string().optional(),
-  event_end_time: z.string().optional(),
-  event_location: z.string().optional(),
+  event_start_date: z.string().min(1, "Start date is required"),
+  event_end_date: z.string().min(1, "End date is required"),
+  event_start_time: z.string().min(1, "Start time is required"),
+  event_end_time: z.string().min(1, "End time is required"),
+  event_location: z.string().min(1, "Event type is required"),
 });
 
 const formTextConfig = {
@@ -610,53 +610,75 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {/* Event Date */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Start Date</label>
+                <label className="font-medium text-sm">
+                  Start Date <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("event_start_date")}
                   type="date"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                  className={cn(errors.event_start_date && "border-red-500")}
                 />
+                {errors.event_start_date && (
+                  <p className="text-red-500 text-xs">{errors.event_start_date.message}</p>
+                )}
               </div>
               <div className="space-y-1">
-                <label className="font-medium text-sm">End Date</label>
+                <label className="font-medium text-sm">
+                  End Date <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("event_end_date")}
                   type="date"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                  className={cn(errors.event_end_date && "border-red-500")}
                 />
+                {errors.event_end_date && (
+                  <p className="text-red-500 text-xs">{errors.event_end_date.message}</p>
+                )}
               </div>
             </div>
 
             {/* Event Time */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Start Time</label>
+                <label className="font-medium text-sm">
+                  Start Time <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("event_start_time")}
                   type="time"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                  className={cn(errors.event_start_time && "border-red-500")}
                 />
+                {errors.event_start_time && (
+                  <p className="text-red-500 text-xs">{errors.event_start_time.message}</p>
+                )}
               </div>
               <div className="space-y-1">
-                <label className="font-medium text-sm">End Time</label>
+                <label className="font-medium text-sm">
+                  End Time <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("event_end_time")}
                   type="time"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
+                  className={cn(errors.event_end_time && "border-red-500")}
                 />
+                {errors.event_end_time && (
+                  <p className="text-red-500 text-xs">{errors.event_end_time.message}</p>
+                )}
               </div>
             </div>
 
             {/* Event Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Event Type</label>
+                <label className="font-medium text-sm">
+                  Event Type <span className="text-red-500">*</span>
+                </label>
                 <Controller
                   name="event_location"
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                      <SelectTrigger className={cn("h-10 rounded-lg border-gray-300 w-full", errors.event_location && "border-red-500")}>
                         <SelectValue placeholder="Select event type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -667,6 +689,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     </Select>
                   )}
                 />
+                {errors.event_location && (
+                  <p className="text-red-500 text-xs">{errors.event_location.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -707,9 +732,14 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     {...register("event_price")}
                     placeholder="e.g., 50 or Free"
                     type="number"
-                    className="h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1"
+                    className={cn("h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1", errors.event_price && "border-red-500")}
                   />
                 </div>
+                {errors.event_price && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.event_price.message}
+                  </p>
+                )}
               </div>
 
               {/* Ticket URL */}

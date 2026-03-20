@@ -374,8 +374,8 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                   }
                 >
                   {media.coverPhoto ? "✓ Ready" : "✗ Missing"}
-                  {media.coverPhoto &&
-                    ` (${(media.coverPhoto.size / 1024 / 1024).toFixed(1)}MB)`}
+                  {media.coverPhoto?.size &&
+                    ` (${(Number(media.coverPhoto.size) / 1024 / 1024).toFixed(1)}MB)`}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -390,7 +390,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                   {media.images.length}/3 files
                   {media.images.length > 0 &&
                     ` (${(
-                      media.images.reduce((sum, f) => sum + f.size, 0) /
+                      media.images.reduce((sum, f) => sum + (Number(f.size) || 0), 0) /
                       1024 /
                       1024
                     ).toFixed(1)}MB total)`}
@@ -400,10 +400,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 <span>Total to upload:</span>
                 <span>
                   {[media.coverPhoto, ...media.images].length}/4 files
-                  {media.coverPhoto &&
+                  {media.coverPhoto?.size &&
                     ` (${(
                       [media.coverPhoto, ...media.images].reduce(
-                        (sum, f) => sum + f.size,
+                        (sum, f) => sum + (Number(f?.size) || 0),
                         0
                       ) /
                       1024 /
