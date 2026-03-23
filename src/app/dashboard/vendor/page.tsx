@@ -339,7 +339,7 @@ export default function Dashboard() {
           </p>
         </div>
         {/* TEST TOAST BUTTONS - Remove after testing */}
-        <div className="flex gap-2">
+        {/* <div className="flex gap-2">
           <Button 
             variant="outline" 
             onClick={() => toast.success("Success message test", { description: "This is a success toast" })}
@@ -354,7 +354,7 @@ export default function Dashboard() {
           >
             Test Error Toast
           </Button>
-        </div>
+        </div> */}
         {/* END TEST TOAST BUTTONS */}
       </div>
 
