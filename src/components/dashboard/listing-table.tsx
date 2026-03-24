@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 type ListingStatus = "published" | "pending" | "drafted";
 
@@ -100,9 +101,9 @@ export function ListingsTable({
   showPagination = false,
   button = true,
   itemsPerPage = 4,
-  onViewClick, 
-  onEditClick, 
-  onDeleteClick
+  onViewClick,
+  onEditClick,
+  onDeleteClick,
 }: ListingsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -133,7 +134,7 @@ export function ListingsTable({
           currentPage - 1,
           currentPage,
           currentPage + 1,
-          currentPage + 2
+          currentPage + 2,
         );
       }
     }
@@ -227,9 +228,16 @@ export function ListingsTable({
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <span className="font-medium text-[#0F1A2A]">
-                      {listing.name}
-                    </span>
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-[#1F3A4C] leading-tight">
+                          {listing.name}
+                        </span>
+                        <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100 font-medium text-[10px] px-2 py-0">
+                          {listing.type}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-4">
@@ -277,10 +285,16 @@ export function ListingsTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onViewClick?.(listing)}>View</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEditClick?.(listing)}>Edit</DropdownMenuItem>
-                     <DropdownMenuItem 
-                      onClick={() => onDeleteClick?.(listing.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                      <DropdownMenuItem onClick={() => onViewClick?.(listing)}>
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEditClick?.(listing)}>
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onDeleteClick?.(listing.id)}
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                      >
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>

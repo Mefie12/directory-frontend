@@ -360,12 +360,6 @@ export default function MyListing() {
               {/* Header */}
               <div className="p-6 pb-2 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <div
-                    className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900"
-                    onClick={() => setViewListing(null)}
-                  >
-                    ← Back
-                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -374,6 +368,12 @@ export default function MyListing() {
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
+                  {/* <div
+                    className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900"
+                    onClick={() => setViewListing(null)}
+                  >
+                    ← Back
+                  </div> */}
                 </div>
                 <h2 className="text-2xl font-bold">{viewListing.name}</h2>
               </div>
