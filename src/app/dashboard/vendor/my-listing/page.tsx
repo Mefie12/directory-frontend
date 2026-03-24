@@ -11,6 +11,10 @@ import {
   User,
   Gem,
   RefreshCcw,
+  Link,
+  Check,
+  Copy,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -37,6 +41,12 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // --- Interfaces ---
 
@@ -108,10 +118,12 @@ export default function MyListing() {
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // --- Action States ---
   const [viewListing, setViewListing] = useState<ListingsTableItem | null>(
-    null
+    null,
   );
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -220,7 +232,7 @@ export default function MyListing() {
             rating: Number(listing.rating) || 0,
             description: listing.bio,
           };
-        }
+        },
       );
 
       setListings(transformedListings);
@@ -238,7 +250,7 @@ export default function MyListing() {
 
   const handleEdit = (listing: ListingsTableItem) => {
     router.push(
-      `/dashboard/vendor/my-listing/edit?type=${listing.type}&slug=${listing.slug}`
+      `/dashboard/vendor/my-listing/edit?type=${listing.type}&slug=${listing.slug}`,
     );
   };
 
@@ -270,7 +282,7 @@ export default function MyListing() {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(
-          errorData.message || `Delete failed with status: ${res.status}`
+          errorData.message || `Delete failed with status: ${res.status}`,
         );
       }
 
@@ -280,12 +292,19 @@ export default function MyListing() {
     } catch (error) {
       console.error(error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete listing"
+        error instanceof Error ? error.message : "Failed to delete listing",
       );
     } finally {
       setIsDeleting(false);
       setDeleteListingId(null);
     }
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Link copied to clipboard");
+    setTimeout(() => setCopied(false), 5000);
   };
 
   if (loading) {
@@ -316,7 +335,7 @@ export default function MyListing() {
                 key={type}
                 onClick={() =>
                   router.push(
-                    `/dashboard/vendor/my-listing/create?type=${type}`
+                    `/dashboard/vendor/my-listing/create?type=${type}`,
                   )
                 }
                 className="capitalize cursor-pointer"
@@ -387,14 +406,14 @@ export default function MyListing() {
                   <div className="justify-self-end">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        viewListing.status
+                        viewListing.status,
                       )}`}
                     >
                       {viewListing.status === "published"
                         ? "Published"
                         : viewListing.status === "pending"
-                        ? "Pending Review"
-                        : "Draft"}
+                          ? "Pending Review"
+                          : "Draft"}
                     </span>
                   </div>
 
@@ -432,6 +451,24 @@ export default function MyListing() {
                       {viewListing.category}
                     </Badge>
                   </div>
+
+                  <Link className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">URL</span>
+                  <div className="justify-self-end text-sm text-gray-900 items-center gap-2">
+                    {viewListing.slug}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-400 hover:text-[#93C01F] hover:bg-[#93C01F]/10 transition-colors mt-0.5"
+                      onClick={() => handleCopy(viewListing.slug)}
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -449,7 +486,7 @@ export default function MyListing() {
                       Media
                     </button>
                   </div>
-                  
+
                   {/* Cover Photo Section */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -458,7 +495,12 @@ export default function MyListing() {
                     </h4>
                     <div className="grid grid-cols-1 gap-3">
                       {viewListing.allImages.length > 0 ? (
-                        <div className="aspect-video bg-gray-100 rounded-lg relative overflow-hidden group">
+                        <div
+                          className="aspect-video bg-gray-100 rounded-lg relative overflow-hidden group"
+                          onClick={() =>
+                            setPreviewImage(viewListing.allImages[0])
+                          }
+                        >
                           <Image
                             src={viewListing.allImages[0]}
                             alt="Cover image"
@@ -502,6 +544,7 @@ export default function MyListing() {
                           <div
                             key={index}
                             className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
+                            onClick={() => setPreviewImage(img)}
                           >
                             <Image
                               src={img}
@@ -513,7 +556,8 @@ export default function MyListing() {
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 if (!target.src.includes("placeholder")) {
-                                  target.src = "/images/placeholder-listing.png";
+                                  target.src =
+                                    "/images/placeholder-listing.png";
                                 }
                               }}
                             />
@@ -574,6 +618,33 @@ export default function MyListing() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none [&>button:last-child]:hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Image Preview</DialogTitle>
+          </DialogHeader>
+          <div className="relative aspect-4/3 w-full max-h-[80vh] flex items-center justify-center">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-6 right-1 z-50 h-8 w-8 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm text-white hover:bg-black/80 border border-white/20 cursor-pointer"
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4" strokeWidth={2.5} />
+            </button>
+            {previewImage && (
+              <Image
+                src={previewImage}
+                alt="Preview"
+                width={900}
+                height={900}
+                className="object-contain"
+                unoptimized={true}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!deleteListingId}
