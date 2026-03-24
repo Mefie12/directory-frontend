@@ -144,10 +144,13 @@ export default function ForgotPassword() {
                       <h3 className="text-sm font-medium text-green-800">
                         Check your email
                       </h3>
-                      <p className="text-sm text-green-700 mt-1">
+                      {/* <p className="text-sm text-green-700 mt-1">
                         We&apos;ve sent password reset instructions to your
                         email address. Please check your inbox and follow the
                         link to reset your password.
+                      </p> */}
+                      <p className="text-sm text-green-700 mt-1">
+                        A reset password link will be sent to your email
                       </p>
                     </div>
                   </div>
