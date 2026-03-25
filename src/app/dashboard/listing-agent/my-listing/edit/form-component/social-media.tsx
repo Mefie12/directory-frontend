@@ -18,6 +18,12 @@ const isValidUrl = (url: string): boolean => {
   return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
 };
 
+// --- Helper function to validate phone number ---
+const isValidPhone = (phone: string): boolean => {
+  if (!phone) return true;
+  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
+};
+
 // --- Helper function to normalize URL (add https:// if missing) ---
 const normalizeUrl = (url: string): string => {
   if (!url) return "";
@@ -61,6 +67,13 @@ export const socialMediaSchema = z.object({
     .refine((val) => isValidUrl(val || ""), {
       message: "Invalid TikTok URL",
     }),
+    whatsapp: z
+        .string()
+        .optional()
+        .or(z.literal(""))
+        .refine((val) => isValidPhone(val || ""), {
+          message: "Invalid WhatsApp number",
+        }),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -136,6 +149,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         twitter: "",
         linkedin: "",
         tiktok: "",
+        whatsapp: "",
       },
     });
 

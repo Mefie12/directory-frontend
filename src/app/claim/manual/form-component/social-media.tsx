@@ -6,7 +6,14 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
+import {
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Globe,
+  Phone,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
@@ -23,6 +30,7 @@ export const socialMediaSchema = z.object({
   twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
   linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
   tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
+  whatsapp: z.string().optional().or(z.literal("")),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -39,36 +47,44 @@ const socialPlatforms = [
     id: "facebook",
     name: "Facebook",
     icon: Facebook,
-    placeholder: "https://facebook.com/yourpage",
+    placeholder: "facebook.com/yourpage",
     color: "text-blue-600",
   },
   {
     id: "instagram",
     name: "Instagram",
     icon: Instagram,
-    placeholder: "https://instagram.com/yourprofile",
+    placeholder: "instagram.com/yourprofile",
     color: "text-pink-600",
   },
   {
     id: "twitter",
     name: "Twitter",
     icon: Twitter,
-    placeholder: "https://twitter.com/yourhandle",
+    placeholder: "twitter.com/yourhandle",
     color: "text-blue-400",
   },
   {
     id: "linkedin",
     name: "LinkedIn",
     icon: Linkedin,
-    placeholder: "https://linkedin.com/company/yourcompany",
+    placeholder: "linkedin.com/company/yourcompany",
     color: "text-blue-700",
   },
   {
     id: "tiktok",
     name: "Tiktok",
     icon: Globe,
-    placeholder: "https://tiktok.com/@yourprofile",
+    placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: Phone,
+    placeholder: "+233 50 123 4567",
+    color: "text-green-600",
+    type: "phone",
   },
 ];
 
@@ -96,6 +112,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         twitter: "",
         linkedin: "",
         tiktok: "",
+        whatsapp: "",
       },
     });
 
@@ -129,6 +146,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               twitter: s.twitter || "",
               linkedin: s.linkedin || "",
               tiktok: s.tiktok || "",
+              whatsapp: s.whatsapp || "",
             });
           }
         } catch (err) {

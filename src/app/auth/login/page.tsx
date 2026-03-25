@@ -11,7 +11,6 @@ import { useAuth } from "@/context/auth-context";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,7 +27,7 @@ function LoginForm() {
     password: "",
   });
 
-  const { login } = useAuth();
+  const { login, isUnverified } = useAuth();
 
   const redirectPath = searchParams.get("redirect") || "/";
 
@@ -57,6 +56,7 @@ function LoginForm() {
     return isValid;
   };
 
+  // app/auth/login/page.tsx - Update your handleSubmit function
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -74,7 +74,6 @@ function LoginForm() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      // console.log('📡 Sending login request to:', `${API_URL}/api/login`);
       const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: {
@@ -84,56 +83,47 @@ function LoginForm() {
       });
 
       const data = await response.json();
-      // console.log('📨 Raw login response:', data);
 
       if (!response.ok) {
-        // Handle specific error messages from backend or default to generic
         throw new Error(data.message || "Invalid email or password");
       }
 
-      // Debug: Check all possible token locations
-      // console.log('🔍 Searching for token in response:', {
-      //   'data.token': data.token,
-      //   'data.access_token': data.access_token,
-      //   'data.jwt': data.jwt,
-      //   'data.data': data.data,
-      //   'data.data?.token': data.data?.token,
-      //   'fullResponse': data
-      // });
-
-      // Try multiple possible token field names
       const token =
         data.token || data.access_token || data.jwt || data.data?.token;
 
       if (token) {
-        // console.log('✅ Token found:', token);
+        // Try to login and check if user is verified
         await login(token);
 
-        // Role-based routing after login - read from localStorage since state may not be immediately available
-        const userRole = localStorage.getItem("userRole")?.toLowerCase() || "";
+        // Small delay to let auth context update
+        setTimeout(() => {
+          // Check if user is unverified
+          if (isUnverified) {
+            // console.log("🚨 User is unverified, redirecting to verify page");
+            const encodedEmail = encodeURIComponent(formData.email);
+            window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${redirectPath}`;
+          } else {
+            // Normal role-based routing
+            const userRole =
+              localStorage.getItem("userRole")?.toLowerCase() || "";
 
-        if (userRole === "admin") {
-          // Admin goes to admin dashboard
-          router.push("/dashboard/admin");
-        } else if (
-          userRole === "vendor" ||
-          userRole === "listing_agent" ||
-          userRole === "agent"
-        ) {
-          // Vendors and listing agents go to my listings
-          router.push("/dashboard/vendor/my-listing");
-        } else {
-          // Regular users go to home page or redirect path
-          router.push(redirectPath);
-        }
+            if (userRole === "admin") {
+              router.push("/dashboard/admin");
+            } else if (userRole === "listing_agent" || userRole === "agent") {
+              router.push("/dashboard/listing-agent/my-listing");
+            } else if (userRole === "vendor") {
+              router.push("/dashboard/vendor");
+            } else {
+              router.push(redirectPath);
+            }
+          }
+        }, 500);
       } else {
-        // console.error('❌ No token found in response');
         setError("Login successful but no token received");
       }
     } catch (error) {
-      // console.error("❌ Login failed:", error);
-      // If the error message includes "401" or typical auth failure text, show specific message
       const msg = error instanceof Error ? error.message : String(error);
+      // console.log("❌ Login error message:", msg);
 
       // Check if it's an unverified email case
       if (
@@ -142,14 +132,18 @@ function LoginForm() {
         msg.toLowerCase().includes("email not verified") ||
         msg.toLowerCase().includes("please verify")
       ) {
-        // Show info toast
+        // console.log("🚨 Unverified user detected, redirecting to verify page");
+
         toast.info("Please verify your email", {
           description: "Redirecting to verification page...",
         });
-        
-        // Redirect to signup with email pre-filled and verification flow
+
+        // Immediate redirect without trying to login
         const encodedEmail = encodeURIComponent(formData.email);
-        router.push(`/auth/signup?redirect=${redirectPath}&email=${encodedEmail}&verify=true`);
+        const verifyUrl = `/auth/verify?email=${encodedEmail}&redirect=${encodeURIComponent(redirectPath)}`;
+
+        // console.log("🔗 Hard redirecting to:", verifyUrl);
+        window.location.href = verifyUrl;
         return;
       }
 

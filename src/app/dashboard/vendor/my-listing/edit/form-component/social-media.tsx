@@ -8,7 +8,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Globe, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
@@ -16,6 +16,12 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 const isValidUrl = (url: string): boolean => {
   if (!url) return true;
   return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to validate phone number ---
+const isValidPhone = (phone: string): boolean => {
+  if (!phone) return true;
+  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
 };
 
 const normalizeUrl = (url: string): string => {
@@ -59,6 +65,13 @@ export const socialMediaSchema = z.object({
     .optional()
     .or(z.literal(""))
     .refine((val) => isValidUrl(val || ""), { message: "Invalid TikTok URL" }),
+  whatsapp: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidPhone(val || ""), {
+      message: "Invalid WhatsApp number",
+    }),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -107,6 +120,14 @@ const socialPlatforms = [
     placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
   },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: Phone,
+    placeholder: "+233 50 123 4567",
+    color: "text-green-600",
+    type: "phone",
+  },
 ];
 
 export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
@@ -130,6 +151,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         twitter: "",
         linkedin: "",
         tiktok: "",
+        whatsapp: "",
       },
     });
 

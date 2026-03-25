@@ -16,7 +16,9 @@ import {
   CornerDownRight,
   Loader2,
   Clock,
-  AlertCircle, // Added for hours icon
+  AlertCircle,
+  Globe,
+  MessageCircle, // Added for hours icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -70,6 +72,7 @@ interface ApiSocialItem {
   twitter?: string;
   tiktok?: string;
   youtube?: string;
+  whatsapp?: string;
 }
 
 interface ApiReplyData {
@@ -172,6 +175,7 @@ interface SocialLinks {
   twitter?: string;
   youtube?: string;
   tiktok?: string;
+  whatsapp?: string;
 }
 
 interface Provider {
@@ -692,12 +696,12 @@ function SidebarInfo({
   };
 
   const handleClaimBusiness = () => {
-  if (user) {
-    router.push(`/claim/${provider.slug}/verify`);
-  } else {
-    router.push(`/auth/login?redirect=/claim/${provider.slug}/verify`);
-  }
-};
+    if (user) {
+      router.push(`/claim/${provider.slug}/verify`);
+    } else {
+      router.push(`/auth/login?redirect=/claim/${provider.slug}/verify`);
+    }
+  };
 
   return (
     <Card>
@@ -732,7 +736,10 @@ function SidebarInfo({
                 className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
               >
                 <AlertCircle className="h-3 w-3" />
-                Is this a mistake? <span className="text-[#93C01F] hover:underline hover:underline-offset-2">Challenge this claim</span>
+                Is this a mistake?{" "}
+                <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
+                  Challenge this claim
+                </span>
               </Link>
             </div>
           )}
@@ -819,6 +826,15 @@ function SidebarInfo({
                 )}
                 {socialLinks.youtube && (
                   <SocialIcon href={socialLinks.youtube} icon={Youtube} />
+                )}
+                {socialLinks.tiktok && (
+                  <SocialIcon href={socialLinks.tiktok} icon={Globe} />
+                )}
+                {socialLinks.whatsapp && (
+                  <SocialIcon
+                    href={`https://wa.me/${socialLinks.whatsapp.replace(/[^\d+]/g, "").replace(/^\+/, "")}`}
+                    icon={MessageCircle}
+                  />
                 )}
               </div>
             </div>
@@ -945,6 +961,7 @@ export default function UniversalSlugPage({
               twitter: socialData.twitter,
               youtube: socialData.youtube,
               tiktok: socialData.tiktok,
+              whatsapp: socialData.whatsapp,
             };
           }
 
@@ -960,7 +977,7 @@ export default function UniversalSlugPage({
               listingData.address || listingData.city || listingData.location,
             country: listingData.country,
             verified: listingData.is_verified,
-            claim_status: listingData.claim_status, 
+            claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()
               : "0",

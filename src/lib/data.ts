@@ -1637,6 +1637,7 @@ export type SocialLinks = {
   twitter?: string;
   tiktok?: string;
   youtube?: string;
+  whatsapp?: string;
 };
 
 export interface ServiceProvider {

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Globe, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 
@@ -15,6 +15,12 @@ const isValidUrl = (url: string): boolean => {
   if (!url) return true; // Empty is valid (optional field)
   // Allow URLs with or without protocol
   return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to validate phone number ---
+const isValidPhone = (phone: string): boolean => {
+  if (!phone) return true;
+  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
 };
 
 // --- Helper function to normalize URL (add https:// if missing) ---
@@ -59,6 +65,12 @@ export const socialMediaSchema = z.object({
     .or(z.literal(""))
     .refine((val) => isValidUrl(val || ""), {
       message: "Invalid TikTok URL",
+    }),
+    whatsapp: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidPhone(val || ""), {
+      message: "Invalid WhatsApp number",
     }),
 });
 
@@ -107,6 +119,14 @@ const socialPlatforms = [
     placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
   },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: Phone,
+    placeholder: "+233 50 123 4567",
+    color: "text-green-600",
+    type: "phone",
+  },
 ];
 
 /* ---------------------------------------------------
@@ -133,6 +153,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         twitter: "",
         linkedin: "",
         tiktok: "",
+        whatsapp: "",
       },
     });
 
@@ -166,6 +187,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               twitter: s.twitter || "",
               linkedin: s.linkedin || "",
               tiktok: s.tiktok || "",
+              whatsapp: s.whatsapp || "",
             });
           }
         } catch (err) {
@@ -305,3 +327,5 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
     );
   },
 );
+
+
