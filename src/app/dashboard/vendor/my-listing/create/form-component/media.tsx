@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { useListing } from "@/context/listing-form-context";
 import { FileUploader } from "@/components/dashboard/listing/media-uploader";
+import { z } from "zod";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -14,6 +15,24 @@ interface Props {
 // --- Configuration ---
 const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_GALLERY_IMAGES = 3;
+
+// --- Zod Validation Schema ---
+// Now validates both the NUMBER of items and the SIZE of each item
+const gallerySchema = z
+  .array(z.any())
+  .max(MAX_GALLERY_IMAGES, {
+    message: `You can only upload a maximum of ${MAX_GALLERY_IMAGES} gallery items.`,
+  })
+  .refine((files) => files.every((file) => file.size <= MAX_FILE_SIZE_BYTES), {
+    message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.`,
+  });
+
+const coverSchema = z
+  .any()
+  .refine((file) => !file || file.size <= MAX_FILE_SIZE_BYTES, {
+    message: `Cover media must be less than ${MAX_FILE_SIZE_MB}MB.`,
+  });
 
 // Helper to check if we need compression (Images only)
 const shouldCompressImage = (file: File): boolean => {
@@ -89,22 +108,41 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     const { media, setMedia } = useListing();
     const [isUploading, setIsUploading] = useState(false);
 
+    // --- Validation Logic ---
+    const validateMediaState = () => {
+      const galleryResult = gallerySchema.safeParse(media.images);
+      const coverResult = coverSchema.safeParse(media.coverPhoto);
+
+      if (!galleryResult.success) {
+        toast.error(galleryResult.error.issues[0].message);
+        return false;
+      }
+      if (!coverResult.success) {
+        toast.error(coverResult.error.issues[0].message);
+        return false;
+      }
+      return true;
+    };
+
     const uploadWithChunking = async () => {
       // Check if there are any files to upload
       const hasCover = !!media.coverPhoto;
       const hasGallery = media.images.length > 0;
-      
+
       if (!hasCover && !hasGallery) {
         // No files to upload, return true to allow proceeding
         return true;
       }
+      if (!validateMediaState()) return false;
 
       try {
         setIsUploading(true);
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const allFiles = [media.coverPhoto, ...media.images].filter(Boolean) as File[];
+        const allFiles = [media.coverPhoto, ...media.images].filter(
+          Boolean,
+        ) as File[];
 
         // 1. Optimize Images (Videos are skipped)
         toast.loading("Preparing files...");
@@ -254,6 +292,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
     useImperativeHandle(ref, () => ({
       async submit() {
+        if (!validateMediaState()) return false;
         // If there are files, upload in background without waiting
         if (media.coverPhoto || media.images.length > 0) {
           // Start upload in background and don't await it
@@ -330,7 +369,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Gallery Media ( Up to 3 Photos and videos)
+                Gallery Media ( Up to {MAX_GALLERY_IMAGES} Photos and videos)
               </h3>
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${
@@ -339,7 +378,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                     : "bg-gray-100 text-gray-500"
                 }`}
               >
-                {media.images.length > 0 ? `${media.images.length} Selected` : "0 Selected"}
+                {media.images.length > 0
+                  ? `${media.images.length} Selected`
+                  : "0 Selected"}
               </span>
             </div>
             <p className="text-sm text-gray-500 mb-3">
@@ -349,7 +390,21 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             <FileUploader
               label=""
               files={media.images}
-              onChange={(files) => setMedia({ ...media, images: files })}
+              onChange={(files) => {
+                const result = gallerySchema.safeParse(files);
+                if (!result.success) {
+                  toast.error(result.error.issues[0].message);
+                  // Prune only if count is the issue; size issues should be handled by the user removing the file
+                  if (files.length > MAX_GALLERY_IMAGES) {
+                    setMedia({
+                      ...media,
+                      images: files.slice(0, MAX_GALLERY_IMAGES),
+                    });
+                  }
+                } else {
+                  setMedia({ ...media, images: files });
+                }
+              }}
               multiple={true}
               maxFiles={3}
               accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webp"

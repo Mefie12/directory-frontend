@@ -6,7 +6,7 @@ import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { HelpCircle, MapPin } from "lucide-react";
+import { Globe, HelpCircle, MapPin } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams } from "next/navigation";
 
@@ -21,21 +21,6 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries } from "country-data-list";
 
-// --- Helper function to validate URL (allows without protocol) ---
-const isValidUrl = (url: string): boolean => {
-  if (!url) return true; // Empty is valid (optional field)
-  // Allow URLs with or without protocol
-  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
-};
-
-// --- Helper function to normalize URL (add https:// if missing) ---
-const normalizeUrl = (url: string): string => {
-  if (!url) return "";
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-  return url;
-};
 import {
   Tooltip,
   TooltipContent,
@@ -56,6 +41,22 @@ import {
   AddressMinimap,
   useConfirmAddress,
 } from "@mapbox/search-js-react";
+
+// --- Helper function to validate URL (allows without protocol) ---
+const isValidUrl = (url: string): boolean => {
+  if (!url) return true; // Empty is valid (optional field)
+  // Allow URLs with or without protocol
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+};
+
+// --- Helper function to normalize URL (add https:// if missing) ---
+const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url;
+};
 
 /**
  * Robust helper to ensure any time string is converted strictly to HH:mm (24h)
@@ -81,58 +82,77 @@ const convertToHHmm = (time: string | undefined | null): string => {
 };
 
 // --- Updated Schema matching Code C (Regex validation) ---
-export const DetailsFormSchema = z.object({
-  address: z.string().min(1, "Address is required"),
-  country: z.string().min(1, "Country is required"),
-  city: z.string().min(1, "City is required"),
-  google_plus_code: z.string().optional(),
-  businessHours: z
-    .array(
-      z.object({
-        day_of_week: z.string(),
-        startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-          message: "Format must be HH:mm (24h)",
+export const DetailsFormSchema = z
+  .object({
+    address: z.string().min(1, "Address is required"),
+    country: z.string().min(1, "Country is required"),
+    city: z.string().min(1, "City is required"),
+    google_plus_code: z.string().optional(),
+    businessHours: z
+      .array(
+        z.object({
+          day_of_week: z.string(),
+          startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+            message: "Format must be HH:mm (24h)",
+          }),
+          endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+            message: "Format must be HH:mm (24h)",
+          }),
+          enabled: z.boolean(),
         }),
-        endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
-          message: "Format must be HH:mm (24h)",
-        }),
-        enabled: z.boolean(),
+      )
+      .min(1, "Hours are required"),
+    // Event-specific fields
+    event_price: z.string().optional(),
+    event_currency: z.string().optional(),
+    event_ticket_url: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((val) => !val || val.startsWith("https://"), {
+        message:
+          "Full URL required: must start with https:// (e.g., https://site.com/tickets)",
       }),
-    )
-    .min(1, "Hours are required"),
-  // Event-specific fields
-  event_price: z.string().optional(),
-  event_currency: z.string().optional(),
-  event_ticket_url: z.string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid URL format",
-    }),
-  event_online_url: z.string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid URL format",
-    }),
-  event_start_date: z.string().min(1, "Start date is required"),
-  event_end_date: z.string().min(1, "End date is required"),
-  event_start_time: z.string().min(1, "Start time is required"),
-  event_end_time: z.string().min(1, "End time is required"),
-  event_location: z.string().min(1, "Event type is required"),
-}).refine(
-  (data) => {
-    // Both can be empty, but if one has a value, the other must also have a value
-    const hasPrice = data.event_price && data.event_price.trim() !== "";
-    const hasCurrency = data.event_currency && data.event_currency.trim() !== "";
-    // Allow: both empty, or both have values
-    return !((hasPrice && !hasCurrency) || (!hasPrice && hasCurrency));
-  },
-  {
-    message: "Price and currency must both be provided or both be empty",
-    path: ["event_price"],
-  }
-);
+    event_online_url: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((val) => !val || val.startsWith("https://"), {
+        message:
+          "Full URL required: must start with https:// (e.g., https://zoom.us/j/...)",
+      }),
+    event_start_date: z.string().min(1, "Start date is required"),
+    event_end_date: z.string().min(1, "End date is required"),
+    event_start_time: z.string().min(1, "Start time is required"),
+    event_end_time: z.string().min(1, "End time is required"),
+    event_location: z.string().min(1, "Event type is required"),
+  })
+  .refine(
+    (data) => {
+      if (data.event_start_date && data.event_end_date) {
+        return new Date(data.event_end_date) >= new Date(data.event_start_date);
+      }
+      return true;
+    },
+    {
+      message: "End date cannot be before the start date",
+      path: ["event_end_date"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Both can be empty, but if one has a value, the other must also have a value
+      const hasPrice = data.event_price && data.event_price.trim() !== "";
+      const hasCurrency =
+        data.event_currency && data.event_currency.trim() !== "";
+      // Allow: both empty, or both have values
+      return !((hasPrice && !hasCurrency) || (!hasPrice && hasCurrency));
+    },
+    {
+      message: "Price and currency must both be provided or both be empty",
+      path: ["event_price"],
+    },
+  );
 
 const formTextConfig = {
   business: {
@@ -188,6 +208,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
     const form = useForm<DetailsFormValues>({
       resolver: zodResolver(DetailsFormSchema),
+      mode: "onChange",
       defaultValues: initialData || {
         address: "",
         country: "",
@@ -269,6 +290,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     const [isSaving, setIsSaving] = useState(false);
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
+    const eventLocationType = watch("event_location");
     const text = formTextConfig[listingType];
     const selectedCountryName = watch("country");
 
@@ -310,9 +332,21 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               });
             reset({
               // For events, map from event-specific fields, otherwise use standard fields
-              address: d.type === "event" ? (d.event_venue || d.address || d.location?.address || "") : (d.address || d.location?.address || ""),
-              city: d.type === "event" ? (d.event_city || d.city || d.location?.city || "") : (d.city || d.location?.city || ""),
-              country: d.type === "event" ? (d.event_country || d.country || d.location?.country || "Ghana") : (d.country || d.location?.country || "Ghana"),
+              address:
+                d.type === "event"
+                  ? d.event_venue || d.address || d.location?.address || ""
+                  : d.address || d.location?.address || "",
+              city:
+                d.type === "event"
+                  ? d.event_city || d.city || d.location?.city || ""
+                  : d.city || d.location?.city || "",
+              country:
+                d.type === "event"
+                  ? d.event_country ||
+                    d.country ||
+                    d.location?.country ||
+                    "Ghana"
+                  : d.country || d.location?.country || "Ghana",
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
@@ -382,8 +416,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           // Add event-specific fields
           detailsPayload.event_price = data.event_price;
           detailsPayload.event_currency = data.event_currency;
-          detailsPayload.event_ticket_url = normalizeUrl(data.event_ticket_url || "");
-          detailsPayload.event_online_url = normalizeUrl(data.event_online_url || "");
+          detailsPayload.event_ticket_url = normalizeUrl(
+            data.event_ticket_url || "",
+          );
+          detailsPayload.event_online_url = normalizeUrl(
+            data.event_online_url || "",
+          );
           detailsPayload.event_start_date = data.event_start_date;
           detailsPayload.event_end_date = data.event_end_date;
           detailsPayload.event_start_time = data.event_start_time;
@@ -632,7 +670,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           )}
         </div>
 
-        {listingType === "event" && (
+        {listingType !== "event" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <BusinessHoursSelector
@@ -675,7 +713,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(errors.event_start_date && "border-red-500")}
                 />
                 {errors.event_start_date && (
-                  <p className="text-red-500 text-xs">{errors.event_start_date.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_start_date.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-1">
@@ -688,7 +728,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(errors.event_end_date && "border-red-500")}
                 />
                 {errors.event_end_date && (
-                  <p className="text-red-500 text-xs">{errors.event_end_date.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_end_date.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -705,7 +747,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(errors.event_start_time && "border-red-500")}
                 />
                 {errors.event_start_time && (
-                  <p className="text-red-500 text-xs">{errors.event_start_time.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_start_time.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-1">
@@ -718,13 +762,22 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   className={cn(errors.event_end_time && "border-red-500")}
                 />
                 {errors.event_end_time && (
-                  <p className="text-red-500 text-xs">{errors.event_end_time.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_end_time.message}
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Event Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              className={cn(
+                "grid grid-cols-1 gap-4",
+                eventLocationType === "online"
+                  ? "md:grid-cols-2"
+                  : "md:grid-cols-1",
+              )}
+            >
               <div className="space-y-1">
                 <label className="font-medium text-sm">
                   Event Type <span className="text-red-500">*</span>
@@ -734,7 +787,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   control={control}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className={cn("h-10 rounded-lg border-gray-300 w-full", errors.event_location && "border-red-500")}>
+                      <SelectTrigger
+                        className={cn(
+                          "h-10 rounded-lg border-gray-300 w-full",
+                          errors.event_location && "border-red-500",
+                        )}
+                      >
                         <SelectValue placeholder="Select event type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -746,9 +804,38 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   )}
                 />
                 {errors.event_location && (
-                  <p className="text-red-500 text-xs">{errors.event_location.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_location.message}
+                  </p>
                 )}
               </div>
+
+              {eventLocationType === "online" && (
+                <div className="space-y-1">
+                  <label className="font-medium text-sm">
+                    Online Meeting URL
+                  </label>
+                  <div className="relative">
+                    <Input
+                      {...register("event_online_url")}
+                      placeholder="https://zoom.us/..."
+                      className={cn(
+                        "h-10 pl-10",
+                        errors.event_online_url && "border-red-500",
+                      )}
+                    />
+                    <Globe
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                  </div>
+                  {errors.event_online_url && (
+                    <p className="text-red-500 text-xs">
+                      {errors.event_online_url.message}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -788,7 +875,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     {...register("event_price")}
                     placeholder="e.g., 50 or Free"
                     type="number"
-                    className={cn("h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1", errors.event_price && "border-red-500")}
+                    className={cn(
+                      "h-10 rounded-r-lg rounded-l-none border-l-0 border-gray-300 px-4 text-gray-800 hide-spinner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none flex-1",
+                      errors.event_price && "border-red-500",
+                    )}
                   />
                 </div>
                 {errors.event_price && (
@@ -817,7 +907,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               </div>
 
               {/* Online URL */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <label className="font-medium text-sm">
                   Event Online URL (Optional)
                 </label>
@@ -832,7 +922,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     {errors.event_online_url.message}
                   </p>
                 )}
-              </div>
+              </div> */}
             </div>
           </div>
         )}
