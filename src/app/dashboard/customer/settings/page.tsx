@@ -352,7 +352,7 @@ const SuccessDialog = ({
 
 // --- Main Settings Component ---
 export default function Settings() {
-  const { refetchUser, user } = useAuth();
+  const { refetchUser } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
   const router = useRouter();
 
@@ -373,7 +373,7 @@ export default function Settings() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const [isJoiningVendor] = useState(false);
+  // const [isJoiningVendor] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -385,15 +385,15 @@ export default function Settings() {
     description: "",
   });
 
-  const handleClickEvent = () => {
-    if (user) {
-      // Authenticated -> Go to Claim Page
-      router.push("/claim");
-    } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
-      router.push("/auth/login?redirect=/claim");
-    }
-  };
+  // const handleClickEvent = () => {
+  //   if (user) {
+  //     // Authenticated -> Go to Claim Page
+  //     router.push("/claim");
+  //   } else {
+  //     // Not Authenticated -> Go to Login, then redirect to Claim Page
+  //     router.push("/auth/login?redirect=/claim");
+  //   }
+  // };
 
   // --- Load user data directly from API to ensure fields are populated ---
   useEffect(() => {
@@ -822,7 +822,7 @@ export default function Settings() {
               </Card>
             </div>
 
-            <div className="space-y-5 mt-4 py-4">
+            {/* <div className="space-y-5 mt-4 py-4">
               <h3 className="text-xl font-semibold text-gray-900">
                 Progress & Rewards
               </h3>
@@ -870,7 +870,7 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             <Card className="rounded-2xl mt-6">
               <div className="p-6 flex items-center justify-between">

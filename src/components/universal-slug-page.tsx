@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Globe,
   MessageCircle, // Added for hours icon
+  Plus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,12 +33,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+// import {
+//   Accordion,
+//   AccordionContent,
+//   AccordionItem,
+//   AccordionTrigger,
+// } from "@/components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+
 
 // Imported Components
 import { MediaGallery } from "@/components/media-gallery";
@@ -300,6 +304,35 @@ const SocialIcon = ({
   </Link>
 );
 
+const StarRatingInput = ({ 
+  rating, 
+  onRatingChange 
+}: { 
+  rating: number; 
+  onRatingChange: (rating: number) => void 
+}) => {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onRatingChange(star)}
+          className="focus:outline-none"
+        >
+          <Star
+            className={`h-6 w-6 ${
+              star <= rating
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-200 text-gray-200"
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+};
+
 // --- Review Item with Reply Dialog & Threads ---
 const ReviewItemComponent = ({
   review,
@@ -428,6 +461,77 @@ const ReviewItemComponent = ({
   );
 };
 
+// --- NEW: Leave Review Dialog Component ---
+const LeaveReviewDialog = ({ 
+  onSubmit 
+}: { 
+  onSubmit: (rating: number, comment: string) => void 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+
+  const handleSubmit = () => {
+    if (rating === 0) {
+      toast.error("Please select a star rating.");
+      return;
+    }
+    if (!comment.trim()) {
+      toast.error("Please enter a comment.");
+      return;
+    }
+    onSubmit(rating, comment);
+    setRating(0);
+    setComment("");
+    setIsOpen(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-[#93C01F] hover:bg-[#7da815] text-white flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Write a Review
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Leave a Rating</DialogTitle>
+          <DialogDescription>
+            Share your experience with the community.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-6 space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Your Rating</Label>
+            <StarRatingInput rating={rating} onRatingChange={setRating} />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Your Review</Label>
+            <Textarea
+              placeholder="What did you like or dislike?"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="min-h-[120px] resize-none"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
+            onClick={handleSubmit}
+            className="bg-[#93C01F] hover:bg-[#7da815] text-white"
+          >
+            Post Review
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // --- NEW: Reviews Section Container ---
 const EnhancedReviewsSection = ({
   initialReviews,
@@ -435,6 +539,22 @@ const EnhancedReviewsSection = ({
   initialReviews: ReviewItem[];
 }) => {
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
+  const { user } = useAuth();
+
+  const handleReviewSubmit = (rating: number, comment: string) => {
+    const newReview: ReviewItem = {
+      id: Date.now(),
+      author: user?.name || "Guest User",
+      rating: rating,
+      date: "Just now",
+      comment: comment,
+      avatar: user?.avatar || "",
+      replies: [],
+    };
+
+    setReviews([newReview, ...reviews]);
+    toast.success("Review posted successfully!");
+  };
 
   const handleReplySubmit = async (reviewId: string | number, text: string) => {
     // In a real app, you would make an API call here.
@@ -443,10 +563,10 @@ const EnhancedReviewsSection = ({
     // Optimistic Update
     const newReply: ReviewReply = {
       id: Date.now(),
-      author: "You", // Replace with logged in user name
+      author: user?.name || "You", 
       date: "Just now",
       comment: text,
-      avatar: "", // Replace with logged in user avatar
+      avatar: user?.avatar || "", 
     };
 
     setReviews((prev) =>
@@ -460,23 +580,31 @@ const EnhancedReviewsSection = ({
         return review;
       }),
     );
+    toast.success("Reply posted!");
   };
 
   return (
-    <div className="space-y-2">
-      {reviews.length > 0 ? (
-        reviews.map((review, i) => (
-          <ReviewItemComponent
-            key={review.id || i}
-            review={review}
-            onReply={handleReplySubmit}
-          />
-        ))
-      ) : (
-        <div className="text-center py-10 text-gray-500">
-          No reviews yet. Be the first to review!
-        </div>
-      )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-4 -mt-6">
+        <h3 className="text-lg font-bold text-gray-900">Community Reviews</h3>
+        <LeaveReviewDialog onSubmit={handleReviewSubmit} />
+      </div>
+
+      <div className="space-y-2">
+        {reviews.length > 0 ? (
+          reviews.map((review, i) => (
+            <ReviewItemComponent
+              key={review.id || i}
+              review={review}
+              onReply={handleReplySubmit}
+            />
+          ))
+        ) : (
+          <div className="text-center py-10 text-gray-500">
+            No reviews yet. Be the first to review!
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -548,9 +676,12 @@ function ProviderTabs({
   galleryItems: GalleryItem[];
   listingSlug: string;
 }) {
-  const { experiences, faqs, reviews } = {
-    experiences: template.experience || [],
-    faqs: template.faqs || [],
+  const {
+    // experiences, faqs,
+    reviews,
+  } = {
+    // experiences: template.experience || [],
+    // faqs: template.faqs || [],
     reviews: template.reviews || [],
   };
 
@@ -558,7 +689,11 @@ function ProviderTabs({
     <div className="mt-6 px-4 pb-4">
       <Tabs defaultValue="portfolio" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto rounded-full no-scrollbar">
-          {["Portfolio", "Reviews", "Experience", "FAQs"].map((tab) => (
+          {[
+            "Portfolio",
+            "Reviews",
+            // "Experience", "FAQs"
+          ].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -589,7 +724,7 @@ function ProviderTabs({
           </Card>
         </TabsContent>
 
-        <TabsContent value="experience" className="mt-6">
+        {/* <TabsContent value="experience" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">
@@ -615,9 +750,9 @@ function ProviderTabs({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
-        <TabsContent value="faqs" className="mt-6">
+        {/* <TabsContent value="faqs" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg font-semibold">FAQs</CardTitle>
@@ -641,7 +776,7 @@ function ProviderTabs({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );
@@ -715,36 +850,6 @@ function SidebarInfo({
           </>
         )}
 
-        <div className="mt-4">
-          <Button
-            onClick={handleClaimBusiness}
-            disabled={!!provider.claim_status} // Disabled when claimed
-            className={`w-full ${
-              provider.claim_status
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
-            }`}
-          >
-            {provider.claim_status ? "Claimed" : "Claim business"}
-          </Button>
-
-          {/* Challenge claim link - Added below Claim button */}
-          {provider.claim_status && (
-            <div className="mt-3 text-center">
-              <Link
-                href={`/claim/${provider.slug}/verify`}
-                className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors uppercase font-bold tracking-tight"
-              >
-                <AlertCircle className="h-3 w-3" />
-                Is this a mistake?{" "}
-                <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
-                  Challenge this claim
-                </span>
-              </Link>
-            </div>
-          )}
-        </div>
-
         {/* Business Hours Section - Added below Claim button */}
         {hours && hours.length > 0 && (
           <div className="mt-6">
@@ -766,10 +871,9 @@ function SidebarInfo({
                 </div>
               ))}
             </div>
+            <Divider />
           </div>
         )}
-
-        <Divider />
 
         <div>
           <h5 className="text-lg font-black text-gray-900">What we do</h5>
@@ -856,6 +960,38 @@ function SidebarInfo({
             </Link>
           </div>
         )}
+
+        <Divider />
+
+        <div className="mt-4">
+          <Button
+            onClick={handleClaimBusiness}
+            disabled={!!provider.claim_status} // Disabled when claimed
+            className={`w-full ${
+              provider.claim_status
+                ? "hidden"
+                : "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
+            }`}
+          >
+            {provider.claim_status ? "Claimed" : "Claim business"}
+          </Button>
+
+          {/* Challenge claim link - Added below Claim button */}
+          {provider.claim_status && (
+            <div className="mt-3 text-center">
+              <Link
+                href={`/claim/${provider.slug}/verify`}
+                className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
+              >
+                <AlertCircle className="h-3 w-3" />
+                Business Owner?{" "}
+                <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
+                  Challenge this claim
+                </span>
+              </Link>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

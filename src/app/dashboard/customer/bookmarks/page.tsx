@@ -27,6 +27,7 @@ import { useAuth } from "@/context/auth-context";
 import { useBookmark, BookmarkItemType } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // --- Types ---
 interface ListingItem {
@@ -120,8 +121,8 @@ const ListingCard = ({
     item.type === "event"
       ? `/events/${item.slug}`
       : item.type === "community"
-      ? `/communities/${item.slug}`
-      : `/discover/${item.slug}`; // Default to discover/business
+        ? `/communities/${item.slug}`
+        : `/discover/${item.slug}`; // Default to discover/business
 
   return (
     <Link
@@ -212,7 +213,7 @@ const ListingCard = ({
                     "w-3.5 h-3.5",
                     i < Math.floor(item.rating || 0)
                       ? "fill-yellow-400 text-yellow-400"
-                      : "fill-gray-100 text-gray-200"
+                      : "fill-gray-100 text-gray-200",
                   )}
                 />
               ))}
@@ -247,8 +248,10 @@ const ListingCard = ({
 
 // --- Main Component ---
 export default function Bookmarks() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
+  const [isJoiningVendor] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
@@ -393,8 +396,66 @@ export default function Bookmarks() {
   const endIndex = startIndex + itemsPerPage;
   const currentItems = bookmarks.slice(startIndex, endIndex);
 
+  const handleClickEvent = () => {
+    if (user) {
+      // Authenticated -> Go to Claim Page
+      router.push("/claim");
+    } else {
+      // Not Authenticated -> Go to Login, then redirect to Claim Page
+      router.push("/auth/login?redirect=/claim");
+    }
+  };
+
   return (
     <div className="px-1 lg:px-8 py-6 space-y-8 pb-20">
+      <div className="space-y-5 mt-4 py-4">
+        <h3 className="text-xl font-semibold text-gray-900">
+          Progress & Rewards
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
+            <div className="space-y-2 max-w-sm">
+              <h4 className="text-lg font-semibold text-gray-900">
+                Grow your business with Mefie
+              </h4>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Showcase your products, connect with customers, and expand your
+                business in a thriving digital marketplace.
+              </p>
+            </div>
+            <button
+              onClick={handleClickEvent}
+              disabled={isJoiningVendor}
+              className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer flex items-center gap-2"
+            >
+              {isJoiningVendor && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isJoiningVendor ? "Joining..." : "Join as a vendor"}
+            </button>
+          </div>
+
+          <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+            <div className="relative z-10 space-y-2 max-w-sm">
+              <h4 className="text-lg font-semibold text-white">
+                Invite a friend and help them discover Mefie and both of you get
+                a reward.
+              </h4>
+            </div>
+            <div className="absolute right-0 bottom-0 opacity-20 md:opacity-100">
+              <Image
+                src="/images/backgroundImages/present.svg"
+                alt="Gift Box"
+                width={220}
+                height={220}
+                className="object-contain"
+              />
+            </div>
+            <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
+              Invite a friend
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -498,7 +559,7 @@ export default function Bookmarks() {
                   "rounded-full h-10 w-10 p-0 font-medium",
                   currentPage === 1
                     ? "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
-                    : "bg-transparent text-gray-700 hover:bg-gray-100"
+                    : "bg-transparent text-gray-700 hover:bg-gray-100",
                 )}
                 onClick={() => setCurrentPage(1)}
               >
@@ -510,7 +571,7 @@ export default function Bookmarks() {
                     "rounded-full h-10 w-10 p-0 font-medium",
                     currentPage === 2
                       ? "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
-                      : "bg-transparent text-gray-700 hover:bg-gray-100"
+                      : "bg-transparent text-gray-700 hover:bg-gray-100",
                   )}
                   onClick={() => setCurrentPage(2)}
                 >

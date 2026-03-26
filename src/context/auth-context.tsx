@@ -17,6 +17,8 @@ interface User {
   name: string;
   role: string;
   image?: string;
+  avatar?: string;
+  profile_photo_url?: string;
 }
 
 interface AuthContextType {

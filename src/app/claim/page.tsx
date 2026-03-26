@@ -61,6 +61,8 @@ export default function ClaimPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   // --- Helper: Get Full Image URL ---
   const getImageUrl = (
     imageEntry: ApiImage | string | undefined | null,
@@ -326,30 +328,37 @@ export default function ClaimPage() {
                   <Search className="w-8 h-8 text-gray-300" />
                 </div>
                 <h3 className="text-gray-900 font-semibold text-lg">
-                  {hasSearched ? "No businesses found" : "Start your search"}
+                  {hasSearched ? "No listing found" : "Start your search"}
                 </h3>
                 <p className="text-gray-500 text-sm mt-2 max-w-xs mx-auto">
                   {hasSearched
                     ? "We couldn't find a match. Try adjusting your search terms or location."
                     : "Enter your business name or location above to find and claim your listing."}
                 </p>
+                {hasSearched && (
+                  <>
+                    <div className="flex items-center justify-center gap-3 mt-3">
+                      <div className="h-px bg-gray-300 w-12" />
+                      <span className="text-gray-400 text-sm font-medium">
+                        or
+                      </span>
+                      <div className="h-px bg-gray-300 w-12" />
+                    </div>
+                    <Button
+                      onClick={() => setIsDialogOpen(true)}
+                      variant="outline"
+                      className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white transition-all mt-3"
+                    >
+                      <Plus className="w-5 h-5" /> Add it manually
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
 
           <div className="mt-8 mb-10 text-center">
-            <p className="text-gray-500 mb-4 text-sm">
-              Don&apos;t see your listing in our directory?
-            </p>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white transition-all"
-                >
-                  <Plus className="w-5 h-5" /> Add it manually
-                </Button>
-              </DialogTrigger>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogContent className="sm:max-w-md bg-white border-0 rounded-2xl shadow-xl">
                 <DialogHeader>
                   <DialogTitle className="text-center text-xl font-bold text-[#1F3A4C]">

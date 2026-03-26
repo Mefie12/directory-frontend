@@ -82,7 +82,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 // --- Types ---
-type TabType = "all" | "pending" | "flagged" | "categories";
+type TabType = "all" | "approved" | "pending" | "flagged" | "categories";
 
 interface Listing {
   id: string;
@@ -252,7 +252,7 @@ const categoryApi = {
   },
   updateCategory: async (
     id: string,
-    categoryData: CategoryFormData
+    categoryData: CategoryFormData,
   ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.API_URL || "https://me-fie.co.uk";
@@ -315,7 +315,7 @@ export default function Listings() {
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
-    null
+    null,
   );
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
     name: "",
@@ -387,7 +387,7 @@ export default function Listings() {
       let imageUrl = "/images/placeholder-listing.png";
       if (item.images && item.images.length > 0) {
         const validImage = item.images.find(
-          (img) => img.media && img.media !== "processing"
+          (img) => img.media && img.media !== "processing",
         );
         if (validImage) {
           imageUrl = getImageUrl(validImage.media);
@@ -399,7 +399,7 @@ export default function Listings() {
       let category = "General";
       if (item.categories && item.categories.length > 0) {
         const mainCategories = item.categories.filter(
-          (cat) => cat.parent_id === null
+          (cat) => cat.parent_id === null,
         );
         if (mainCategories.length > 0) {
           category = mainCategories.map((cat) => cat.name).join(", ");
@@ -448,8 +448,8 @@ export default function Listings() {
               .filter((img) => img.media && img.media !== "processing")
               .map((img) => getImageUrl(img.media))
           : imageUrl
-          ? [imageUrl]
-          : [],
+            ? [imageUrl]
+            : [],
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
         description: item.description || "No description provided.",
         userInfo: userInfo,
@@ -471,7 +471,7 @@ export default function Listings() {
   };
 
   const mainCategories = allCategories.filter(
-    (cat) => cat.type === "mainCategory" || cat.parent_id === null
+    (cat) => cat.type === "mainCategory" || cat.parent_id === null,
   );
 
   const subCategories = allCategories.filter((cat) => {
@@ -490,7 +490,7 @@ export default function Listings() {
       setAllCategories(categories);
       if (categories.length > 0 && !selectedMainCategory) {
         const firstMainCategory = categories.find(
-          (cat) => cat.type === "mainCategory" || cat.parent_id === null
+          (cat) => cat.type === "mainCategory" || cat.parent_id === null,
         );
         if (firstMainCategory) {
           setSelectedMainCategory(firstMainCategory);
@@ -541,7 +541,7 @@ export default function Listings() {
     try {
       await categoryApi.deleteCategory(category.id);
       setAllCategories((prev) =>
-        prev.filter((item) => item.id !== category.id)
+        prev.filter((item) => item.id !== category.id),
       );
       toast.success("Category deleted successfully");
     } catch (error) {
@@ -568,15 +568,16 @@ export default function Listings() {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) throw new Error("Failed to delete listing");
 
       setAllData((prev) =>
         prev.filter(
-          (item) => item.slug !== listingToDelete && item.id !== listingToDelete
-        )
+          (item) =>
+            item.slug !== listingToDelete && item.id !== listingToDelete,
+        ),
       );
 
       if (selectedListing?.slug === listingToDelete) {
@@ -595,7 +596,7 @@ export default function Listings() {
 
   const handleStatusUpdate = async (
     listingSlug: string,
-    newStatus: "approved" | "rejected" | "suspended"
+    newStatus: "approved" | "rejected" | "suspended",
   ) => {
     setIsUpdatingStatus(listingSlug);
 
@@ -613,7 +614,7 @@ export default function Listings() {
             Accept: "application/json",
           },
           body: JSON.stringify({ status: newStatus }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -632,7 +633,7 @@ export default function Listings() {
             return { ...item, approval: uiStatus };
           }
           return item;
-        })
+        }),
       );
       toast.success(`Listing ${newStatus}`);
     } catch (error) {
@@ -659,12 +660,12 @@ export default function Listings() {
       if (editingCategoryId) {
         const updatedCategory = await categoryApi.updateCategory(
           editingCategoryId,
-          categoryFormData
+          categoryFormData,
         );
         setAllCategories((prev) =>
           prev.map((item) =>
-            item.id === editingCategoryId ? updatedCategory : item
-          )
+            item.id === editingCategoryId ? updatedCategory : item,
+          ),
         );
         toast.success("Category updated successfully");
       } else {
@@ -721,6 +722,8 @@ export default function Listings() {
 
       if (activeTab === "pending") {
         params.set("status", "pending");
+      } else if (activeTab === "approved") {
+        params.set("status", "approved"); // Or "published" depending on your API
       } else if (activeTab === "flagged") {
         params.set("status", "suspended");
       } else {
@@ -738,7 +741,7 @@ export default function Listings() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -771,7 +774,7 @@ export default function Listings() {
     } catch (error) {
       console.error("Fetch Error:", error);
       setError(
-        error instanceof Error ? error.message : "Failed to load listings"
+        error instanceof Error ? error.message : "Failed to load listings",
       );
       setAllData([]);
     } finally {
@@ -814,29 +817,29 @@ export default function Listings() {
       filteredData = safeAllData.filter((item) => item.approval === "Pending");
     } else if (activeTab === "flagged") {
       filteredData = safeAllData.filter(
-        (item) => item.approval === "Suspended" || item.approval === "Rejected"
+        (item) => item.approval === "Suspended" || item.approval === "Rejected",
       );
     } else {
       if (statusFilter !== "all") {
         const status = statusFilter.toLowerCase();
         if (status === "published") {
           filteredData = filteredData.filter(
-            (item) => item.approval === "Approved"
+            (item) => item.approval === "Approved",
           );
         } else if (status === "pending") {
           filteredData = filteredData.filter(
-            (item) => item.approval === "Pending"
+            (item) => item.approval === "Pending",
           );
         } else if (status === "rejected") {
           filteredData = filteredData.filter(
-            (item) => item.approval === "Rejected"
+            (item) => item.approval === "Rejected",
           );
         }
       }
 
       if (typeFilter !== "all") {
         filteredData = filteredData.filter(
-          (item) => item.type.toLowerCase() === typeFilter.toLowerCase()
+          (item) => item.type.toLowerCase() === typeFilter.toLowerCase(),
         );
       }
     }
@@ -886,19 +889,19 @@ export default function Listings() {
           currentPage - 1,
           currentPage,
           currentPage + 1,
-          currentPage + 2
+          currentPage + 2,
         );
     }
     return pages;
   };
 
   // Verification logic
- useEffect(() => {
-  if (selectedListing) {
-    // Sync with the selected listing's data
-    setIsVerified(selectedListing.verified); 
-  }
-}, [selectedListing]);
+  useEffect(() => {
+    if (selectedListing) {
+      // Sync with the selected listing's data
+      setIsVerified(selectedListing.verified);
+    }
+  }, [selectedListing]);
 
   // --- SOCIAL ICON HELPER ---
   const SocialLink = ({
@@ -932,6 +935,7 @@ export default function Listings() {
       <div className="flex flex-wrap gap-3">
         {[
           { key: "all", label: "All" },
+          { key: "approved", label: "Approved" },
           { key: "pending", label: "Pending" },
           { key: "flagged", label: "Flagged" },
           // { key: "categories", label: "Categories" },
@@ -1414,7 +1418,7 @@ export default function Listings() {
               <Select
                 value={categoryFormData.type}
                 onValueChange={(
-                  value: "subCategory" | "mainCategory" | "tag"
+                  value: "subCategory" | "mainCategory" | "tag",
                 ) =>
                   setCategoryFormData((prev) => ({
                     ...prev,
@@ -1469,8 +1473,8 @@ export default function Listings() {
               {isSavingCategory
                 ? "Saving..."
                 : editingCategoryId
-                ? "Save Changes"
-                : "Add category"}
+                  ? "Save Changes"
+                  : "Add category"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1545,7 +1549,7 @@ export default function Listings() {
                   <div className="justify-self-end">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        selectedListing.approval
+                        selectedListing.approval,
                       )}`}
                     >
                       {selectedListing.approval}
