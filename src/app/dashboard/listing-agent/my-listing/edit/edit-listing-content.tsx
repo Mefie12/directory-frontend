@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
@@ -12,7 +14,10 @@ import { useListing } from "@/context/listing-form-context";
 
 // Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
-import { BusinessDetailsForm } from "./form-component/business-details";
+const BusinessDetailsForm = dynamic(
+  () => import("./form-component/business-details").then(mod => mod.BusinessDetailsForm),
+  { ssr: false }
+);
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
@@ -38,6 +43,8 @@ interface ApiImage {
   id?: number;
 }
 
+const EDIT_STORAGE_KEY = "listing-edit-step";
+
 export default function EditListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,11 +61,10 @@ export default function EditListingContent() {
     // Data retrieval
     basicInfo,
     businessDetails,
-    
+
     // Socials (Handle safely if context is old)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     socials = (context as any).socials,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     setSocials = (context as any).setSocials || (context as any).setSocialMedia,
   } = context;
 
@@ -68,9 +74,24 @@ export default function EditListingContent() {
   const [isFetching, setIsFetching] = useState(true);
 
   const formRef = useRef<ListingFormHandle>(null);
+  const initialized = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+
+  // Persist step — only after init has restored the step
+  useEffect(() => {
+    if (isReady && listingSlug) {
+      sessionStorage.setItem(
+        EDIT_STORAGE_KEY,
+        JSON.stringify({ currentStep, listingSlug }),
+      );
+    }
+  }, [currentStep, listingSlug, isReady]);
 
   // --- 1. Initialize & Fetch Data ---
   useEffect(() => {
+    if (initialized.current) return;        
+    initialized.current = true;
+
     const initPage = async () => {
       const type = searchParams.get("type");
       const slug = searchParams.get("slug");
@@ -82,6 +103,17 @@ export default function EditListingContent() {
       }
 
       setListingSlug(slug);
+
+      try {
+        const stored = JSON.parse(
+          sessionStorage.getItem(EDIT_STORAGE_KEY) || "{}",
+        );
+        if (stored.listingSlug === slug && stored.currentStep > 1) {
+          setCurrentStep(stored.currentStep);
+        }
+      } catch {
+        /* ignore */
+      }
 
       if (type === "business" || type === "event" || type === "community") {
         setListingType(type);
@@ -114,7 +146,6 @@ export default function EditListingContent() {
 
         // console.log("📡 API Response for listing:", JSON.stringify(data, null, 2));
 
-     
         // Convert ISO country code (e.g., "GH") to dial code (e.g., "+233") for phone input
         const countryCodeToDialCode: Record<string, string> = {
           GH: "+233",
@@ -131,24 +162,33 @@ export default function EditListingContent() {
 
         setBasicInfo({
           name: data.name,
-          category_ids: data.categories?.map((c: ApiCategory) => String(c.id)) || [],
+          category_ids:
+            data.categories?.map((c: ApiCategory) => String(c.id)) || [],
           description: data.bio || data.description,
           type: data.type,
           primary_phone: data.primary_phone || "",
           primary_country_code: getDialCode(data.primary_country_code),
           secondary_phone: data.secondary_phone || "",
-          secondary_country_code: data.secondary_phone ? getDialCode(data.secondary_country_code) : "",
+          secondary_country_code: data.secondary_phone
+            ? getDialCode(data.secondary_country_code)
+            : "",
           email: data.email,
           website: data.website,
           business_reg_num: data.business_reg_num,
           bio: data.bio,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         } as any);
 
         // 2. Business Details & Hours
         const mapApiHoursToUi = (apiHours: ApiHour[]) => {
           const days = [
-            "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
           ];
           return days.map((day) => {
             const found = apiHours?.find((h) => h.day_of_week === day);
@@ -161,26 +201,34 @@ export default function EditListingContent() {
           });
         };
 
-     
         setBusinessDetails({
-        // For events, map from event-specific field names, otherwise use standard names
-        address: data.type === "event" ? (data.event_venue || data.address || "") : data.address,
-        country: data.type === "event" ? (data.event_country || data.country || "") : data.country,
-        city: data.type === "event" ? (data.event_city || data.city || "") : data.city,
-        google_plus_code: data.google_plus_code,
-        businessHours: mapApiHoursToUi(data.opening_hours || []),
-        // Event-specific fields
-        event_price: data.event_price || "",
-        event_currency: data.event_currency || "",
-        event_ticket_url: data.event_ticket_url || "",
-        event_online_url: data.event_online_url || "",
-        event_start_date: data.event_start_date || "",
-        event_end_date: data.event_end_date || "",
-        event_start_time: data.event_start_time || "",
-        event_end_time: data.event_end_time || "",
-        event_location: data.event_location || "",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+          // For events, map from event-specific field names, otherwise use standard names
+          address:
+            data.type === "event"
+              ? data.event_venue || data.address || ""
+              : data.address,
+          country:
+            data.type === "event"
+              ? data.event_country || data.country || ""
+              : data.country,
+          city:
+            data.type === "event"
+              ? data.event_city || data.city || ""
+              : data.city,
+          google_plus_code: data.google_plus_code,
+          businessHours: mapApiHoursToUi(data.opening_hours || []),
+          // Event-specific fields
+          event_price: data.event_price || "",
+          event_currency: data.event_currency || "",
+          event_ticket_url: data.event_ticket_url || "",
+          event_online_url: data.event_online_url || "",
+          event_start_date: data.event_start_date || "",
+          event_end_date: data.event_end_date || "",
+          event_start_time: data.event_start_time || "",
+          event_end_time: data.event_end_time || "",
+          event_location: data.event_location || "",
+
+        } as any);
 
         // 3. Social Media
         if (data.socials && setSocials) {
@@ -196,26 +244,27 @@ export default function EditListingContent() {
         // 4. Media
         if (data.images) {
           const validImages = data.images.filter(
-            (img: ApiImage) => img.media && !["processing", "failed"].includes(img.media)
+            (img: ApiImage) =>
+              img.media && !["processing", "failed"].includes(img.media),
           );
 
           if (validImages.length > 0) {
             // Map API images to the format expected by FileUploader (with url property)
             const mappedImages = validImages.map((img: ApiImage) => ({
               url: img.media,
-              name: img.media.split('/').pop() || 'existing-image',
-              id: img.id
+              name: img.media.split("/").pop() || "existing-image",
+              id: img.id,
             }));
-            
+
             // First image is cover, rest are gallery
             const coverPhoto = mappedImages.length > 0 ? mappedImages[0] : null;
             const galleryImages = mappedImages.slice(1);
-            
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+
             (setMedia as any)((prev: any) => ({
               ...prev,
               coverPhoto: coverPhoto,
-              images: galleryImages, 
+              images: galleryImages,
             }));
           }
         }
@@ -224,11 +273,21 @@ export default function EditListingContent() {
         toast.error("Could not load listing details");
       } finally {
         setIsFetching(false);
+        setIsReady(true);
       }
     };
 
     initPage();
-  }, [searchParams, router, setListingType, setBasicInfo, setBusinessDetails, setMedia, setSocials]);
+  }, [
+    searchParams,
+    router,
+    setListingType,
+    setBasicInfo,
+    setBusinessDetails,
+    setMedia,
+    setSocials,
+    setCurrentStep,
+  ]);
 
   // --- 2. Navigation Handlers ---
 
@@ -295,18 +354,30 @@ export default function EditListingContent() {
     switch (currentStep) {
       case 1:
         // FIX: Pass populated context data to Child Form
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <BasicInformationForm {...commonProps} initialData={basicInfo as any} />;
+        
+        return (
+          <BasicInformationForm
+            {...commonProps}
+            initialData={basicInfo as any}
+          />
+        );
       case 2:
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <BusinessDetailsForm {...commonProps} initialData={businessDetails as any} />;
+     
+        return (
+          <BusinessDetailsForm
+            {...commonProps}
+            initialData={businessDetails as any}
+          />
+        );
       case 3:
         // Pass media data (URLs) so the component can show previews
-        
+
         return <MediaUploadStep {...commonProps} />;
       case 4:
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <SocialMediaForm {...commonProps} initialData={socials as any} />;
+      
+        return (
+          <SocialMediaForm {...commonProps} initialData={socials} />
+        );
       case 5:
         return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
       default:

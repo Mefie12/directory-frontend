@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isUnverified, setIsUnverified] = useState(false);
 
   const fetchUserProfile = async (token: string) => {
-    console.log("🔄 fetchUserProfile called with token:", token ? "exists" : "missing");
+    // console.log("🔄 fetchUserProfile called with token:", token ? "exists" : "missing");
     setLoading(true);
     setIsUnverified(false); // Reset unverified state
 
@@ -57,11 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ];
 
       let userData = null;
-      let successfulEndpoint = "";
+      // let successfulEndpoint = "";
 
       for (const endpoint of endpoints) {
         try {
-          console.log("📡 Trying endpoint:", `${API_URL}${endpoint}`);
+          // console.log("📡 Trying endpoint:", `${API_URL}${endpoint}`);
           const res = await fetch(`${API_URL}${endpoint}`, {
             method: "GET",
             headers: {
@@ -70,11 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           });
 
-          console.log(`📨 ${endpoint} Response status:`, res.status);
+          // console.log(`📨 ${endpoint} Response status:`, res.status);
 
           if (res.status === 401) {
             // Unauthorized - clear everything
-            console.log("🔐 401 - Unauthorized, clearing token");
+            // console.log("🔐 401 - Unauthorized, clearing token");
             localStorage.removeItem("authToken");
             setUser(null);
             setIsAuthenticated(false);
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (res.status === 403) {
             // Forbidden - likely unverified email
-            console.log("🔐 403 - Forbidden (likely unverified email)");
+            // console.log("🔐 403 - Forbidden (likely unverified email)");
             setIsAuthenticated(false);
             setIsUnverified(true);
             setUser(null);
@@ -95,12 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (res.ok) {
             const data = await res.json();
-            console.log(`✅ User data from ${endpoint}:`, data);
+            // console.log(`✅ User data from ${endpoint}:`, data);
             userData = data;
-            successfulEndpoint = endpoint;
+            // successfulEndpoint = endpoint;
             break;
           } else if (res.status === 405) {
-            console.log(`⚠️ ${endpoint} returned 405 - Method Not Allowed`);
+            // console.log(`⚠️ ${endpoint} returned 405 - Method Not Allowed`);
             // Try with POST method
             const postRes = await fetch(`${API_URL}${endpoint}`, {
               method: "POST",
@@ -112,24 +112,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (postRes.ok) {
               const postData = await postRes.json();
-              console.log(`✅ User data from ${endpoint} (POST):`, postData);
+              // console.log(`✅ User data from ${endpoint} (POST):`, postData);
               userData = postData;
-              successfulEndpoint = `${endpoint} (POST)`;
+              // successfulEndpoint = `${endpoint} (POST)`;
               break;
             }
           }
-        } catch (err) {
-          console.log(`❌ ${endpoint} failed:`, err);
+        } catch  {
+          // console.log(`❌ ${endpoint} failed:`, err);
           continue;
         }
       }
 
       if (userData) {
-        console.log(`🎯 Successfully fetched user from: ${successfulEndpoint}`);
+        // console.log(`🎯 Successfully fetched user from: ${successfulEndpoint}`);
 
         // Handle different backend response structures
         const raw = userData?.user ?? userData?.data ?? userData;
-        console.log("🔍 Extracted raw user data:", raw);
+        // console.log("🔍 Extracted raw user data:", raw);
 
         const mappedUser: User = {
           id: raw?.id || "",
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: raw?.phone || "",
         };
 
-        console.log("👤 Final mapped user:", mappedUser);
+        // console.log("👤 Final mapped user:", mappedUser);
         setUser(mappedUser);
         setIsAuthenticated(true);
         setIsUnverified(false);
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store user role in localStorage for immediate access after login
         localStorage.setItem("userRole", mappedUser.role);
       } else {
-        console.log("❌ All user endpoints failed");
+        // console.log("❌ All user endpoints failed");
         // Don't clear token if it might be an unverified case
         // Only clear if we're sure it's invalid
         setIsAuthenticated(false);
@@ -172,14 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing token on mount
   useEffect(() => {
-    console.log("🔍 AuthProvider mounting, checking for token...");
+    // console.log("🔍 AuthProvider mounting, checking for token...");
     const token = localStorage.getItem("authToken");
-    console.log("🔑 Token found:", token ? "yes" : "no");
+    // console.log("🔑 Token found:", token ? "yes" : "no");
 
     if (token) {
       fetchUserProfile(token);
     } else {
-      console.log("🔑 No token found, setting loading to false");
+      // console.log("🔑 No token found, setting loading to false");
       setLoading(false);
       setIsAuthenticated(false);
       setIsUnverified(false);
@@ -187,16 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (token: string) => {
-    console.log("🔑 Login called with token:", token ? "exists" : "missing");
+    // console.log("🔑 Login called with token:", token ? "exists" : "missing");
     localStorage.setItem("authToken", token);
-    console.log("💾 Token saved to localStorage");
+    // console.log("💾 Token saved to localStorage");
     setIsAuthenticated(false);
     setIsUnverified(false);
     await fetchUserProfile(token);
   };
 
   const logout = () => {
-    console.log("🚪 Logout called");
+    // console.log("🚪 Logout called");
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
     setUser(null);
@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refetchUser = () => {
-    console.log("🔄 refetchUser called");
+    // console.log("🔄 refetchUser called");
     const token = localStorage.getItem("authToken");
     if (token) {
       fetchUserProfile(token);

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, Suspense, useEffect } from "react";
-import ScrollableCategoryTabs, { CategoryTabItem } from "@/components/scrollable-category-tabs";
+import ScrollableCategoryTabs, { CategoryTabItem, slugifyCategory } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ interface ApiImage {
 
 interface ApiCategory {
   name: string;
-  slug: string;
+  slug?: string;
 }
 
 interface ApiListing {
@@ -137,7 +137,7 @@ export default function CommunityContent() {
           const rawCats: ApiCategory[] = categoriesJson.data || [];
           setApiCategories([
             { label: "All", value: "all" },
-            ...rawCats.map(c => ({ label: c.name, value: c.slug }))
+            ...rawCats.map(c => ({ label: c.name, value: c.slug || slugifyCategory(c.name) }))
           ]);
         }
 
@@ -168,7 +168,7 @@ export default function CommunityContent() {
             location: item.location || item.address || "Online",
             verified: item.is_verified || false,
             category: category?.name || "General",
-            categorySlug: category?.slug || "general",
+            categorySlug: category?.slug || slugifyCategory(category?.name || "general"),
             tag: category?.name || "General",
             country: item.country || "Ghana",
           };
@@ -220,6 +220,7 @@ export default function CommunityContent() {
       <ScrollableCategoryTabs
         mainCategorySlug="communities"
         defaultValue="all"
+        value={selectedCategory}
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"
       />

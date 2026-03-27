@@ -3,73 +3,96 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import dynamic from "next/dynamic"; // 1. Added dynamic import
+import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
-import { ListingProvider, useListing } from "@/context/listing-form-context";
+import { useListing } from "@/context/listing-form-context";
 
 // Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
-// 2. Replaced static import with dynamic client-only import
 const BusinessDetailsForm = dynamic(
-  () => import("./form-component/business-details").then((mod) => mod.BusinessDetailsForm),
-  { 
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-      </div>
-    )
-  }
+  () => import("./form-component/business-details").then(mod => mod.BusinessDetailsForm),
+  { ssr: false }
 );
-
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
 
-import { useAuth } from "@/context/auth-context";
-import ClaimStatus from "@/components/verify/claim-status";
-
+// Define the interface with 'unknown' instead of 'any' for stricter typing
 export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
 }
 
-// Internal Logic Component
-function ManualLisitingForm() {
+const STORAGE_KEY = "listing-form-draft";
+
+export default function ListingPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" /></div>}>
+      <ListingContent />
+    </Suspense>
+  );
+}
+
+function ListingContent() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
-  const { listingType, currentStep, setCurrentStep, setListingType } = useListing();
+  const {
+    listingType,
+    currentStep,
+    setCurrentStep,
+    setListingType,
+    resetListing,
+  } = useListing();
 
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // ONE Ref to control whichever child form is currently active
   const formRef = useRef<ListingFormHandle>(null);
-  const initialized = useRef(false);
 
+  // --- Persist currentStep + listingSlug to sessionStorage ---
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push(
-        `/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+    if (listingSlug && currentStep >= 1) {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ currentStep, listingSlug, listingType }),
       );
     }
-  }, [user, authLoading, router]);
+  }, [currentStep, listingSlug, listingType]);
 
+  // --- Initialization: restore or start fresh ---
+  const initialized = useRef(false);
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
     const type = searchParams.get("type");
+    const slug = searchParams.get("slug");
+
     if (type === "business" || type === "event" || type === "community") {
       setListingType(type);
     }
 
-    const slug = searchParams.get("slug");
-    if (slug) setListingSlug(slug);
-  }, [searchParams, setListingType]);
+    if (slug) {
+      // URL has a slug → continuing/editing or refreshing mid-creation
+      setListingSlug(slug);
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+        // Restore step only if the stored slug matches this listing
+        if (stored.listingSlug === slug && stored.currentStep > 1) {
+          setCurrentStep(stored.currentStep);
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    } else {
+      // No slug in URL → brand new listing, reset everything
+      sessionStorage.removeItem(STORAGE_KEY);
+      resetListing();
+    }
+  }, [searchParams, setListingType, setCurrentStep, resetListing]);
 
   const handleNext = async () => {
     if (currentStep === 5) {
@@ -77,20 +100,34 @@ function ManualLisitingForm() {
         setIsSaving(true);
         await formRef.current.submit();
         setIsSaving(false);
+        sessionStorage.removeItem(STORAGE_KEY);
         router.push("/dashboard/vendor/my-listing");
       }
       return;
     }
 
     if (!formRef.current) return;
+
     setIsSaving(true);
 
     try {
       const result = await formRef.current.submit();
+
       if (result) {
-        if (currentStep === 1 && typeof result === "object" && result !== null && "slug" in result) {
-          setListingSlug((result as { slug: string }).slug);
+        // Check for slug - could be in result.data or directly in result
+        const resultObj = result as Record<string, unknown>;
+        const slug =
+          (resultObj.data as Record<string, unknown>)?.slug || resultObj.slug;
+
+        if (currentStep === 1 && slug) {
+          setListingSlug(slug as string);
+          // Update URL to include slug so refresh works
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("slug", slug as string);
+          router.replace(`?${params.toString()}`);
         }
+
+        // Fixed: Pass the new number value directly instead of a callback function
         setCurrentStep(currentStep + 1);
       }
     } catch (error) {
@@ -101,6 +138,7 @@ function ManualLisitingForm() {
   };
 
   const handleBack = () => {
+    // Fixed: Pass value directly
     setCurrentStep(Math.max(1, currentStep - 1));
   };
 
@@ -122,22 +160,13 @@ function ManualLisitingForm() {
         return <SocialMediaForm {...commonProps} />;
       case 5:
         return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
-      case 6:
-        return (
-          <ClaimStatus
-            business={{
-              name: "Your New Listing",
-              address: "Pending Review",
-            }}
-          />
-        );
       default:
         return null;
     }
   };
 
   return (
-    <div className="mt-24 overflow-hidden">
+    <>
       <StepHeader
         currentStep={currentStep}
         totalSteps={5}
@@ -159,16 +188,21 @@ function ManualLisitingForm() {
           </div>
         </aside>
 
-        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-10">
+        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24">
           {renderStep()}
         </div>
       </div>
 
-      <div className="bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-0">
-        <div className="flex justify-between mx-auto lg:px-8 lg:py-6">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-50 lg:static lg:border-t lg:bg-transparent lg:p-0 lg:mt-10">
+        <div className="flex justify-between max-w-5xl mx-auto lg:px-8 lg:py-6">
           <div>
             {currentStep > 1 && (
-              <Button variant="outline" onClick={handleBack} disabled={isSaving} className="w-24">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={isSaving}
+                className="w-24"
+              >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
             )}
@@ -182,10 +216,8 @@ function ManualLisitingForm() {
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Processing...
+                Saving...
               </>
-            ) : currentStep === 6 ? (
-              "Go to Dashboard"
             ) : currentStep === 5 ? (
               "Submit Listing"
             ) : (
@@ -196,25 +228,6 @@ function ManualLisitingForm() {
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-export default function CreateListingPage() {
-  return (
-    <ListingProvider>
-      <div className="min-h-screen bg-white">
-        <Suspense
-          fallback={
-            <div className="h-[50vh] flex flex-col items-center justify-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-[#93C01F]" />
-              <p className="text-gray-500 font-medium">Initializing editor...</p>
-            </div>
-          }
-        >
-          <ManualLisitingForm />
-        </Suspense>
-      </div>
-    </ListingProvider>
+    </>
   );
 }

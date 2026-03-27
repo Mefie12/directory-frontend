@@ -16,6 +16,21 @@ import { toast } from "sonner";
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+import { z } from "zod";
+
+const signupSchema = z.object({
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .min(6, "Password must be at least 6 characters long"),
+  phone: z.string().min(1, "Phone number is required"),
+});
 
 function SignupForm() {
   const router = useRouter();
@@ -48,47 +63,48 @@ function SignupForm() {
     email: "",
     password: "",
   });
+  const [touched, setTouched] = useState({
+    first_name: false,
+    last_name: false,
+    phone: false,
+    email: false,
+    password: false,
+  });
+
+  type SignupField = keyof typeof errors;
+
+  const validateField = useCallback(
+    (field: SignupField, value: string) => {
+      const partial = { ...formData, [field]: value };
+      const result = signupSchema.safeParse(partial);
+      if (result.success) {
+        setErrors((prev) => ({ ...prev, [field]: "" }));
+        return;
+      }
+      const fieldErrors = result.error.flatten().fieldErrors;
+      setErrors((prev) => ({
+        ...prev,
+        [field]: fieldErrors[field]?.[0] || "",
+      }));
+    },
+    [formData],
+  );
 
   const validateForm = () => {
-    const newErrors = {
-      first_name: "",
-      last_name: "",
-      phone: "",
-      email: "",
-      password: "",
-    };
-    let isValid = true;
-
-    if (!formData.first_name.trim()) {
-      newErrors.first_name = "First name is required";
-      isValid = false;
+    const result = signupSchema.safeParse(formData);
+    if (result.success) {
+      setErrors({ first_name: "", last_name: "", phone: "", email: "", password: "" });
+      return true;
     }
-    if (!formData.last_name.trim()) {
-      newErrors.last_name = "Last name is required";
-      isValid = false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-      isValid = false;
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = "Invalid email format";
-      isValid = false;
-    }
-
-    if (!formData.password || formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters long";
-      isValid = false;
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
+    const fieldErrors = result.error.flatten().fieldErrors;
+    setErrors({
+      first_name: fieldErrors.first_name?.[0] || "",
+      last_name: fieldErrors.last_name?.[0] || "",
+      phone: fieldErrors.phone?.[0] || "",
+      email: fieldErrors.email?.[0] || "",
+      password: fieldErrors.password?.[0] || "",
+    });
+    return false;
   };
 
   // Handle verify mode from login redirect
@@ -229,9 +245,15 @@ function SignupForm() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
-    if (errors[id as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [id]: "" }));
+    if (touched[id as SignupField]) {
+      validateField(id as SignupField, value);
     }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setTouched((prev) => ({ ...prev, [id]: true }));
+    validateField(id as SignupField, value);
   };
 
   const handlePhoneChange = (phone: string, meta: any) => {
@@ -241,7 +263,13 @@ function SignupForm() {
       phone: phone,
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
     }));
-    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+    setTouched((prev) => ({ ...prev, phone: true }));
+    // Validate inline
+    const result = signupSchema.shape.phone.safeParse(phone);
+    setErrors((prev) => ({
+      ...prev,
+      phone: result.success ? "" : result.error.flatten().formErrors[0] || "",
+    }));
   };
 
   return (
@@ -284,8 +312,12 @@ function SignupForm() {
                     id="first_name"
                     value={formData.first_name}
                     onChange={handleInputChange}
-                    required
+                    onBlur={handleBlur}
+                    className={errors.first_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {errors.first_name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>
+                  )}
                 </div>
                 <div>
                   <Label className="text-xs">Last Name</Label>
@@ -293,8 +325,12 @@ function SignupForm() {
                     id="last_name"
                     value={formData.last_name}
                     onChange={handleInputChange}
-                    required
+                    onBlur={handleBlur}
+                    className={errors.last_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {errors.last_name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -304,8 +340,13 @@ function SignupForm() {
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}
-                  inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4"
+                  inputClassName={`w-full h-11 border rounded-r-3xl px-4 ${
+                    errors.phone ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+                )}
                 <Label className="text-xs">Email</Label>
                 <Input
                   id="email"
@@ -313,8 +354,12 @@ function SignupForm() {
                   placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  required
+                  onBlur={handleBlur}
+                  className={errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                )}
                 <Label className="text-xs">Password</Label>
                 <div className="relative">
                   <Input
@@ -323,7 +368,8 @@ function SignupForm() {
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={handleInputChange}
-                    required
+                    onBlur={handleBlur}
+                    className={errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
                   <button
                     type="button"
@@ -333,6 +379,9 @@ function SignupForm() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                )}
               </div>
               <Button
                 type="submit"

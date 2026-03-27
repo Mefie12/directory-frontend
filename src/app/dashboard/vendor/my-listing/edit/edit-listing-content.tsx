@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
@@ -12,7 +13,10 @@ import { useListing } from "@/context/listing-form-context";
 
 // Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
-import { BusinessDetailsForm } from "./form-component/business-details";
+const BusinessDetailsForm = dynamic(
+  () => import("./form-component/business-details").then(mod => mod.BusinessDetailsForm),
+  { ssr: false }
+);
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
@@ -37,6 +41,8 @@ interface ApiImage {
   media: string;
   id?: number;
 }
+
+const EDIT_STORAGE_KEY = "listing-edit-step";
 
 export default function EditListingContent() {
   const router = useRouter();
@@ -68,9 +74,24 @@ export default function EditListingContent() {
   const [isFetching, setIsFetching] = useState(true);
 
   const formRef = useRef<ListingFormHandle>(null);
+  const initialized = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+
+  // Persist step — only after init has restored the step
+  useEffect(() => {
+    if (isReady && listingSlug) {
+      sessionStorage.setItem(
+        EDIT_STORAGE_KEY,
+        JSON.stringify({ currentStep, listingSlug }),
+      );
+    }
+  }, [currentStep, listingSlug, isReady]);
 
   // --- 1. Initialize & Fetch Data ---
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     const initPage = async () => {
       const type = searchParams.get("type");
       const slug = searchParams.get("slug");
@@ -82,6 +103,17 @@ export default function EditListingContent() {
       }
 
       setListingSlug(slug);
+
+      try {
+        const stored = JSON.parse(
+          sessionStorage.getItem(EDIT_STORAGE_KEY) || "{}",
+        );
+        if (stored.listingSlug === slug && stored.currentStep > 1) {
+          setCurrentStep(stored.currentStep);
+        }
+      } catch {
+        /* ignore */
+      }
 
       if (type === "business" || type === "event" || type === "community") {
         setListingType(type);
@@ -224,11 +256,12 @@ export default function EditListingContent() {
         toast.error("Could not load listing details");
       } finally {
         setIsFetching(false);
+        setIsReady(true);
       }
     };
 
     initPage();
-  }, [searchParams, router, setListingType, setBasicInfo, setBusinessDetails, setMedia, setSocials]);
+  }, [searchParams, router, setListingType, setCurrentStep, setBasicInfo, setBusinessDetails, setMedia, setSocials]);
 
   // --- 2. Navigation Handlers ---
 

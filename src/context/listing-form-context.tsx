@@ -141,6 +141,11 @@ export function ListingProvider({ children }: { children: ReactNode }) {
       tiktok: "",
     });
     setMedia({ images: [], coverPhoto: null });
+
+     // ★ Clear persisted draft
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem("listing-form-draft");
+  }
   };
 
   return (

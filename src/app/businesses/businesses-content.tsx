@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, Suspense, useEffect } from "react";
-import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
+import ScrollableCategoryTabs, { slugifyCategory } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 import BusinessSection from "@/components/business/business-section";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ interface ApiImage {
 interface ApiCategory {
   id: number;
   name: string;
-  slug: string;
+  slug?: string;
 }
 
 interface ApiListing {
@@ -123,12 +123,15 @@ export default function BusinessesContent() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/approved_listings?per_page=100`, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+        const response = await fetch(
+          `${API_URL}/api/approved_listings?per_page=100`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
           },
-        });
+        );
 
         if (!response.ok) throw new Error("Failed to fetch listings");
 
@@ -168,7 +171,7 @@ export default function BusinessesContent() {
             else validImages.push("/images/placeholders/generic.jpg");
           }
 
-          const categorySlugs = item.categories?.map((c) => c.slug) || [
+          const categorySlugs = item.categories?.map((c) => c.slug || slugifyCategory(c.name)) || [
             "general",
           ];
           const categoryName = item.categories?.[0]?.name || "General";
@@ -228,10 +231,10 @@ export default function BusinessesContent() {
     if (selectedCategory === "all") return businesses;
 
     return businesses.filter((b) => {
-      // Check if the selected slug exists ANYWHERE in the business categories
       return b.categorySlugs.includes(selectedCategory);
     });
   }, [businesses, selectedCategory]);
+
 
   const groupedBusinesses = useMemo(() => {
     return businesses.reduce(
@@ -261,9 +264,10 @@ export default function BusinessesContent() {
     <div className="bg-gray-50 min-h-screen">
       <ScrollableCategoryTabs
         mainCategorySlug="business"
-        defaultValue="all"
+        defaultValue={selectedCategory || "all"}
+        value={selectedCategory}
         onChange={(val) => {
-          setSelectedCategory(val); // Update state on tab change
+          setSelectedCategory(val);
         }}
         containerClassName="pt-4 pb-1"
       />

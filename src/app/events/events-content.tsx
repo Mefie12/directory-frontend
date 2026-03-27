@@ -4,6 +4,7 @@
 import { useState, useMemo, Suspense, useEffect } from "react";
 import ScrollableCategoryTabs, {
   CategoryTabItem,
+  slugifyCategory,
 } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 // import { communityCards } from "@/lib/data"; // Removed unused EventsCategory import
@@ -27,7 +28,7 @@ interface ApiImage {
 
 interface ApiCategory {
   name: string;
-  slug: string;
+  slug?: string;
 }
 
 interface ApiListing {
@@ -160,7 +161,7 @@ export default function EventsContent() {
           categoriesJson.data || categoriesJson.categories || [];
         setApiCategories([
           { label: "All", value: "all" },
-          ...rawCats.map((c) => ({ label: c.name, value: c.slug })),
+          ...rawCats.map((c) => ({ label: c.name, value: c.slug || slugifyCategory(c.name) })),
         ]);
 
         // 2. Process Listings
@@ -204,7 +205,7 @@ export default function EventsContent() {
             location: item.location || item.address || "Online",
             verified: item.is_verified || false,
             category: category?.name || "General",
-            categorySlug: category?.slug || "general",
+            categorySlug: category?.slug || slugifyCategory(category?.name || "general"),
             country: item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
             startDate: formattedDate,
@@ -263,6 +264,7 @@ export default function EventsContent() {
       <ScrollableCategoryTabs
         mainCategorySlug="events"
         defaultValue="all"
+        value={selectedCategory}
         onChange={setSelectedCategory}
         containerClassName="pt-4 pb-1"
       />

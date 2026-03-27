@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-// import { toast } from "sonner"; // Unused import removed
+import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
@@ -12,7 +12,10 @@ import { useListing } from "@/context/listing-form-context";
 
 // Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
-import { BusinessDetailsForm } from "./form-component/business-details";
+const BusinessDetailsForm = dynamic(
+  () => import("./form-component/business-details").then(mod => mod.BusinessDetailsForm),
+  { ssr: false }
+);
 import { MediaUploadStep } from "./form-component/media";
 import { SocialMediaForm } from "./form-component/social-media";
 import { ReviewSubmitStep } from "./form-component/review";
@@ -22,11 +25,18 @@ export interface ListingFormHandle {
   submit: () => Promise<unknown | boolean>;
 }
 
+const STORAGE_KEY = "listing-form-draft";
+
 export default function ListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { listingType, currentStep, setCurrentStep, setListingType } =
-    useListing();
+  const {
+    listingType,
+    currentStep,
+    setCurrentStep,
+    setListingType,
+    resetListing,
+  } = useListing();
 
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
@@ -34,19 +44,47 @@ export default function ListingContent() {
   // ONE Ref to control whichever child form is currently active
   const formRef = useRef<ListingFormHandle>(null);
 
+  // --- Persist currentStep + listingSlug to sessionStorage ---
+  useEffect(() => {
+    if (listingSlug && currentStep >= 1) {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ currentStep, listingSlug, listingType }),
+      );
+    }
+  }, [currentStep, listingSlug, listingType]);
+
+  // --- Initialization: restore or start fresh ---
   const initialized = useRef(false);
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
     const type = searchParams.get("type");
+    const slug = searchParams.get("slug");
+
     if (type === "business" || type === "event" || type === "community") {
       setListingType(type);
     }
 
-    const slug = searchParams.get("slug");
-    if (slug) setListingSlug(slug);
-  }, [searchParams, setListingType]);
+    if (slug) {
+      // URL has a slug → continuing/editing or refreshing mid-creation
+      setListingSlug(slug);
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+        // Restore step only if the stored slug matches this listing
+        if (stored.listingSlug === slug && stored.currentStep > 1) {
+          setCurrentStep(stored.currentStep);
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    } else {
+      // No slug in URL → brand new listing, reset everything
+      sessionStorage.removeItem(STORAGE_KEY);
+      resetListing();
+    }
+  }, [searchParams, setListingType, setCurrentStep, resetListing]);
 
   const handleNext = async () => {
     if (currentStep === 5) {
@@ -54,7 +92,8 @@ export default function ListingContent() {
         setIsSaving(true);
         await formRef.current.submit();
         setIsSaving(false);
-        router.push("/dashboard/listing-agent/my-listing");
+        sessionStorage.removeItem(STORAGE_KEY);
+        router.push("/dashboard/vendor/my-listing");
       }
       return;
     }
@@ -67,13 +106,17 @@ export default function ListingContent() {
       const result = await formRef.current.submit();
 
       if (result) {
-        if (
-          currentStep === 1 &&
-          typeof result === "object" &&
-          result !== null &&
-          "slug" in result
-        ) {
-          setListingSlug((result as { slug: string }).slug);
+        // Check for slug - could be in result.data or directly in result
+        const resultObj = result as Record<string, unknown>;
+        const slug =
+          (resultObj.data as Record<string, unknown>)?.slug || resultObj.slug;
+
+        if (currentStep === 1 && slug) {
+          setListingSlug(slug as string);
+          // Update URL to include slug so refresh works
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("slug", slug as string);
+          router.replace(`?${params.toString()}`);
         }
 
         // Fixed: Pass the new number value directly instead of a callback function
@@ -102,7 +145,7 @@ export default function ListingContent() {
       case 1:
         return <BasicInformationForm {...commonProps} />;
       case 2:
-        return <BusinessDetailsForm {...commonProps}  />;
+        return <BusinessDetailsForm {...commonProps} />;
       case 3:
         return <MediaUploadStep {...commonProps} />;
       case 4:

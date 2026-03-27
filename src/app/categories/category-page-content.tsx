@@ -473,6 +473,7 @@ export default function CategoryPageContent() {
           key={activeMainCategory}
           mainCategorySlug={activeMainCategory}
           defaultValue={selectedSubcategory}
+          value={selectedSubcategory}
           onChange={handleSubcategoryChange}
           containerClassName="pt-4 pb-1"
         />

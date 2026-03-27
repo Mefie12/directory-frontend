@@ -10,7 +10,6 @@ import {
   MapPin,
   Coffee,
   Search,
-  Lock,
   Plus,
   ChefHat,
   BadgeCheck,
@@ -24,7 +23,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  // DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +44,8 @@ interface Business {
   address: string;
   distance?: string;
   type: string;
-  status: "claimable" | "claimed" | "pending";
+  status?: string;
+  claim_status?: string;
   images?: (ApiImage | string)[];
   slug?: string;
 }
@@ -157,10 +157,15 @@ export default function ClaimPage() {
     }
   };
 
-  // --- Claim Logic (Modified: Routing only) ---
+  // Navigate to listing detail page
+  const handleViewListing = (business: Business) => {
+    const identifier = business.slug || business.id;
+    router.push(`/claim/${identifier}`);
+  };
+
+  // Navigate directly to verify/claim page
   const handleClaim = (business: Business) => {
     const identifier = business.slug || business.id;
-    // Navigate directly to the verify page
     router.push(`/claim/${identifier}/verify`);
   };
 
@@ -247,7 +252,7 @@ export default function ClaimPage() {
               </div>
             ) : results.length > 0 ? (
               results.map((business) => {
-                const isClaimed = business.status === "claimed";
+                const isClaimed = !!business.claim_status || business.status === "claimed";
                 const displayImage =
                   business.images && business.images.length > 0
                     ? getImageUrl(business.images[0])
@@ -256,11 +261,8 @@ export default function ClaimPage() {
                 return (
                   <div
                     key={business.id}
-                    className={`flex items-center justify-between px-4 py-4 rounded-2xl border transition-all ${
-                      isClaimed
-                        ? "bg-gray-50 border-gray-200 border-dashed opacity-75"
-                        : "bg-white border-gray-200 shadow-sm hover:shadow-md"
-                    }`}
+                    onClick={() => handleViewListing(business)}
+                    className="flex items-center justify-between px-4 py-4 rounded-2xl border transition-all bg-white border-gray-200 shadow-sm hover:shadow-md cursor-pointer"
                   >
                     <div className="flex items-center gap-5">
                       <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border">
@@ -270,7 +272,7 @@ export default function ClaimPage() {
                               src={displayImage}
                               alt={business.name}
                               fill
-                              className={`object-cover ${isClaimed ? "grayscale opacity-50" : ""}`}
+                              className="object-cover"
                             />
                           </div>
                         ) : (
@@ -279,7 +281,7 @@ export default function ClaimPage() {
                       </div>
                       <div>
                         <h3
-                          className={`font-bold text-lg ${isClaimed ? "text-gray-500" : "text-slate-900"}`}
+                          className="font-bold text-lg text-slate-900"
                         >
                           {business.name}
                         </h3>
@@ -307,12 +309,18 @@ export default function ClaimPage() {
 
                     <div>
                       {isClaimed ? (
-                        <div className="px-4 py-2">
-                          <Lock className="w-5 h-5 text-gray-300" />
-                        </div>
+                        <Button
+                          disabled
+                          className="bg-gray-100 text-gray-400 px-6 py-2 h-auto rounded-lg font-medium min-w-[100px] cursor-not-allowed"
+                        >
+                          Claimed
+                        </Button>
                       ) : (
                         <Button
-                          onClick={() => handleClaim(business)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClaim(business);
+                          }}
                           className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium min-w-[100px]"
                         >
                           Claim

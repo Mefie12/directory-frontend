@@ -5,11 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required")
+    .min(6, "Password must be at least 6 characters long"),
+});
 
 function LoginForm() {
   const router = useRouter();
@@ -26,34 +38,42 @@ function LoginForm() {
     email: "",
     password: "",
   });
+  const [touched, setTouched] = useState({ email: false, password: false });
+  const [credentialError, setCredentialError] = useState(false);
 
   const { login, isUnverified } = useAuth();
 
   const redirectPath = searchParams.get("redirect") || "/";
 
+  const validateField = useCallback(
+    (field: "email" | "password", value: string) => {
+      const partial = { ...formData, [field]: value };
+      const result = loginSchema.safeParse(partial);
+      if (result.success) {
+        setErrors((prev) => ({ ...prev, [field]: "" }));
+        return;
+      }
+      const fieldErrors = result.error.flatten().fieldErrors;
+      setErrors((prev) => ({
+        ...prev,
+        [field]: fieldErrors[field]?.[0] || "",
+      }));
+    },
+    [formData],
+  );
+
   const validateForm = () => {
-    const newErrors = { email: "", password: "" };
-    let isValid = true;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-      isValid = false;
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = "Invalid email format";
-      isValid = false;
+    const result = loginSchema.safeParse(formData);
+    if (result.success) {
+      setErrors({ email: "", password: "" });
+      return true;
     }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-      isValid = false;
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters long";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
+    const fieldErrors = result.error.flatten().fieldErrors;
+    setErrors({
+      email: fieldErrors.email?.[0] || "",
+      password: fieldErrors.password?.[0] || "",
+    });
+    return false;
   };
 
   // app/auth/login/page.tsx - Update your handleSubmit function
@@ -61,6 +81,7 @@ function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setCredentialError(false);
     setErrors({
       email: "",
       password: "",
@@ -85,7 +106,7 @@ function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Invalid email or password");
+        throw new Error(data.message || "These credentials do not match our records.");
       }
 
       const token =
@@ -147,18 +168,35 @@ function LoginForm() {
         return;
       }
 
-      setError(msg.includes("401") ? "Incorrect email or password." : msg);
+      setError(
+        msg.includes("401")
+          ? "These credentials do not match our records."
+          : msg,
+      );
+      setCredentialError(true);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.id]: e.target.value,
-    }));
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+    setCredentialError(false);
+    setError("");
+    if (touched[id as keyof typeof touched]) {
+      validateField(id as "email" | "password", value);
+    }
   };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setTouched((prev) => ({ ...prev, [id]: true }));
+    validateField(id as "email" | "password", value);
+  };
+
+  const hasError = (field: "email" | "password") =>
+    !!(errors[field] || credentialError);
 
   return (
     <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
@@ -219,13 +257,18 @@ function LoginForm() {
                   id="email"
                   type="email"
                   placeholder="Enter your email"
-                  className="w-full placeholder:text-xs"
+                  className={`w-full placeholder:text-xs ${
+                    hasError("email") ? "border-red-500 focus-visible:ring-red-500" : ""
+                  }`}
                   value={formData.email}
                   onChange={handleInputChange}
-                  required
+                  onBlur={handleBlur}
                 />
                 {errors.email && (
                   <p className="text-red-500 text-sm">{errors.email}</p>
+                )}
+                {!errors.email && credentialError && error && (
+                  <p className="text-red-500 text-sm">{error}</p>
                 )}
               </div>
 
@@ -248,10 +291,12 @@ function LoginForm() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="w-full placeholder:text-xs pr-10" // Added pr-10 to prevent text overlap with eye
+                    className={`w-full placeholder:text-xs pr-10 ${
+                      hasError("password") ? "border-red-500 focus-visible:ring-red-500" : ""
+                    }`}
                     value={formData.password}
                     onChange={handleInputChange}
-                    required
+                    onBlur={handleBlur}
                   />
 
                   <button
@@ -272,7 +317,7 @@ function LoginForm() {
                 )}
               </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && !credentialError && <p className="text-red-500 text-sm">{error}</p>}
               <Button
                 type="submit"
                 disabled={isLoading}

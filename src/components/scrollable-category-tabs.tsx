@@ -14,134 +14,163 @@ export type CategoryTabItem = {
 interface ApiCategory {
   id: number;
   name: string;
-  slug: string;
+  slug?: string;
   children?: ApiCategory[];
   parent_id?: number | null;
+}
+
+/** Turn a category name into a URL-friendly slug */
+export function slugifyCategory(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export interface ScrollableCategoryTabsProps {
   categories?: CategoryTabItem[];
   mainCategorySlug?: string;
+  value?: string;
   defaultValue?: string;
   className?: string;
   containerClassName?: string;
   onChange?: (value: string) => void;
 }
 
+const EMPTY_CATEGORIES: CategoryTabItem[] = [];
+
 export default function ScrollableCategoryTabs({
-  categories = [],
+  categories = EMPTY_CATEGORIES,
   mainCategorySlug,
+  value: controlledValue,
   defaultValue = "all",
   className,
   containerClassName,
   onChange,
 }: ScrollableCategoryTabsProps) {
-  // Reset ALL state when props change
   const [displayCategories, setDisplayCategories] = useState<CategoryTabItem[]>(
     [],
   );
-  const [value, setValue] = useState<string>(defaultValue);
+  const [internalValue, setInternalValue] = useState<string>(defaultValue);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Track props to detect changes
+  // Controlled mode: parent owns the value. Uncontrolled: internal state.
+  const isControlled = controlledValue !== undefined;
+  const activeValue = isControlled ? controlledValue : internalValue;
+
   const prevMainCategorySlug = useRef<string | undefined>(undefined);
-  const prevCategories = useRef<CategoryTabItem[]>([]);
+  const prevCategoriesJson = useRef<string>("[]");
 
-  // Reset value when defaultValue changes
   useEffect(() => {
-    setValue(defaultValue);
-  }, [defaultValue]);
-
-  // Main effect: handle categories display
-  useEffect(() => {
-    // If categories prop is provided, use it directly
-    if (categories && categories.length > 0) {
-      // Check if categories actually changed
-      const categoriesChanged =
-        JSON.stringify(categories) !== JSON.stringify(prevCategories.current);
-
-      if (categoriesChanged) {
+    if (categories.length > 0) {
+      const json = JSON.stringify(categories);
+      if (json !== prevCategoriesJson.current) {
         setDisplayCategories(categories);
-        prevCategories.current = categories;
-        // Reset to default value when categories change
-        setValue(defaultValue);
+        prevCategoriesJson.current = json;
       }
       return;
     }
 
-    // If mainCategorySlug is provided, fetch from API
-    if (mainCategorySlug && mainCategorySlug !== prevMainCategorySlug.current) {
-      const fetchSubCategories = async () => {
-        setIsLoading(true);
-        try {
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-          const response = await fetch(`${API_URL}/api/categories`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-          });
+    if (!mainCategorySlug || mainCategorySlug === prevMainCategorySlug.current) {
+      return;
+    }
 
-          if (!response.ok)
-            throw new Error(`Server returned ${response.status}`);
+    const fetchSubCategories = async () => {
+      setIsLoading(true);
+      try {
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        const response = await fetch(`${API_URL}/api/categories`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
 
-          const json = await response.json();
-          const data: ApiCategory[] = Array.isArray(json)
-            ? json
-            : json.data || [];
+        if (!response.ok)
+          throw new Error(`Server returned ${response.status}`);
 
-          // Find the specific parent category
-          const mainCat = data.find((cat) => cat.slug === mainCategorySlug);
+        const json = await response.json();
+        const data: ApiCategory[] = Array.isArray(json)
+          ? json
+          : json.data || [];
 
-          // Determine the "All" label based on context
-          const contextLabel =
-            mainCategorySlug.charAt(0).toUpperCase() +
-            mainCategorySlug.slice(1);
+        // Helper to get a stable value for a category
+        const catValue = (cat: ApiCategory) =>
+          cat.slug || slugifyCategory(cat.name);
 
-          if (mainCat && mainCat.children && mainCat.children.length > 0) {
+        // Separate parents and build children map from parent_id
+        const parents = data.filter((cat) => !cat.parent_id);
+        const childrenByParent: Record<number, ApiCategory[]> = {};
+        data.forEach((cat) => {
+          if (cat.parent_id) {
+            if (!childrenByParent[cat.parent_id])
+              childrenByParent[cat.parent_id] = [];
+            childrenByParent[cat.parent_id].push(cat);
+          }
+        });
+
+        // Try to match mainCategorySlug to a parent category
+        const mainCat = parents.find(
+          (cat) =>
+            cat.slug === mainCategorySlug ||
+            slugifyCategory(cat.name) === mainCategorySlug,
+        );
+
+        const contextLabel =
+          mainCategorySlug.charAt(0).toUpperCase() +
+          mainCategorySlug.slice(1).replace(/-/g, " ");
+
+        if (mainCat) {
+          const children =
+            mainCat.children ?? childrenByParent[mainCat.id] ?? [];
+          if (children.length > 0) {
             const tabs: CategoryTabItem[] = [
-              { label: `All ${contextLabel}`, value: "all" },
-              ...mainCat.children.map((child) => ({
+              { label: `All ${mainCat.name}`, value: "all" },
+              ...children.map((child) => ({
                 label: child.name,
-                value: child.slug,
+                value: catValue(child),
               })),
             ];
             setDisplayCategories(tabs);
           } else {
-            // Fallback: Show siblings or top-level if no children found
-            const filtered = data
-              .filter((cat) => !cat.parent_id)
-              .map((cat) => ({
-                label: cat.name,
-                value: cat.slug,
-              }));
             setDisplayCategories([
-              { label: `All ${contextLabel}`, value: "all" },
-              ...filtered,
+              { label: `All ${mainCat.name}`, value: "all" },
             ]);
           }
-
-          prevMainCategorySlug.current = mainCategorySlug;
-        } catch (error) {
-          console.error("Fetch Failure:", error);
-          setDisplayCategories([]);
-        } finally {
-          setIsLoading(false);
+        } else {
+          // No matching parent — show all parent categories as tabs
+          const tabs = parents.map((cat) => ({
+            label: cat.name,
+            value: catValue(cat),
+          }));
+          setDisplayCategories([
+            { label: `All ${contextLabel}`, value: "all" },
+            ...tabs,
+          ]);
         }
-      };
 
-      fetchSubCategories();
-    }
-  }, [mainCategorySlug, categories, defaultValue]);
+        prevMainCategorySlug.current = mainCategorySlug;
+      } catch (error) {
+        console.error("Fetch Failure:", error);
+        setDisplayCategories([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSubCategories();
+  }, [mainCategorySlug, categories]);
 
   const select = useCallback(
     (next: string) => {
-      setValue(next);
+      if (!isControlled) {
+        setInternalValue(next);
+      }
       if (onChange) onChange(next);
     },
-    [onChange],
+    [onChange, isControlled],
   );
 
   if (isLoading && displayCategories.length === 0) {
@@ -180,17 +209,20 @@ export default function ScrollableCategoryTabs({
           }}
         >
           {displayCategories.map((cat) => {
-            const isSelected = value === cat.value;
+            const isSelected = activeValue === cat.value;
             return (
               <button
                 key={cat.value}
                 type="button"
                 onClick={() => select(cat.value)}
+                style={{
+                  backgroundColor: isSelected ? "#9ACC23" : "#ffffff",
+                  color: isSelected ? "#ffffff" : "#374151",
+                  borderColor: isSelected ? "#9ACC23" : "#f3f4f6",
+                }}
                 className={cn(
                   "rounded-full px-5 py-2 text-sm font-medium border transition-all shrink-0",
-                  isSelected
-                    ? "bg-[#9ACC23] text-white border-[#9ACC23] shadow-sm"
-                    : "bg-white text-gray-700 border-gray-100 hover:bg-gray-50",
+                  isSelected && "shadow-sm",
                 )}
               >
                 {cat.label}

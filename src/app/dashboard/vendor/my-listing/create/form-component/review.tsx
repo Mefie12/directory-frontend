@@ -13,6 +13,11 @@ import {
   Tag,
   Globe,
   Calendar,
+  Phone,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -37,6 +42,14 @@ interface ApiListingData {
   country: string | null;
   email: string | null;
   website?: string | null;
+  social_media: {
+    facebook: string | null;
+    twitter: string | null;
+    instagram: string | null;
+    linkedin: string | null;
+    tiktok: string | null;
+    whatsapp: string | null;
+  };
   opening_hours: {
     day_of_week: string;
     open_time: string;
@@ -314,6 +327,68 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
             </div>
           </CardContent>
         </Card>
+
+        {/* Social Media Card */}
+        {listingData?.social_media &&
+          Object.values(listingData.social_media).some(Boolean) && (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Social Media
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {listingData.social_media.facebook && (
+                    <div className="flex items-center gap-3">
+                      <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.facebook}
+                      </p>
+                    </div>
+                  )}
+                  {listingData.social_media.instagram && (
+                    <div className="flex items-center gap-3">
+                      <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.instagram}
+                      </p>
+                    </div>
+                  )}
+                  {listingData.social_media.twitter && (
+                    <div className="flex items-center gap-3">
+                      <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.twitter}
+                      </p>
+                    </div>
+                  )}
+                  {listingData.social_media.linkedin && (
+                    <div className="flex items-center gap-3">
+                      <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.linkedin}
+                      </p>
+                    </div>
+                  )}
+                  {listingData.social_media.tiktok && (
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-4 h-4 text-black shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.tiktok}
+                      </p>
+                    </div>
+                  )}
+                  {listingData.social_media.whatsapp && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-green-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {listingData.social_media.whatsapp}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
       </div>
     );
   },
