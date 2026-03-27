@@ -395,39 +395,16 @@ export default function Settings() {
     }
   };
 
-  // --- Load user data directly from API to ensure fields are populated ---
+  // Prefill form fields from auth context user
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        if (!token) return;
-
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const response = await fetch(`${API_URL}/api/user`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const userData = data.data || data;
-
-          setFirstName(userData.first_name || "");
-          setLastName(userData.last_name || "");
-          setEmail(userData.email || "");
-          setRole(userData.role || "");
-          setPhoneNumber(userData.phone || "");
-        }
-      } catch (error) {
-        console.error("Failed to fetch user details", error);
-      }
-    };
-
-    fetchUserData();
-  }, []);
+    if (user) {
+      setFirstName(user.first_name || "");
+      setLastName(user.last_name || "");
+      setEmail(user.email || "");
+      setRole(user.role || "");
+      setPhoneNumber(user.phone || "");
+    }
+  }, [user]);
 
   // Notification toggles
   const [notifications, setNotifications] = useState({
