@@ -789,7 +789,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 )}
               </div>
 
-              {eventLocationType === "online" && (
+              {(eventLocationType === "online" || eventLocationType === "hybrid") && (
                 <div className="space-y-1">
                   <label className="font-medium text-sm">
                     Event Online URL (Optional)

@@ -282,7 +282,6 @@ function SignupForm() {
                   <Label className="text-xs">First Name</Label>
                   <Input
                     id="first_name"
-                    placeholder="John"
                     value={formData.first_name}
                     onChange={handleInputChange}
                     required
@@ -292,7 +291,6 @@ function SignupForm() {
                   <Label className="text-xs">Last Name</Label>
                   <Input
                     id="last_name"
-                    placeholder="Doe"
                     value={formData.last_name}
                     onChange={handleInputChange}
                     required
