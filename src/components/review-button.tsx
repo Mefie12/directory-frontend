@@ -10,26 +10,231 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Star, Loader2 } from "lucide-react";
+import { Star, Loader2, Reply } from "lucide-react";
 import { useState } from "react";
 import { Textarea } from "./ui/textarea";
-import { toast } from "sonner"; // Assuming you are using sonner for toasts
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-export type Review = {
+export type ReviewReply = {
+  id: number;
   author: string;
-  rating: number;
   date: string;
   comment: string;
   avatar?: string;
 };
 
-const Divider = () => <div className="w-full h-px bg-gray-200 mt-5 mb-4" />;
+export type Review = {
+  id?: number | string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+  avatar?: string;
+  replies?: ReviewReply[];
+};
+
+/** * Senior UI Pattern: Reusable divider for internal card separation 
+ */
+const Divider = () => <div className="w-full h-px bg-gray-100 my-4" />;
 
 interface ReviewsSectionProps {
   reviews: Review[];
-  listingSlug: string; // Required for the API endpoint
+  listingSlug: string;
+}
+
+function ReviewItem({
+  review,
+  onReply,
+  // listingSlug,
+}: {
+  review: Review;
+  onReply: (reviewId: string | number, comment: string) => void;
+  listingSlug: string;
+}) {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  const handleReplySubmit = async () => {
+    if (!replyText.trim()) {
+      toast.error("Please enter a reply");
+      return;
+    }
+
+    setIsSubmittingReply(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        toast.error("You must be logged in to reply");
+        return;
+      }
+
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      const response = await fetch(
+        `${API_URL}/api/ratings/${review.id}/reply`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ comment: replyText }),
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to submit reply");
+
+      onReply(review.id!, replyText);
+      toast.success("Reply posted successfully!");
+      setIsReplying(false);
+      setReplyText("");
+    } catch (error) {
+      console.error("Reply submission error:", error);
+      toast.error("Failed to post reply. Please try again.");
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-100 p-5 bg-white shadow-xs transition-all hover:border-gray-200">
+      <div className="flex items-start gap-4">
+        {/* Avatar Container */}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white overflow-hidden shadow-inner">
+          {review.avatar ? (
+            <Image
+              src={review.avatar}
+              alt={review.author}
+              width={48}
+              height={48}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="text-sm font-bold text-gray-500">
+              {review.author.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* Header metadata area */}
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-gray-900 leading-none">
+                  {review.author}
+                </h4>
+                <span className="text-[11px] font-medium text-gray-400">
+                  • {review.date}
+                </span>
+              </div>
+
+              {/* Star Rating Rendering */}
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <Star
+                    key={idx}
+                    className={`h-3.5 w-3.5 ${
+                      idx < Math.round(review.rating)
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "fill-gray-100 text-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Ghost styled Reply Action */}
+            <button
+              onClick={() => setIsReplying(!isReplying)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-[#93C01F] hover:bg-[#93C01F]/5 rounded-lg transition-all active:scale-95"
+            >
+              <Reply className="w-3.5 h-3.5" />
+              Reply
+            </button>
+          </div>
+
+          {/* Review Content */}
+          <div className="mt-3">
+            <p className="text-sm leading-relaxed text-gray-600">
+              {review.comment}
+            </p>
+          </div>
+
+          {/* Inline Reply Input UI */}
+          {isReplying && (
+            <>
+              <Divider />
+              <div className="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                <Textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder={`Replying to ${review.author}...`}
+                  className="min-h-20 resize-none border-gray-200 bg-white text-sm focus-visible:ring-[#93C01F]"
+                  maxLength={500}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-semibold"
+                    onClick={() => {
+                      setIsReplying(false);
+                      setReplyText("");
+                    }}
+                    disabled={isSubmittingReply}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 bg-[#93C01F] hover:bg-[#84ad1b] text-xs font-bold px-4"
+                    onClick={handleReplySubmit}
+                    disabled={isSubmittingReply || !replyText.trim()}
+                  >
+                    {isSubmittingReply ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Post Reply"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Threaded Replies Section with Divider */}
+          {review.replies && review.replies.length > 0 && (
+            <div className="mt-2">
+              {!isReplying && <Divider />}
+              <div className="space-y-4 border-l-2 border-gray-50 pl-5">
+                {review.replies.map((reply, index) => (
+                  <div key={reply.id || index} className="group relative">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900">
+                        {reply.author}
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {reply.date}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-transparent group-hover:border-gray-100 transition-colors">
+                      {reply.comment}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
@@ -38,206 +243,147 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
   const [rating, setRating] = useState(0);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reviewsList, setReviewsList] = useState<Review[]>(reviews);
 
   const handleSubmit = async () => {
-    // 1. Validation
-    if (rating === 0) {
-      toast.error("Please select a star rating");
-      return;
-    }
-    if (!text.trim()) {
-      toast.error("Please write a comment");
-      return;
-    }
+    if (rating === 0 || !text.trim()) return;
 
     const token = localStorage.getItem("authToken");
     if (!token) {
       toast.error("You must be logged in to leave a review");
-      // Optional: router.push("/login");
       return;
     }
 
     setIsSubmitting(true);
-
     try {
       const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-      // 2. API Call
-      const url = `${API_URL}/api/listing/${listingSlug}/rating`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`${API_URL}/api/listing/${listingSlug}/rating`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          rating: rating,
-          comment: text,
-        }),
+        body: JSON.stringify({ rating, comment: text }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit review");
-      }
+      if (!response.ok) throw new Error("Failed to submit review");
 
-      // 3. Success Handling
-      toast.success(
-        "Review submitted successfully! It will appear after moderation."
-      );
+      toast.success("Review submitted for moderation!");
       setOpen(false);
       setRating(0);
       setText("");
-      router.refresh(); // Refresh page to potentially show updated state
-    } catch (error) {
-      console.error("Review submission error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong"
-      );
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleReply = (reviewId: string | number, comment: string) => {
+    setReviewsList((prev) =>
+      prev.map((review) => {
+        if (review.id === reviewId) {
+          return {
+            ...review,
+            replies: [
+              ...(review.replies || []),
+              {
+                id: Date.now(),
+                author: "You",
+                date: "Just now",
+                comment: comment,
+              },
+            ],
+          };
+        }
+        return review;
+      }),
+    );
+  };
+
   return (
     <div className="w-full">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-lg font-black">Reviews ({reviews.length})</div>
+      <div className="mb-6 flex items-center justify-between">
+        <h3 className="text-xl font-bold text-gray-900">
+          Reviews ({reviewsList.length})
+        </h3>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="rounded-md">
-              <span className="text-gray-700 mr-2">
-                <Star className="w-4 h-4" />
-              </span>
+            <Button className="bg-[#93C01F] hover:bg-[#84ad1b] text-white font-medium">
+              <Star className=" h-4 w-4 fill-white" />
               Leave Review
             </Button>
           </DialogTrigger>
-          <DialogContent className="lg:max-w-xl">
+          <DialogContent className="sm:max-w-xl rounded-2xl">
             <DialogHeader className="text-left">
-              <DialogTitle>Leave a review</DialogTitle>
+              <DialogTitle className="text-xl font-black">Leave a review</DialogTitle>
               <DialogDescription>
-                Share your experience to help others make informed decisions
+                Share your experience to help others make informed decisions.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Rate your experience</div>
-                <div className="flex items-center gap-1">
+            <div className="space-y-6 py-4">
+              <div className="space-y-3">
+                <p className="text-sm font-bold text-gray-700">Rate your experience</p>
+                <div className="flex items-center gap-1.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <button
                       key={i}
                       type="button"
-                      aria-label={`Rate ${i + 1}`}
                       onClick={() => setRating(i + 1)}
                       className="transition-transform hover:scale-110 focus:outline-none"
                     >
                       <Star
-                        className={`h-6 w-6 ${
-                          i + 1 <= rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300"
+                        className={`h-7 w-7 ${
+                          i + 1 <= rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-200"
                         }`}
                       />
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Your review</div>
+              <div className="space-y-3">
+                <p className="text-sm font-bold text-gray-700">Your review</p>
                 <Textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   maxLength={500}
-                  disabled={isSubmitting}
-                  placeholder="Tell others about your experience; what you liked and what you did not like"
-                  className="h-32 w-full resize-none rounded-md border p-3 text-sm outline-none bg-gray-50 focus:bg-white transition-colors"
+                  placeholder="Tell others what you liked and what you didn't like..."
+                  className="h-32 resize-none rounded-xl bg-gray-50 border-gray-200 focus-visible:bg-white focus-visible:ring-[#93C01F]"
                 />
-                <div className="text-xs text-gray-500 text-right">
-                  {text.length}/500 characters
-                </div>
-                <Divider />
-                <div>
-                  <p className="text-gray-500 text-sm">
-                    Your review will be made public after moderation
-                  </p>
+                <div className="flex items-center justify-between text-[11px] font-medium text-gray-400">
+                  <span>Modality: All reviews are moderated</span>
+                  <span>{text.length}/500</span>
                 </div>
               </div>
             </div>
-            <DialogFooter className="flex flex-col lg:flex-row w-full gap-3">
+            <DialogFooter className="flex gap-3">
+              <Button variant="ghost" onClick={() => setOpen(false)} className="flex-1 font-bold">Cancel</Button>
               <Button
-                variant="outline"
-                onClick={() => setOpen(false)}
-                className="flex-1"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-[#93C01F] hover:bg-[#84ad1b]"
+                className="flex-1 bg-[#93C01F] hover:bg-[#84ad1b] font-bold"
                 onClick={handleSubmit}
-                disabled={isSubmitting || rating === 0 || text.length === 0}
+                disabled={isSubmitting || rating === 0 || !text.trim()}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Review"
-                )}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : "Submit Review"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="space-y-3">
-        {reviews.length > 0 ? (
-          reviews.map((r, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-gray-100 p-4 shadow-sm"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-700 overflow-hidden">
-                  {r.avatar ? (
-                    <Image
-                      src={r.avatar}
-                      alt={r.author}
-                      width={40}
-                      height={40}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    r.author.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="text-gray-900 font-black">{r.author}</div>
-                    <div className="mt-1 text-xs text-gray-400">{r.date}</div>
-                  </div>
-                  <div className="mt-1 flex items-center gap-1 text-sm">
-                    {Array.from({ length: 5 }).map((_, idx) => (
-                      <Star
-                        key={idx}
-                        className={`h-4 w-4 ${
-                          idx + 1 <= Math.round(r.rating)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="mt-2 text-sm text-gray-600">{r.comment}</p>
-                </div>
-              </div>
-            </div>
+      <div className="space-y-4">
+        {reviewsList.length > 0 ? (
+          reviewsList.map((r, i) => (
+            <ReviewItem
+              key={r.id || i}
+              review={r}
+              onReply={handleReply}
+              listingSlug={listingSlug}
+            />
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+          <div className="text-center py-12 text-gray-400 bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
             No reviews yet. Be the first to share your experience!
           </div>
         )}

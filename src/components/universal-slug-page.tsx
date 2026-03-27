@@ -12,14 +12,14 @@ import {
   Instagram,
   Twitter,
   Youtube,
-  MessageSquare,
-  CornerDownRight,
+  // MessageSquare,
+  // CornerDownRight,
   Loader2,
   Clock,
   AlertCircle,
   Globe,
   MessageCircle, // Added for hours icon
-  Plus,
+  // Plus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,20 +39,21 @@ import {
 //   AccordionItem,
 //   AccordionTrigger,
 // } from "@/components/ui/accordion";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
-import { Label } from "@/components/ui/label";
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogHeader,
+//   DialogTitle,
+//   DialogFooter,
+//   DialogTrigger,
+//   DialogDescription,
+//   DialogClose,
+// } from "@/components/ui/dialog";
+// import { Textarea } from "@/components/ui/textarea";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { toast } from "sonner";
+// import { Label } from "@/components/ui/label";
+import { ReviewsSection } from "@/components/review-button";
 
 
 // Imported Components
@@ -304,310 +305,336 @@ const SocialIcon = ({
   </Link>
 );
 
-const StarRatingInput = ({ 
-  rating, 
-  onRatingChange 
-}: { 
-  rating: number; 
-  onRatingChange: (rating: number) => void 
-}) => {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onRatingChange(star)}
-          className="focus:outline-none"
-        >
-          <Star
-            className={`h-6 w-6 ${
-              star <= rating
-                ? "fill-yellow-400 text-yellow-400"
-                : "fill-gray-200 text-gray-200"
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-};
+// const StarRatingInput = ({ 
+//   rating, 
+//   onRatingChange 
+// }: { 
+//   rating: number; 
+//   onRatingChange: (rating: number) => void 
+// }) => {
+//   return (
+//     <div className="flex gap-1">
+//       {[1, 2, 3, 4, 5].map((star) => (
+//         <button
+//           key={star}
+//           type="button"
+//           onClick={() => onRatingChange(star)}
+//           className="focus:outline-none"
+//         >
+//           <Star
+//             className={`h-6 w-6 ${
+//               star <= rating
+//                 ? "fill-yellow-400 text-yellow-400"
+//                 : "fill-gray-200 text-gray-200"
+//             }`}
+//           />
+//         </button>
+//       ))}
+//     </div>
+//   );
+// };
 
 // --- Review Item with Reply Dialog & Threads ---
-const ReviewItemComponent = ({
-  review,
-  onReply,
-}: {
-  review: ReviewItem;
-  onReply: (reviewId: string | number, text: string) => void;
-}) => {
-  const [isReplyOpen, setIsReplyOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
+// const ReviewItemComponent = ({
+//   review,
+//   onReply,
+// }: {
+//   review: ReviewItem;
+//   onReply: (reviewId: string | number, text: string) => void;
+// }) => {
+//   const [isReplyOpen, setIsReplyOpen] = useState(false);
+//   const [replyText, setReplyText] = useState("");
 
-  const handleSubmitReply = () => {
-    if (replyText.trim() && review.id) {
-      onReply(review.id, replyText);
-      setReplyText("");
-      setIsReplyOpen(false);
-    }
-  };
+//   const handleSubmitReply = () => {
+//     if (replyText.trim() && review.id) {
+//       onReply(review.id, replyText);
+//       setReplyText("");
+//       setIsReplyOpen(false);
+//     }
+//   };
 
-  return (
-    <div className="border-b border-gray-100 last:border-0 py-6">
-      <div className="flex gap-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={review.avatar} />
-          <AvatarFallback>{review.author.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-2">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900 text-sm">
-                {review.author}
-              </h4>
-              <div className="flex items-center gap-5 mt-0.5">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${
-                        i < Math.floor(review.rating)
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "fill-gray-200 text-gray-200"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-gray-500">{review.date}</span>
-              </div>
-            </div>
+//   return (
+//     <div className="border-b border-gray-100 last:border-0 py-6">
+//       <div className="flex gap-4">
+//         <Avatar className="h-10 w-10">
+//           <AvatarImage src={review.avatar} />
+//           <AvatarFallback>{review.author.charAt(0)}</AvatarFallback>
+//         </Avatar>
+//         <div className="flex-1 space-y-2">
+//           <div className="flex justify-between items-start">
+//             <div>
+//               <h4 className="font-semibold text-gray-900 text-sm">
+//                 {review.author}
+//               </h4>
+//               <div className="flex items-center gap-5 mt-0.5">
+//                 <div className="flex">
+//                   {[...Array(5)].map((_, i) => (
+//                     <Star
+//                       key={i}
+//                       className={`h-3 w-3 ${
+//                         i < Math.floor(review.rating)
+//                           ? "fill-yellow-400 text-yellow-400"
+//                           : "fill-gray-200 text-gray-200"
+//                       }`}
+//                     />
+//                   ))}
+//                 </div>
+//                 <span className="text-xs text-gray-500">{review.date}</span>
+//               </div>
+//             </div>
 
-            {/* Reply Dialog Trigger */}
-            <Dialog open={isReplyOpen} onOpenChange={setIsReplyOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-gray-500 hover:text-[#93C01F]"
-                >
-                  <MessageSquare className="w-3 h-3 mr-1.5" />
-                  Reply
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Reply to {review.author}</DialogTitle>
-                  <DialogDescription>
-                    Your reply will be publicly visible.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                  <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-600 italic border-l-2 border-gray-300">
-                    {review.comment}
-                  </div>
-                  <Textarea
-                    placeholder="Type your reply here..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                  />
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    onClick={handleSubmitReply}
-                    className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-                  >
-                    Post Reply
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+//             {/* Reply Dialog Trigger */}
+//             <Dialog open={isReplyOpen} onOpenChange={setIsReplyOpen}>
+//               <DialogTrigger asChild>
+//                 <Button
+//                   variant="ghost"
+//                   size="sm"
+//                   className="h-8 text-xs text-gray-500 hover:text-[#93C01F]"
+//                 >
+//                   <MessageSquare className="w-3 h-3 mr-1.5" />
+//                   Reply
+//                 </Button>
+//               </DialogTrigger>
+//               <DialogContent className="sm:max-w-[425px]">
+//                 <DialogHeader>
+//                   <DialogTitle>Reply to {review.author}</DialogTitle>
+//                   <DialogDescription>
+//                     Your reply will be publicly visible.
+//                   </DialogDescription>
+//                 </DialogHeader>
+//                 <div className="py-4">
+//                   <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-600 italic border-l-2 border-gray-300">
+//                     {review.comment}
+//                   </div>
+//                   <Textarea
+//                     placeholder="Type your reply here..."
+//                     value={replyText}
+//                     onChange={(e) => setReplyText(e.target.value)}
+//                     className="min-h-[100px] resize-none"
+//                   />
+//                 </div>
+//                 <DialogFooter>
+//                   <DialogClose asChild>
+//                     <Button variant="outline">Cancel</Button>
+//                   </DialogClose>
+//                   <Button
+//                     onClick={handleSubmitReply}
+//                     className="bg-[#93C01F] hover:bg-[#7da815] text-white"
+//                   >
+//                     Post Reply
+//                   </Button>
+//                 </DialogFooter>
+//               </DialogContent>
+//             </Dialog>
+//           </div>
 
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {review.comment}
-          </p>
+//           <p className="text-sm text-gray-600 leading-relaxed">
+//             {review.comment}
+//           </p>
 
-          {/* Threaded Replies */}
-          {review.replies && review.replies.length > 0 && (
-            <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-100">
-              {review.replies.map((reply, index) => (
-                <div
-                  key={index}
-                  className="flex gap-3 bg-gray-50/50 p-3 rounded-r-lg"
-                >
-                  <CornerDownRight className="w-4 h-4 text-gray-400 mt-1 shrink-0" />
-                  <div className="flex-1 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold text-gray-900">
-                        {reply.author}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {reply.date}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600">{reply.comment}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+//           {/* Threaded Replies */}
+//           {review.replies && review.replies.length > 0 && (
+//             <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-100">
+//               {review.replies.map((reply, index) => (
+//                 <div
+//                   key={index}
+//                   className="flex gap-3 bg-gray-50/50 p-3 rounded-r-lg"
+//                 >
+//                   <CornerDownRight className="w-4 h-4 text-gray-400 mt-1 shrink-0" />
+//                   <div className="flex-1 space-y-1">
+//                     <div className="flex justify-between items-center">
+//                       <span className="text-xs font-semibold text-gray-900">
+//                         {reply.author}
+//                       </span>
+//                       <span className="text-[10px] text-gray-400">
+//                         {reply.date}
+//                       </span>
+//                     </div>
+//                     <p className="text-xs text-gray-600">{reply.comment}</p>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
-// --- NEW: Leave Review Dialog Component ---
-const LeaveReviewDialog = ({ 
-  onSubmit 
-}: { 
-  onSubmit: (rating: number, comment: string) => void 
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
+// // --- NEW: Leave Review Dialog Component ---
+// const LeaveReviewDialog = ({ 
+//   onSubmit 
+// }: { 
+//   onSubmit: (rating: number, comment: string) => void 
+// }) => {
+//   const [isOpen, setIsOpen] = useState(false);
+//   const [rating, setRating] = useState(0);
+//   const [comment, setComment] = useState("");
 
-  const handleSubmit = () => {
-    if (rating === 0) {
-      toast.error("Please select a star rating.");
-      return;
-    }
-    if (!comment.trim()) {
-      toast.error("Please enter a comment.");
-      return;
-    }
-    onSubmit(rating, comment);
-    setRating(0);
-    setComment("");
-    setIsOpen(false);
-  };
+//   const handleSubmit = () => {
+//     if (rating === 0) {
+//       toast.error("Please select a star rating.");
+//       return;
+//     }
+//     if (!comment.trim()) {
+//       toast.error("Please enter a comment.");
+//       return;
+//     }
+//     onSubmit(rating, comment);
+//     setRating(0);
+//     setComment("");
+//     setIsOpen(false);
+//   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-[#93C01F] hover:bg-[#7da815] text-white flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Write a Review
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Leave a Rating</DialogTitle>
-          <DialogDescription>
-            Share your experience with the community.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-6 space-y-6">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Your Rating</Label>
-            <StarRatingInput rating={rating} onRatingChange={setRating} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Your Review</Label>
-            <Textarea
-              placeholder="What did you like or dislike?"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="min-h-[120px] resize-none"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button
-            onClick={handleSubmit}
-            className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-          >
-            Post Review
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+//   return (
+//     <Dialog open={isOpen} onOpenChange={setIsOpen}>
+//       <DialogTrigger asChild>
+//         <Button className="bg-[#93C01F] hover:bg-[#7da815] text-white flex items-center gap-2">
+//           <Plus className="w-4 h-4" />
+//           Write a Review
+//         </Button>
+//       </DialogTrigger>
+//       <DialogContent className="sm:max-w-[425px]">
+//         <DialogHeader>
+//           <DialogTitle>Leave a Rating</DialogTitle>
+//           <DialogDescription>
+//             Share your experience with the community.
+//           </DialogDescription>
+//         </DialogHeader>
+//         <div className="py-6 space-y-6">
+//           <div className="space-y-2">
+//             <Label className="text-sm font-medium">Your Rating</Label>
+//             <StarRatingInput rating={rating} onRatingChange={setRating} />
+//           </div>
+//           <div className="space-y-2">
+//             <Label className="text-sm font-medium">Your Review</Label>
+//             <Textarea
+//               placeholder="What did you like or dislike?"
+//               value={comment}
+//               onChange={(e) => setComment(e.target.value)}
+//               className="min-h-[120px] resize-none"
+//             />
+//           </div>
+//         </div>
+//         <DialogFooter>
+//           <DialogClose asChild>
+//             <Button variant="outline">Cancel</Button>
+//           </DialogClose>
+//           <Button
+//             onClick={handleSubmit}
+//             className="bg-[#93C01F] hover:bg-[#7da815] text-white"
+//           >
+//             Post Review
+//           </Button>
+//         </DialogFooter>
+//       </DialogContent>
+//     </Dialog>
+//   );
+// };
 
 // --- NEW: Reviews Section Container ---
-const EnhancedReviewsSection = ({
-  initialReviews,
-}: {
-  initialReviews: ReviewItem[];
-}) => {
-  const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
-  const { user } = useAuth();
+// const EnhancedReviewsSection = ({
+//   initialReviews,
+// }: {
+//   initialReviews: ReviewItem[];
+// }) => {
+//   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
+//   const { user } = useAuth();
 
-  const handleReviewSubmit = (rating: number, comment: string) => {
-    const newReview: ReviewItem = {
-      id: Date.now(),
-      author: user?.name || "Guest User",
-      rating: rating,
-      date: "Just now",
-      comment: comment,
-      avatar: user?.avatar || "",
-      replies: [],
-    };
+//   const handleReviewSubmit = (rating: number, comment: string) => {
+//     const newReview: ReviewItem = {
+//       id: Date.now(),
+//       author: user?.name || "Guest User",
+//       rating: rating,
+//       date: "Just now",
+//       comment: comment,
+//       avatar: user?.avatar || "",
+//       replies: [],
+//     };
 
-    setReviews([newReview, ...reviews]);
-    toast.success("Review posted successfully!");
-  };
+//     setReviews([newReview, ...reviews]);
+//     toast.success("Review posted successfully!");
+//   };
 
-  const handleReplySubmit = async (reviewId: string | number, text: string) => {
-    // In a real app, you would make an API call here.
-    // e.g. await fetch(`/api/reviews/${reviewId}/reply`, { method: 'POST', body: ... })
+//   const handleReplySubmit = async (reviewId: string | number, text: string) => {
+//     const token = localStorage.getItem("authToken");
+//     if (!token) {
+//       toast.error("Please login to reply to a review");
+//       return;
+//     }
 
-    // Optimistic Update
-    const newReply: ReviewReply = {
-      id: Date.now(),
-      author: user?.name || "You", 
-      date: "Just now",
-      comment: text,
-      avatar: user?.avatar || "", 
-    };
+//     try {
+//       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      
+//       // API endpoint for replying to a review
+//       const response = await fetch(`${API_URL}/api/ratings/${reviewId}/reply`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Accept: "application/json",
+//           Authorization: `Bearer ${token}`,
+//         },
+//         body: JSON.stringify({
+//           comment: text,
+//         }),
+//       });
 
-    setReviews((prev) =>
-      prev.map((review) => {
-        if (review.id === reviewId) {
-          return {
-            ...review,
-            replies: [...(review.replies || []), newReply],
-          };
-        }
-        return review;
-      }),
-    );
-    toast.success("Reply posted!");
-  };
+//       if (!response.ok) {
+//         throw new Error("Failed to submit reply");
+//       }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b pb-4 -mt-6">
-        <h3 className="text-lg font-bold text-gray-900">Community Reviews</h3>
-        <LeaveReviewDialog onSubmit={handleReviewSubmit} />
-      </div>
+//       const newReply: ReviewReply = {
+//         id: Date.now(),
+//         author: user?.name || "You", 
+//         date: "Just now",
+//         comment: text,
+//         avatar: user?.avatar || "", 
+//       };
 
-      <div className="space-y-2">
-        {reviews.length > 0 ? (
-          reviews.map((review, i) => (
-            <ReviewItemComponent
-              key={review.id || i}
-              review={review}
-              onReply={handleReplySubmit}
-            />
-          ))
-        ) : (
-          <div className="text-center py-10 text-gray-500">
-            No reviews yet. Be the first to review!
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+//       setReviews((prev) =>
+//         prev.map((review) => {
+//           if (review.id === reviewId) {
+//             return {
+//               ...review,
+//               replies: [...(review.replies || []), newReply],
+//             };
+//           }
+//           return review;
+//         }),
+//       );
+//       toast.success("Reply posted successfully!");
+//     } catch (error) {
+//       console.error("Reply submission error:", error);
+//       toast.error("Failed to post reply. Please try again.");
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between border-b pb-4 -mt-6">
+//         <h3 className="text-lg font-bold text-gray-900">Community Reviews</h3>
+//         <LeaveReviewDialog onSubmit={handleReviewSubmit} />
+//       </div>
+
+//       <div className="space-y-2">
+//         {reviews.length > 0 ? (
+//           reviews.map((review, i) => (
+//             <ReviewItemComponent
+//               key={review.id || i}
+//               review={review}
+//               onReply={handleReplySubmit}
+//             />
+//           ))
+//         ) : (
+//           <div className="text-center py-10 text-gray-500">
+//             No reviews yet. Be the first to review!
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
 
 // --- Sub-Components (Stateless) ---
 
@@ -670,6 +697,7 @@ function ProviderTabs({
   template,
   providerName,
   galleryItems,
+  listingSlug,
 }: {
   template: TemplateContent;
   providerName: string;
@@ -717,9 +745,10 @@ function ProviderTabs({
 
         <TabsContent value="reviews" className="mt-6">
           <Card>
-            <div className="px-6 py-6">
+            <div className="px-6 py-1">
               {/* Using the new interactive reviews section */}
-              <EnhancedReviewsSection initialReviews={reviews} />
+              {/* <EnhancedReviewsSection initialReviews={reviews} /> */}
+              <ReviewsSection reviews={reviews as any} listingSlug={listingSlug} />
             </div>
           </Card>
         </TabsContent>

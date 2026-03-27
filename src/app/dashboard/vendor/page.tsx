@@ -333,7 +333,7 @@ export default function Dashboard() {
       {/* Header Intro */}
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
-          <h4 className="text-2xl font-semibold">Welcome back, John Doe!</h4>
+          <h4 className="text-2xl font-semibold">Welcome back, {user?.name || "User"}!</h4>
           <p className="text-base font-normal">
             Here is what&apos;s happening with your listings
           </p>
