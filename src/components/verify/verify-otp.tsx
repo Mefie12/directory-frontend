@@ -123,6 +123,19 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim().slice(0, 6).split("");
+    if (pastedData.every((char) => /^\d$/.test(char))) {
+      const newOtp = [...otp];
+      pastedData.forEach((char, i) => {
+        newOtp[i] = char;
+      });
+      setOtp(newOtp);
+      inputRefs.current[Math.min(pastedData.length - 1, 5)]?.focus();
+    }
+  };
+
   const handleKeyDown = (
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>,
@@ -156,6 +169,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
             maxLength={1}
             value={digit}
             onChange={(e) => handleOtpChange(index, e.target.value)}
+            onPaste={handlePaste}
             onKeyDown={(e) => handleKeyDown(index, e)}
             className="w-12 h-14 md:w-14 md:h-16 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:border-[#1F3A4C] focus:ring-4 focus:ring-slate-100 outline-none transition-all text-[#1F3A4C]"
           />

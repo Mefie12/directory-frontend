@@ -409,9 +409,9 @@ export default function Bookmarks() {
   return (
     <div className="px-1 lg:px-8 py-6 space-y-8 pb-20">
       <div className="space-y-5 mt-4 py-4">
-        <h3 className="text-xl font-semibold text-gray-900">
+        {/* <h3 className="text-xl font-semibold text-gray-900">
           Progress & Rewards
-        </h3>
+        </h3> */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
             <div className="space-y-2 max-w-sm">
