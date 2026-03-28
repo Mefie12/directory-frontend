@@ -6,7 +6,6 @@ import {
   // Plus,
   ChevronLeft,
   ChevronRight,
-  MapPin,
   Calendar,
   Star,
   Heart,
@@ -22,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { useBookmark, BookmarkItemType } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
@@ -53,7 +51,7 @@ interface ApiImage {
 
 interface ApiRawItem {
   id: number | string;
-  slug?: string; // API might return null/undefined
+  slug?: string;
   title?: string;
   name?: string;
   type?: string;
@@ -63,12 +61,17 @@ interface ApiRawItem {
   image?: string;
   cover_image?: string;
   location?: string;
+  address?: string;
+  city?: string;
+  country?: string;
   is_verified?: boolean;
   description?: string;
   bio?: string;
   start_date?: string;
   rating?: number | string;
+  average_rating?: number | string;
   reviews_count?: number | string;
+  ratings_count?: number | string;
 }
 
 // --- 1. ROBUST IMAGE HELPER ---
@@ -81,7 +84,7 @@ const getImageUrl = (url: string | undefined | null): string => {
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-// --- 2. LISTING CARD ---
+// --- 2. LISTING CARD (Matches BusinessCard / EventCard layout) ---
 const ListingCard = ({
   item,
   onRemove,
@@ -91,6 +94,7 @@ const ListingCard = ({
 }) => {
   const { toggleBookmark } = useBookmark();
   const [isRemoving, setIsRemoving] = useState(false);
+  const [imageSrc, setImageSrc] = useState(item.image);
 
   const handleRemoveClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -98,8 +102,6 @@ const ListingCard = ({
     setIsRemoving(true);
 
     try {
-      // We toggle using the ID (or slug, depending on your context requirement)
-      // Usually, removal by ID is safer for local state updates
       await toggleBookmark(item.slug);
       onRemove(item.id);
     } catch (error) {
@@ -110,7 +112,7 @@ const ListingCard = ({
 
   if (isRemoving) {
     return (
-      <div className="h-[380px] rounded-2xl border border-gray-100 bg-gray-50 flex flex-col items-center justify-center text-gray-400 animate-pulse">
+      <div className="h-[380px] rounded-2xl border border-[#E2E8F0] bg-gray-50 flex flex-col items-center justify-center text-gray-400 animate-pulse">
         <Loader2 className="w-8 h-8 animate-spin mb-2" />
         <span className="text-sm">Removing...</span>
       </div>
@@ -122,125 +124,96 @@ const ListingCard = ({
       ? `/events/${item.slug}`
       : item.type === "community"
         ? `/communities/${item.slug}`
-        : `/discover/${item.slug}`; // Default to discover/business
+        : `/discover/${item.slug}`;
 
   return (
     <Link
       href={linkPath}
-      className="group bg-white rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-100 h-full flex flex-col"
+      className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 border border-[#E2E8F0]"
     >
-      {/* Image Container */}
-      <div className="relative w-full aspect-4/3 overflow-hidden bg-gray-100">
+      {/* Image Container — no dark overlay, matches BusinessCard */}
+      <div className="relative w-full aspect-4/3 overflow-hidden">
         <Image
-          src={item.image}
+          src={imageSrc}
           alt={item.title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
           unoptimized={true}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (!target.src.includes("generic.jpg")) {
-              target.src = "/images/placeholders/generic.jpg";
+          onError={() => {
+            if (imageSrc !== "/images/placeholders/generic.jpg") {
+              setImageSrc("/images/placeholders/generic.jpg");
             }
           }}
         />
 
-        {/* Dark Gradient Overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-80" />
-
-        {/* Top Right: Bookmark Button */}
-        <div className="absolute top-3 right-3 z-20">
-          <button
-            onClick={handleRemoveClick}
-            className="p-2 rounded-full bg-white/90 backdrop-blur-md shadow-sm hover:bg-red-50 group/btn transition-colors"
-            title="Remove bookmark"
-          >
-            <Bookmark className="w-4 h-4 fill-blue-600 text-blue-600 group-hover/btn:fill-red-500 group-hover/btn:text-red-500 transition-colors" />
-          </button>
-        </div>
-
-        {/* Bottom: Name & Badge */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-20 flex flex-col justify-end">
-          <div className="flex justify-between items-end gap-2 w-full">
-            {/* Title Section */}
-            <div className="flex flex-col gap-1 min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-bold text-lg text-white line-clamp-1">
-                  {item.title}
-                </h3>
-                {item.verified && (
-                  <Image
-                    src="/images/icons/verify.svg"
-                    alt="Verified"
-                    width={16}
-                    height={16}
-                    className="shrink-0"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Badge Section */}
-            <Badge className="shrink-0 bg-white/90 text-gray-900 hover:bg-white border-0 px-2.5 py-1 text-xs font-medium">
-              {item.category}
-            </Badge>
-          </div>
-        </div>
+        {/* Bookmark Button */}
+        <button
+          onClick={handleRemoveClick}
+          className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
+          title="Remove bookmark"
+        >
+          <Bookmark className="w-5 h-5 fill-blue-500 text-blue-500 transition-colors" />
+        </button>
       </div>
 
-      {/* Content Body */}
-      <div className="p-4 flex flex-col flex-1">
-        {/* Description */}
-        {item.description ? (
-          <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed h-10">
-            {item.description}
-          </p>
-        ) : (
-          <p className="text-sm text-gray-400 italic h-10">
-            No description available
-          </p>
-        )}
-
-        <div className="mt-auto pt-3 flex flex-col gap-2">
-          {/* Rating Row */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex gap-0.5">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn(
-                    "w-3.5 h-3.5",
-                    i < Math.floor(item.rating || 0)
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "fill-gray-100 text-gray-200",
-                  )}
-                />
-              ))}
-            </div>
-            <span className="text-xs font-medium text-gray-700">
-              {item.rating?.toFixed(1)}
-            </span>
-            <span className="text-xs text-gray-400">({item.reviews})</span>
-          </div>
-
-          {/* Location & Date Row */}
-          <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-50 pt-3 mt-1">
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-gray-400" />
-              <span className="line-clamp-1 max-w-[140px]">
-                {item.location}
-              </span>
-            </div>
-
-            {item.date && (
-              <div className="flex items-center gap-1.5 text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-                <Calendar className="w-3.5 h-3.5" />
-                <span className="font-medium">{item.date}</span>
-              </div>
-            )}
-          </div>
+      {/* Content Section — matches BusinessCard layout */}
+      <div className="p-4 space-y-2">
+        {/* Category Badge + Verified */}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#64748A14] text-[#64748A] text-xs font-medium">
+            {item.category}
+          </span>
+          {item.verified && (
+            <Image
+              src="/images/icons/verify.svg"
+              alt="Verified"
+              width={20}
+              height={20}
+            />
+          )}
         </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+          {item.title}
+        </h3>
+
+        {/* Star Rating */}
+        <div className="flex items-center gap-1">
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              className={`w-4 h-4 ${
+                i < Math.floor(item.rating || 0)
+                  ? "fill-yellow-400 text-yellow-400"
+                  : "fill-gray-200 text-gray-200"
+              }`}
+            />
+          ))}
+          <span className="text-sm text-gray-600 ml-1">
+            ({item.reviews})
+          </span>
+        </div>
+
+        {/* Location */}
+        <div className="flex items-center gap-1 text-sm text-gray-500">
+          <Image
+            src="/images/icons/location.svg"
+            alt="Location"
+            width={20}
+            height={20}
+          />
+          <span>{item.location}</span>
+        </div>
+
+        {/* Date (for events) */}
+        {item.date && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Calendar className="w-4 h-4" />
+            <span>{item.date}</span>
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -283,6 +256,9 @@ export default function Bookmarks() {
         if (!response.ok) throw new Error("Failed to fetch bookmarks");
 
         const json = await response.json();
+
+        // Debug: log the raw API response to see available fields
+        console.log("Bookmarks API response:", JSON.stringify(json, null, 2));
 
         // --- Handle Various API Response Structures ---
         let rawData: ApiRawItem[] = [];
@@ -362,14 +338,14 @@ export default function Bookmarks() {
             type: itemType,
             category: categoryName,
             image: finalImage,
-            location: item.location || "Online",
+            location: item.location || item.address || "Online",
             verified: !!item.is_verified,
             description: descriptionText,
             date: item.start_date
               ? new Date(item.start_date).toLocaleDateString()
               : undefined,
-            rating: Number(item.rating) || 0,
-            reviews: item.reviews_count ? String(item.reviews_count) : "0",
+            rating: Number(item.average_rating || item.rating) || 0,
+            reviews: String(item.ratings_count || item.reviews_count || 0),
           };
         });
 

@@ -8,14 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Star, Loader2, Reply } from "lucide-react";
 import { useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
+import { useAuth } from "@/context/auth-context";
 
 export type ReviewReply = {
   id: number;
@@ -239,11 +239,21 @@ function ReviewItem({
 
 export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewsList, setReviewsList] = useState<Review[]>(reviews);
+
+  const handleLeaveReview = () => {
+    if (!user) {
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setOpen(true);
+  };
 
   const handleSubmit = async () => {
     if (rating === 0 || !text.trim()) return;
@@ -310,12 +320,13 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
           Reviews ({reviewsList.length})
         </h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#93C01F] hover:bg-[#84ad1b] text-white font-medium">
-              <Star className=" h-4 w-4 fill-white" />
-              Leave Review
-            </Button>
-          </DialogTrigger>
+          <Button
+            onClick={handleLeaveReview}
+            className="bg-[#93C01F] hover:bg-[#84ad1b] text-white font-medium"
+          >
+            <Star className=" h-4 w-4 fill-white" />
+            Leave Review
+          </Button>
           <DialogContent className="sm:max-w-xl rounded-2xl">
             <DialogHeader className="text-left">
               <DialogTitle className="text-xl font-black">Leave a review</DialogTitle>

@@ -1251,6 +1251,12 @@ export default function UniversalSlugPage({
     parentLabel =
       categorySlug.charAt(0).toUpperCase() +
       categorySlug.slice(1).replace(/-/g, " ");
+  } else if (type === "business") {
+    parentLink = "/businesses";
+    parentLabel = "Businesses";
+  } else if (type === "community") {
+    parentLink = "/communities";
+    parentLabel = "Communities";
   } else if (type === "discover") {
     parentLink = "/discover";
     parentLabel = "Discover";

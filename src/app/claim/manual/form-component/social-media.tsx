@@ -6,31 +6,109 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Globe,
-  Phone,
-} from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Globe, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+
+// --- Helper function to validate URL (allows without protocol) ---
+const isValidUrl = (url: string): boolean => {
+  if (!url) return true;
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=@]*)*\/?$/i.test(url);
+};
+
+// --- Platform-specific URL validators ---
+const isPlatformUrl = (url: string, patterns: RegExp[]): boolean => {
+  if (!url) return true;
+  const normalized = url.replace(/^(https?:\/\/)?(www\.)?/, "").toLowerCase();
+  return patterns.some((p) => p.test(normalized));
+};
+
+const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
+  facebook: {
+    patterns: [/^facebook\.com\//, /^fb\.com\//],
+    hint: "Must be a Facebook URL (e.g. facebook.com/yourpage)",
+  },
+  instagram: {
+    patterns: [/^instagram\.com\//],
+    hint: "Must be an Instagram URL (e.g. instagram.com/yourprofile)",
+  },
+  twitter: {
+    patterns: [/^twitter\.com\//, /^x\.com\//],
+    hint: "Must be a Twitter/X URL (e.g. twitter.com/handle or x.com/handle)",
+  },
+  linkedin: {
+    patterns: [/^linkedin\.com\//],
+    hint: "Must be a LinkedIn URL (e.g. linkedin.com/company/yourcompany)",
+  },
+  tiktok: {
+    patterns: [/^tiktok\.com\//],
+    hint: "Must be a TikTok URL (e.g. tiktok.com/@yourprofile)",
+  },
+};
+
+const validatePlatform = (val: string | undefined, platform: string): boolean => {
+  if (!val || !val.trim()) return true;
+  if (!isValidUrl(val)) return false;
+  const config = platformPatterns[platform];
+  if (!config) return true;
+  return isPlatformUrl(val, config.patterns);
+};
+
+// --- Helper function to validate phone number ---
+const isValidPhone = (phone: string): boolean => {
+  if (!phone) return true;
+  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
+};
+
+// --- Helper function to normalize URL (add https:// if missing) ---
+const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url;
+};
 
 /* ---------------------------------------------------
    SCHEMA
 --------------------------------------------------- */
 export const socialMediaSchema = z.object({
-  facebook: z.string().url("Invalid Facebook URL").optional().or(z.literal("")),
-  instagram: z
-    .string()
-    .url("Invalid Instagram URL")
+  facebook: z.string()
     .optional()
-    .or(z.literal("")),
-  twitter: z.string().url("Invalid Twitter URL").optional().or(z.literal("")),
-  linkedin: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
-  tiktok: z.string().url("Invalid tiktok URL").optional().or(z.literal("")),
-  whatsapp: z.string().optional().or(z.literal("")),
+    .or(z.literal(""))
+    .refine((val) => validatePlatform(val, "facebook"), {
+      message: platformPatterns.facebook.hint,
+    }),
+  instagram: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => validatePlatform(val, "instagram"), {
+      message: platformPatterns.instagram.hint,
+    }),
+  twitter: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => validatePlatform(val, "twitter"), {
+      message: platformPatterns.twitter.hint,
+    }),
+  linkedin: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => validatePlatform(val, "linkedin"), {
+      message: platformPatterns.linkedin.hint,
+    }),
+  tiktok: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => validatePlatform(val, "tiktok"), {
+      message: platformPatterns.tiktok.hint,
+    }),
+  whatsapp: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => isValidPhone(val || ""), {
+      message: "Must be a valid phone number (e.g. +233 50 123 4567)",
+    }),
 });
 
 export type SocialMediaFormValues = z.infer<typeof socialMediaSchema>;
@@ -106,6 +184,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       reset,
     } = useForm<SocialMediaFormValues>({
       resolver: zodResolver(socialMediaSchema),
+      mode: "onChange",
       defaultValues: {
         facebook: "",
         instagram: "",
@@ -168,11 +247,14 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         if (!token) throw new Error("Authentication required");
 
         // Filter out empty values for the payload
-        const socialData = Object.fromEntries(
-          Object.entries(data).filter(
+        // Also normalize URLs to add https:// if missing
+        const normalizedData = Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [key, normalizeUrl(value || "")]).filter(
             ([, value]) => value && value.trim() !== "",
           ),
         );
+
+        const socialData = normalizedData;
 
         // If no social media links provided, we still proceed to next step
         if (Object.keys(socialData).length === 0) return true;
@@ -252,7 +334,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                   <div className="relative">
                     <Input
                       {...register(platform.id as keyof SocialMediaFormValues)}
-                      type="url"
+                      type={platform.type === "phone" ? "tel" : "text"}
                       placeholder={platform.placeholder}
                       className={cn(
                         "h-10 rounded-lg border-gray-300 px-4 text-gray-800 focus-visible:ring-2 focus-visible:ring-black",
@@ -260,7 +342,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                           "border-red-500",
                       )}
                     />
-                    {hasValue && (
+                    {hasValue && !errors[platform.id as keyof SocialMediaFormValues] && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-green-600 text-xs">✓</span>
@@ -268,6 +350,11 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                       </div>
                     )}
                   </div>
+                  {errors[platform.id as keyof SocialMediaFormValues] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {errors[platform.id as keyof SocialMediaFormValues]?.message}
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -283,3 +370,5 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
     );
   },
 );
+
+

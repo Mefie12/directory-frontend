@@ -38,6 +38,7 @@ interface ApiListing {
   primary_phone: string | null;
   email: string | null;
   website: string | null;
+  location?: string;
   images: (ApiImage | string)[];
   cover_image?: string;
   categories: Array<{ id: number; name: string; type: string }>;
@@ -214,7 +215,7 @@ export default function CategoryPageContent() {
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_URL}/api/listings?${query}`, {
+      const response = await fetch(`${API_URL}/api/approved_listings?${query}`, {
         headers,
       });
 
@@ -238,9 +239,7 @@ export default function CategoryPageContent() {
           image: primaryImage,
           rating: item.rating || 0,
           reviews: String(item.ratings_count || 0),
-          location: item.city
-            ? `${item.city}, ${item.country}`
-            : "Location not specified",
+          location: item.location || item.address || "Online",
           verified: false,
           subtitle: item.bio
             ? item.bio.substring(0, 60) + "..."

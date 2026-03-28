@@ -6,14 +6,24 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
+export default function VerifyOtp({ business, onNext }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(165);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [otpValue, setOtpValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
   const listingIdentifier = business?.slug || business?.id;
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setOtpValue(digits);
+  };
+
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -30,8 +40,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
   };
 
   const handleVerifyCode = async () => {
-    const code = otp.join("");
-    if (code.length < 6) {
+    if (otpValue.length < 6) {
       toast.error("Please enter the complete 6-digit code");
       return;
     }
@@ -45,9 +54,8 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
     try {
       const token = localStorage.getItem("authToken");
 
-      // API Cross-check: URL must include the identifier and use POST
       const response = await fetch(
-        `${API_URL}/api/listing/${listingIdentifier}/verify_claim_by_email `,
+        `${API_URL}/api/listing/${listingIdentifier}/verify_claim_by_email`,
         {
           method: "POST",
           headers: {
@@ -56,7 +64,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
             ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({
-            otp: code,
+            otp: otpValue,
             email: business.email,
           }),
         },
@@ -83,7 +91,6 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
     try {
       const token = localStorage.getItem("authToken");
 
-      // API Cross-check: URL must include the identifier and use POST
       const response = await fetch(
         `${API_URL}/api/listing/${listingIdentifier}/resend_otp`,
         {
@@ -108,42 +115,7 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
     }
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    // Only allow numbers
-    if (value && isNaN(Number(value))) return;
-
-    const newOtp = [...otp];
-    // Take only the last character (handles overwrite)
-    newOtp[index] = value.slice(-1);
-    setOtp(newOtp);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim().slice(0, 6).split("");
-    if (pastedData.every((char) => /^\d$/.test(char))) {
-      const newOtp = [...otp];
-      pastedData.forEach((char, i) => {
-        newOtp[i] = char;
-      });
-      setOtp(newOtp);
-      inputRefs.current[Math.min(pastedData.length - 1, 5)]?.focus();
-    }
-  };
-
-  const handleKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
+  const digits = otpValue.split("");
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -158,22 +130,49 @@ export default function VerifyOtp({ business, otp, setOtp, onNext }: any) {
         </p>
       </div>
 
-      <div className="flex justify-between gap-2 mb-8">
-        {otp.map((digit: string, index: number) => (
-          <input
-            key={index}
-            ref={(el) => {
-              inputRefs.current[index] = el;
-            }}
-            type="text"
-            maxLength={1}
-            value={digit}
-            onChange={(e) => handleOtpChange(index, e.target.value)}
-            onPaste={handlePaste}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            className="w-12 h-14 md:w-14 md:h-16 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:border-[#1F3A4C] focus:ring-4 focus:ring-slate-100 outline-none transition-all text-[#1F3A4C]"
-          />
-        ))}
+      {/* OTP input area */}
+      <div
+        className="relative flex justify-between gap-2 mb-8 cursor-text"
+        onClick={focusInput}
+      >
+        {/* Real input overlaid transparently — receives all keyboard/paste events natively */}
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={otpValue}
+          onChange={handleInput}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          className="absolute inset-0 w-full h-full opacity-0 z-10"
+          aria-label="OTP input"
+        />
+
+        {/* Visual digit boxes */}
+        {Array.from({ length: 6 }).map((_, index) => {
+          const isActiveSlot = isFocused && index === otpValue.length;
+          const isFilled = index < digits.length;
+
+          return (
+            <div
+              key={index}
+              className={`
+                w-12 h-14 md:w-14 md:h-16 flex items-center justify-center
+                text-2xl font-bold rounded-xl border-2 transition-all
+                text-[#1F3A4C] select-none
+                ${isActiveSlot ? "border-[#1F3A4C] ring-4 ring-slate-100" : "border-gray-200"}
+                ${isFilled ? "bg-white" : "bg-gray-50"}
+              `}
+            >
+              {isFilled ? (
+                digits[index]
+              ) : isActiveSlot ? (
+                <div className="w-px h-6 bg-[#1F3A4C] animate-pulse" />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-col items-center gap-2 mb-12">
