@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
-import { useListing } from "@/context/listing-form-context";
+import { useListing, ListingProvider } from "@/context/listing-form-context";
 
 // Child Forms
 import { BasicInformationForm } from "./form-component/basic-info";
@@ -29,9 +29,11 @@ const STORAGE_KEY = "listing-form-draft";
 
 export default function ListingPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" /></div>}>
-      <ListingContent />
-    </Suspense>
+    <ListingProvider>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" /></div>}>
+        <ListingContent />
+      </Suspense>
+    </ListingProvider>
   );
 }
 
@@ -166,7 +168,7 @@ function ListingContent() {
   };
 
   return (
-    <>
+    <div className="pt-24">
       <StepHeader
         currentStep={currentStep}
         totalSteps={5}
@@ -228,6 +230,6 @@ function ListingContent() {
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
