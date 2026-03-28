@@ -1,12 +1,12 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Facebook, Instagram, Linkedin, Twitter, Globe } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter, Globe, Phone } from "lucide-react";
 import { toast } from "sonner";
 // Import the shared handle type
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
@@ -68,6 +68,13 @@ const normalizeUrl = (url: string): string => {
     return `https://${url}`;
   }
   return url;
+};
+
+const normalizeWhatsApp = (phone: string): string => {
+  if (!phone) return "";
+  if (phone.startsWith("http://") || phone.startsWith("https://")) return phone;
+  const digits = phone.replace(/[\s\-\(\)\+]/g, "");
+  return `https://wa.me/${digits}`;
 };
 
 /* ---------------------------------------------------
@@ -158,6 +165,14 @@ const socialPlatforms = [
     placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
   },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: Phone,
+    placeholder: "+233 50 123 4567",
+    color: "text-green-600",
+    type: "phone",
+  },
 ];
 
 /* ---------------------------------------------------
@@ -165,7 +180,7 @@ const socialPlatforms = [
 --------------------------------------------------- */
 export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
   function SocialMediaFormComponent(
-    { listingId, listingType, onSuccess, initialData },
+    { listingId, listingSlug, listingType, onSuccess, initialData },
     ref
   ) {
     const {
@@ -196,6 +211,30 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         }
     }, [initialData, reset]);
 
+    const [socialRecordId, setSocialRecordId] = useState<number | null>(null);
+
+    // Fetch social record ID on mount for PUT requests
+    useEffect(() => {
+      const fetchSocialId = async () => {
+        if (!listingSlug) return;
+        const token = localStorage.getItem("authToken");
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        try {
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const s = json.data || json;
+            if (s.id) setSocialRecordId(s.id);
+          }
+        } catch (err) {
+          console.error("Failed to fetch social record ID:", err);
+        }
+      };
+      fetchSocialId();
+    }, [listingSlug]);
+
     // Watch all fields to show which ones have values
     const watchedValues = watch();
 
@@ -212,9 +251,12 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         // Filter out empty values and normalize URLs
         const normalizedData = Object.fromEntries(
-          Object.entries(data).map(([key, value]) => [key, normalizeUrl(value || "")]).filter(
-            ([, value]) => value && value.trim() !== ""
-          )
+          Object.entries(data)
+            .map(([key, value]) => [
+              key,
+              key === "whatsapp" ? normalizeWhatsApp(value || "") : normalizeUrl(value || ""),
+            ])
+            .filter(([, value]) => value && value.trim() !== "")
         );
 
         const socialData = normalizedData;
@@ -224,12 +266,14 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           return true; 
         }
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-        // Ensure this endpoint matches your backend route exactly (/social vs /socials)
-        const endpoint = `${API_URL}/api/listing/socials/${listingId}`;
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+        const endpoint = socialRecordId
+          ? `${API_URL}/api/listing/${listingSlug}/socials/${socialRecordId}`
+          : `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
-          method: "PUT",
+          method: socialRecordId ? "PUT" : "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

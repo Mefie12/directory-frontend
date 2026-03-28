@@ -238,6 +238,7 @@ export default function EditListingContent() {
             instagram: data.socials.instagram || "",
             linkedin: data.socials.linkedin || "",
             tiktok: data.socials.tiktok || "",
+            whatsapp: data.socials.whatsapp || "",
           });
         }
 

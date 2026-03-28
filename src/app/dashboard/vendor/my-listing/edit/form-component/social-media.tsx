@@ -2,7 +2,7 @@
 
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -68,6 +68,13 @@ const normalizeUrl = (url: string): string => {
     return `https://${url}`;
   }
   return url;
+};
+
+const normalizeWhatsApp = (phone: string): string => {
+  if (!phone) return "";
+  if (phone.startsWith("http://") || phone.startsWith("https://")) return phone;
+  const digits = phone.replace(/[\s\-\(\)\+]/g, "");
+  return `https://wa.me/${digits}`;
 };
 
 /* --- SCHEMA --- */
@@ -198,11 +205,35 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       },
     });
 
+    const [socialRecordId, setSocialRecordId] = useState<number | null>(null);
+
     useEffect(() => {
       if (initialData) {
         reset(initialData);
       }
     }, [initialData, reset]);
+
+    // Fetch social record ID on mount for PUT requests
+    useEffect(() => {
+      const fetchSocialId = async () => {
+        if (!listingSlug) return;
+        const token = localStorage.getItem("authToken");
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        try {
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const s = json.data || json;
+            if (s.id) setSocialRecordId(s.id);
+          }
+        } catch (err) {
+          console.error("Failed to fetch social record ID:", err);
+        }
+      };
+      fetchSocialId();
+    }, [listingSlug]);
 
     const watchedValues = watch();
 
@@ -220,7 +251,10 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         const normalizedData = Object.fromEntries(
           Object.entries(data)
-            .map(([key, value]) => [key, normalizeUrl(value || "")])
+            .map(([key, value]) => [
+              key,
+              key === "whatsapp" ? normalizeWhatsApp(value || "") : normalizeUrl(value || ""),
+            ])
             .filter(([, value]) => value && value.trim() !== ""),
         );
 
@@ -232,11 +266,12 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // ✅ Endpoint now uses listingId as per your API docs
-        const endpoint = `${API_URL}/api/listing/socials/${listingId}`;
+        const endpoint = socialRecordId
+          ? `${API_URL}/api/listing/${listingSlug}/socials/${socialRecordId}`
+          : `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
-          method: "PUT",
+          method: socialRecordId ? "PUT" : "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

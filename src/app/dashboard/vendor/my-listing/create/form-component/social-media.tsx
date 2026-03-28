@@ -69,6 +69,15 @@ const normalizeUrl = (url: string): string => {
   return url;
 };
 
+const normalizeWhatsApp = (phone: string): string => {
+  if (!phone) return "";
+  // If already a URL, return as-is
+  if (phone.startsWith("http://") || phone.startsWith("https://")) return phone;
+  // Strip spaces, dashes, parentheses, and leading +
+  const digits = phone.replace(/[\s\-\(\)\+]/g, "");
+  return `https://wa.me/${digits}`;
+};
+
 /* ---------------------------------------------------
    SCHEMA
 --------------------------------------------------- */
@@ -206,7 +215,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           const API_URL =
             process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
+            `${API_URL}/api/listing/${listingSlug}/socials`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -217,8 +226,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
           if (res.ok) {
             const json = await res.json();
-            // Map the API data back to the form structure
-            const s = json.data.social_media || {};
+            const s = json.data || json || {};
             reset({
               facebook: s.facebook || "",
               instagram: s.instagram || "",
@@ -249,9 +257,12 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         // Filter out empty values for the payload
         // Also normalize URLs to add https:// if missing
         const normalizedData = Object.fromEntries(
-          Object.entries(data).map(([key, value]) => [key, normalizeUrl(value || "")]).filter(
-            ([, value]) => value && value.trim() !== "",
-          ),
+          Object.entries(data)
+            .map(([key, value]) => [
+              key,
+              key === "whatsapp" ? normalizeWhatsApp(value || "") : normalizeUrl(value || ""),
+            ])
+            .filter(([, value]) => value && value.trim() !== ""),
         );
 
         const socialData = normalizedData;
@@ -272,7 +283,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ social_media: socialData }), // Wrap in social_media key if API expects it
+          body: JSON.stringify(socialData),
         });
 
         if (!response.ok) {
