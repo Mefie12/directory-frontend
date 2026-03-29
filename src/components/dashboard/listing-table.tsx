@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import {
-  MoreHorizontal,
   Eye,
   MessageSquare,
   Bookmark,
@@ -12,6 +11,8 @@ import {
   CircleDashed,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -23,12 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -197,6 +192,9 @@ export function ListingsTable({
             <TableHead className="text-[#425466] font-medium text-sm rounded-tl-xl">
               Listings
             </TableHead>
+            <TableHead className="text-[#425466] font-medium text-sm rounded-tl-xl">
+              Type
+            </TableHead>
             <TableHead className="text-[#425466] font-medium text-sm">
               Category & Location
             </TableHead>
@@ -215,7 +213,8 @@ export function ListingsTable({
             return (
               <TableRow
                 key={listing.id}
-                className="border-b border-[#E3E8EF] hover:bg-gray-50/50"
+                className="border-b border-[#E3E8EF] hover:bg-gray-50/50 cursor-pointer"
+                onClick={() => onViewClick?.(listing)}
               >
                 <TableCell className="py-4">
                   <div className="flex items-center gap-3">
@@ -233,12 +232,17 @@ export function ListingsTable({
                         <span className="font-bold text-[#1F3A4C] leading-tight">
                           {listing.name}
                         </span>
-                        <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100 font-medium text-[10px] px-2 py-0">
+                        {/* <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100 font-medium text-[10px] px-2 py-0">
                           {listing.type}
-                        </Badge>
+                        </Badge> */}
                       </div>
                     </div>
                   </div>
+                </TableCell>
+                <TableCell className="py-4">
+                  <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100 font-medium text-[10px] px-2 py-0">
+                    {listing.type}
+                  </Badge>
                 </TableCell>
                 <TableCell className="py-4">
                   <div className="flex items-center gap-2 text-[#425466]">
@@ -278,27 +282,30 @@ export function ListingsTable({
                   </div>
                 </TableCell>
                 <TableCell className="py-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onViewClick?.(listing)}>
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEditClick?.(listing)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => onDeleteClick?.(listing.id)}
-                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-gray-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditClick?.(listing);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 text-[#425466]" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-red-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteClick?.(listing.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             );

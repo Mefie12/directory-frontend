@@ -59,30 +59,38 @@ export default function VerifyOtp({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-bold">Verify your email</h2>
-        <p className="text-sm text-gray-500">Sent to {email}</p>
+        <h2 className="text-2xl font-bold text-gray-900">Confirm your email</h2>
+        <p className="text-sm text-gray-500 mt-2">
+          Please enter the code sent to your email {email}
+        </p>
       </div>
 
-      <div className="flex justify-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         {otp.map((digit, i) => (
-          <Input
-            key={i}
-            ref={(el) => {
-              inputRefs.current[i] = el;
-            }}
-            className="w-12 h-12 text-center text-lg font-bold"
-            value={digit}
-            onPaste={handlePaste} // Paste listener
-            onChange={(e) => handleChange(e.target.value, i)}
-            onKeyDown={(e) => handleKeyDown(e, i)}
-          />
+          <div key={i} className="flex items-center gap-2">
+            <Input
+              ref={(el) => {
+                inputRefs.current[i] = el;
+              }}
+              className="w-13 h-14 text-center text-xl font-bold rounded-lg border-2 border-gray-200 focus:border-[#93C01F] focus:ring-[#93C01F] transition-colors"
+              value={digit}
+              maxLength={1}
+              inputMode="numeric"
+              onPaste={handlePaste}
+              onChange={(e) => handleChange(e.target.value, i)}
+              onKeyDown={(e) => handleKeyDown(e, i)}
+            />
+            {i === 2 && (
+              <span className="text-2xl font-bold text-gray-400 mx-1">-</span>
+            )}
+          </div>
         ))}
       </div>
 
       <Button
-        className="w-full bg-[#93C01F] hover:bg-[#82ab1b]"
+        className="w-full bg-[#93C01F] hover:bg-[#82ab1b] h-12 text-base font-semibold"
         disabled={isLoading || otp.some((d) => !d)}
         onClick={() => onVerify(otp.join(""))}
       >
@@ -91,18 +99,24 @@ export default function VerifyOtp({
 
       <div className="text-center text-sm">
         {timer > 0 ? (
-          <span className="text-gray-500">Resend in {timer}s</span>
+          <span className="text-gray-500">
+            Didn&apos;t get the code?{" "}
+            <span className="text-gray-400">Resend in {timer}s</span>
+          </span>
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              onResend();
-              setTimer(60); // Reset timer on resend
-            }}
-            className="text-[#93C01F] font-bold underline hover:text-[#82ab1b]"
-          >
-            Resend Code
-          </button>
+          <span className="text-gray-500">
+            Didn&apos;t get the code?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                onResend();
+                setTimer(60);
+              }}
+              className="text-[#93C01F] font-bold hover:text-[#82ab1b] hover:underline"
+            >
+              Resend
+            </button>
+          </span>
         )}
       </div>
     </div>
