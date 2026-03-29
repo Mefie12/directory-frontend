@@ -542,7 +542,7 @@ export default function ClaimListingDetailPage() {
                   )}
                   {socials.whatsapp && (
                     <SocialIcon
-                      href={`https://wa.me/${socials.whatsapp.replace(/[^\d+]/g, "")}`}
+                      href={socials.whatsapp}
                       icon={MessageCircle}
                     />
                   )}

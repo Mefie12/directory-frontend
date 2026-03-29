@@ -225,7 +225,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           });
           if (res.ok) {
             const json = await res.json();
-            const s = json.data || json;
+            const raw = json.data || json;
+            const s = Array.isArray(raw) ? raw[0] || {} : raw;
             if (s.id) setSocialRecordId(s.id);
           }
         } catch (err) {

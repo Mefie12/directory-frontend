@@ -18,6 +18,7 @@ import {
   Music2,
   Twitter,
   Youtube,
+  Phone,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ interface ApiListingData {
     twitter: string | null;
     tiktok: string | null;
     youtube: string | null;
+    whatsapp: string | null;
   }[];
   opening_hours: {
     day_of_week: string;
@@ -323,6 +325,15 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                           className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
                         >
                           <Youtube className="w-4 h-4 text-[#FF0000]" /> YouTube
+                        </Link>
+                      )}
+                      {socials.whatsapp && (
+                        <Link
+                          href={socials.whatsapp}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Phone className="w-4 h-4 text-green-600" /> WhatsApp
                         </Link>
                       )}
                     </div>

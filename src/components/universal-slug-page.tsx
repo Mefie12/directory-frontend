@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Globe,
   MessageCircle, // Added for hours icon
+  Phone,
   // Plus,
 } from "lucide-react";
 
@@ -54,7 +55,6 @@ import {
 // import { toast } from "sonner";
 // import { Label } from "@/components/ui/label";
 import { ReviewsSection } from "@/components/review-button";
-
 
 // Imported Components
 import { MediaGallery } from "@/components/media-gallery";
@@ -305,12 +305,12 @@ const SocialIcon = ({
   </Link>
 );
 
-// const StarRatingInput = ({ 
-//   rating, 
-//   onRatingChange 
-// }: { 
-//   rating: number; 
-//   onRatingChange: (rating: number) => void 
+// const StarRatingInput = ({
+//   rating,
+//   onRatingChange
+// }: {
+//   rating: number;
+//   onRatingChange: (rating: number) => void
 // }) => {
 //   return (
 //     <div className="flex gap-1">
@@ -463,10 +463,10 @@ const SocialIcon = ({
 // };
 
 // // --- NEW: Leave Review Dialog Component ---
-// const LeaveReviewDialog = ({ 
-//   onSubmit 
-// }: { 
-//   onSubmit: (rating: number, comment: string) => void 
+// const LeaveReviewDialog = ({
+//   onSubmit
+// }: {
+//   onSubmit: (rating: number, comment: string) => void
 // }) => {
 //   const [isOpen, setIsOpen] = useState(false);
 //   const [rating, setRating] = useState(0);
@@ -566,7 +566,7 @@ const SocialIcon = ({
 
 //     try {
 //       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      
+
 //       // API endpoint for replying to a review
 //       const response = await fetch(`${API_URL}/api/ratings/${reviewId}/reply`, {
 //         method: "POST",
@@ -586,10 +586,10 @@ const SocialIcon = ({
 
 //       const newReply: ReviewReply = {
 //         id: Date.now(),
-//         author: user?.name || "You", 
+//         author: user?.name || "You",
 //         date: "Just now",
 //         comment: text,
-//         avatar: user?.avatar || "", 
+//         avatar: user?.avatar || "",
 //       };
 
 //       setReviews((prev) =>
@@ -748,7 +748,10 @@ function ProviderTabs({
             <div className="px-6 py-1">
               {/* Using the new interactive reviews section */}
               {/* <EnhancedReviewsSection initialReviews={reviews} /> */}
-              <ReviewsSection reviews={reviews as any} listingSlug={listingSlug} />
+              <ReviewsSection
+                reviews={reviews as any}
+                listingSlug={listingSlug}
+              />
             </div>
           </Card>
         </TabsContent>
@@ -942,6 +945,25 @@ function SidebarInfo({
             </div>
           )}
 
+          {socialLinks.whatsapp && (
+            <div className="flex items-center gap-10">
+              <h6 className="text-base font-medium text-black min-w-12">
+                WhatsApp
+              </h6>
+              <Link
+                href={socialLinks.whatsapp}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 font-medium text-green-600 hover:text-green-700 transition-colors"
+              >
+                <Phone className="h-4 w-4 text-green-600" />
+                {socialLinks.whatsapp
+                  .replace("https://wa.me/", "+")
+                  .replace("http://wa.me/", "+")}
+              </Link>
+            </div>
+          )}
+
           {provider.socials && Object.values(socialLinks).some((v) => v) && (
             <div className="flex items-center gap-10">
               <h6 className="text-base font-medium text-black min-w-12">
@@ -965,7 +987,7 @@ function SidebarInfo({
                 )}
                 {socialLinks.whatsapp && (
                   <SocialIcon
-                    href={`https://wa.me/${socialLinks.whatsapp.replace(/[^\d+]/g, "").replace(/^\+/, "")}`}
+                    href={socialLinks.whatsapp}
                     icon={MessageCircle}
                   />
                 )}
@@ -1128,6 +1150,40 @@ export default function UniversalSlugPage({
               tiktok: socialData.tiktok,
               whatsapp: socialData.whatsapp,
             };
+          }
+
+          // Supplement socials from dedicated endpoint (ensures whatsapp is included)
+          try {
+            const token = localStorage.getItem("authToken");
+            const socialsHeaders: Record<string, string> = {
+              Accept: "application/json",
+            };
+            if (token) socialsHeaders["Authorization"] = `Bearer ${token}`;
+            const socialsRes = await fetch(
+              `${API_URL}/api/listing/${slug}/socials`,
+              { headers: socialsHeaders },
+            );
+            if (socialsRes.ok) {
+              const socialsJson = await socialsRes.json();
+              const raw = socialsJson.data || socialsJson;
+              // Handle both array and object responses
+              const s = Array.isArray(raw) ? raw[0] || {} : raw;
+              // Merge — only fill in missing values
+              if (s.facebook && !socialLinks.facebook)
+                socialLinks.facebook = s.facebook;
+              if (s.instagram && !socialLinks.instagram)
+                socialLinks.instagram = s.instagram;
+              if (s.twitter && !socialLinks.twitter)
+                socialLinks.twitter = s.twitter;
+              if (s.youtube && !socialLinks.youtube)
+                socialLinks.youtube = s.youtube;
+              if (s.tiktok && !socialLinks.tiktok)
+                socialLinks.tiktok = s.tiktok;
+              if (s.whatsapp && !socialLinks.whatsapp)
+                socialLinks.whatsapp = s.whatsapp;
+            }
+          } catch {
+            // Non-critical — continue without supplemental socials
           }
 
           const provider: Provider = {
