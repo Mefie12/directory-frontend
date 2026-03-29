@@ -13,8 +13,9 @@ import { Star, Loader2, Reply } from "lucide-react";
 import { useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 
 export type ReviewReply = {
@@ -238,10 +239,10 @@ function ReviewItem({
 }
 
 export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -249,7 +250,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
 
   const handleLeaveReview = () => {
     if (!user) {
-      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      setAuthPromptOpen(true);
       return;
     }
     setOpen(true);
@@ -279,11 +280,24 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
 
       if (!response.ok) throw new Error("Failed to submit review");
 
+      const data = await response.json();
+
+      // Optimistically add the review to the list
+      const newReview: Review = {
+        id: data?.data?.id ?? Date.now(),
+        author: user?.name || "You",
+        rating,
+        date: "Just now",
+        comment: text,
+        avatar: user?.image,
+        replies: [],
+      };
+      setReviewsList((prev) => [newReview, ...prev]);
+
       toast.success("Review submitted for moderation!");
       setOpen(false);
       setRating(0);
       setText("");
-      router.refresh();
     } catch {
       toast.error("Something went wrong");
     } finally {
@@ -399,6 +413,37 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
           </div>
         )}
       </div>
+
+      {/* Auth Prompt Dialog */}
+      <Dialog open={authPromptOpen} onOpenChange={setAuthPromptOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl text-center">
+          <DialogHeader className="items-center">
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-[#93C01F]/10">
+              <Star className="h-7 w-7 text-[#93C01F]" />
+            </div>
+            <DialogTitle className="text-lg font-bold">Sign in required</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Sign in to leave a review or rating on this business.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-3 sm:flex-col">
+            <Button asChild className="w-full bg-[#93C01F] hover:bg-[#84ad1b] font-bold">
+              <Link href={`/auth/login?redirect=${encodeURIComponent(pathname)}`}>
+                Sign In
+              </Link>
+            </Button>
+            <p className="text-sm text-gray-500">
+              Don&apos;t have an account?{" "}
+              <Link
+                href={`/auth/signup?redirect=${encodeURIComponent(pathname)}`}
+                className="font-bold text-[#93C01F] hover:underline"
+              >
+                Sign Up
+              </Link>
+            </p>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
