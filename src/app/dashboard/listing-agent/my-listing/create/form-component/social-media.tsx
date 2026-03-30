@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { forwardRef, useImperativeHandle, useEffect } from "react";
@@ -19,9 +20,62 @@ import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-
 
 // --- Helper function to validate URL (allows without protocol) ---
 const isValidUrl = (url: string): boolean => {
-  if (!url) return true; // Empty is valid (optional field)
-  // Allow URLs with or without protocol
-  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
+  if (!url) return true;
+  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=@]*)*\/?$/i.test(url);
+};
+
+// --- Platform-specific URL validators ---
+const isPlatformUrl = (url: string, patterns: RegExp[]): boolean => {
+  if (!url) return true;
+  const normalized = url.replace(/^(https?:\/\/)?(www\.)?/, "").toLowerCase();
+  return patterns.some((p) => p.test(normalized));
+};
+
+const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
+  facebook: {
+    patterns: [/^facebook\.com\//, /^fb\.com\//],
+    hint: "Must be a Facebook URL (e.g. facebook.com/yourpage)",
+  },
+  instagram: {
+    patterns: [/^instagram\.com\//],
+    hint: "Must be an Instagram URL (e.g. instagram.com/yourprofile)",
+  },
+  twitter: {
+    patterns: [/^twitter\.com\//, /^x\.com\//],
+    hint: "Must be a Twitter/X URL (e.g. twitter.com/handle or x.com/handle)",
+  },
+  linkedin: {
+    patterns: [/^linkedin\.com\//],
+    hint: "Must be a LinkedIn URL (e.g. linkedin.com/company/yourcompany)",
+  },
+  tiktok: {
+    patterns: [/^tiktok\.com\//],
+    hint: "Must be a TikTok URL (e.g. tiktok.com/@yourprofile)",
+  },
+  whatsapp: {
+    patterns: [
+      /^wa\.me\//,
+      /^https?:\/\/(www\.)?wa\.me\//,
+      /^\+?[\d\s\-()]{7,20}$/,
+    ],
+    hint: "Must be a WhatsApp URL (e.g. wa.me/233501234567) or phone number (e.g. +233 50 123 4567)",
+  },
+};
+
+const validatePlatform = (val: string | undefined, platform: string): boolean => {
+  if (!val || !val.trim()) return true;
+  
+  // Special handling for WhatsApp - allow phone numbers
+  if (platform === "whatsapp") {
+    // Check if it's a valid phone number format
+    const phonePattern = /^\+?[\d\s\-()]{7,20}$/;
+    if (phonePattern.test(val.trim())) return true;
+  }
+  
+  if (!isValidUrl(val)) return false;
+  const config = platformPatterns[platform];
+  if (!config) return true;
+  return isPlatformUrl(val, config.patterns);
 };
 
 // --- Helper function to validate phone number ---
@@ -39,13 +93,16 @@ const normalizeUrl = (url: string): string => {
   return url;
 };
 
-const normalizeWhatsApp = (phone: string): string => {
-  if (!phone) return "";
-  if (phone.startsWith("http://") || phone.startsWith("https://")) return phone;
-  const digits = phone.replace(/[\s\-\(\)\+]/g, "");
+const normalizeWhatsApp = (value: string): string => {
+  if (!value) return "";
+  // If already a URL, return as-is
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  // If it's a wa.me link without protocol
+  if (value.startsWith("wa.me/")) return `https://${value}`;
+  // Strip spaces, dashes, parentheses, and leading + for phone numbers
+  const digits = value.replace(/[\s\-\(\)\+]/g, "");
   return `https://wa.me/${digits}`;
 };
-
 /* ---------------------------------------------------
    SCHEMA
 --------------------------------------------------- */
@@ -54,43 +111,43 @@ export const socialMediaSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid Facebook URL",
+    .refine((val) => validatePlatform(val, "facebook"), {
+      message: platformPatterns.facebook.hint,
     }),
   instagram: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid Instagram URL",
+    .refine((val) => validatePlatform(val, "instagram"), {
+      message: platformPatterns.instagram.hint,
     }),
   twitter: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid Twitter URL",
+    .refine((val) => validatePlatform(val, "twitter"), {
+      message: platformPatterns.twitter.hint,
     }),
   linkedin: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid LinkedIn URL",
+    .refine((val) => validatePlatform(val, "linkedin"), {
+      message: platformPatterns.linkedin.hint,
     }),
   tiktok: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidUrl(val || ""), {
-      message: "Invalid TikTok URL",
+    .refine((val) => validatePlatform(val, "tiktok"), {
+      message: platformPatterns.tiktok.hint,
     }),
   whatsapp: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidPhone(val || ""), {
-      message: "Invalid WhatsApp number",
+    .refine((val) => validatePlatform(val, "whatsapp"), {
+      message: platformPatterns.whatsapp.hint,
     }),
 });
 
@@ -167,6 +224,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       reset,
     } = useForm<SocialMediaFormValues>({
       resolver: zodResolver(socialMediaSchema),
+      mode: "onChange",
       defaultValues: {
         facebook: "",
         instagram: "",
@@ -199,7 +257,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
           if (res.ok) {
             const json = await res.json();
-            const raw = json.data || json;
+            const raw = json.data || json || {};
             const s = Array.isArray(raw) ? raw[0] || {} : raw;
             reset({
               facebook: s.facebook || "",
@@ -234,7 +292,9 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           Object.entries(data)
             .map(([key, value]) => [
               key,
-              key === "whatsapp" ? normalizeWhatsApp(value || "") : normalizeUrl(value || ""),
+              key === "whatsapp"
+                ? normalizeWhatsApp(value || "")
+                : normalizeUrl(value || ""),
             ])
             .filter(([, value]) => value && value.trim() !== ""),
         );
@@ -319,7 +379,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                   <div className="relative">
                     <Input
                       {...register(platform.id as keyof SocialMediaFormValues)}
-                      type="url"
+                      type={platform.type === "phone" ? "tel" : "text"}
                       placeholder={platform.placeholder}
                       className={cn(
                         "h-10 rounded-lg border-gray-300 px-4 text-gray-800 focus-visible:ring-2 focus-visible:ring-black",
@@ -327,14 +387,23 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                           "border-red-500",
                       )}
                     />
-                    {hasValue && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-                          <span className="text-green-600 text-xs">✓</span>
+                    {hasValue &&
+                      !errors[platform.id as keyof SocialMediaFormValues] && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                            <span className="text-green-600 text-xs">✓</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
+                  {errors[platform.id as keyof SocialMediaFormValues] && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {
+                        errors[platform.id as keyof SocialMediaFormValues]
+                          ?.message
+                      }
+                    </p>
+                  )}
                 </div>
               );
             })}

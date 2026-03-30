@@ -519,7 +519,7 @@ export default function ReviewsPage() {
             }`}
           />
         ))}
-        <span className="text-sm text-gray-600 ml-1">({rating})</span>
+        {/* <span className="text-sm text-gray-600 ml-1">({rating})</span> */}
       </div>
     );
   };

@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Star, Loader2, Reply } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
@@ -151,13 +151,13 @@ function ReviewItem({
             </div>
 
             {/* Ghost styled Reply Action */}
-            <button
+            {/*<button
               onClick={() => setIsReplying(!isReplying)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-[#93C01F] hover:bg-[#93C01F]/5 rounded-lg transition-all active:scale-95"
             >
               <Reply className="w-3.5 h-3.5" />
               Reply
-            </button>
+            </button>*/}
           </div>
 
           {/* Review Content */}

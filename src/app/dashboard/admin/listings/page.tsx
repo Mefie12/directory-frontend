@@ -635,6 +635,7 @@ export default function Listings() {
           return item;
         }),
       );
+      await loadAllData();
       toast.success(`Listing ${newStatus}`);
     } catch (error) {
       const msg =

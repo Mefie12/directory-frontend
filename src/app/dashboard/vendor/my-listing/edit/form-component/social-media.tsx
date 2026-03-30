@@ -46,16 +46,31 @@ const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
     patterns: [/^tiktok\.com\//],
     hint: "Must be a TikTok URL (e.g. tiktok.com/@yourprofile)",
   },
+  whatsapp: {
+    patterns: [
+      /^wa\.me\//,
+      /^https?:\/\/(www\.)?wa\.me\//,
+      /^\+?[\d\s\-()]{7,20}$/,
+    ],
+    hint: "Must be a WhatsApp URL (e.g. wa.me/233501234567) or phone number (e.g. +233 50 123 4567)",
+  },
 };
 
 const validatePlatform = (val: string | undefined, platform: string): boolean => {
   if (!val || !val.trim()) return true;
+  
+  // Special handling for WhatsApp - allow phone numbers
+  if (platform === "whatsapp") {
+    // Check if it's a valid phone number format
+    const phonePattern = /^\+?[\d\s\-()]{7,20}$/;
+    if (phonePattern.test(val.trim())) return true;
+  }
+  
   if (!isValidUrl(val)) return false;
   const config = platformPatterns[platform];
   if (!config) return true;
   return isPlatformUrl(val, config.patterns);
 };
-
 // --- Helper function to validate phone number ---
 const isValidPhone = (phone: string): boolean => {
   if (!phone) return true;
@@ -118,8 +133,8 @@ export const socialMediaSchema = z.object({
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => isValidPhone(val || ""), {
-      message: "Must be a valid phone number (e.g. +233 50 123 4567)",
+    .refine((val) => validatePlatform(val, "whatsapp"), {
+      message: platformPatterns.whatsapp.hint,
     }),
 });
 

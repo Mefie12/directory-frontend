@@ -69,6 +69,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [socialLinks, setSocialLinks] = useState<Record<string, string> | null>(null);
     const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
@@ -106,6 +107,30 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       }
     }, [listingSlug]);
 
+    useEffect(() => {
+      const loadSocialLinks = async () => {
+        if (!listingSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          const raw = json.data || json;
+          const firstEntry = Array.isArray(raw) ? raw[0] || null : raw;
+          if (firstEntry) setSocialLinks(firstEntry);
+        } catch (error) {
+          console.error("Failed to load social links for review", error);
+        }
+      };
+      loadSocialLinks();
+    }, [listingSlug]);
+
     // 2. Handle the final "Publish" action
     useImperativeHandle(ref, () => ({
       async submit() {
@@ -137,7 +162,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     const displayWebsite = listingData?.website;
 
-    const socials = listingData?.socials?.[0];
+    const socials = socialLinks || listingData?.socials?.[0];
 
     // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =

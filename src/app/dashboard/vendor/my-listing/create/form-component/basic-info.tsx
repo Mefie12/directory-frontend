@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { cn } from "@/lib/utils";
-import { Loader2} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -47,7 +47,8 @@ export const businessFormSchema = z.object({
   secondary_phone: z.string().optional(),
   secondary_country_code: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  website: z.string()
+  website: z
+    .string()
     .optional()
     .or(z.literal(""))
     .refine((val) => isValidUrl(val || ""), {
@@ -385,10 +386,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           <h2 className="text-2xl font-semibold">Basic Information</h2>
           <p className="text-sm text-gray-500 mt-1">
             {listingType === "business"
-              ? "Tell us about your business"
+              ? "Tell us about your business. Your business page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
               : listingType === "event"
-                ? "Tell us about your event"
-                : "Tell us about your community"}
+                ? "Tell us about your event. Your event page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
+                : "Tell us about your community. Your community page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."}
           </p>
         </div>
 
@@ -563,9 +564,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 searchPlaceholder="Search main category..."
                 disabled={loading || mainCategories.length === 0}
                 error={
-                  errors.category_ids
-                    ? "Main category is required"
-                    : undefined
+                  errors.category_ids ? "Main category is required" : undefined
                 }
               />
             )}
@@ -589,9 +588,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   currentCategoryIds.find(
                     (id) =>
                       id !== String(selectedMainCategory?.id) &&
-                      subCategories.some(
-                        (sub) => String(sub.id) === id,
-                      )
+                      subCategories.some((sub) => String(sub.id) === id),
                   ) || ""
                 }
                 onChange={(subCategoryId) => {

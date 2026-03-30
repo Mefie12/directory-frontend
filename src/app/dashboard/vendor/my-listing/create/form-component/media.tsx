@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { useListing } from "@/context/listing-form-context";
@@ -12,41 +13,27 @@ interface Props {
   listingSlug: string;
 }
 
-// --- Configuration ---
 const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 3;
 
-// --- Zod Validation Schema ---
-// Now validates both the NUMBER of items and the SIZE of each item
-const gallerySchema = z
-  .array(z.any())
-  .max(MAX_GALLERY_IMAGES, {
-    message: `You can only upload a maximum of ${MAX_GALLERY_IMAGES} gallery items.`,
-  })
-  .refine((files) => files.every((file) => file.size <= MAX_FILE_SIZE_BYTES), {
-    message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.`,
-  });
+const gallerySchema = z.array(z.any()).max(MAX_GALLERY_IMAGES, {
+  message: `You can only upload a maximum of ${MAX_GALLERY_IMAGES} gallery items.`,
+}).refine((files) => files.every((file) => !file.size || file.size <= MAX_FILE_SIZE_BYTES), {
+  message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.`,
+});
 
-const coverSchema = z
-  .any()
-  .refine((file) => !file || file.size <= MAX_FILE_SIZE_BYTES, {
-    message: `Cover media must be less than ${MAX_FILE_SIZE_MB}MB.`,
-  });
+const coverSchema = z.any().refine((file) => !file || !file.size || file.size <= MAX_FILE_SIZE_BYTES, {
+  message: `Cover media must be less than ${MAX_FILE_SIZE_MB}MB.`,
+});
 
-// Helper to check if we need compression (Images only)
 const shouldCompressImage = (file: File): boolean => {
-  // Only compress images, NEVER videos
-  if (!file.type.startsWith("image/")) return false;
-
-  // Optimization threshold: Compress if over 5MB (even if allowed up to 50MB)
+  if (!file || !(file instanceof File) || !file.type.startsWith("image/")) return false;
   return file.size > 5 * 1024 * 1024;
 };
 
-// Smart compression - only for large images, passes videos through untouched
 const smartCompressImage = async (file: File): Promise<File> => {
   if (!shouldCompressImage(file)) return file;
-
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -54,46 +41,20 @@ const smartCompressImage = async (file: File): Promise<File> => {
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const MAX_SIZE = 1920;
-
         let width = img.width;
         let height = img.height;
-
         if (width > MAX_SIZE || height > MAX_SIZE) {
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
+          if (width > height) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+          else { width *= MAX_SIZE / height; height = MAX_SIZE; }
         }
-
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const compressedFile = new File(
-                [blob],
-                file.name.replace(/\.[^/.]+$/, ".jpg"),
-                { type: "image/jpeg", lastModified: Date.now() },
-              );
-
-              resolve(compressedFile);
-            } else {
-              resolve(file);
-            }
-          },
-          "image/jpeg",
-          0.85,
-        );
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg", lastModified: Date.now() }));
+          } else { resolve(file); }
+        }, "image/jpeg", 0.85);
       };
       img.onerror = () => resolve(file);
       img.src = e.target?.result as string;
@@ -107,32 +68,18 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
     const { media, setMedia } = useListing();
     const [isUploading, setIsUploading] = useState(false);
+    const replaceIdMap = useRef<Map<File, number>>(new Map());
 
-    // --- Validation Logic ---
     const validateMediaState = () => {
       const galleryResult = gallerySchema.safeParse(media.images);
       const coverResult = coverSchema.safeParse(media.coverPhoto);
-
-      if (!galleryResult.success) {
-        toast.error(galleryResult.error.issues[0].message);
-        return false;
-      }
-      if (!coverResult.success) {
-        toast.error(coverResult.error.issues[0].message);
-        return false;
-      }
+      if (!galleryResult.success) { toast.error(galleryResult.error.issues[0].message); return false; }
+      if (!coverResult.success) { toast.error(coverResult.error.issues[0].message); return false; }
       return true;
     };
 
     const uploadWithChunking = async () => {
-      // Check if there are any files to upload
-      const hasCover = !!media.coverPhoto;
-      const hasGallery = media.images.length > 0;
-
-      if (!hasCover && !hasGallery) {
-        // No files to upload, return true to allow proceeding
-        return true;
-      }
+      if (!media.coverPhoto && media.images.length === 0) return true;
       if (!validateMediaState()) return false;
 
       try {
@@ -140,149 +87,95 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
-        const allFiles = [media.coverPhoto, ...media.images].filter(
-          Boolean,
-        ) as File[];
+        // Positional array: [cover, gallery0, gallery1, ...]
+        const positions: any[] = [media.coverPhoto, ...media.images];
+        const toUpdate: { id: number; file: File; pos: number }[] = [];
+        const toCreate: { file: File; pos: number }[] = [];
 
-        // 1. Optimize Images (Videos are skipped)
+        positions.forEach((item, pos) => {
+          if (!item || !(item instanceof File)) return;
+          const replaceId = replaceIdMap.current.get(item);
+          if (replaceId) {
+            toUpdate.push({ id: replaceId, file: item, pos });
+          } else {
+            toCreate.push({ file: item, pos });
+          }
+        });
+
+        if (toUpdate.length === 0 && toCreate.length === 0) return true;
+
         toast.loading("Preparing files...");
-        const optimizedFiles = await Promise.all(
-          allFiles.map(smartCompressImage),
-        );
+        const newPositions = [...positions];
 
-        // 2. Strategy: Attempt Bulk Upload first
-        const attemptBulkUpload = async (files: File[]): Promise<boolean> => {
-          try {
-            toast.loading("Uploading files...");
+        // 1. PATCH: update existing media records with replacement files
+        for (let i = 0; i < toUpdate.length; i++) {
+          const { id, file, pos } = toUpdate[i];
+          toast.loading(`Updating media ${i + 1} of ${toUpdate.length}...`);
+          const optimized = await smartCompressImage(file);
+          const formData = new FormData();
+          formData.append("media_id", id.toString());
+          formData.append("media", optimized);
 
-            const formData = new FormData();
-            files.forEach((file) => {
-              formData.append("media[]", file);
-            });
-
-            formData.append("upload_strategy", "bulk");
-            formData.append("total_files", files.length.toString());
-
-            const controller = new AbortController();
-            // INCREASED TIMEOUT: Videos take longer. 60s timeout.
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-            const response = await fetch(
-              `${API_URL}/api/listing/${listingSlug}/media`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  Accept: "application/json",
-                },
-                body: formData,
-                signal: controller.signal,
-              },
-            );
-
-            clearTimeout(timeoutId);
-
-            if (response.status === 413) {
-              return false;
+          const response = await fetch(
+            `${API_URL}/api/listing/${listingSlug}/media_update`,
+            {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+              body: formData,
             }
+          );
 
-            if (!response.ok) {
-              // If it's a server timeout or size issue, try chunking
-              if (response.status === 504 || response.status === 500)
-                return false;
-
-              const error = await response.json();
-              throw new Error(error.message || "Bulk upload failed");
-            }
-
-            return true;
-          } catch {
-            // Try sequential upload
-            return false;
-          }
-        };
-
-        // 3. Strategy: Sequential Upload (Safest for Videos)
-        const uploadSequential = async (files: File[]): Promise<boolean> => {
-          const uploadedFiles: { index: number; success: boolean }[] = [];
-
-          // Upload 1 file at a time for reliability with videos
-          const CHUNK_SIZE = 1;
-
-          for (let i = 0; i < files.length; i += CHUNK_SIZE) {
-            const chunk = files.slice(i, i + CHUNK_SIZE);
-            const currentFileIndex = i + 1;
-            const totalFiles = files.length;
-
-            toast.loading(
-              `Uploading file ${currentFileIndex} of ${totalFiles}...`,
-            );
-
-            try {
-              const formData = new FormData();
-              chunk.forEach((file) => {
-                formData.append("media[]", file);
-              });
-
-              formData.append("upload_strategy", "chunked");
-              formData.append("chunk_index", currentFileIndex.toString());
-              formData.append("total_chunks", totalFiles.toString());
-
-              const response = await fetch(
-                `${API_URL}/api/listing/${listingSlug}/media`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: "application/json",
-                  },
-                  body: formData,
-                },
-              );
-
-              if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || "Upload failed");
-              }
-
-              chunk.forEach((_, idx) => {
-                uploadedFiles.push({ index: i + idx, success: true });
-              });
-            } catch (error) {
-              console.error(
-                `Failed to upload file ${currentFileIndex}:`,
-                error,
-              );
-              chunk.forEach((_, idx) => {
-                uploadedFiles.push({ index: i + idx, success: false });
-              });
-              toast.error(`File ${currentFileIndex} failed to upload.`);
-            }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Update failed for media ${i + 1}`);
           }
 
-          const failedUploads = uploadedFiles.filter((f) => !f.success);
-          return failedUploads.length === 0;
-        };
-
-        // Execute Upload
-        const bulkSuccess = await attemptBulkUpload(optimizedFiles);
-
-        if (!bulkSuccess) {
-          toast.info("Large files detected. Switching to sequential upload...");
-          const sequentialSuccess = await uploadSequential(optimizedFiles);
-
-          if (!sequentialSuccess) {
-            throw new Error("Some files failed to upload. Please try again.");
-          }
+          const result = await response.json();
+          const serverItem = result?.data || result;
+          if (serverItem?.id) newPositions[pos] = serverItem;
         }
 
-        toast.success("All media uploaded successfully!");
+        // 2. POST: upload brand-new files
+        for (let i = 0; i < toCreate.length; i++) {
+          const { file, pos } = toCreate[i];
+          toast.loading(`Uploading file ${i + 1} of ${toCreate.length}...`);
+          const optimized = await smartCompressImage(file);
+          const formData = new FormData();
+          formData.append("media[]", optimized);
+          formData.append("upload_strategy", "chunked");
+          formData.append("chunk_index", (i + 1).toString());
+          formData.append("total_chunks", toCreate.length.toString());
+
+          const response = await fetch(
+            `${API_URL}/api/listing/${listingSlug}/media`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `File ${i + 1} failed to upload`);
+          }
+
+          const result = await response.json();
+          const serverItem = result?.data?.[0] || result?.data || result;
+          if (serverItem?.id) newPositions[pos] = serverItem;
+        }
+
+        // Update context with server objects so media persists across step navigation
+        replaceIdMap.current.clear();
+        setMedia({
+          coverPhoto: newPositions[0] || null,
+          images: newPositions.slice(1).filter(Boolean),
+        });
+
+        toast.success("Media synced successfully!");
         return true;
-      } catch (error) {
-        console.error("Upload error:", error);
-        toast.error(
-          error instanceof Error ? error.message : "Media upload failed",
-        );
+      } catch (error: any) {
+        toast.error(error.message || "Media upload failed");
         return false;
       } finally {
         setIsUploading(false);
@@ -293,16 +186,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         if (!validateMediaState()) return false;
-        // If there are files, upload in background without waiting
         if (media.coverPhoto || media.images.length > 0) {
-          // Start upload in background and don't await it
-          uploadWithChunking().then((success) => {
-            if (!success) {
-              console.error("Background upload failed");
-            }
-          });
+          const success = await uploadWithChunking();
+          if (!success) return false;
         }
-        // Always return true to allow user to proceed immediately
         return true;
       },
     }));
@@ -311,82 +198,30 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       <div className="p-6 space-y-6">
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
-          <p className="text-sm text-muted-foreground">
-            Upload up to 4 files. The first file will be your cover.
-          </p>
-          <div className="text-xs text-muted-foreground mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="font-semibold text-blue-800">Supported Formats:</p>
-            <ul className="list-disc pl-4 mt-1 space-y-1 text-blue-700">
-              <li>
-                <strong>Images:</strong> JPEG, PNG, JPG
-              </li>
-              <li>
-                <strong>Videos:</strong> MP4, MOV, WEBM
-              </li>
-              <li>
-                <strong>Max Size:</strong> {MAX_FILE_SIZE_MB}MB per file (Images
-                & Videos)
-              </li>
-              <li>
-                Large images are automatically optimized. Videos are uploaded
-                as-is.
-              </li>
-            </ul>
-          </div>
+          <p className="text-sm text-muted-foreground">The first file will be your cover.</p>
         </div>
 
         <div className="space-y-8">
-          {/* Cover Media */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium text-gray-900">
-                Cover Media (1 photo)
-              </h3>
-              {media.coverPhoto && (
-                <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                  {media.coverPhoto.type.startsWith("video")
-                    ? "🎥 Video Selected"
-                    : "🖼️ Image Selected"}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-gray-500 mb-3">
-              This is the main visual for your listing. Images work best for
-              thumbnails, but videos are supported.
-            </p>
+            <h3 className="font-medium text-gray-900 mb-2">Cover Media</h3>
             <FileUploader
               label=""
               multiple={false}
               files={media.coverPhoto ? [media.coverPhoto] : []}
-              onChange={(files) => setMedia({ ...media, coverPhoto: files[0] })}
-              emptyText="Click to upload Cover (Image or Video)"
-              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webm"
+              onChange={(files) => {
+                const newItem = files[0] || null;
+                if (newItem instanceof File && media.coverPhoto && !(media.coverPhoto instanceof File) && media.coverPhoto.id) {
+                  replaceIdMap.current.set(newItem, media.coverPhoto.id);
+                }
+                setMedia({ ...media, coverPhoto: newItem });
+              }}
+              accept="image/jpeg,image/jpg,image/webp,video/mp4"
               maxSize={MAX_FILE_SIZE_BYTES}
             />
           </div>
 
-          {/* Gallery Media */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium text-gray-900">
-                Gallery Media ( Up to {MAX_GALLERY_IMAGES} Photos and videos)
-              </h3>
-              <span
-                className={`text-xs font-medium px-2 py-1 rounded-full ${
-                  media.images.length > 0
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {media.images.length > 0
-                  ? `${media.images.length} Selected`
-                  : "0 Selected"}
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 mb-3">
-              Add 3 more items to showcase your listing. Mix of photos and
-              videos is allowed.
-            </p>
+            <h3 className="font-medium text-gray-900 mb-2">Gallery Media</h3>
             <FileUploader
               label=""
               files={media.images}
@@ -394,43 +229,23 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 const result = gallerySchema.safeParse(files);
                 if (!result.success) {
                   toast.error(result.error.issues[0].message);
-                  // Prune only if count is the issue; size issues should be handled by the user removing the file
-                  if (files.length > MAX_GALLERY_IMAGES) {
-                    setMedia({
-                      ...media,
-                      images: files.slice(0, MAX_GALLERY_IMAGES),
-                    });
-                  }
-                } else {
-                  setMedia({ ...media, images: files });
-                }
+                  if (files.length > MAX_GALLERY_IMAGES) setMedia({ ...media, images: files.slice(0, MAX_GALLERY_IMAGES) });
+                } else { setMedia({ ...media, images: files }); }
               }}
               multiple={true}
               maxFiles={3}
-              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webp"
+              accept="image/jpeg,image/jpg,image/webp"
               maxSize={MAX_FILE_SIZE_BYTES}
-              emptyText="Upload up to 3 gallery items"
             />
           </div>
 
-          {/* Upload Status Bar */}
           <div className="pt-4 border-t border-gray-100">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium text-gray-700">Total Files:</span>
-              <span
-                className={
-                  isUploading ? "animate-pulse text-blue-600" : "text-gray-600"
-                }
-              >
-                {[media.coverPhoto, ...media.images].filter(Boolean).length}/4
-                {isUploading ? " Uploading..." : " Ready to upload"}
+              <span className="font-medium text-gray-700">Storage Sync:</span>
+              <span className={isUploading ? "animate-pulse text-blue-600" : "text-gray-600"}>
+                {isUploading ? "Syncing changes..." : "Up to date"}
               </span>
             </div>
-            {isUploading && (
-              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                <div className="bg-blue-600 h-1.5 rounded-full animate-progress w-full origin-left"></div>
-              </div>
-            )}
           </div>
         </div>
       </div>

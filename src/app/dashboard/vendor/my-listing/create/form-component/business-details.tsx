@@ -323,6 +323,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 return apiDay
                   ? {
                       ...defaultDay,
+                      id: apiDay.id,
                       startTime: convertToHHmm(apiDay.open_time),
                       endTime: convertToHHmm(apiDay.close_time),
                       enabled: true,
@@ -438,6 +439,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             ? data.businessHours
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
+                  id: h.id,
                   day_of_week: h.day_of_week,
                   open_time: h.startTime,
                   close_time: h.endTime,
@@ -460,26 +462,64 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         });
 
         // Only send business hours for non-event listings
-        const hoursReq =
-          listingType !== "event"
-            ? fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(enabledHours),
-              })
-            : null;
+        let hoursResults: Response[] = [];
+        if (listingType !== "event" && enabledHours.length > 0) {
+          const hasExistingHours = enabledHours.some((h: any) => h.id);
 
-        const requests = [detailsReq];
-        if (hoursReq) requests.push(hoursReq);
+          if (hasExistingHours) {
+            // PUT each hour individually to update existing opening hours
+            hoursResults = await Promise.all(
+              enabledHours.map((h: any) => {
+                if (h.id) {
+                  return fetch(`${API_URL}/api/opening_hours/${h.id}`, {
+                    method: "PUT",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Accept: "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      day_of_week: h.day_of_week,
+                      open_time: h.open_time,
+                      close_time: h.close_time,
+                    }),
+                  });
+                } else {
+                  return fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Accept: "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify([{
+                      day_of_week: h.day_of_week,
+                      open_time: h.open_time,
+                      close_time: h.close_time,
+                    }]),
+                  });
+                }
+              }),
+            );
+          } else {
+            // POST all hours as a batch for initial creation
+            const res = await fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(enabledHours),
+            });
+            hoursResults = [res];
+          }
+        }
 
-        const responses = await Promise.all(requests);
-        const [detailsRes, hoursRes] = responses;
+        const [detailsRes] = await Promise.all([detailsReq]);
 
-        if (!detailsRes.ok || (hoursRes && !hoursRes.ok)) {
+        const hoursOk = hoursResults.every((r) => r.ok);
+        if (!detailsRes.ok || !hoursOk) {
           throw new Error("Update failed");
         }
 

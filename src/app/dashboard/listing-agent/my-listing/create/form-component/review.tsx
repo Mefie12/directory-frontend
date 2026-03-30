@@ -4,7 +4,21 @@ import { forwardRef, useImperativeHandle, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
 import { Card, CardContent } from "@/components/ui/card";
-import { Pencil, Loader2, MapPin, Mail, Clock, Tag, Globe, Calendar } from "lucide-react";
+import {
+  Pencil,
+  Loader2,
+  MapPin,
+  Mail,
+  Clock,
+  Tag,
+  Globe,
+  Calendar,
+  Phone,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
+} from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
@@ -28,6 +42,14 @@ interface ApiListingData {
   country: string | null;
   email: string | null;
   website?: string | null;
+  social_media: {
+    facebook: string | null;
+    twitter: string | null;
+    instagram: string | null;
+    linkedin: string | null;
+    tiktok: string | null;
+    whatsapp: string | null;
+  };
   opening_hours: {
     day_of_week: string;
     open_time: string;
@@ -45,26 +67,23 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
     const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
     useEffect(() => {
-      const fetchReviewData = async () => {
+      const loadReviewData = async () => {
+        if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
           const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          // Using GET request as per your docs to fetch the data
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
 
           if (res.ok) {
             const json = await res.json();
@@ -77,9 +96,31 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         }
       };
 
-      if (listingSlug) {
-        fetchReviewData();
-      }
+      loadReviewData();
+    }, [listingSlug]);
+
+    useEffect(() => {
+      const loadSocialLinks = async () => {
+        if (!listingSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          const raw = json.data || json;
+          const firstEntry = Array.isArray(raw) ? raw[0] || null : raw;
+          if (firstEntry) setSocialLinks(firstEntry);
+        } catch (error) {
+          console.error("Failed to load social links for review", error);
+        }
+      };
+      loadSocialLinks();
     }, [listingSlug]);
 
     // 2. Handle the final "Publish" action
@@ -90,7 +131,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           toast.success("Listing Submitted Successfully!");
 
           // Route to dashboard
-          router.push("/dashboard/listing-agent/my-listing");
+          router.push("/dashboard/vendor/my-listing");
 
           return true;
         } catch (error) {
@@ -112,6 +153,8 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const isEvent = listingData?.type === "event";
 
     const displayWebsite = listingData?.website;
+
+    const socials = socialLinks || listingData?.social_media;
 
     // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =
@@ -244,33 +287,50 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               {isEvent ? (
                 <>
                   <div className="space-y-1">
-                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Calendar className="w-3 h-3" /> Event Dates</span>
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-3 h-3" /> Event Dates
+                    </span>
                     <p className="text-sm text-gray-600">
-                      {listingData?.event_start_date || "N/A"} to {listingData?.event_end_date || "N/A"}
+                      {listingData?.event_start_date || "N/A"} to{" "}
+                      {listingData?.event_end_date || "N/A"}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Clock className="w-3 h-3" /> Event Time</span>
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <Clock className="w-3 h-3" /> Event Time
+                    </span>
                     <p className="text-sm text-gray-600">
-                      {listingData?.event_start_time || "N/A"} - {listingData?.event_end_time || "N/A"}
+                      {listingData?.event_start_time || "N/A"} -{" "}
+                      {listingData?.event_end_time || "N/A"}
                     </p>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2"><Globe className="w-3 h-3" /> Website</span>
-                    <p className="text-sm text-gray-600 truncate underline decoration-[#93C01F]/30">{listingData?.website || "Not provided"}</p>
-                  </div>
                   <div className="space-y-1 col-span-1 md:col-span-2">
-                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1"><Clock className="w-3 h-3" /> Business Hours</span>
+                    <span className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-1">
+                      <Clock className="w-3 h-3" /> Business Hours
+                    </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {listingData?.opening_hours?.length ? listingData.opening_hours.map((h, i) => (
-                        <div key={i} className="text-xs text-gray-600 bg-gray-50 p-2 rounded border">
-                          <span className="font-semibold block">{h.day_of_week}</span>
-                          {h.open_time ? `${h.open_time} - ${h.close_time}` : "Closed"}
-                        </div>
-                      )) : <p className="text-sm text-gray-500 italic">No hours set</p>}
+                      {listingData?.opening_hours?.length ? (
+                        listingData.opening_hours.map((h, i) => (
+                          <div
+                            key={i}
+                            className="text-xs text-gray-600 bg-gray-50 p-2 rounded border"
+                          >
+                            <span className="font-semibold block">
+                              {h.day_of_week}
+                            </span>
+                            {h.open_time
+                              ? `${h.open_time} - ${h.close_time}`
+                              : "Closed"}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No hours set
+                        </p>
+                      )}
                     </div>
                   </div>
                 </>
@@ -288,6 +348,68 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
             </div>
           </CardContent>
         </Card>
+
+        {/* Social Media Card */}
+        {socials &&
+          Object.values(socials).some(Boolean) && (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Social Media
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {socials?.facebook && (
+                    <div className="flex items-center gap-3">
+                      <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.facebook}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.instagram && (
+                    <div className="flex items-center gap-3">
+                      <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.instagram}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.twitter && (
+                    <div className="flex items-center gap-3">
+                      <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.twitter}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.linkedin && (
+                    <div className="flex items-center gap-3">
+                      <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.linkedin}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.tiktok && (
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-4 h-4 text-black shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.tiktok}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.whatsapp && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-green-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.whatsapp}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
       </div>
     );
   },

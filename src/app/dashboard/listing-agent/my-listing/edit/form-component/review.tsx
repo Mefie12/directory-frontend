@@ -13,11 +13,18 @@ import {
   Tag,
   Globe,
   Calendar,
+  Facebook,
+  Instagram,
+  Music2,
+  Twitter,
+  Youtube,
+  Phone,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   listingSlug: string;
@@ -37,6 +44,14 @@ interface ApiListingData {
   country: string | null;
   email: string | null;
   website?: string | null;
+  socials?: {
+    facebook: string | null;
+    instagram: string | null;
+    twitter: string | null;
+    tiktok: string | null;
+    youtube: string | null;
+    whatsapp: string | null;
+  }[];
   opening_hours: {
     day_of_week: string;
     open_time: string;
@@ -54,6 +69,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [socialLinks, setSocialLinks] = useState<Record<string, string> | null>(null);
     const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
@@ -91,6 +107,30 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       }
     }, [listingSlug]);
 
+    useEffect(() => {
+      const loadSocialLinks = async () => {
+        if (!listingSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          const raw = json.data || json;
+          const firstEntry = Array.isArray(raw) ? raw[0] || null : raw;
+          if (firstEntry) setSocialLinks(firstEntry);
+        } catch (error) {
+          console.error("Failed to load social links for review", error);
+        }
+      };
+      loadSocialLinks();
+    }, [listingSlug]);
+
     // 2. Handle the final "Publish" action
     useImperativeHandle(ref, () => ({
       async submit() {
@@ -99,7 +139,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           toast.success("Listing Submitted Successfully!");
 
           // Route to dashboard
-          router.push("/dashboard/listing-agent/my-listing");
+          router.push("/dashboard/vendor/my-listing");
 
           return true;
         } catch (error) {
@@ -122,7 +162,9 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     const displayWebsite = listingData?.website;
 
-    // Prepare Display Data
+    const socials = socialLinks || listingData?.socials?.[0];
+
+    // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =
       listingData?.primary_image ||
       // Look for the first image in the images array from API
@@ -255,6 +297,73 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   {displayWebsite}
                 </p>
               </div>
+
+              {socials &&
+                Object.values(socials).some((val) => val !== null) && (
+                  <div className="space-y-2 col-span-1 md:col-span-2 border-t pt-4">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                      Social Presence
+                    </span>
+                    <div className="flex flex-wrap gap-5">
+                      {socials.facebook && (
+                        <Link
+                          href={socials.facebook}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Facebook className="w-4 h-4 text-[#1877F2]" />{" "}
+                          Facebook
+                        </Link>
+                      )}
+                      {socials.instagram && (
+                        <Link
+                          href={socials.instagram}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Instagram className="w-4 h-4 text-[#E4405F]" />{" "}
+                          Instagram
+                        </Link>
+                      )}
+                      {socials.twitter && (
+                        <Link
+                          href={socials.twitter}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Twitter className="w-4 h-4 text-[#1DA1F2]" /> Twitter
+                        </Link>
+                      )}
+                      {socials.tiktok && (
+                        <Link
+                          href={socials.tiktok}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Music2 className="w-4 h-4 text-black" /> TikTok
+                        </Link>
+                      )}
+                      {socials.youtube && (
+                        <Link
+                          href={socials.youtube}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Youtube className="w-4 h-4 text-[#FF0000]" /> YouTube
+                        </Link>
+                      )}
+                      {socials.whatsapp && (
+                        <Link
+                          href={socials.whatsapp}
+                          target="_blank"
+                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-[#93C01F] transition-colors"
+                        >
+                          <Phone className="w-4 h-4 text-green-600" /> WhatsApp
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
 
               {/* Hours */}
               {isEvent ? (

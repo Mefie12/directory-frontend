@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
@@ -50,8 +51,8 @@ export interface Socials {
 }
 
 interface Media {
-  images: File[];
-  coverPhoto: File | null;
+  images: any[];
+  coverPhoto: any;
 }
 
 interface ListingContextType {

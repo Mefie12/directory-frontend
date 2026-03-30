@@ -13,12 +13,16 @@ import {
   Tag,
   Globe,
   Calendar,
+  Phone,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 
 interface Props {
   listingSlug: string;
@@ -38,6 +42,14 @@ interface ApiListingData {
   country: string | null;
   email: string | null;
   website?: string | null;
+  social_media: {
+    facebook: string | null;
+    twitter: string | null;
+    instagram: string | null;
+    linkedin: string | null;
+    tiktok: string | null;
+    whatsapp: string | null;
+  };
   opening_hours: {
     day_of_week: string;
     open_time: string;
@@ -55,27 +67,23 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
     const router = useRouter();
-    const { refreshUser } = useAuth();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
     useEffect(() => {
-      const fetchReviewData = async () => {
+      const loadReviewData = async () => {
+        if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
           const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          // Using GET request as per your docs to fetch the data
-          const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
 
           if (res.ok) {
             const json = await res.json();
@@ -88,9 +96,31 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         }
       };
 
-      if (listingSlug) {
-        fetchReviewData();
-      }
+      loadReviewData();
+    }, [listingSlug]);
+
+    useEffect(() => {
+      const loadSocialLinks = async () => {
+        if (!listingSlug) return;
+        try {
+          const token = localStorage.getItem("authToken");
+          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+          if (!res.ok) return;
+          const json = await res.json();
+          const raw = json.data || json;
+          const firstEntry = Array.isArray(raw) ? raw[0] || null : raw;
+          if (firstEntry) setSocialLinks(firstEntry);
+        } catch (error) {
+          console.error("Failed to load social links for review", error);
+        }
+      };
+      loadSocialLinks();
     }, [listingSlug]);
 
     // 2. Handle the final "Publish" action
@@ -99,10 +129,6 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         try {
           // Show success toast
           toast.success("Listing Submitted Successfully!");
-
-          if (refreshUser) {
-            await refreshUser();
-          }
 
           // Route to dashboard
           router.push("/dashboard/vendor/my-listing");
@@ -127,6 +153,8 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const isEvent = listingData?.type === "event";
 
     const displayWebsite = listingData?.website;
+
+    const socials = socialLinks || listingData?.social_media;
 
     // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =
@@ -212,7 +240,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               {/* Name */}
               <div className="space-y-1">
                 <span className="text-sm font-medium text-gray-900">
-                  Business Name
+                  {isEvent ? "Event Name" : "Business Name"}
                 </span>
                 <p className="text-sm text-gray-600">
                   {listingData?.name || "Not provided"}
@@ -320,6 +348,68 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
             </div>
           </CardContent>
         </Card>
+
+        {/* Social Media Card */}
+        {socials &&
+          Object.values(socials).some(Boolean) && (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Social Media
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {socials?.facebook && (
+                    <div className="flex items-center gap-3">
+                      <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.facebook}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.instagram && (
+                    <div className="flex items-center gap-3">
+                      <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.instagram}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.twitter && (
+                    <div className="flex items-center gap-3">
+                      <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.twitter}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.linkedin && (
+                    <div className="flex items-center gap-3">
+                      <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.linkedin}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.tiktok && (
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-4 h-4 text-black shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.tiktok}
+                      </p>
+                    </div>
+                  )}
+                  {socials?.whatsapp && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-4 h-4 text-green-600 shrink-0" />
+                      <p className="text-sm text-gray-600 truncate">
+                        {socials.whatsapp}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
       </div>
     );
   },

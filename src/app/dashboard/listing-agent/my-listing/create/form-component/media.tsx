@@ -1,3 +1,5 @@
+// src/app/dashboard/vendor/my-listing/create/form-component/media.tsx
+
 "use client";
 
 import { forwardRef, useImperativeHandle, useState } from "react";
@@ -18,7 +20,6 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 3;
 
 // --- Zod Validation Schema ---
-// Now validates both the NUMBER of items and the SIZE of each item
 const gallerySchema = z
   .array(z.any())
   .max(MAX_GALLERY_IMAGES, {
@@ -36,10 +37,7 @@ const coverSchema = z
 
 // Helper to check if we need compression (Images only)
 const shouldCompressImage = (file: File): boolean => {
-  // Only compress images, NEVER videos
   if (!file.type.startsWith("image/")) return false;
-
-  // Optimization threshold: Compress if over 5MB (even if allowed up to 50MB)
   return file.size > 5 * 1024 * 1024;
 };
 
@@ -85,7 +83,6 @@ const smartCompressImage = async (file: File): Promise<File> => {
                 file.name.replace(/\.[^/.]+$/, ".jpg"),
                 { type: "image/jpeg", lastModified: Date.now() },
               );
-
               resolve(compressedFile);
             } else {
               resolve(file);
@@ -105,8 +102,10 @@ const smartCompressImage = async (file: File): Promise<File> => {
 
 export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
-    const { media, setMedia } = useListing();
+    const { media, setMedia, currentStep } = useListing();
     const [isUploading, setIsUploading] = useState(false);
+    
+    // Track if this is an existing listing (created in step 1, returned to media)
 
     // --- Validation Logic ---
     const validateMediaState = () => {
@@ -125,12 +124,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     };
 
     const uploadWithChunking = async () => {
-      // Check if there are any files to upload
       const hasCover = !!media.coverPhoto;
       const hasGallery = media.images.length > 0;
 
       if (!hasCover && !hasGallery) {
-        // No files to upload, return true to allow proceeding
         return true;
       }
       if (!validateMediaState()) return false;
@@ -140,11 +137,14 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
+        // Create flow always POSTs to /media (media_update is only for the edit flow)
+        const endpoint = `${API_URL}/api/listing/${listingSlug}/media`;
+        const method = "POST";
+
         const allFiles = [media.coverPhoto, ...media.images].filter(
           Boolean,
         ) as File[];
 
-        // 1. Optimize Images (Videos are skipped)
         toast.loading("Preparing files...");
         const optimizedFiles = await Promise.all(
           allFiles.map(smartCompressImage),
@@ -164,21 +164,17 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             formData.append("total_files", files.length.toString());
 
             const controller = new AbortController();
-            // INCREASED TIMEOUT: Videos take longer. 60s timeout.
             const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-            const response = await fetch(
-              `${API_URL}/api/listing/${listingSlug}/media`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  Accept: "application/json",
-                },
-                body: formData,
-                signal: controller.signal,
+            const response = await fetch(endpoint, {
+              method,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
               },
-            );
+              body: formData,
+              signal: controller.signal,
+            });
 
             clearTimeout(timeoutId);
 
@@ -187,7 +183,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             }
 
             if (!response.ok) {
-              // If it's a server timeout or size issue, try chunking
               if (response.status === 504 || response.status === 500)
                 return false;
 
@@ -197,7 +192,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
             return true;
           } catch {
-            // Try sequential upload
             return false;
           }
         };
@@ -206,7 +200,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const uploadSequential = async (files: File[]): Promise<boolean> => {
           const uploadedFiles: { index: number; success: boolean }[] = [];
 
-          // Upload 1 file at a time for reliability with videos
           const CHUNK_SIZE = 1;
 
           for (let i = 0; i < files.length; i += CHUNK_SIZE) {
@@ -228,17 +221,14 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               formData.append("chunk_index", currentFileIndex.toString());
               formData.append("total_chunks", totalFiles.toString());
 
-              const response = await fetch(
-                `${API_URL}/api/listing/${listingSlug}/media`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: "application/json",
-                  },
-                  body: formData,
+              const response = await fetch(endpoint, {
+                method,
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
                 },
-              );
+                body: formData,
+              });
 
               if (!response.ok) {
                 const error = await response.json();
@@ -293,16 +283,13 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         if (!validateMediaState()) return false;
-        // If there are files, upload in background without waiting
         if (media.coverPhoto || media.images.length > 0) {
-          // Start upload in background and don't await it
           uploadWithChunking().then((success) => {
             if (!success) {
               console.error("Background upload failed");
             }
           });
         }
-        // Always return true to allow user to proceed immediately
         return true;
       },
     }));
@@ -394,7 +381,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 const result = gallerySchema.safeParse(files);
                 if (!result.success) {
                   toast.error(result.error.issues[0].message);
-                  // Prune only if count is the issue; size issues should be handled by the user removing the file
                   if (files.length > MAX_GALLERY_IMAGES) {
                     setMedia({
                       ...media,
