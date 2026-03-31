@@ -1034,15 +1034,22 @@ function SidebarInfo({
           )}
 
           {socialLinks.whatsapp && (
-            <div className="flex items-center gap-10">
+            <div className="flex items-center gap-4">
               <h6 className="text-base font-medium text-black min-w-12">
                 WhatsApp
               </h6>
-              <p className="font-medium text-gray-900">
-                {socialLinks.whatsapp
+              <Link
+                href={socialLinks.whatsapp}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 font-medium text-green-600 hover:text-green-700 transition-colors"
+              >
+                <WhatsappLogo className="h-4 w-4 text-green-600" weight="fill" />
+            
+                 {socialLinks.whatsapp
                   .replace("https://wa.me/", "+")
                   .replace("http://wa.me/", "+")}
-              </p>
+              </Link>
             </div>
           )}
 

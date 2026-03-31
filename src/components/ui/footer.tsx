@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Input } from "./input";
 import { Button } from "./button";
+import { TiktokLogoIcon } from "@phosphor-icons/react";
 
 export default function Footer() {
   return (
@@ -111,7 +112,7 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3">Follow Us</h4>
             <ul className="space-y-3 text-sm text-gray-100">
-              <li className="flex items-center gap-2">
+              {/* <li className="flex items-center gap-2">
                 <Image
                   src="/images/icons/Facebook.svg"
                   alt="Facebook"
@@ -121,7 +122,7 @@ export default function Footer() {
                 <Link href="#" className="hover:text-[#A3D65C]">
                   Facebook
                 </Link>
-              </li>
+              </li> */}
               <li className="flex items-center gap-2">
                 <Image
                   src="/images/icons/Instagram.svg"
@@ -129,11 +130,14 @@ export default function Footer() {
                   width={24}
                   height={24}
                 />{" "}
-                <Link href="#" className="hover:text-[#A3D65C]">
+                <Link
+                  href="https://www.instagram.com/mefiedirectory?igsh=NnY2Zm1jeW9waWwz"
+                  className="hover:text-[#A3D65C]"
+                >
                   Instagram
                 </Link>
               </li>
-              <li className="flex items-center gap-2">
+              {/* <li className="flex items-center gap-2">
                 <Image
                   src="/images/icons/X.svg"
                   alt="Twitter"
@@ -154,7 +158,7 @@ export default function Footer() {
                 <Link href="#" className="hover:text-[#A3D65C]">
                   LinkedIn
                 </Link>
-              </li>
+              </li> */}
               <li className="flex items-center gap-2">
                 <Image
                   src="/images/icons/Youtube.svg"
@@ -162,8 +166,21 @@ export default function Footer() {
                   width={24}
                   height={24}
                 />{" "}
-                <Link href="#" className="hover:text-[#A3D65C]">
+                <Link
+                  href="http://www.youtube.com/@Mefieno1"
+                  className="hover:text-[#A3D65C]"
+                >
                   YouTube
+                </Link>
+              </li>
+              <li className="flex items-center gap-2">
+                <TiktokLogoIcon className="w-7 h-7" />
+                <Link
+                  href="https://www.tiktok.com/@mefieno1?_r=1&_t=ZN-959ZByDdA2Q
+"
+                  className="hover:text-[#A3D65C]"
+                >
+                  TikTok
                 </Link>
               </li>
             </ul>
