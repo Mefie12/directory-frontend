@@ -147,7 +147,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
           className="text-sm text-gray-600 hover:text-[#275782] hover:underline transition-colors -mt-0.5"
         >
           {business.reviewCount}{" "}
-          {Number(business.reviewCount) === 1 ? "Rating" : "Ratings"}
+          {Number(business.reviewCount) === 1 ? "Review" : "Reviews"}
         </Link>
         <div className="flex items-center gap-0.5 text-sm text-gray-500 mt-1">
           <Image
