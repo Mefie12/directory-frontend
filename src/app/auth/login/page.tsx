@@ -106,7 +106,9 @@ function LoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "These credentials do not match our records.");
+        throw new Error(
+          data.message || "These credentials do not match our records.",
+        );
       }
 
       const token =
@@ -125,7 +127,16 @@ function LoginForm() {
             window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${redirectPath}`;
           } else {
             // All roles go to /dashboard — the home page handles role-based rendering
-            router.push("/dashboard");
+            const userRole = localStorage.getItem("userRole")?.toLowerCase();
+
+            // 3. Role-based Redirect Logic
+            if (userRole === "customer" || userRole === "user") {
+              // Customers/Standard Users go to Bookmarks
+              router.push("/dashboard/bookmarks");
+            } else {
+              // Vendors, Admins, etc., go to the standard Dashboard
+              router.push("/dashboard");
+            }
           }
         }, 500);
       } else {
@@ -247,7 +258,9 @@ function LoginForm() {
                   type="email"
                   placeholder="Enter your email"
                   className={`w-full placeholder:text-xs ${
-                    hasError("email") ? "border-red-500 focus-visible:ring-red-500" : ""
+                    hasError("email")
+                      ? "border-red-500 focus-visible:ring-red-500"
+                      : ""
                   }`}
                   value={formData.email}
                   onChange={handleInputChange}
@@ -281,7 +294,9 @@ function LoginForm() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     className={`w-full placeholder:text-xs pr-10 ${
-                      hasError("password") ? "border-red-500 focus-visible:ring-red-500" : ""
+                      hasError("password")
+                        ? "border-red-500 focus-visible:ring-red-500"
+                        : ""
                     }`}
                     value={formData.password}
                     onChange={handleInputChange}
@@ -306,7 +321,9 @@ function LoginForm() {
                 )}
               </div>
 
-              {error && !credentialError && <p className="text-red-500 text-sm">{error}</p>}
+              {error && !credentialError && (
+                <p className="text-red-500 text-sm">{error}</p>
+              )}
               <Button
                 type="submit"
                 disabled={isLoading}
