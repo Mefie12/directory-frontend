@@ -17,6 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
+import { useListing } from "@/context/listing-form-context";
 
 // --- Helper function to validate URL (allows without protocol) ---
 const isValidUrl = (url: string): boolean => {
@@ -214,6 +215,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
     { listingSlug, listingType, onSuccess },
     ref,
   ) {
+    const { socials: contextSocials } = useListing();
     const {
       register,
       handleSubmit,
@@ -260,23 +262,46 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
             const raw = json.data || json || {};
             const s = Array.isArray(raw) ? raw[0] || {} : raw;
             reset({
-              facebook: s.facebook || "",
-              instagram: s.instagram || "",
-              twitter: s.twitter || "",
-              linkedin: s.linkedin || "",
-              tiktok: s.tiktok || "",
-              whatsapp: s.whatsapp || "",
+              facebook: s.facebook || contextSocials.facebook || "",
+              instagram: s.instagram || contextSocials.instagram || "",
+              twitter: s.twitter || contextSocials.twitter || "",
+              linkedin: s.linkedin || contextSocials.linkedin || "",
+              tiktok: s.tiktok || contextSocials.tiktok || "",
+              whatsapp: s.whatsapp || contextSocials.whatsapp || "",
             });
+          } else {
+            // API failed — fall back to context data from listing show endpoint
+            if (Object.values(contextSocials).some((v) => v)) {
+              reset({
+                facebook: contextSocials.facebook || "",
+                instagram: contextSocials.instagram || "",
+                twitter: contextSocials.twitter || "",
+                linkedin: contextSocials.linkedin || "",
+                tiktok: contextSocials.tiktok || "",
+                whatsapp: contextSocials.whatsapp || "",
+              });
+            }
           }
         } catch (err) {
           console.error(
             "Failed to load social links for back navigation:",
             err,
           );
+          // Fall back to context data
+          if (Object.values(contextSocials).some((v) => v)) {
+            reset({
+              facebook: contextSocials.facebook || "",
+              instagram: contextSocials.instagram || "",
+              twitter: contextSocials.twitter || "",
+              linkedin: contextSocials.linkedin || "",
+              tiktok: contextSocials.tiktok || "",
+              whatsapp: contextSocials.whatsapp || "",
+            });
+          }
         }
       };
       loadSocials();
-    }, [listingSlug, reset]);
+    }, [listingSlug, reset, contextSocials]);
 
     // --- 2. Save logic using PATCH and /update ---
     const handleFormSubmit = async (data: SocialMediaFormValues) => {

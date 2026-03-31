@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   MoreHorizontal,
@@ -41,6 +40,7 @@ import {
 } from "@/components/ui/popover";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // --- Types ---
 
@@ -99,7 +99,6 @@ interface ApiResponse {
 }
 
 export default function ReviewsPage() {
-  const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
 
   // --- State ---
@@ -431,9 +430,44 @@ export default function ReviewsPage() {
   }, [data, statusFilter, ratingFilter, search]);
 
   // --- Handlers ---
-  const handleRowClick = (id: string) => {
-    router.push(`/dashboard/reviews/${id}`);
-  };
+  const handleStatusChange = useCallback(async (reviewId: string, action: "approve" | "delete") => {
+    try {
+      const token = getAuthToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const endpoint = `${API_URL}/api/ratings/${reviewId}`;
+
+      if (action === "delete") {
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+        if (!response.ok) throw new Error("Failed to delete review");
+        setData((prev) => prev.filter((r) => r.id !== reviewId));
+        toast.success("Review deleted successfully");
+      } else {
+        const response = await fetch(endpoint, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ status: "Published" }),
+        });
+        if (!response.ok) throw new Error("Failed to approve review");
+        setData((prev) =>
+          prev.map((r) => (r.id === reviewId ? { ...r, status: "Published" } : r))
+        );
+        toast.success("Review approved successfully");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(`Failed to ${action} review`);
+    }
+  }, [getAuthToken]);
 
   const handlePageChange = (page: number) => setCurrentPage(page);
 
@@ -683,8 +717,7 @@ export default function ReviewsPage() {
               displayData.map((item) => (
                 <TableRow
                   key={item.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRowClick(item.id)}
+                  className="hover:bg-gray-50"
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -722,12 +755,17 @@ export default function ReviewsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {item.status !== "Published" && (
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(item.id, "approve")}
+                          >
+                            Approve
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
-                          onClick={() => handleRowClick(item.id)}
+                          className="text-red-600"
+                          onClick={() => handleStatusChange(item.id, "delete")}
                         >
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
                           Delete Review
                         </DropdownMenuItem>
                       </DropdownMenuContent>

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { SpinnerGap } from "@phosphor-icons/react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useUserLocation } from "@/hooks/useUserLocation";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -101,6 +102,7 @@ const basicInfoConfig = {
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug }, ref) => {
     // --- State ---
+    const { location: userLocation } = useUserLocation();
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
     const [subCategories, setSubCategories] = useState<Category[]>([]);
@@ -437,7 +439,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone);
@@ -483,7 +485,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone);

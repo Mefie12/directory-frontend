@@ -48,6 +48,7 @@ export interface Socials {
   instagram: string;
   linkedin: string;
   tiktok: string;
+  whatsapp: string;
 }
 
 interface Media {
@@ -108,6 +109,7 @@ export function ListingProvider({ children }: { children: ReactNode }) {
     instagram: "",
     linkedin: "",
     tiktok: "",
+    whatsapp: "",
   });
 
   const [media, setMedia] = useState<Media>({
@@ -140,6 +142,7 @@ export function ListingProvider({ children }: { children: ReactNode }) {
       instagram: "",
       linkedin: "",
       tiktok: "",
+      whatsapp: "",
     });
     setMedia({ images: [], coverPhoto: null });
 

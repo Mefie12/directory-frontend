@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/dashboard/vendor/my-listing/create/form-component/media.tsx
 
 "use client";

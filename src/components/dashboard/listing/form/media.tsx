@@ -85,7 +85,6 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       try {
         setIsUploading(true);
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         // Positional array: [cover, gallery0, gallery1, ...]
         const positions: any[] = [media.coverPhoto, ...media.images];
@@ -117,7 +116,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           formData.append("media", optimized);
 
           const response = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/media_update`,
+            `/api/listing/${listingSlug}/media_update`,
             {
               method: "PATCH",
               headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -147,7 +146,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           formData.append("total_chunks", toCreate.length.toString());
 
           const response = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/media`,
+            `/api/listing/${listingSlug}/media`,
             {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },

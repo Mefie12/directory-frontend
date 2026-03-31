@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { z } from "zod";
+import { useUserLocation } from "@/hooks/useUserLocation";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -35,6 +36,7 @@ const signupSchema = z.object({
 function SignupForm() {
   const router = useRouter();
   const { login } = useAuth();
+  const { location: userLocation } = useUserLocation();
 
   const searchParams = useSearchParams();
 
@@ -191,18 +193,17 @@ function SignupForm() {
       if (newToken) {
         await login(newToken);
         
-        // Role-based routing after signup/verification - read from localStorage since state may not be immediately available
-        // All roles go to /dashboard — the home page handles role-based rendering
-        router.push("/dashboard");
+        // Redirect to the original page user was trying to access, or dashboard
+        router.push(redirectPath !== "/" ? redirectPath : "/dashboard");
         router.refresh();
         return;
       }
 
       toast.success("Account Verified!", {
-        description: "Welcome to MeFie! Redirecting to landing page...",
+        description: "Welcome to MeFie! Redirecting...",
       });
 
-      router.push("/");
+      router.push(redirectPath !== "/" ? redirectPath : "/");
       router.refresh();
     } catch (err: any) {
       toast.error("Verification Error", { description: err.message });
@@ -325,7 +326,7 @@ function SignupForm() {
               <div className="space-y-2">
                 <Label className="text-xs">Phone Number</Label>
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}

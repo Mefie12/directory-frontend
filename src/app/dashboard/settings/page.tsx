@@ -31,6 +31,7 @@ import { toast } from "sonner";
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+import { useUserLocation } from "@/hooks/useUserLocation";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
 
@@ -353,6 +354,7 @@ const SuccessDialog = ({
 // --- Main Settings Component ---
 export default function Settings() {
   const { refetchUser, user } = useAuth();
+  const { location: userLocation } = useUserLocation();
   const [activeTab, setActiveTab] = useState("account");
   const router = useRouter();
 
@@ -711,7 +713,7 @@ export default function Settings() {
                     <div>
                       <Label>Phone Number</Label>
                       <PhoneInput
-                        defaultCountry="gh"
+                        defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
                         value={phoneNumber}
                         onChange={(phone) => setPhoneNumber(phone)}
                         inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900"
