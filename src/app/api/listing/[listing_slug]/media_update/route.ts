@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.API_URL || 'https://me-fie.co.uk/';
+const API_BASE_URL = (process.env.API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
 export async function PATCH(
   request: NextRequest,
@@ -9,10 +9,9 @@ export async function PATCH(
   try {
     const { listing_slug } = await params;
     const authHeader = request.headers.get('Authorization');
-
-    // Forward the multipart form data as-is
-    const body = await request.arrayBuffer();
     const contentType = request.headers.get('Content-Type') || '';
+
+    const body = await request.arrayBuffer();
 
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}/media_update`,
@@ -27,23 +26,20 @@ export async function PATCH(
       }
     );
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.message || 'Failed to update media' },
+        { message: data.message || 'Failed to update media' },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
-
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error updating media:', error);
     return NextResponse.json(
-      { error: 'Failed to update media' },
+      { message: 'Internal Server Error' },
       { status: 500 }
     );
   }
