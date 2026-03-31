@@ -270,7 +270,9 @@ export default function VendorHome() {
   }, [user, authLoading, fetchListings]);
 
   const handleEdit = (listing: ListingsTableItem) => {
-    router.push(`/dashboard/my-listing/edit?type=${listing.type}&slug=${listing.slug}`);
+    router.push(
+      `/dashboard/my-listing/edit?type=${listing.type}&slug=${listing.slug}`,
+    );
   };
 
   const handleDelete = async () => {
@@ -331,7 +333,14 @@ export default function VendorHome() {
       {/* Header Intro */}
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
-          <h4 className="text-2xl font-semibold">Welcome back, {user?.name || "User"}!</h4>
+          <h4 className="text-2xl font-semibold ">
+            Welcome back,{" "}
+            <span className="capitalize">
+              {/* Prioritize first_name, fallback to first part of full name */}
+              {user?.first_name || user?.name?.split(" ")[0] || "User"}
+            </span>
+            !
+          </h4>
           <p className="text-base font-normal">
             Here is what&apos;s happening with your listings
           </p>

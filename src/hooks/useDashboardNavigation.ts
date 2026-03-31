@@ -20,7 +20,7 @@ const MENU_CONFIG: MenuItem[] = [
     title: "Home",
     url: "/dashboard",
     icon: "/images/icons/home.svg",
-    roles: ["vendor", "customer"],
+    roles: ["vendor"],
   },
   {
     title: "Dashboard",

@@ -209,13 +209,13 @@ export default function AdminHome() {
   // --- State ---
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>(
-    []
+    [],
   );
   const [pendingListings, setPendingListings] = useState<PendingListingItem[]>(
-    []
+    [],
   );
   const [flaggedContent, setFlaggedContent] = useState<FlaggedContentItem[]>(
-    []
+    [],
   );
   const [paymentIssues, setPaymentIssues] = useState<PaymentIssueItem[]>([]);
   const [listings, setListings] = useState<ListingItem[]>([]);
@@ -224,7 +224,7 @@ export default function AdminHome() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [revenuePieData, setRevenuePieData] = useState<any[]>([]);
   const [vendorGrowthData, setVendorGrowthData] = useState<ChartDataPoint[]>(
-    []
+    [],
   );
   const [listingCreationData, setListingCreationData] = useState<
     ChartDataPoint[]
@@ -268,7 +268,7 @@ export default function AdminHome() {
         title: item.title,
         description: item.description,
         timestamp: item.created_at_human || "Just now",
-      }))
+      })),
     );
 
     // Pending Listings
@@ -280,7 +280,7 @@ export default function AdminHome() {
         time: item.created_at_human,
         initials: item.vendor_initials || "VN",
         color: "bg-[#93C01F]",
-      }))
+      })),
     );
 
     // Flagged Content
@@ -290,7 +290,7 @@ export default function AdminHome() {
         title: item.subject,
         reason: item.reason,
         time: item.created_at_human,
-      }))
+      })),
     );
 
     // Payment Issues
@@ -299,7 +299,7 @@ export default function AdminHome() {
         id: item.id,
         title: item.type,
         desc: item.description,
-      }))
+      })),
     );
 
     // Listings Table
@@ -315,7 +315,7 @@ export default function AdminHome() {
         comments: item.stats?.comments || 0,
         bookmarks: item.stats?.bookmarks || 0,
         rating: item.rating || 0,
-      }))
+      })),
     );
 
     // Revenue Pie Chart
@@ -324,7 +324,7 @@ export default function AdminHome() {
         name: item.label,
         value: item.amount,
         color: item.color || "#9CA3AF",
-      }))
+      })),
     );
   };
 
@@ -337,8 +337,7 @@ export default function AdminHome() {
       setIsLoading(true);
       try {
         const token = getAuthToken();
-        const API_URL =
-          process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/admin/dashboard`, {
           headers: {
@@ -393,7 +392,7 @@ export default function AdminHome() {
         return [];
       }
     },
-    [getAuthToken]
+    [getAuthToken],
   );
 
   // Vendor Growth Chart Effect
@@ -406,7 +405,7 @@ export default function AdminHome() {
   useEffect(() => {
     if (!authUser) return;
     fetchChartData("creation", listingActivityFilter).then(
-      setListingCreationData
+      setListingCreationData,
     );
   }, [listingActivityFilter, fetchChartData, authUser]);
 
@@ -435,7 +434,8 @@ export default function AdminHome() {
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
           <h4 className="text-2xl font-semibold text-gray-900">
-            Welcome back, {authUser?.name || "User"}
+            Welcome back,{" "}
+            {authUser?.first_name || authUser?.name?.split(" ")[0] || "User"}
           </h4>
           <p className="text-sm text-gray-500 mt-1">
             Here is what&apos;s happening with your listings

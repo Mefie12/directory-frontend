@@ -64,6 +64,19 @@ export default function Navbar() {
   // Get dashboard URL based on user role
   const getDashboardUrl = () => {
     if (!user) return "/auth/login";
+
+    // Normalize the role string to lowercase and handle nulls
+    const role = user.role?.toLowerCase() || "";
+
+    // DEBUG: Uncomment the line below to see exactly what role the system sees
+    // console.log("Current User Role:", role);
+
+    // Standard Users and Customers both go to Bookmarks
+    if (role === "customer" || role === "user") {
+      return "/dashboard/bookmarks";
+    }
+
+    // Vendors, Listing Agents, and Admins go to the main dashboard
     return "/dashboard";
   };
 
@@ -81,8 +94,7 @@ export default function Navbar() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-
-   // Routing to claim page
+  // Routing to claim page
   const handleClickEvent = () => {
     if (user) {
       // Authenticated -> Go to Claim Page
@@ -174,7 +186,7 @@ export default function Navbar() {
 
   const handleViewInquiry = async (id: string, link?: string) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
 
     try {
@@ -230,7 +242,7 @@ export default function Navbar() {
                   width={200}
                   height={100}
                   className="h-auto w-auto"
-                  />
+                />
               </Link>
             </div>
 
@@ -240,50 +252,50 @@ export default function Navbar() {
                 href="/discover"
                 className={`relative text-base font-normal transition-colors ${
                   isActive("/discover")
-                  ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
-                  : "text-white/80 hover:text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
+                    : "text-white/80 hover:text-white"
                 }`}
-                >
+              >
                 Discover
               </Link>
               <Link
                 href="/businesses"
                 className={`relative text-base font-normal transition-colors ${
                   isActive("/businesses")
-                  ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
-                  : "text-white/80 hover:text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
+                    : "text-white/80 hover:text-white"
                 }`}
-                >
+              >
                 Businesses
               </Link>
               <Link
                 href="/events"
                 className={`relative text-base font-normal transition-colors ${
                   isActive("/events")
-                  ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
-                  : "text-white/80 hover:text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
+                    : "text-white/80 hover:text-white"
                 }`}
-                >
+              >
                 Events
               </Link>
               <Link
                 href="/communities"
                 className={`relative text-base font-normal transition-colors ${
                   isActive("/communities")
-                  ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
-                  : "text-white/80 hover:text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
+                    : "text-white/80 hover:text-white"
                 }`}
-                >
+              >
                 Communities
               </Link>
               <Link
                 href="/about"
                 className={`relative text-base font-normal transition-colors ${
                   isActive("/about")
-                  ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
-                  : "text-white/80 hover:text-white"
+                    ? "text-[#9ACC23] after:absolute after:-bottom-7 after:left-0 after:w-full after:h-0.5 after:bg-[#9ACC23]"
+                    : "text-white/80 hover:text-white"
                 }`}
-                >
+              >
                 About
               </Link>
             </div>
@@ -292,12 +304,12 @@ export default function Navbar() {
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
             {loading ? (
-                // Show a skeleton or an empty space while checking auth
-                <div className="flex items-center gap-4 px-4">
-                   <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
-                   <div className="w-20 h-4 bg-white/10 rounded animate-pulse" />
-                </div>
-              ) : user ? (
+              // Show a skeleton or an empty space while checking auth
+              <div className="flex items-center gap-4 px-4">
+                <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
+                <div className="w-20 h-4 bg-white/10 rounded animate-pulse" />
+              </div>
+            ) : user ? (
               // LOGGED IN STATE - Show user profile and bell icon
               <div className="flex items-center gap-4">
                 {/* Notifications Dropdown */}
@@ -551,10 +563,10 @@ export default function Navbar() {
         <div className="lg:hidden fixed left-0 right-0 z-50 bg-(--background-secondary) text-white animate-fadeIn">
           <div className="py-5 flex flex-col space-y-3">
             {loading ? (
-               <div className="flex items-center gap-4 px-4">
-                   <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
-                   <div className="w-20 h-4 bg-white/10 rounded animate-pulse" />
-                </div>
+              <div className="flex items-center gap-4 px-4">
+                <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
+                <div className="w-20 h-4 bg-white/10 rounded animate-pulse" />
+              </div>
             ) : user ? (
               <div className="space-y-4 px-6">
                 <div className="flex items-center gap-4">
