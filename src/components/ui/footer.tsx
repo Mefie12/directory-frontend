@@ -58,7 +58,7 @@ export default function Footer() {
               <ul className="space-y-3 text-sm text-gray-100">
                 <li>
                   <Link
-                    href="#"
+                    href="/about"
                     className="hover:text-[#93c01f] transition-colors"
                   >
                     About us
@@ -66,7 +66,7 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="/discover"
                     className="hover:text-[#93c01f] transition-colors"
                   >
                     Discover
@@ -172,9 +172,9 @@ export default function Footer() {
 
         {/* --- Footer Bottom --- */}
         <div className="border-t border-gray-600 mt-10 pt-6 flex flex-col md:flex-row items-center justify-between text-sm text-gray-100">
-          <p>© 2025 Mefie. All rights reserved.</p>
+          <p>© 2026 Mefie. All rights reserved.</p>
           <Link
-            href="#"
+            href="?cookies=true"
             className="underline hover:text-[#93c01f] transition-colors mt-3 sm:mt-0"
           >
             Cookies Settings

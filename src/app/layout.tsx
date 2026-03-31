@@ -7,6 +7,7 @@ import LayoutWrapper from "@/components/layout-wrapper";
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { BookmarkProvider } from "@/context/bookmark-context";
+import { CookieConsent } from "@/components/ui/cookie-consent";
 
 const gilroy = localFont({
   src: [
@@ -103,6 +104,7 @@ export default function RootLayout({
         <AuthProvider>
           <BookmarkProvider>
             <LayoutWrapper>{children}</LayoutWrapper>
+            <CookieConsent />
             <Toaster
               closeButton
               visibleToasts={9}

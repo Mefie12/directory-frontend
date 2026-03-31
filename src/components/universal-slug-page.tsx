@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import "mapbox-gl/dist/mapbox-gl.css";
+
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
+import mapboxgl from "mapbox-gl";
 import {
   MapPin,
   Star,
@@ -148,6 +151,8 @@ interface ApiListingData {
   email?: string;
   website?: string;
   google_plus_code?: string;
+  latitude?: number;
+  longitude?: number;
   rating?: number | string;
   reviews_count?: number | string;
   is_verified?: boolean;
@@ -194,6 +199,8 @@ interface Provider {
   email?: string;
   website?: string;
   socials?: SocialLinks;
+  latitude?: number;
+  longitude?: number;
   startDate?: string;
 }
 
@@ -811,18 +818,103 @@ function ProviderTabs({
 }
 
 function SidebarLocation({ provider }: { provider: Provider }) {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ? true : false;
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    if (!token) {
+      console.error("Missing Mapbox token");
+      // setIsLoading(false);
+      return;
+    }
+
+    mapboxgl.accessToken = token;
+
+    const initMap = async () => {
+      try {
+        let lng: number;
+        let lat: number;
+
+        if (provider.latitude && provider.longitude) {
+          lng = provider.longitude;
+          lat = provider.latitude;
+        } else {
+          const query = encodeURIComponent(
+            provider.name + " " + (provider.location || provider.country || "")
+          );
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`
+          );
+          const data = await res.json();
+          if (data.features?.[0]) {
+            [lng, lat] = data.features[0].center;
+          } else {
+            setError("Location not found");
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        if (map.current) {
+          map.current.remove();
+        }
+
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current!,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [lng, lat],
+          zoom: 14,
+          interactive: false,
+        });
+
+        new mapboxgl.Marker({ color: "#93C01F" })
+          .setLngLat([lng, lat])
+          .addTo(map.current);
+
+        map.current.on("load", () => {
+          setIsLoading(false);
+        });
+      } catch {
+        setError("Failed to load map");
+        setIsLoading(false);
+      }
+    };
+
+    initMap();
+
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [provider.latitude, provider.longitude, provider.name, provider.location, provider.country]);
+
   return (
     <Card>
       <CardContent className="pt-0.5">
         <h4 className="text-lg font-black text-gray-900">Location</h4>
-        <div className="mt-3 relative h-40 overflow-hidden rounded-xl bg-gray-100">
-          <iframe
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(
-              provider.name + " " + (provider.location || ""),
-            )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-            allowFullScreen
-            loading="lazy"
-            className="absolute inset-0 w-full h-full border-0"
+        <div className="mt-3 relative h-40 w-full overflow-hidden rounded-xl bg-gray-100">
+          {isLoading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              Loading...
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              {error}
+            </div>
+          )}
+          <div 
+            ref={mapContainer} 
+            className="absolute inset-0 w-full h-full" 
+            style={{ minHeight: "160px" }}
           />
         </div>
         <p className="mt-3 text-xs text-gray-500">
@@ -1203,6 +1295,8 @@ export default function UniversalSlugPage({
             email: listingData.email,
             website: listingData.website,
             socials: socialLinks,
+            latitude: listingData.latitude,
+            longitude: listingData.longitude,
             startDate: listingData.start_date,
           };
 
