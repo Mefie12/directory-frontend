@@ -8,20 +8,16 @@ import { notFound, useRouter } from "next/navigation";
 import {
   MapPin,
   Star,
-  Facebook,
-  Instagram,
-  Twitter,
-  Youtube,
-  // MessageSquare,
-  // CornerDownRight,
-  Loader2,
+  FacebookLogo,
+  InstagramLogo,
+  XLogo,
+  YoutubeLogo,
+  SpinnerGap,
   Clock,
-  AlertCircle,
-  Globe,
-  MessageCircle, // Added for hours icon
-  Phone,
-  // Plus,
-} from "lucide-react";
+  WarningCircle,
+  TiktokLogo,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -671,7 +667,7 @@ function ProviderHeader({
               "Available internationally"}
           </span>
           <span className="flex items-center gap-1 font-black text-gray-800">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+            <Star className="h-4 w-4 text-yellow-400" weight="fill" />
             {rating.toFixed(1)}
             {provider.reviews && provider.reviews !== "0" && (
               <span className="text-gray-400 font-light">
@@ -886,7 +882,7 @@ function SidebarInfo({
         {hours && hours.length > 0 && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
-              <Clock className="h-5 w-5 text-[#93C01F]" /> Business Hours
+              <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" /> Business Hours
             </h5>
             <div className="space-y-2">
               {hours.map((h, idx) => (
@@ -956,7 +952,7 @@ function SidebarInfo({
                 rel="noreferrer"
                 className="flex items-center gap-2 font-medium text-green-600 hover:text-green-700 transition-colors"
               >
-                <Phone className="h-4 w-4 text-green-600" />
+                <WhatsappLogo className="h-4 w-4 text-green-600" weight="fill" />
                 {socialLinks.whatsapp
                   .replace("https://wa.me/", "+")
                   .replace("http://wa.me/", "+")}
@@ -971,24 +967,24 @@ function SidebarInfo({
               </h6>
               <div className="flex items-center gap-3">
                 {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={Facebook} />
+                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} />
                 )}
                 {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={Instagram} />
+                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} />
                 )}
                 {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={Twitter} />
+                  <SocialIcon href={socialLinks.twitter} icon={XLogo} />
                 )}
                 {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={Youtube} />
+                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} />
                 )}
                 {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={Globe} />
+                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} />
                 )}
                 {socialLinks.whatsapp && (
                   <SocialIcon
                     href={socialLinks.whatsapp}
-                    icon={MessageCircle}
+                    icon={WhatsappLogo}
                   />
                 )}
               </div>
@@ -1034,7 +1030,7 @@ function SidebarInfo({
                 href={`/claim/${provider.slug}/verify`}
                 className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
               >
-                <AlertCircle className="h-3 w-3" />
+                <WarningCircle className="h-3 w-3" />
                 Business Owner?{" "}
                 <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
                   Challenge this claim
@@ -1288,7 +1284,7 @@ export default function UniversalSlugPage({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#93C01F]" />
+        <SpinnerGap className="h-8 w-8 animate-spin text-[#93C01F]" />
       </div>
     );
   }

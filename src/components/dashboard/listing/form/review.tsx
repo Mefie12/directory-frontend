@@ -5,24 +5,24 @@ import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Pencil,
-  Loader2,
+  PencilSimple,
+  SpinnerGap,
   MapPin,
-  Mail,
+  Envelope,
   Clock,
   Tag,
   Globe,
   Calendar,
-  Phone,
-  Facebook,
-  Instagram,
-  Twitter,
-  Linkedin,
-} from "lucide-react";
+  FacebookLogo,
+  InstagramLogo,
+  TwitterLogo,
+  LinkedinLogo,
+  TiktokLogo,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
-import { useRouter } from "next/navigation";
 
 interface Props {
   listingSlug: string;
@@ -68,7 +68,6 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
     const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
-    const router = useRouter();
 
     // 1. Fetch real data from API to ensure accuracy before publishing
     useEffect(() => {
@@ -130,9 +129,6 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           // Show success toast
           toast.success("Listing Submitted Successfully!");
 
-          // Route to dashboard
-          router.push("/dashboard/my-listing");
-
           return true;
         } catch (error) {
           console.error(error);
@@ -145,7 +141,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     if (loading) {
       return (
         <div className="h-64 flex items-center justify-center text-gray-500">
-          <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading details...
+          <SpinnerGap className="w-6 h-6 animate-spin mr-2" /> Loading details...
         </div>
       );
     }
@@ -159,7 +155,11 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     // Prepare Display Data (Prefer API data, fallback to "Not provided")
     const displayImage =
       listingData?.primary_image ||
-      (media.coverPhoto ? URL.createObjectURL(media.coverPhoto) : null);
+      (media.coverPhoto
+        ? media.coverPhoto instanceof Blob
+          ? URL.createObjectURL(media.coverPhoto)
+          : media.coverPhoto
+        : null);
 
     // Process additional images for gallery
     const galleryImages = listingData?.images?.slice(0, 3) || [];
@@ -201,7 +201,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               variant="secondary"
               className="absolute top-4 right-4 rounded-full h-10 w-10 shadow-sm"
             >
-              <Pencil className="h-4 w-4" />
+              <PencilSimple className="h-4 w-4" />
             </Button>
           </div>
 
@@ -267,7 +267,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
               {/* Email */}
               <div className="space-y-1">
                 <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                  <Mail className="w-3 h-3" /> Email
+                  <Envelope className="w-3 h-3" /> Email
                 </span>
                 <p className="text-sm text-gray-600">
                   {listingData?.email || "Not provided"}
@@ -360,7 +360,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {socials?.facebook && (
                     <div className="flex items-center gap-3">
-                      <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                      <FacebookLogo className="w-4 h-4 text-blue-600 shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.facebook}
                       </p>
@@ -368,7 +368,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   )}
                   {socials?.instagram && (
                     <div className="flex items-center gap-3">
-                      <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                      <InstagramLogo className="w-4 h-4 text-pink-600 shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.instagram}
                       </p>
@@ -376,7 +376,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   )}
                   {socials?.twitter && (
                     <div className="flex items-center gap-3">
-                      <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
+                      <TwitterLogo className="w-4 h-4 text-blue-400 shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.twitter}
                       </p>
@@ -384,7 +384,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   )}
                   {socials?.linkedin && (
                     <div className="flex items-center gap-3">
-                      <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
+                      <LinkedinLogo className="w-4 h-4 text-blue-700 shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.linkedin}
                       </p>
@@ -392,7 +392,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   )}
                   {socials?.tiktok && (
                     <div className="flex items-center gap-3">
-                      <Globe className="w-4 h-4 text-black shrink-0" />
+                      <TiktokLogo className="w-4 h-4 text-black shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.tiktok}
                       </p>
@@ -400,7 +400,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                   )}
                   {socials?.whatsapp && (
                     <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-green-600 shrink-0" />
+                      <WhatsappLogo className="w-4 h-4 text-green-600 shrink-0" />
                       <p className="text-sm text-gray-600 truncate">
                         {socials.whatsapp}
                       </p>

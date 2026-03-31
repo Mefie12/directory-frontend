@@ -17,6 +17,7 @@ import {
   Building2,
   CalendarDays,
   Users,
+  XCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -193,9 +194,14 @@ export default function ClaimPage() {
           >
             <ArrowLeft className="w-5 h-5 text-[#93C01F]" />
           </button>
+        <div className="flex flex-col space-y-2">
           <h1 className="text-2xl font-bold text-gray-900">
             Find Your Business/ Events/ Communities Listing
           </h1>
+          <p className="text-sm text-gray-500">
+            A simple search to make sure your business is not already listed
+          </p>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -333,9 +339,13 @@ export default function ClaimPage() {
             ) : (
               <div className="text-center py-16">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100 shadow-none">
-                  <Search className="w-8 h-8 text-gray-300" />
+                  {hasSearched ? (
+                    <XCircle className="w-8 h-8 text-red-500" />
+                  ) : (
+                    <Search className="w-8 h-8 text-gray-300" />
+                  )}
                 </div>
-                <h3 className="text-gray-900 font-semibold text-lg">
+                <h3 className={`font-semibold text-lg ${hasSearched ? "text-red-500" : "text-gray-900"}`}>
                   {hasSearched ? "No listing found" : "Start your search"}
                 </h3>
                 <p className="text-gray-500 text-sm mt-2 max-w-xs mx-auto">

@@ -192,19 +192,8 @@ function SignupForm() {
         await login(newToken);
         
         // Role-based routing after signup/verification - read from localStorage since state may not be immediately available
-        const userRole = localStorage.getItem("userRole")?.toLowerCase() || "";
-        if (userRole === "admin") {
-          // Admin goes to admin dashboard
-          router.push("/dashboard/admin");
-        } 
-        else if (userRole === "vendor" || userRole === "listing_agent" || userRole === "agent") {
-          // Vendors and listing agents go to my listings
-          router.push("/dashboard/vendor/my-listing");
-        }
-        else {
-          // Regular users go to home page
-          router.push(redirectPath);
-        }
+        // All roles go to /dashboard — the home page handles role-based rendering
+        router.push("/dashboard");
         router.refresh();
         return;
       }

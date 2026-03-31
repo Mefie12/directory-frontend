@@ -1,45 +1,33 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { SpinnerGap, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
-import { useListing, ListingProvider } from "@/context/listing-form-context";
+import { useListing } from "@/context/listing-form-context";
+import { ListingFormHandle } from "@/components/dashboard/listing/types";
+import { useRolePath } from "@/hooks/useRolePath";
 
 // Child Forms
-import { BasicInformationForm } from "./form-component/basic-info";
+import { BasicInformationForm } from "@/components/dashboard/listing/form/basic-info";
 const BusinessDetailsForm = dynamic(
-  () => import("./form-component/business-details").then(mod => mod.BusinessDetailsForm),
+  () => import("@/components/dashboard/listing/form/business-details").then(mod => mod.BusinessDetailsForm),
   { ssr: false }
 );
-import { MediaUploadStep } from "./form-component/media";
-import { SocialMediaForm } from "./form-component/social-media";
-import { ReviewSubmitStep } from "./form-component/review";
-
-// Define the interface with 'unknown' instead of 'any' for stricter typing
-export interface ListingFormHandle {
-  submit: () => Promise<unknown | boolean>;
-}
+import { MediaUploadStep } from "@/components/dashboard/listing/form/media";
+import { SocialMediaForm } from "@/components/dashboard/listing/form/social-media";
+import { ReviewSubmitStep } from "@/components/dashboard/listing/form/review";
 
 const STORAGE_KEY = "listing-form-draft";
 
-export default function ListingPage() {
-  return (
-    <ListingProvider>
-      <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" /></div>}>
-        <ListingContent />
-      </Suspense>
-    </ListingProvider>
-  );
-}
-
-function ListingContent() {
+export default function ListingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { myListings } = useRolePath();
   const {
     listingType,
     currentStep,
@@ -103,7 +91,7 @@ function ListingContent() {
         await formRef.current.submit();
         setIsSaving(false);
         sessionStorage.removeItem(STORAGE_KEY);
-        router.push("/dashboard/my-listing");
+        router.push(myListings);
       }
       return;
     }
@@ -168,7 +156,7 @@ function ListingContent() {
   };
 
   return (
-    <div className="pt-24">
+    <>
       <StepHeader
         currentStep={currentStep}
         totalSteps={5}
@@ -205,7 +193,7 @@ function ListingContent() {
                 disabled={isSaving}
                 className="w-24"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" /> Back
+                <CaretLeft className="w-4 h-4 mr-1" /> Back
               </Button>
             )}
           </div>
@@ -217,19 +205,19 @@ function ListingContent() {
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <SpinnerGap className="w-4 h-4 animate-spin mr-2" />
                 Saving...
               </>
             ) : currentStep === 5 ? (
               "Submit Listing"
             ) : (
               <>
-                Save & Continue <ChevronRight className="w-4 h-4 ml-1" />
+                Save & Continue <CaretRight className="w-4 h-4 ml-1" />
               </>
             )}
           </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form"; // Added Controller
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { cn } from "@/lib/utils";
-import { Loader2} from "lucide-react";
+import { SpinnerGap } from "@phosphor-icons/react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -42,12 +42,13 @@ export const businessFormSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters long"),
   type: z.enum(["business", "event", "community"]),
-  primary_phone: z.string().min(8, "Please enter a valid phone number"), // Adjusted slightly as formatting adds chars
+  primary_phone: z.string().min(8, "Please enter a valid phone number"),
   primary_country_code: z.string().min(1, "Required"),
   secondary_phone: z.string().optional(),
   secondary_country_code: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  website: z.string()
+  website: z
+    .string()
     .optional()
     .or(z.literal(""))
     .refine((val) => isValidUrl(val || ""), {
@@ -137,7 +138,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       watch,
       setValue,
       trigger,
-      control, // Required for Phone Input
+      control,
       reset,
       formState: { errors },
     } = form;
@@ -224,20 +225,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
       setValue("category_ids", [idStr], { shouldValidate: true });
     };
-
-    // const handleSubcategoryClick = (subCategoryId: string) => {
-    //   const idStr = String(subCategoryId);
-    //   const currentIds = form.getValues("category_ids") || [];
-
-    //   let newIds: string[] = [];
-    //   if (currentIds.includes(idStr)) {
-    //     newIds = currentIds.filter((id) => id !== idStr);
-    //   } else {
-    //     newIds = [...currentIds, idStr];
-    //   }
-
-    //   setValue("category_ids", newIds, { shouldValidate: true });
-    // };
 
     // --- 3. Submit Handler ---
     useImperativeHandle(ref, () => ({
@@ -385,10 +372,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           <h2 className="text-2xl font-semibold">Basic Information</h2>
           <p className="text-sm text-gray-500 mt-1">
             {listingType === "business"
-              ? "Tell us about your business. Your business page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
+              ? "Tell us about your business. Your business page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you'll receive instructions on how to go live."
               : listingType === "event"
-                ? "Tell us about your event. Your event page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
-                : "Tell us about your community. Your community page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."}
+                ? "Tell us about your event. Your event page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you'll receive instructions on how to go live."
+                : "Tell us about your community. Your community page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you'll receive instructions on how to go live."}
           </p>
         </div>
 
@@ -453,12 +440,11 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   defaultCountry="gh"
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
+                    field.onChange(phone);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode
                       : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
                     setValue("primary_country_code", formattedCode, {
                       shouldValidate: true,
                     });
@@ -472,7 +458,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                     buttonStyle: {
                       paddingLeft: "12px",
                       paddingRight: "8px",
-                      height: "36px", // Matches h-10
+                      height: "36px",
                       borderTopLeftRadius: "0.5rem",
                       borderBottomLeftRadius: "0.5rem",
                       borderColor: "#d1d5db",
@@ -500,12 +486,11 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   defaultCountry="gh"
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
+                    field.onChange(phone);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode
                       : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
                     setValue("secondary_country_code", formattedCode, {
                       shouldValidate: true,
                     });
@@ -519,7 +504,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                     buttonStyle: {
                       paddingLeft: "12px",
                       paddingRight: "8px",
-                      height: "36px", // Matches h-10
+                      height: "36px",
                       borderTopLeftRadius: "0.5rem",
                       borderBottomLeftRadius: "0.5rem",
                       borderColor: "#d1d5db",
@@ -540,7 +525,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             </label>
             {loading ? (
               <div className="flex items-center space-x-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <SpinnerGap className="h-4 w-4 animate-spin" />
                 <span className="text-sm text-gray-500">
                   Loading categories...
                 </span>
@@ -563,9 +548,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 searchPlaceholder="Search main category..."
                 disabled={loading || mainCategories.length === 0}
                 error={
-                  errors.category_ids
-                    ? "Main category is required"
-                    : undefined
+                  errors.category_ids ? "Main category is required" : undefined
                 }
               />
             )}
@@ -589,9 +572,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   currentCategoryIds.find(
                     (id) =>
                       id !== String(selectedMainCategory?.id) &&
-                      subCategories.some(
-                        (sub) => String(sub.id) === id,
-                      )
+                      subCategories.some((sub) => String(sub.id) === id),
                   ) || ""
                 }
                 onChange={(subCategoryId) => {

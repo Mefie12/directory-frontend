@@ -30,10 +30,10 @@ export function EventCard({ event }: EventCardProps) {
 
    // Determine the base path for navigation based on current page
   const getBasePath = () => {
-    if (pathname?.includes("/dashboard/customer/bookmarks")) {
-      return "/dashboard/customer/bookmarks";
-    } else if (pathname?.includes("/dashboard/vendor/my-listing")) {
-      return "/dashboard/vendor/my-listing";
+    if (pathname?.includes("/dashboard/bookmarks")) {
+      return "/dashboard/bookmarks";
+    } else if (pathname?.includes("/dashboard/my-listing")) {
+      return "/dashboard/my-listing";
     } else if (pathname?.includes("/discover")) {
       return "/discover";
     } else if (pathname?.includes("/businesses")) {
@@ -91,7 +91,7 @@ export function EventCard({ event }: EventCardProps) {
               "w-5 h-5 transition-colors",
               isActive
                 ? "fill-blue-500 text-blue-500"
-                : "text-gray-100 hover:text-blue-500"
+                : "text-[#93C01F] hover:text-blue-500"
             )}
           />
         </button>

@@ -55,7 +55,7 @@ export default function ClaimStatus({ business }: any) {
 
       <div className="w-full space-y-3">
         <Button
-          onClick={() => router.push("/dashboard/vendor")}
+          onClick={() => router.push("/dashboard")}
           className="w-full bg-[#93C01F] hover:bg-[#7ea919] text-white h-12 text-base font-medium rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-xs"
         >
           <LayoutDashboard className="w-5 h-5" /> Go to Dashboard

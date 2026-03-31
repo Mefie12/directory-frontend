@@ -124,19 +124,8 @@ function LoginForm() {
             const encodedEmail = encodeURIComponent(formData.email);
             window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${redirectPath}`;
           } else {
-            // Normal role-based routing
-            const userRole =
-              localStorage.getItem("userRole")?.toLowerCase() || "";
-
-            if (userRole === "admin") {
-              router.push("/dashboard/admin");
-            } else if (userRole === "listing_agent" || userRole === "agent") {
-              router.push("/dashboard/listing-agent/my-listing");
-            } else if (userRole === "vendor") {
-              router.push("/dashboard/vendor");
-            } else {
-              router.push(redirectPath);
-            }
+            // All roles go to /dashboard — the home page handles role-based rendering
+            router.push("/dashboard");
           }
         }, 500);
       } else {

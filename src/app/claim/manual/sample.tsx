@@ -57,7 +57,7 @@ function ManualLisitingForm() {
   const handleNext = async () => {
     // If we are on the Success page, go to dashboard
     if (currentStep === 7) {
-      router.push("/dashboard/vendor/my-listing");
+      router.push("/dashboard/my-listing");
       return;
     }
 

@@ -8,13 +8,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Globe,
-  Phone,
-} from "lucide-react";
+  FacebookLogo,
+  InstagramLogo,
+  LinkedinLogo,
+  TwitterLogo,
+  TiktokLogo,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 
@@ -164,42 +164,42 @@ const socialPlatforms = [
   {
     id: "facebook",
     name: "Facebook",
-    icon: Facebook,
+    icon: FacebookLogo,
     placeholder: "facebook.com/yourpage",
     color: "text-blue-600",
   },
   {
     id: "instagram",
     name: "Instagram",
-    icon: Instagram,
+    icon: InstagramLogo,
     placeholder: "instagram.com/yourprofile",
     color: "text-pink-600",
   },
   {
     id: "twitter",
     name: "Twitter",
-    icon: Twitter,
+    icon: TwitterLogo,
     placeholder: "twitter.com/yourhandle",
     color: "text-blue-400",
   },
   {
     id: "linkedin",
     name: "LinkedIn",
-    icon: Linkedin,
+    icon: LinkedinLogo,
     placeholder: "linkedin.com/company/yourcompany",
     color: "text-blue-700",
   },
   {
     id: "tiktok",
     name: "Tiktok",
-    icon: Globe,
+    icon: TiktokLogo,
     placeholder: "tiktok.com/@yourprofile",
     color: "text-black",
   },
   {
     id: "whatsapp",
     name: "WhatsApp",
-    icon: Phone,
+    icon: WhatsappLogo,
     placeholder: "+233 50 123 4567",
     color: "text-green-600",
     type: "phone",
@@ -311,7 +311,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
-          method: "POST", // Changed from POST to PATCH
+          method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

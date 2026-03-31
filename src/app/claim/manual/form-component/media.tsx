@@ -4,7 +4,7 @@
 
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { toast } from "sonner";
-import { ListingFormHandle } from "@/app/dashboard/vendor/my-listing/create/new-listing-content";
+import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
 import { FileUploader } from "@/components/dashboard/listing/media-uploader";
 import { z } from "zod";

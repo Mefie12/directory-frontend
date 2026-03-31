@@ -101,19 +101,8 @@ function VerifyForm() {
 
           // Small delay to ensure auth state updates
           setTimeout(() => {
-            const userRole =
-              localStorage.getItem("userRole")?.toLowerCase() || "";
-            // console.log("🎯 User role after verification:", userRole);
-
-            if (userRole === "admin") {
-              router.replace("/dashboard/admin");
-            } else if (userRole === "listing_agent" || userRole === "agent") {
-              router.replace("/dashboard/listing-agent/my-listing");
-            } else if (userRole === "vendor") {
-              router.replace("/dashboard/vendor");
-            } else {
-              router.replace(redirectPath);
-            }
+            // All roles go to /dashboard — the home page handles role-based rendering
+            router.replace("/dashboard");
             router.refresh();
           }, 500);
           return;

@@ -6,7 +6,7 @@ import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Globe, HelpCircle, MapPin } from "lucide-react";
+import { Globe, Question, MapPin } from "@phosphor-icons/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams } from "next/navigation";
 
@@ -643,7 +643,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                         type="button"
                         className="text-gray-400 hover:text-gray-600 transition-colors"
                       >
-                        <HelpCircle size={14} />
+                        <Question size={14} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[280px] p-3">
@@ -913,24 +913,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   </p>
                 )}
               </div>
-
-              {/* Online URL */}
-              {/* <div className="space-y-1">
-                <label className="font-medium text-sm">
-                  Event Online URL (Optional)
-                </label>
-                <Input
-                  {...register("event_online_url")}
-                  placeholder="www.example.com/live-stream"
-                  type="url"
-                  className="h-10 rounded-lg border-gray-300 px-4 text-gray-800"
-                />
-                {errors.event_online_url && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.event_online_url.message}
-                  </p>
-                )}
-              </div> */}
             </div>
           </div>
         )}

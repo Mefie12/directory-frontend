@@ -94,20 +94,7 @@ export default function Header() {
 
   const getDashboardUrl = () => {
     if (!user) return "/auth/login";
-
-    switch (user.role?.toLowerCase()) {
-      case "vendor":
-        return "/dashboard/vendor";
-      case "admin":
-        return "/dashboard/admin";
-      case "user":
-        return "/dashboard/customer/bookmarks";
-      case "listing_agent":
-      case "agent":
-        return "/dashboard/listing-agent/my-listing";
-      default:
-        return "/dashboard";
-    }
+    return "/dashboard";
   };
 
   // --- API Actions ---
@@ -202,7 +189,7 @@ export default function Header() {
     router.push("/dashboard/notifications");
   };
 
-   const settingsBaseUrl = isVendor ? "/dashboard/vendor/settings" : "/dashboard/customer/settings";
+   const settingsBaseUrl = "/dashboard/settings";
 
   return (
     <div className="flex items-center justify-end px-4 lg:px-10 py-1">

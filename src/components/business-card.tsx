@@ -30,10 +30,10 @@ export function BusinessCard({ business }: BusinessCardProps) {
 
   // Determine the base path for navigation based on current page
   const getBasePath = () => {
-    if (pathname?.includes("/dashboard/customer/bookmarks")) {
-      return "/dashboard/customer/bookmarks";
-    } else if (pathname?.includes("/dashboard/vendor/my-listing")) {
-      return "/dashboard/vendor/my-listing";
+    if (pathname?.includes("/dashboard/bookmarks")) {
+      return "/dashboard/bookmarks";
+    } else if (pathname?.includes("/dashboard/my-listing")) {
+      return "/dashboard/my-listing";
     } else if (pathname?.includes("/discover")) {
       return "/discover";
     } else if (pathname?.includes("/businesses")) {
@@ -42,9 +42,9 @@ export function BusinessCard({ business }: BusinessCardProps) {
       return "/events";
     } else if (pathname?.includes("/communities")) {
       return "/communities";
-    // } else if (pathname?.includes("/")) {
-    //   return "/";
-    // }
+      // } else if (pathname?.includes("/")) {
+      //   return "/";
+      // }
     }
     // Default fallback
     return "/discover";
@@ -106,7 +106,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
               "w-5 h-5 transition-colors",
               isActive
                 ? "fill-blue-500 text-blue-500"
-                : "text-gray-100 hover:text-blue-500"
+                : "text-[#93C01F] hover:text-blue-500",
             )}
           />
         </button>
@@ -141,11 +141,15 @@ export function BusinessCard({ business }: BusinessCardProps) {
               }`}
             />
           ))}
-          <span className="text-sm text-gray-600 ml-1">
-            ({business.reviewCount})
-          </span>
         </div>
-        <div className="flex items-center gap-1 text-sm text-gray-500">
+        <Link
+          href={`${getBusinessLink()}#reviews`}
+          className="text-sm text-gray-600 hover:text-[#275782] hover:underline transition-colors -mt-0.5"
+        >
+          {business.reviewCount}{" "}
+          {Number(business.reviewCount) === 1 ? "Rating" : "Ratings"}
+        </Link>
+        <div className="flex items-center gap-0.5 text-sm text-gray-500 mt-1">
           <Image
             src="/images/icons/location.svg"
             alt="Location"

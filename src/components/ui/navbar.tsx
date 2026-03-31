@@ -64,20 +64,7 @@ export default function Navbar() {
   // Get dashboard URL based on user role
   const getDashboardUrl = () => {
     if (!user) return "/auth/login";
-
-    switch (user.role?.toLowerCase()) {
-      case "vendor":
-        return "/dashboard/vendor";
-      case "admin":
-        return "/dashboard/admin";
-      case "user":
-        return "/dashboard/customer/bookmarks";
-      case "listing_agent":
-      case "agent":
-        return "/dashboard/listing-agent/my-listing";
-      default:
-        return "/dashboard";
-    }
+    return "/dashboard";
   };
 
   // Prevent body scroll when mobile menu is open

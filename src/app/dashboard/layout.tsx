@@ -1,4 +1,4 @@
-// app/dashboard/layout.tsx (updated)
+// app/dashboard/layout.tsx
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { pusherService } from "@/lib/pusher";
 import { ROLE_CHANGED_EVENT } from "@/hooks/useRealtimeRole";
+import { normalizeRole } from "@/lib/roles";
 
 interface LayoutProps {
   children: ReactNode;
@@ -74,31 +75,6 @@ export default function Layout({ children }: LayoutProps) {
   if (!user) {
     return null;
   }
-
-  const normalizeRole = (
-    role: string,
-  ): "vendor" | "customer" | "admin" | "listing_agent" => {
-    const lowercaseRole = role.toLowerCase();
-
-    if (
-      lowercaseRole === "vendor" ||
-      lowercaseRole === "seller" ||
-      lowercaseRole === "business"
-    ) {
-      return "vendor";
-    }
-    if (
-      lowercaseRole === "admin" ||
-      lowercaseRole === "administrator" ||
-      lowercaseRole === "superadmin"
-    ) {
-      return "admin";
-    }
-    if (lowercaseRole === "listing_agent" || lowercaseRole === "agent") {
-      return "listing_agent";
-    }
-    return "customer";
-  };
 
   const userRole = normalizeRole(user.role);
 
