@@ -385,10 +385,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           <h2 className="text-2xl font-semibold">Basic Information</h2>
           <p className="text-sm text-gray-500 mt-1">
             {listingType === "business"
-              ? "Tell us about your business"
+              ? "Tell us about your business. Your business page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
               : listingType === "event"
-                ? "Tell us about your event"
-                : "Tell us about your community"}
+                ? "Tell us about your event. Your event page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."
+                : "Tell us about your community. Your community page will not appear in search results until the information provided has been verified and approved by our moderators. Once it is approved, you’ll receive instructions on how to go live."}
           </p>
         </div>
 
