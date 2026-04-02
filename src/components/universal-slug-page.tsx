@@ -294,17 +294,20 @@ const Divider = () => <div className="w-full h-px bg-gray-200 my-6" />;
 const SocialIcon = ({
   href,
   icon: Icon,
+  brandColor,
 }: {
   href: string;
   icon: React.ElementType;
+  brandColor: string;
 }) => (
   <Link
     href={href}
     target="_blank"
     rel="noreferrer"
     className="text-gray-700 hover:text-gray-900 transition-colors"
+    style={{ color: brandColor }}
   >
-    <Icon className="h-4 w-4" />
+    <Icon className="h-6 w-6" />
   </Link>
 );
 
@@ -1033,7 +1036,7 @@ function SidebarInfo({
             </div>
           )}
 
-          {socialLinks.whatsapp && (
+          {/* {socialLinks.whatsapp && (
             <div className="flex items-center gap-4">
               <h6 className="text-base font-medium text-black min-w-12">
                 WhatsApp
@@ -1051,7 +1054,7 @@ function SidebarInfo({
                   .replace("http://wa.me/", "+")}
               </Link>
             </div>
-          )}
+          )} */}
 
           {provider.socials && Object.values(socialLinks).some((v) => v) && (
             <div className="flex items-center gap-10">
@@ -1060,24 +1063,25 @@ function SidebarInfo({
               </h6>
               <div className="flex items-center gap-3">
                 {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} />
+                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2"/>
                 )}
                 {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} />
+                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" />
                 )}
                 {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={XLogo} />
+                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" />
                 )}
                 {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} />
+                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" />
                 )}
                 {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} />
+                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101"/>
                 )}
                 {socialLinks.whatsapp && (
                   <SocialIcon
                     href={socialLinks.whatsapp}
                     icon={WhatsappLogo}
+                    brandColor="#25D366"
                   />
                 )}
               </div>

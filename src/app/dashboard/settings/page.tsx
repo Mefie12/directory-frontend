@@ -494,7 +494,7 @@ export default function Settings() {
       };
 
       const response = await fetch(`${API_URL}/api/change_password`, {
-        method: "PATCH",
+        method: "PUT",
         headers,
         body: JSON.stringify(body),
       });

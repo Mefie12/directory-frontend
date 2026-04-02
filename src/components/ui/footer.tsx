@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Input } from "./input";
-import { Button } from "./button";
+// import { Input } from "./input";
+// import { Button } from "./button";
 import { TiktokLogoIcon } from "@phosphor-icons/react";
 
 export default function Footer() {
@@ -22,10 +22,21 @@ export default function Footer() {
             />
 
             <p className="text-sm text-gray-100 leading-relaxed">
+              Mefie Directory is a platform designed to make it easier to
+              discover and connect with Ghanaian businesses, events, and
+              experiences — both in Ghana and across the diaspora. <br /> It
+              brings together trusted listings in one place, helping users find
+              what they need quickly, while giving businesses greater visibility
+              within a global audience. Whether you&apos;re looking to explore,
+              support, or connect, the directory is built to make discovering
+              Ghana simple and accessible.
+            </p>
+
+            {/* <p className="text-sm text-gray-100 leading-relaxed">
               Join our newsletter to stay up to date on features and releases.
             </p>
 
-            {/* Newsletter Form */}
+            
             <form className="flex gap-2">
               <Input
                 type="email"
@@ -46,7 +57,7 @@ export default function Footer() {
                 Privacy Policy
               </Link>{" "}
               and provide consent to receive updates from our company.
-            </p>
+            </p> */}
           </div>
 
           {/* Right Section: Three Columns */}
@@ -132,6 +143,8 @@ export default function Footer() {
                 />{" "}
                 <Link
                   href="https://www.instagram.com/mefiedirectory?igsh=NnY2Zm1jeW9waWwz"
+                  target="_blank"
+                  rel="noreferrer"
                   className="hover:text-[#A3D65C]"
                 >
                   Instagram
@@ -168,6 +181,8 @@ export default function Footer() {
                 />{" "}
                 <Link
                   href="http://www.youtube.com/@Mefieno1"
+                  target="_blank"
+                  rel="noreferrer"
                   className="hover:text-[#A3D65C]"
                 >
                   YouTube
@@ -178,6 +193,8 @@ export default function Footer() {
                 <Link
                   href="https://www.tiktok.com/@mefieno1?_r=1&_t=ZN-959ZByDdA2Q
 "
+                  target="_blank"
+                  rel="noreferrer"
                   className="hover:text-[#A3D65C]"
                 >
                   TikTok
