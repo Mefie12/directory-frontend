@@ -134,49 +134,54 @@ export default function About() {
           </h2>
 
           <p className="max-w-lg leading-7 text-sm">
-            Mefie means “my home” and we welcome everyone who wants to feel at
-            home in Ghana. We are a cultural and lifestyle platform that
-            connects people from all backgrounds to the richness of Ghana, its
-            culture, creativity, energy, and spirit. Whether you&apos;re
-            Ghanaian, from the diaspora, or simply curious to explore and
-            celebrate Ghana, Mefie is your home too.
+            Mefie Directory is a platform designed to make it easier to discover
+            and connect with Ghanaian businesses, events, and experiences — both
+            in Ghana and across the diaspora. It brings together trusted
+            listings in one place, helping users find what they need quickly,
+            while giving businesses greater visibility within a global audience.
+            Whether you&apos;re looking to explore, support, or connect, the
+            directory is built to make discovering Ghana simple and accessible.
           </p>
         </div>
       </section>
 
-      {/* Impact Section */}
+      {/* What You Can Do Here Section */}
       <section className="bg-[#F2F5F8] py-20">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left Stats */}
+          {/* Left Content */}
           <div className="md:mx-auto lg:mx-0">
-            <h3 className="text-3xl lg:text-5xl font-semibold mb-8">
-              Our Impact in Numbers
+            <h3 className="text-3xl lg:text-5xl font-semibold mb-10">
+              What You Can Do Here
             </h3>
-            <p className="max-w-md text-lg lg:text-xl leading-7 mb-10">
-              From active listings to community connections, these numbers
-              showcase how Mefie empowers businesses, events, and culture across
-              the globe.
-            </p>
 
             <div className="grid grid-cols-2 gap-8">
               <div>
-                <p className="text-2xl lg:text-3xl font-bold">12,500+</p>
-                <p className="text-sm mt-1">Active Listings</p>
+                <h4 className="text-xl font-bold">Discover</h4>
+                <p className="text-sm mt-1 text-gray-600">
+                  Find Ghanaian businesses, events, and services in one place.
+                </p>
               </div>
 
               <div>
-                <p className="text-2xl lg:text-3xl font-bold">8,000</p>
-                <p className="text-sm mt-1">Verified Businesses</p>
+                <h4 className="text-xl font-bold">Connect</h4>
+                <p className="text-sm mt-1 text-gray-600">
+                  Engage directly with businesses and communities across the
+                  diaspora.
+                </p>
               </div>
 
               <div>
-                <p className="text-3xl font-bold">7,000</p>
-                <p className="text-sm mt-1">Community Members</p>
+                <h4 className="text-xl font-bold">Explore</h4>
+                <p className="text-sm mt-1 text-gray-600">
+                  Experience Ghana through culture, food, events, and more.
+                </p>
               </div>
 
               <div>
-                <p className="text-3xl font-bold">12</p>
-                <p className="text-sm mt-1">Countries Represented</p>
+                <h4 className="text-xl font-bold">Support</h4>
+                <p className="text-sm mt-1 text-gray-600">
+                  Champion Ghanaian-owned businesses locally and globally.
+                </p>
               </div>
             </div>
           </div>
@@ -208,13 +213,12 @@ export default function About() {
         </div>
       </section>
 
-      {/* Values */}
+      {/* Why Mefie Directory */}
       <section className="py-20 bg-[#F2F5F8]">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <h3 className="text-3xl font-semibold mb-2">Our values</h3>
-          <p className="text-xs text-gray-500 mb-12">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-          </p>
+          <h3 className="text-3xl font-semibold mb-12">
+            Why Mefie Directory
+          </h3>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Icons */}
@@ -223,15 +227,14 @@ export default function About() {
                 <span className="text-green-600 text-2xl">
                   <Image
                     src="/images/icons/check.svg"
-                    alt="check"
+                    alt="Focused"
                     width={40}
                     height={40}
                   />
                 </span>
-                <h4 className="font-semibold mt-2">Authenticity</h4>
+                <h4 className="font-semibold mt-2">Focused</h4>
                 <p className="text-base mt-2 text-gray-600">
-                  Promoting genuine Ghanaian culture, experiences, and
-                  businesses.
+                  Built specifically for Ghanaian businesses and communities.
                 </p>
               </div>
 
@@ -239,15 +242,14 @@ export default function About() {
                 <span className="text-green-600 text-2xl">
                   <Image
                     src="/images/icons/people-1.svg"
-                    alt="check"
+                    alt="Accessible"
                     width={40}
                     height={40}
                   />
                 </span>
-                <h4 className="font-semibold mt-2">Community</h4>
+                <h4 className="font-semibold mt-2">Accessible</h4>
                 <p className="text-base mt-2 text-gray-600">
-                  Building connections that unite Ghanaians and friends of Ghana
-                  worldwide.
+                  Designed to make discovery simple and seamless.
                 </p>
               </div>
 
@@ -255,15 +257,14 @@ export default function About() {
                 <span className="text-green-600 text-2xl">
                   <Image
                     src="/images/icons/chart.svg"
-                    alt="check"
+                    alt="Growing"
                     width={40}
                     height={40}
                   />
                 </span>
-                <h4 className="font-semibold mt-2">Empowerment</h4>
+                <h4 className="font-semibold mt-2">Growing</h4>
                 <p className="text-base mt-2 text-gray-600">
-                  Supporting local entrepreneurs and amplifying African-owned
-                  businesses.
+                  Expanding to serve more businesses and communities every day.
                 </p>
               </div>
 
@@ -271,15 +272,14 @@ export default function About() {
                 <span className="text-green-600 text-2xl">
                   <Image
                     src="/images/icons/plane.svg"
-                    alt="check"
+                    alt="Trusted"
                     width={40}
                     height={40}
                   />
                 </span>
-                <h4 className="font-semibold mt-2">Exploration</h4>
+                <h4 className="font-semibold mt-2">Trusted</h4>
                 <p className="text-base mt-2 text-gray-600">
-                  Inspiring people to discover Ghana through food, culture,
-                  events, fashion, and more.
+                  A space where quality and authenticity matter.
                 </p>
               </div>
             </div>
@@ -350,7 +350,9 @@ export default function About() {
             ) : (
               // Empty State
               <div className="col-span-1 md:col-span-2 py-12 flex items-center flex-col text-center border border-dashed rounded-xl  text-gray-500">
-                <span><Newspaper /></span>
+                <span>
+                  <Newspaper />
+                </span>
                 No news articles available at the moment.
               </div>
             )}

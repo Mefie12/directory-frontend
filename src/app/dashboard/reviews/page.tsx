@@ -42,6 +42,21 @@ import { useAuth } from "@/context/auth-context";
 import { normalizeRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // --- Types ---
 
@@ -79,6 +94,12 @@ interface RawReview {
     avatar?: string;
     profile_photo_url?: string;
   };
+  listing?: {
+    id: number | string;
+    name?: string;
+    title?: string;
+    slug?: string;
+  };
 }
 
 interface UserData {
@@ -101,6 +122,7 @@ interface ApiResponse {
 
 export default function ReviewsPage() {
   const { user: authUser, loading: authLoading } = useAuth();
+  const isCustomer = authUser ? normalizeRole(authUser.role) === "customer" : false;
 
   // --- State ---
   const [data, setData] = useState<Review[]>([]);
@@ -116,6 +138,7 @@ export default function ReviewsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const itemsPerPage = 10;
 
@@ -269,6 +292,9 @@ export default function ReviewsPage() {
         //   formattedDate: formatDateString(item.created_at)
         // });
 
+        const listingName =
+          item.listing?.name || item.listing?.title || `Listing #${listingId}`;
+
         return {
           id: item.id.toString(),
           customer: {
@@ -278,7 +304,7 @@ export default function ReviewsPage() {
           },
           listing: {
             id: listingId,
-            name: `Listing #${listingId}`,
+            name: listingName,
           },
           vendor: "Vendor Name",
           review: item.comment || "No content provided",
@@ -339,8 +365,7 @@ export default function ReviewsPage() {
 
         // console.log(`Fetching from: ${API_URL}/api/ratings?${queryParams}`);
 
-        const role = normalizeRole(authUser.role);
-        const endpoint = role === "customer" ? "my_ratings" : "ratings";
+        const endpoint = isCustomer ? "my_ratings" : "ratings";
 
         const response = await fetch(
           `${API_URL}/api/${endpoint}?${queryParams}`,
@@ -404,6 +429,7 @@ export default function ReviewsPage() {
   }, [
     authUser,
     authLoading,
+    isCustomer,
     currentPage,
     search,
     statusFilter,
@@ -570,7 +596,7 @@ export default function ReviewsPage() {
             }`}
           />
         ))}
-        <span className="text-sm text-gray-600 ml-1">({rating})</span>
+        {/* <span className="text-sm text-gray-600 ml-1">({rating})</span> */}
       </div>
     );
   };
@@ -586,116 +612,118 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col xl:flex-row gap-4">
-        <div className="relative flex w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search reviews..."
-            className="pl-9 bg-white"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1); // Reset to page 1 on search
-            }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {/* Status Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="text-gray-600 font-normal min-w-[100px] justify-between"
-              >
-                {statusFilter === "All" ? "Status" : statusFilter}{" "}
-                <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setStatusFilter("All")}>
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("Published")}>
-                Published
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("Flagged")}>
-                Flagged
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {/* Filters - hidden for customers */}
+      {!isCustomer && (
+        <div className="flex flex-col xl:flex-row gap-4">
+          <div className="relative flex w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search reviews..."
+              className="pl-9 bg-white"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {/* Status Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="text-gray-600 font-normal min-w-[100px] justify-between"
+                >
+                  {statusFilter === "All" ? "Status" : statusFilter}{" "}
+                  <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setStatusFilter("All")}>
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("Published")}>
+                  Published
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("Flagged")}>
+                  Flagged
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {/* Rating Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="text-gray-600 font-normal min-w-[100px] justify-between"
-              >
-                {ratingFilter === "All" ? "Rating" : `${ratingFilter} Stars`}{" "}
-                <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setRatingFilter("All")}>
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRatingFilter("5")}>
-                5 Stars
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRatingFilter("4")}>
-                4 Stars
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRatingFilter("3")}>
-                3 Stars
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRatingFilter("2")}>
-                2 Stars
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRatingFilter("1")}>
-                1 Star
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            {/* Rating Filter */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="text-gray-600 font-normal min-w-[100px] justify-between"
+                >
+                  {ratingFilter === "All" ? "Rating" : `${ratingFilter} Stars`}{" "}
+                  <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setRatingFilter("All")}>
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRatingFilter("5")}>
+                  5 Stars
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRatingFilter("4")}>
+                  4 Stars
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRatingFilter("3")}>
+                  3 Stars
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRatingFilter("2")}>
+                  2 Stars
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRatingFilter("1")}>
+                  1 Star
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {/* Date Range Picker (Shadcn) */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "justify-start text-left font-normal min-w-60",
-                  !date && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "LLL dd, y")} -{" "}
-                      {format(date.to, "LLL dd, y")}
-                    </>
+            {/* Date Range Picker (Shadcn) */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "justify-start text-left font-normal min-w-60",
+                    !date && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "LLL dd, y")} -{" "}
+                        {format(date.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(date.from, "LLL dd, y")
+                    )
                   ) : (
-                    format(date.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border overflow-hidden">
@@ -750,8 +778,20 @@ export default function ReviewsPage() {
                     {item.listing.name}
                   </TableCell>
                   <TableCell>{renderStars(item.rating)}</TableCell>
-                  <TableCell className="text-gray-500 truncate max-w-[250px]">
-                    {item.review}
+                  <TableCell className="max-w-[250px]">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-gray-500 truncate cursor-default">
+                          {item.review}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        className="max-w-xs whitespace-normal text-sm"
+                      >
+                        {item.review}
+                      </TooltipContent>
+                    </Tooltip>
                   </TableCell>
                   <TableCell className="text-gray-600">
                     {item.dateSubmitted}
@@ -769,7 +809,7 @@ export default function ReviewsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {item.status !== "Published" && (
+                        {!isCustomer && item.status !== "Published" && (
                           <DropdownMenuItem
                             onClick={() =>
                               handleStatusChange(item.id, "approve")
@@ -780,7 +820,7 @@ export default function ReviewsPage() {
                         )}
                         <DropdownMenuItem
                           className="text-red-600"
-                          onClick={() => handleStatusChange(item.id, "delete")}
+                          onClick={() => setDeleteTarget(item.id)}
                         >
                           Delete Review
                         </DropdownMenuItem>
@@ -841,6 +881,38 @@ export default function ReviewsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Review</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this review? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) {
+                  handleStatusChange(deleteTarget, "delete");
+                  setDeleteTarget(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

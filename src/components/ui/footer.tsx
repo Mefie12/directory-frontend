@@ -109,12 +109,12 @@ export default function Footer() {
             <h4 className="font-semibold text-white text-base mb-4">Support</h4>
             <ul className="space-y-3 text-sm text-gray-100">
               <li>
-                <Link
-                  href="#"
+                <a
+                  href="mailto:support@me-fie.com?subject=Enquiry%20from%20Mefie%20Directory&body=Dear%20Mefie%20Team%2C%0A%0A"
                   className="hover:text-[#93c01f] transition-colors"
                 >
                   Contact Us
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

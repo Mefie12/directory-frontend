@@ -295,19 +295,22 @@ const SocialIcon = ({
   href,
   icon: Icon,
   brandColor,
+  name,
 }: {
   href: string;
   icon: React.ElementType;
   brandColor: string;
+  name: string;
 }) => (
   <Link
     href={href}
     target="_blank"
     rel="noreferrer"
-    className="text-gray-700 hover:text-gray-900 transition-colors"
+    className="flex items-center gap-1.5 text-gray-700 hover:text-gray-900 transition-colors"
     style={{ color: brandColor }}
   >
     <Icon className="h-6 w-6" />
+    <span className="text-sm font-medium">{name}</span>
   </Link>
 );
 
@@ -1063,25 +1066,26 @@ function SidebarInfo({
               </h6>
               <div className="flex items-center gap-3">
                 {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2"/>
+                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
                 )}
                 {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" />
+                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" name="Instagram" />
                 )}
                 {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" />
+                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" name="X" />
                 )}
                 {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" />
+                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" name="YouTube" />
                 )}
                 {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101"/>
+                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101" name="TikTok" />
                 )}
                 {socialLinks.whatsapp && (
                   <SocialIcon
                     href={socialLinks.whatsapp}
                     icon={WhatsappLogo}
                     brandColor="#25D366"
+                    name="WhatsApp"
                   />
                 )}
               </div>
