@@ -1,119 +1,119 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// import { useEffect, useState } from "react";
 import Image from "next/image";
 import TestimonialCarousel from "@/components/about/testimonial-carousel";
-import NewsCard from "@/components/about/news-card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
-import { Newspaper } from "lucide-react";
+// import NewsCard from "@/components/about/news-card";
+// import { Skeleton } from "@/components/ui/skeleton";
+// import { toast } from "sonner";
+// import { Newspaper } from "lucide-react";
 
 // --- Types ---
 
-interface ApiNewsItem {
-  id: number;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  // API might return a single string path or an array of media objects
-  image?: string | { media: string }[] | string[] | null;
-  category: string;
-  created_at: string;
-}
+// interface ApiNewsItem {
+//   id: number;
+//   title: string;
+//   slug: string;
+//   excerpt: string | null;
+//   // API might return a single string path or an array of media objects
+//   image?: string | { media: string }[] | string[] | null;
+//   category: string;
+//   created_at: string;
+// }
 
-interface ApiNewsResponse {
-  data: ApiNewsItem[];
-}
+// interface ApiNewsResponse {
+//   data: ApiNewsItem[];
+// }
 
 // --- Utilities ---
 
 /**
  * Robustly resolves an image URL from various API formats
  */
-const resolveImageUrl = (imageField: ApiNewsItem["image"]): string => {
-  let path = "/images/placeholders/generic-news.jpg"; // Default fallback
+// const resolveImageUrl = (imageField: ApiNewsItem["image"]): string => {
+//   let path = "/images/placeholders/generic-news.jpg"; // Default fallback
 
-  if (!imageField) return path;
+//   if (!imageField) return path;
 
-  // Case 1: Array of objects (e.g. [{ media: '...' }])
-  if (Array.isArray(imageField) && imageField.length > 0) {
-    const firstItem = imageField[0];
-    if (typeof firstItem === "string") {
-      path = firstItem;
-    } else if (typeof firstItem === "object" && "media" in firstItem) {
-      path = firstItem.media;
-    }
-  }
-  // Case 2: Single String
-  else if (typeof imageField === "string") {
-    path = imageField;
-  }
+//   // Case 1: Array of objects (e.g. [{ media: '...' }])
+//   if (Array.isArray(imageField) && imageField.length > 0) {
+//     const firstItem = imageField[0];
+//     if (typeof firstItem === "string") {
+//       path = firstItem;
+//     } else if (typeof firstItem === "object" && "media" in firstItem) {
+//       path = firstItem.media;
+//     }
+//   }
+//   // Case 2: Single String
+//   else if (typeof imageField === "string") {
+//     path = imageField;
+//   }
 
-  // Handle Full URL vs Relative Path
-  if (path.startsWith("http")) return path;
+//   // Handle Full URL vs Relative Path
+//   if (path.startsWith("http")) return path;
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-  return `${API_URL}/${path.replace(/^\//, "")}`;
-};
+//   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+//   return `${API_URL}/${path.replace(/^\//, "")}`;
+// };
 
 /**
  * Maps category names to visual styles
  */
-const getCategoryColor = (category: string) => {
-  const map: Record<string, string> = {
-    Culture: "bg-orange-100 text-orange-700",
-    Business: "bg-blue-100 text-blue-700",
-    Events: "bg-purple-100 text-purple-700",
-    Technology: "bg-indigo-100 text-indigo-700",
-    Tourism: "bg-green-100 text-green-700",
-  };
-  return map[category] || "bg-gray-100 text-gray-700";
-};
+// const getCategoryColor = (category: string) => {
+//   const map: Record<string, string> = {
+//     Culture: "bg-orange-100 text-orange-700",
+//     Business: "bg-blue-100 text-blue-700",
+//     Events: "bg-purple-100 text-purple-700",
+//     Technology: "bg-indigo-100 text-indigo-700",
+//     Tourism: "bg-green-100 text-green-700",
+//   };
+//   return map[category] || "bg-gray-100 text-gray-700";
+// };
 
 /**
  * Formats ISO dates to readable strings
  */
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-};
+// const formatDate = (dateString: string) => {
+//   return new Date(dateString).toLocaleDateString("en-US", {
+//     month: "long",
+//     day: "numeric",
+//     year: "numeric",
+//   });
+// };
 
 export default function About() {
-  const [news, setNews] = useState<ApiNewsItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // const [news, setNews] = useState<ApiNewsItem[]>([]);
+  // const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchNews = async () => {
-      setIsLoading(true);
-      try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  // useEffect(() => {
+  //   const fetchNews = async () => {
+  //     setIsLoading(true);
+  //     try {
+  //       const API_URL =
+  //         process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // Fetch latest news, limit to 2 for this specific layout
-        const response = await fetch(`${API_URL}/api/news?per_page=2`, {
-          headers: { Accept: "application/json" },
-        });
+  //       // Fetch latest news, limit to 2 for this specific layout
+  //       const response = await fetch(`${API_URL}/api/news?per_page=2`, {
+  //         headers: { Accept: "application/json" },
+  //       });
 
-        if (!response.ok) throw new Error("Failed to fetch news");
+  //       if (!response.ok) throw new Error("Failed to fetch news");
 
-        const json: ApiNewsResponse = await response.json();
-        // Handle Laravel pagination wrapper or direct array
-        const data = Array.isArray(json) ? json : json.data || [];
+  //       const json: ApiNewsResponse = await response.json();
+  //       // Handle Laravel pagination wrapper or direct array
+  //       const data = Array.isArray(json) ? json : json.data || [];
 
-        setNews(data);
-      } catch (error) {
-        console.error("Error fetching news:", error);
-        toast.error("Could not load latest news.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  //       setNews(data);
+  //     } catch (error) {
+  //       console.error("Error fetching news:", error);
+  //       toast.error("Could not load latest news.");
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-    fetchNews();
-  }, []);
+  //   fetchNews();
+  // }, []);
 
   return (
     <main className="bg-white text-[#1A1A1A]">
@@ -315,7 +315,7 @@ export default function About() {
       </section>
 
       {/* News Section - API INTEGRATED */}
-      <section className="py-20">
+      {/* <section className="py-20">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h3 className="text-3xl font-semibold mb-2">
             News from Mefie Directory
@@ -358,36 +358,36 @@ export default function About() {
             )}
           </div>
         </div>
-      </section>
+      </section> */}
     </main>
   );
 }
 
 // --- Skeleton Component for the News Card ---
-function NewsCardSkeleton() {
-  return (
-    <div className="flex flex-col h-full">
-      {/* Image Placeholder */}
-      <Skeleton className="rounded-2xl h-[280px] lg:h-80 w-full mb-4" />
+// function NewsCardSkeleton() {
+//   return (
+//     <div className="flex flex-col h-full">
+//       {/* Image Placeholder */}
+//       <Skeleton className="rounded-2xl h-[280px] lg:h-80 w-full mb-4" />
 
-      {/* Category & Date Row */}
-      <div className="flex items-center justify-between mb-3">
-        <Skeleton className="h-6 w-20 rounded-full" />
-        <Skeleton className="h-4 w-24" />
-      </div>
+//       {/* Category & Date Row */}
+//       <div className="flex items-center justify-between mb-3">
+//         <Skeleton className="h-6 w-20 rounded-full" />
+//         <Skeleton className="h-4 w-24" />
+//       </div>
 
-      {/* Title */}
-      <Skeleton className="h-8 w-3/4 mb-3" />
+//       {/* Title */}
+//       <Skeleton className="h-8 w-3/4 mb-3" />
 
-      {/* Description Lines */}
-      <div className="space-y-2 mb-4">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-4 w-4/6" />
-      </div>
+//       {/* Description Lines */}
+//       <div className="space-y-2 mb-4">
+//         <Skeleton className="h-4 w-full" />
+//         <Skeleton className="h-4 w-5/6" />
+//         <Skeleton className="h-4 w-4/6" />
+//       </div>
 
-      {/* Read More Button */}
-      <Skeleton className="h-5 w-24 mt-auto" />
-    </div>
-  );
-}
+//       {/* Read More Button */}
+//       <Skeleton className="h-5 w-24 mt-auto" />
+//     </div>
+//   );
+// }
