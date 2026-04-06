@@ -39,6 +39,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAuth } from "@/context/auth-context";
+import { normalizeRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -155,7 +156,7 @@ export default function ReviewsPage() {
           : "Unknown User")
       );
     },
-    []
+    [],
   );
 
   // --- Helper: Extract User Avatar ---
@@ -165,7 +166,7 @@ export default function ReviewsPage() {
       const rawUser = userData.data || userData.user || userData;
       return rawUser.avatar || rawUser.profile_photo_url || "";
     },
-    []
+    [],
   );
 
   // --- Helper: Format Date String ---
@@ -206,13 +207,13 @@ export default function ReviewsPage() {
           // console.warn(`Could not parse created_at date: ${dateString}`);
           return "Invalid Date";
         }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         // console.error(`Error formatting created_at date ${dateString}:`, error);
         return "Error";
       }
     },
-    []
+    [],
   );
 
   // --- Helper: Data Mapping ---
@@ -246,6 +247,10 @@ export default function ReviewsPage() {
         if (item.user) {
           userName = extractUserName(item.user);
           userAvatar = extractUserAvatar(item.user);
+        } else if (authUser) {
+          // Fallback to the authenticated user (e.g. for /api/my_ratings)
+          userName = `${authUser.first_name || ""} ${authUser.last_name || ""}`.trim() || authUser.name || "Unknown User";
+          userAvatar = authUser.avatar || authUser.profile_photo_url || authUser.image || "";
         }
 
         let status: "Published" | "Flagged" | "Pending" = "Published";
@@ -289,7 +294,7 @@ export default function ReviewsPage() {
       // })));
       return reviews;
     },
-    [extractUserName, extractUserAvatar, formatDateString]
+    [extractUserName, extractUserAvatar, formatDateString, authUser],
   );
 
   // --- API Fetch ---
@@ -334,13 +339,19 @@ export default function ReviewsPage() {
 
         // console.log(`Fetching from: ${API_URL}/api/ratings?${queryParams}`);
 
-        const response = await fetch(`${API_URL}/api/ratings?${queryParams}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
+        const role = normalizeRole(authUser.role);
+        const endpoint = role === "customer" ? "my_ratings" : "ratings";
+
+        const response = await fetch(
+          `${API_URL}/api/${endpoint}?${queryParams}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
           },
-        });
+        );
 
         if (!response.ok) {
           throw new Error(`Failed to fetch reviews: ${response.statusText}`);
@@ -375,7 +386,7 @@ export default function ReviewsPage() {
         const pageData = json as ApiResponse;
         const total = pageData.last_page || pageData.totalPages || 1;
         setTotalPages(total);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         // console.error("Fetch error:", err);
         setError("Failed to load data");
@@ -412,7 +423,7 @@ export default function ReviewsPage() {
 
     if (ratingFilter !== "All") {
       filtered = filtered.filter(
-        (item) => item.rating === parseInt(ratingFilter)
+        (item) => item.rating === parseInt(ratingFilter),
       );
     }
 
@@ -422,7 +433,7 @@ export default function ReviewsPage() {
         (item) =>
           item.customer.name.toLowerCase().includes(lowerSearch) ||
           item.review.toLowerCase().includes(lowerSearch) ||
-          item.listing.name.toLowerCase().includes(lowerSearch)
+          item.listing.name.toLowerCase().includes(lowerSearch),
       );
     }
 
@@ -430,44 +441,50 @@ export default function ReviewsPage() {
   }, [data, statusFilter, ratingFilter, search]);
 
   // --- Handlers ---
-  const handleStatusChange = useCallback(async (reviewId: string, action: "approve" | "delete") => {
-    try {
-      const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const endpoint = `${API_URL}/api/ratings/${reviewId}`;
+  const handleStatusChange = useCallback(
+    async (reviewId: string, action: "approve" | "delete") => {
+      try {
+        const token = getAuthToken();
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        const endpoint = `${API_URL}/api/ratings/${reviewId}`;
 
-      if (action === "delete") {
-        const response = await fetch(endpoint, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
-        if (!response.ok) throw new Error("Failed to delete review");
-        setData((prev) => prev.filter((r) => r.id !== reviewId));
-        toast.success("Review deleted successfully");
-      } else {
-        const response = await fetch(endpoint, {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ status: "Published" }),
-        });
-        if (!response.ok) throw new Error("Failed to approve review");
-        setData((prev) =>
-          prev.map((r) => (r.id === reviewId ? { ...r, status: "Published" } : r))
-        );
-        toast.success("Review approved successfully");
+        if (action === "delete") {
+          const response = await fetch(endpoint, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          });
+          if (!response.ok) throw new Error("Failed to delete review");
+          setData((prev) => prev.filter((r) => r.id !== reviewId));
+          toast.success("Review deleted successfully");
+        } else {
+          const response = await fetch(endpoint, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ status: "Published" }),
+          });
+          if (!response.ok) throw new Error("Failed to approve review");
+          setData((prev) =>
+            prev.map((r) =>
+              r.id === reviewId ? { ...r, status: "Published" } : r,
+            ),
+          );
+          toast.success("Review approved successfully");
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error(`Failed to ${action} review`);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error(`Failed to ${action} review`);
-    }
-  }, [getAuthToken]);
+    },
+    [getAuthToken],
+  );
 
   const handlePageChange = (page: number) => setCurrentPage(page);
 
@@ -496,7 +513,7 @@ export default function ReviewsPage() {
           currentPage - 1,
           currentPage,
           currentPage + 1,
-          currentPage + 2
+          currentPage + 2,
         );
       }
     }
@@ -648,7 +665,7 @@ export default function ReviewsPage() {
                 variant={"outline"}
                 className={cn(
                   "justify-start text-left font-normal min-w-60",
-                  !date && "text-muted-foreground"
+                  !date && "text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -715,10 +732,7 @@ export default function ReviewsPage() {
               </TableRow>
             ) : (
               displayData.map((item) => (
-                <TableRow
-                  key={item.id}
-                  className="hover:bg-gray-50"
-                >
+                <TableRow key={item.id} className="hover:bg-gray-50">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="w-8 h-8">
@@ -757,7 +771,9 @@ export default function ReviewsPage() {
                       <DropdownMenuContent align="end">
                         {item.status !== "Published" && (
                           <DropdownMenuItem
-                            onClick={() => handleStatusChange(item.id, "approve")}
+                            onClick={() =>
+                              handleStatusChange(item.id, "approve")
+                            }
                           >
                             Approve
                           </DropdownMenuItem>

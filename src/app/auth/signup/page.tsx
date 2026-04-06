@@ -193,8 +193,8 @@ function SignupForm() {
       if (newToken) {
         await login(newToken);
         
-        // Redirect to the original page user was trying to access, or dashboard
-        router.push(redirectPath !== "/" ? redirectPath : "/dashboard");
+        // Redirect to the original page user was trying to access, or dashboard bookmarks for customers
+        router.push(redirectPath !== "/" ? redirectPath : "/dashboard/bookmarks");
         router.refresh();
         return;
       }

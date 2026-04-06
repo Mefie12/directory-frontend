@@ -25,6 +25,7 @@ import {
 import Image from "next/image";
 import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
+import { normalizeRole } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -802,53 +803,52 @@ export default function Settings() {
             </div>
 
             <div className="space-y-5 mt-4 py-4">
-              {/* <h3 className="text-xl font-semibold text-gray-900">
-                Progress & Rewards
-              </h3> */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
-                  <div className="space-y-2 max-w-sm">
-                    <h4 className="text-lg font-semibold text-gray-900">
-                      Grow your business with Mefie
-                    </h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Showcase your products, connect with customers, and expand
-                      your business in a thriving digital marketplace.
-                    </p>
+              {normalizeRole(user?.role ?? "") !== "customer" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
+                    <div className="space-y-2 max-w-sm">
+                      <h4 className="text-lg font-semibold text-gray-900">
+                        Grow your business with Mefie
+                      </h4>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        Showcase your products, connect with customers, and expand
+                        your business in a thriving digital marketplace.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleClickEvent}
+                      disabled={isJoiningVendor}
+                      className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer flex items-center gap-2"
+                    >
+                      {isJoiningVendor && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {isJoiningVendor ? "Joining..." : "Join as a vendor"}
+                    </button>
                   </div>
-                  <button
-                    onClick={handleClickEvent}
-                    disabled={isJoiningVendor}
-                    className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer flex items-center gap-2"
-                  >
-                    {isJoiningVendor && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    {isJoiningVendor ? "Joining..." : "Join as a vendor"}
-                  </button>
-                </div>
 
-                <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
-                  <div className="relative z-10 space-y-2 max-w-sm">
-                    <h4 className="text-lg font-semibold text-white">
-                      Invite a friend and help them discover Mefie and both of
-                      you get a reward.
-                    </h4>
+                  <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
+                    <div className="relative z-10 space-y-2 max-w-sm">
+                      <h4 className="text-lg font-semibold text-white">
+                        Invite a friend and help them discover Mefie and both of
+                        you get a reward.
+                      </h4>
+                    </div>
+                    <div className="absolute right-0 bottom-0 opacity-20 md:opacity-100">
+                      <Image
+                        src="/images/backgroundImages/present.svg"
+                        alt="Gift Box"
+                        width={220}
+                        height={220}
+                        className="object-contain"
+                      />
+                    </div>
+                    <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
+                      Invite a friend
+                    </button>
                   </div>
-                  <div className="absolute right-0 bottom-0 opacity-20 md:opacity-100">
-                    <Image
-                      src="/images/backgroundImages/present.svg"
-                      alt="Gift Box"
-                      width={220}
-                      height={220}
-                      className="object-contain"
-                    />
-                  </div>
-                  <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
-                    Invite a friend
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             <Card className="rounded-2xl mt-6">
@@ -858,7 +858,7 @@ export default function Settings() {
                     Delete Account
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    Make sure your changes are saved before leaving.
+                    Permanently remove your account and all associated data. This action cannot be undone.
                   </p>
                 </div>
                 <Dialog

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { BookmarkProvider } from "@/context/bookmark-context";
 import { CookieConsent } from "@/components/ui/cookie-consent";
+import { WhatsAppFloater } from "@/components/whatsapp-floater";
 
 const gilroy = localFont({
   src: [
@@ -105,6 +106,7 @@ export default function RootLayout({
           <BookmarkProvider>
             <LayoutWrapper>{children}</LayoutWrapper>
             <CookieConsent />
+            <WhatsAppFloater />
             <Toaster
               closeButton
               visibleToasts={9}

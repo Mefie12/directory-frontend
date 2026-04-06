@@ -88,7 +88,10 @@ function ReviewItem({
         },
       );
 
-      if (!response.ok) throw new Error("Failed to submit reply");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to submit reply");
+      }
 
       onReply(review.id!, replyText);
       toast.success("Reply posted successfully!");
@@ -278,7 +281,10 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
         body: JSON.stringify({ rating, comment: text }),
       });
 
-      if (!response.ok) throw new Error("Failed to submit review");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to submit review");
+      }
 
       const data = await response.json();
 
@@ -294,12 +300,12 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
       };
       setReviewsList((prev) => [newReview, ...prev]);
 
-      toast.success("Review submitted for moderation!");
+      toast.success("Review submitted");
       setOpen(false);
       setRating(0);
       setText("");
-    } catch {
-      toast.error("Something went wrong");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
     } finally {
       setIsSubmitting(false);
     }
