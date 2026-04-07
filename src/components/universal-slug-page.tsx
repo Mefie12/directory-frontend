@@ -1060,11 +1060,11 @@ function SidebarInfo({
           )} */}
 
           {provider.socials && Object.values(socialLinks).some((v) => v) && (
-            <div className="flex items-center gap-10">
-              <h6 className="text-base font-medium text-black min-w-12">
+            <div className="flex flex-col gap-3">
+              <h6 className="text-base font-medium text-black">
                 Socials
               </h6>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-3">
                 {socialLinks.facebook && (
                   <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
                 )}
