@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Eye,
   EyeOff,
-  Info,
+  // Info,
   Trash,
   Loader2,
   CheckCircle,
@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import Image from "next/image";
-import PreferenceField from "@/components/dashboard/settings/preference-field";
+// import PreferenceField from "@/components/dashboard/settings/preference-field";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole } from "@/lib/roles";
 import { useRouter } from "next/navigation";
@@ -209,112 +209,112 @@ const ToggleSwitch = ({
   );
 };
 
-function detectCardType(number: string) {
-  const cleaned = number.replace(/\D/g, "");
-  if (/^4/.test(cleaned)) return "visa";
-  if (/^3[47]/.test(cleaned)) return "amex";
-  if (/^5[1-5]/.test(cleaned)) return "mastercard";
-  if (/^6/.test(cleaned)) return "discover";
-  return null;
-}
+// function detectCardType(number: string) {
+//   const cleaned = number.replace(/\D/g, "");
+//   if (/^4/.test(cleaned)) return "visa";
+//   if (/^3[47]/.test(cleaned)) return "amex";
+//   if (/^5[1-5]/.test(cleaned)) return "mastercard";
+//   if (/^6/.test(cleaned)) return "discover";
+//   return null;
+// }
 
-function AddPaymentMethodDialog() {
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
+// function AddPaymentMethodDialog() {
+//   const [cardNumber, setCardNumber] = useState("");
+//   const [cardName, setCardName] = useState("");
+//   const [expiry, setExpiry] = useState("");
+//   const [cvc, setCvc] = useState("");
 
-  const cardType = detectCardType(cardNumber);
+//   const cardType = detectCardType(cardNumber);
 
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button className="px-6 py-2.5 rounded-lg bg-lime-500 hover:bg-lime-600 text-white font-medium">
-          Add payment method
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold text-gray-900">
-            Add Payment Method
-          </DialogTitle>
-        </DialogHeader>
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-900 mb-1.5">
-            Card number
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="1234 1234 1234 1234"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              {cardType && (
-                <Image
-                  src={`/images/${cardType}.svg`}
-                  alt={cardType}
-                  width={40}
-                  height={40}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1.5">
-            Card name
-          </label>
-          <input
-            type="text"
-            placeholder="Card holder’s name"
-            value={cardName}
-            onChange={(e) => setCardName(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
-              Expiry date
-            </label>
-            <input
-              type="text"
-              placeholder="Expiry date"
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1.5">
-              CVC/CVV
-            </label>
-            <input
-              type="text"
-              placeholder="Enter CVC/CVV"
-              value={cvc}
-              onChange={(e) => setCvc(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 mt-4">
-          <DialogClose asChild>
-            <button className="px-6 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
-              Cancel
-            </button>
-          </DialogClose>
-          <button className="px-6 py-2.5 rounded-lg bg-lime-600 text-white hover:bg-lime-700">
-            Save
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+//   return (
+//     <Dialog>
+//       <DialogTrigger asChild>
+//         <button className="px-6 py-2.5 rounded-lg bg-lime-500 hover:bg-lime-600 text-white font-medium">
+//           Add payment method
+//         </button>
+//       </DialogTrigger>
+//       <DialogContent className="max-w-lg rounded-2xl">
+//         <DialogHeader>
+//           <DialogTitle className="text-2xl font-semibold text-gray-900">
+//             Add Payment Method
+//           </DialogTitle>
+//         </DialogHeader>
+//         <div className="mt-6">
+//           <label className="block text-sm font-medium text-gray-900 mb-1.5">
+//             Card number
+//           </label>
+//           <div className="relative">
+//             <input
+//               type="text"
+//               placeholder="1234 1234 1234 1234"
+//               value={cardNumber}
+//               onChange={(e) => setCardNumber(e.target.value)}
+//               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
+//             />
+//             <div className="absolute right-3 top-1/2 -translate-y-1/2">
+//               {cardType && (
+//                 <Image
+//                   src={`/images/${cardType}.svg`}
+//                   alt={cardType}
+//                   width={40}
+//                   height={40}
+//                 />
+//               )}
+//             </div>
+//           </div>
+//         </div>
+//         <div>
+//           <label className="block text-sm font-medium text-gray-900 mb-1.5">
+//             Card name
+//           </label>
+//           <input
+//             type="text"
+//             placeholder="Card holder’s name"
+//             value={cardName}
+//             onChange={(e) => setCardName(e.target.value)}
+//             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
+//           />
+//         </div>
+//         <div className="grid grid-cols-2 gap-4">
+//           <div>
+//             <label className="block text-sm font-medium text-gray-900 mb-1.5">
+//               Expiry date
+//             </label>
+//             <input
+//               type="text"
+//               placeholder="Expiry date"
+//               value={expiry}
+//               onChange={(e) => setExpiry(e.target.value)}
+//               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
+//             />
+//           </div>
+//           <div>
+//             <label className="block text-sm font-medium text-gray-900 mb-1.5">
+//               CVC/CVV
+//             </label>
+//             <input
+//               type="text"
+//               placeholder="Enter CVC/CVV"
+//               value={cvc}
+//               onChange={(e) => setCvc(e.target.value)}
+//               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500"
+//             />
+//           </div>
+//         </div>
+//         <div className="flex justify-end gap-3 mt-4">
+//           <DialogClose asChild>
+//             <button className="px-6 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200">
+//               Cancel
+//             </button>
+//           </DialogClose>
+//           <button className="px-6 py-2.5 rounded-lg bg-lime-600 text-white hover:bg-lime-700">
+//             Save
+//           </button>
+//         </div>
+//       </DialogContent>
+//     </Dialog>
+//   );
+// }
 
 // --- Success Dialog Component ---
 const SuccessDialog = ({
@@ -637,7 +637,7 @@ export default function Settings() {
           >
             Account
           </TabLink>
-          <TabLink
+          {/* <TabLink
             href="?tab=notifications"
             active={activeTab === "notifications"}
             onClick={() => setActiveTab("notifications")}
@@ -657,7 +657,7 @@ export default function Settings() {
             onClick={() => setActiveTab("preferences")}
           >
             Preferences
-          </TabLink>
+          </TabLink> */}
         </TabNav>
 
         {activeTab === "account" && (
@@ -924,7 +924,7 @@ export default function Settings() {
         )}
 
         {/* ... Rest of your tabs (Notifications, Billing, Preferences) remain unchanged ... */}
-        {activeTab === "notifications" && (
+        {/* {activeTab === "notifications" && (
           <div className="mt-8">
             <Card className="rounded-2xl">
               <CardHeader>
@@ -959,7 +959,7 @@ export default function Settings() {
                     />
                   </div>
 
-                  {/* New Review Alert */}
+                  {/* New Review Alert 
                   <div className="flex items-start justify-between py-6 border border-gray-200 rounded-lg px-3">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900">
@@ -981,7 +981,7 @@ export default function Settings() {
                     />
                   </div>
 
-                  {/* Listing Approval Update */}
+                  {/* Listing Approval Update 
                   <div className="flex items-start justify-between py-6 border border-gray-200 rounded-lg px-3">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900">
@@ -1003,7 +1003,7 @@ export default function Settings() {
                     />
                   </div>
 
-                  {/* Plan & Billing Reminder */}
+                  {/* Plan & Billing Reminder 
                   <div className="flex items-start justify-between py-6 border border-gray-200 rounded-lg px-3">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900">
@@ -1030,13 +1030,13 @@ export default function Settings() {
               </CardContent>
             </Card>
           </div>
-        )}
+        )} */}
 
         {/* Billing Tab */}
-        {activeTab === "billing" && (
+        {/* {activeTab === "billing" && (
           <div className="mt-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Current Plan Card */}
+              {/* Current Plan Card 
               <Card className="rounded-2xl">
                 <CardHeader>
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -1065,7 +1065,7 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-              {/* Payment Methods Card */}
+              {/* Payment Methods Card 
               <Card className="rounded-2xl">
                 <CardHeader>
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -1081,7 +1081,7 @@ export default function Settings() {
               </Card>
             </div>
 
-            {/* Billing History Card */}
+            {/* Billing History Card 
             <Card className="rounded-2xl mt-6">
               <CardHeader>
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -1105,7 +1105,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Preferences Tab (placeholder) */}
+        {/* Preferences Tab (placeholder) 
         {activeTab === "preferences" && (
           <div className="mt-8">
             <Card className="rounded-2xl">
@@ -1122,7 +1122,7 @@ export default function Settings() {
               </CardContent>
             </Card>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

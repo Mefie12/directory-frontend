@@ -2,7 +2,9 @@
 
 // import { useEffect, useState } from "react";
 import Image from "next/image";
-import TestimonialCarousel from "@/components/about/testimonial-carousel";
+import Link from "next/link";
+// import TestimonialCarousel from "@/components/about/testimonial-carousel";
+import { WhatsappLogo, XLogo, EnvelopeSimple } from "@phosphor-icons/react";
 // import NewsCard from "@/components/about/news-card";
 // import { Skeleton } from "@/components/ui/skeleton";
 // import { toast } from "sonner";
@@ -200,7 +202,7 @@ export default function About() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20">
+      {/* <section className="py-20">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h3 className="text-3xl lg:text-5xl font-semibold mb-3">
             Loved by our customers
@@ -211,14 +213,52 @@ export default function About() {
 
           <TestimonialCarousel />
         </div>
+      </section> */}
+
+      {/* Tell a Friend */}
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <h3 className="text-3xl lg:text-5xl font-semibold mb-4">
+            Tell a Friend About Mefie
+          </h3>
+          <p className="text-base lg:text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
+            Know someone who could benefit from Mefie Directory? Share it with
+            them and help grow the community.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="https://wa.me/?text=Check%20out%20Mefie%20Directory%20%E2%80%93%20a%20platform%20to%20discover%20Ghanaian%20businesses%2C%20events%2C%20and%20more!%20https%3A%2F%2Fme-fie.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-white font-medium hover:bg-[#1ebe57] transition-colors"
+            >
+              <WhatsappLogo size={20} weight="fill" />
+              Share on WhatsApp
+            </Link>
+            <Link
+              href="https://twitter.com/intent/tweet?text=Check%20out%20Mefie%20Directory%20%E2%80%93%20a%20platform%20to%20discover%20Ghanaian%20businesses%2C%20events%2C%20and%20more!&url=https%3A%2F%2Fme-fie.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition-colors"
+            >
+              <XLogo size={20} weight="bold" />
+              Share on X
+            </Link>
+            <Link
+              href="mailto:?subject=Check%20out%20Mefie%20Directory&body=Hey%2C%20I%20thought%20you%E2%80%99d%20like%20Mefie%20Directory%20%E2%80%93%20a%20platform%20to%20discover%20Ghanaian%20businesses%2C%20events%2C%20and%20more!%20https%3A%2F%2Fme-fie.com"
+              className="inline-flex items-center gap-2 rounded-full bg-[#93C01F] px-6 py-3 text-white font-medium hover:bg-[#7da61a] transition-colors"
+            >
+              <EnvelopeSimple size={20} weight="fill" />
+              Share via Email
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* Why Mefie Directory */}
       <section className="py-20 bg-[#F2F5F8]">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <h3 className="text-3xl font-semibold mb-12">
-            Why Mefie Directory
-          </h3>
+          <h3 className="text-3xl font-semibold mb-12">Why Mefie Directory</h3>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Icons */}
