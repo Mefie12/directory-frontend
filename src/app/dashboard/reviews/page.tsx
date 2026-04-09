@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -123,6 +123,7 @@ interface ApiResponse {
 export default function ReviewsPage() {
   const { user: authUser, loading: authLoading } = useAuth();
   const isCustomer = authUser ? normalizeRole(authUser.role) === "customer" : false;
+  const isVendor = authUser ? normalizeRole(authUser.role) === "vendor" : false
 
   // --- State ---
   const [data, setData] = useState<Review[]>([]);
@@ -426,18 +427,7 @@ export default function ReviewsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [
-    authUser,
-    authLoading,
-    isCustomer,
-    currentPage,
-    search,
-    statusFilter,
-    ratingFilter,
-    date,
-    getAuthToken,
-    extractReviewsFromResponse,
-  ]);
+  }, [authUser, authLoading, isCustomer, currentPage, search, statusFilter, ratingFilter, date, getAuthToken, extractReviewsFromResponse, isVendor]);
 
   // --- Client-Side Safety Filter ---
   useEffect(() => {
@@ -574,14 +564,14 @@ export default function ReviewsPage() {
     );
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  };
+  // const getInitials = (name: string) => {
+  //   return name
+  //     .split(" ")
+  //     .map((n) => n[0])
+  //     .slice(0, 2)
+  //     .join("")
+  //     .toUpperCase();
+  // };
 
   const renderStars = (rating: number) => {
     return (
@@ -730,7 +720,7 @@ export default function ReviewsPage() {
         <Table>
           <TableHeader className="bg-gray-200">
             <TableRow>
-              <TableHead className="w-[200px]">Customer</TableHead>
+              {/* <TableHead className="w-[200px]">Customer</TableHead> */}
               <TableHead>Listing Name</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead className="w-[300px]">Review</TableHead>
@@ -761,7 +751,7 @@ export default function ReviewsPage() {
             ) : (
               displayData.map((item) => (
                 <TableRow key={item.id} className="hover:bg-gray-50">
-                  <TableCell>
+                  {/* <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="w-8 h-8">
                         <AvatarImage src={item.customer.avatar} />
@@ -773,7 +763,7 @@ export default function ReviewsPage() {
                         {item.customer.name}
                       </span>
                     </div>
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="text-gray-600">
                     {item.listing.name}
                   </TableCell>
@@ -809,7 +799,7 @@ export default function ReviewsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {!isCustomer && item.status !== "Published" && (
+                        {!isCustomer && !isVendor && item.status !== "Published" && (
                           <DropdownMenuItem
                             onClick={() =>
                               handleStatusChange(item.id, "approve")

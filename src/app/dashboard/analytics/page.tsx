@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bookmark,
@@ -9,11 +10,122 @@ import {
   Mail,
   Bell,
   Upload,
+  Loader2,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/stat-cards";
 import { Chart } from "@/components/dashboard/bar-chart";
+import { useAuth } from "@/context/auth-context";
+
+interface ApiListing {
+  slug: string;
+  rating: number;
+  ratings_count: number;
+  views_count: number;
+  bookmarks_count: number;
+}
 
 export default function Analytics() {
+  const { user, loading: authLoading } = useAuth();
+
+  const [totalViews, setTotalViews] = useState<number | null>(null);
+  const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [totalBookmarks, setTotalBookmarks] = useState<number | null>(null);
+  const [viewsChartData, setViewsChartData] = useState<Record<string, string | number>[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+
+      // 1. Fetch listings to get aggregate stats
+      const listingsRes = await fetch(`${API_URL}/api/listing/my_listings`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      if (!listingsRes.ok) return;
+      const listingsJson = await listingsRes.json();
+      const listings: ApiListing[] = listingsJson.data || [];
+
+      // Compute aggregate stats
+      const views = listings.reduce((sum, l) => sum + (l.views_count || 0), 0);
+      const bookmarks = listings.reduce((sum, l) => sum + (l.bookmarks_count || 0), 0);
+      const rated = listings.filter((l) => l.rating > 0);
+      const avg =
+        rated.length > 0
+          ? Math.round(
+              (rated.reduce((sum, l) => sum + Number(l.rating), 0) / rated.length) * 10,
+            ) / 10
+          : 0;
+
+      setTotalViews(views);
+      setTotalBookmarks(bookmarks);
+      setAvgRating(avg);
+
+      // 2. Fetch detailed views per listing for charts
+      const viewsPromises = listings.map((listing) =>
+        fetch(`${API_URL}/api/listing/${listing.slug}/views`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null),
+      );
+
+      const results = await Promise.all(viewsPromises);
+
+      const monthlyMap: Record<string, { views: number; clicks: number }> = {};
+      results.forEach((result) => {
+        if (!result) return;
+        const viewData = Array.isArray(result) ? result : result.data;
+        if (!Array.isArray(viewData)) return;
+
+        viewData.forEach((entry: { month?: string; date?: string; views?: number; clicks?: number }) => {
+          const key = entry.month || entry.date || "Unknown";
+          if (!monthlyMap[key]) monthlyMap[key] = { views: 0, clicks: 0 };
+          monthlyMap[key].views += entry.views || 0;
+          monthlyMap[key].clicks += entry.clicks || 0;
+        });
+      });
+
+      const chartData = Object.entries(monthlyMap).map(([month, vals]) => ({
+        month,
+        views: vals.views,
+        clicks: vals.clicks,
+      }));
+
+      if (chartData.length > 0) {
+        setViewsChartData(chartData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user) fetchAnalytics();
+  }, [user, authLoading, fetchAnalytics]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#93C01F]" />
+      </div>
+    );
+  }
+
   return (
     <div className="px-1 lg:px-8 py-3 space-y-6">
       {/* Header Intro */}
@@ -36,10 +148,10 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
         {/* Stat cards */}
         <StatCard
-          title="Views (This month)"
+          title="Total Views"
           icon={Eye}
-          statValue={null} // backend value
-          trend={-8} // negative = red TrendingDown
+          statValue={totalViews}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -48,7 +160,7 @@ export default function Analytics() {
           title="Inquiries (This month)"
           icon={Mail}
           statValue={null}
-          trend={18} // positive = green TrendingUp
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -56,8 +168,8 @@ export default function Analytics() {
         <StatCard
           title="Average Rating"
           icon={Bell}
-          statValue={null}
-          trend={5} // positive = green
+          statValue={avgRating}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -65,8 +177,8 @@ export default function Analytics() {
         <StatCard
           title="Bookmarks"
           icon={Bookmark}
-          statValue={null}
-          trend={5} // positive = green
+          statValue={totalBookmarks}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -81,7 +193,7 @@ export default function Analytics() {
             </h2>
             <Chart
               type="line"
-              data={null}
+              data={viewsChartData}
               xAxisKey="month"
               stacked
               dataKeys={[
@@ -100,7 +212,7 @@ export default function Analytics() {
             </h2>
             <Chart
               type="bar"
-              data={null}
+              data={viewsChartData}
               xAxisKey="month"
               stacked
               dataKeys={[

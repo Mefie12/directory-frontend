@@ -132,7 +132,7 @@ function LoginForm() {
             // 3. Role-based Redirect Logic
             if (userRole === "customer" || userRole === "user") {
               // Customers/Standard Users go to Bookmarks
-              router.push("/dashboard/bookmarks");
+              router.push("/discover");
             } else {
               // Vendors, Admins, etc., go to the standard Dashboard
               router.push("/dashboard");

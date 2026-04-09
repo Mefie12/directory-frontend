@@ -142,6 +142,12 @@ export default function VendorHome() {
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- Aggregate Stats ---
+  const [totalViews, setTotalViews] = useState<number | null>(null);
+  const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [totalBookmarks, setTotalBookmarks] = useState<number | null>(null);
+  const [viewsChartData, setViewsChartData] = useState<Record<string, string | number>[] | null>(null);
+
   // --- Action States ---
   const [viewListing, setViewListing] = useState<ListingsTableItem | null>(
     null,
@@ -257,6 +263,26 @@ export default function VendorHome() {
       );
 
       setListings(transformedListings);
+
+      // --- Compute aggregate stats ---
+      const views = transformedListings.reduce((sum, l) => sum + l.views, 0);
+      const bookmarks = transformedListings.reduce((sum, l) => sum + l.bookmarks, 0);
+      const ratedListings = transformedListings.filter((l) => l.rating > 0);
+      const avg =
+        ratedListings.length > 0
+          ? Math.round(
+              (ratedListings.reduce((sum, l) => sum + l.rating, 0) /
+                ratedListings.length) *
+                10,
+            ) / 10
+          : 0;
+
+      setTotalViews(views);
+      setTotalBookmarks(bookmarks);
+      setAvgRating(avg);
+
+      // --- Fetch detailed views per listing for chart ---
+      fetchListingViews(data.data, token!);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load listings");
@@ -264,6 +290,53 @@ export default function VendorHome() {
       setLoading(false);
     }
   }, []);
+
+  const fetchListingViews = async (apiListings: ApiListing[], token: string) => {
+    try {
+      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const viewsPromises = apiListings.map((listing) =>
+        fetch(`${API_URL}/api/listing/${listing.slug}/views`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null),
+      );
+
+      const results = await Promise.all(viewsPromises);
+
+      // Aggregate view data by month across all listings
+      const monthlyMap: Record<string, { views: number; clicks: number }> = {};
+
+      results.forEach((result) => {
+        if (!result) return;
+        const viewData = Array.isArray(result) ? result : result.data;
+        if (!Array.isArray(viewData)) return;
+
+        viewData.forEach((entry: { month?: string; date?: string; views?: number; clicks?: number }) => {
+          const key = entry.month || entry.date || "Unknown";
+          if (!monthlyMap[key]) monthlyMap[key] = { views: 0, clicks: 0 };
+          monthlyMap[key].views += entry.views || 0;
+          monthlyMap[key].clicks += entry.clicks || 0;
+        });
+      });
+
+      const chartData = Object.entries(monthlyMap).map(([month, vals]) => ({
+        month,
+        views: vals.views,
+        clicks: vals.clicks,
+      }));
+
+      if (chartData.length > 0) {
+        setViewsChartData(chartData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch listing views:", err);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && user) fetchListings();
@@ -369,10 +442,10 @@ export default function VendorHome() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
         {/* Stat cards */}
         <StatCard
-          title="Views (This month)"
+          title="Total Views"
           icon={Eye}
-          statValue={null} // backend value
-          trend={-8} // negative = red TrendingDown
+          statValue={totalViews}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -381,15 +454,15 @@ export default function VendorHome() {
           title="Inquiries Received"
           icon={Mail}
           statValue={null}
-          trend={18} // positive = green TrendingUp
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
         <StatCard
           title="Average Rating"
           icon={Bell}
-          statValue={null}
-          trend={5} // positive = green
+          statValue={avgRating}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -397,8 +470,8 @@ export default function VendorHome() {
         <StatCard
           title="Bookmarks"
           icon={Bookmark}
-          statValue={null}
-          trend={5} // positive = green
+          statValue={totalBookmarks}
+          trend={null}
           trendIconUp={TrendingUp}
           trendIconDown={TrendingDown}
         />
@@ -415,7 +488,7 @@ export default function VendorHome() {
             </h2>
             <Chart
               type="bar"
-              data={null}
+              data={viewsChartData}
               xAxisKey="month"
               stacked
               dataKeys={[

@@ -6,22 +6,22 @@ import { TiktokLogoIcon } from "@phosphor-icons/react";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#152d42] text-gray-200 py-12 px-6 md:px-16 overflow-x-hidden font-gilroy">
+    <footer className="bg-[#152d42] text-gray-200 py-10 px-6 md:px-16 overflow-x-hidden font-gilroy">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
         <div className="flex flex-col lg:flex-row justify-between gap-12 lg:gap-8">
           {/* Left Section: Logo + Newsletter */}
           <div className="flex-1 max-w-md space-y-4">
             <Image
-              src="/images/logos/mefie-logo-2.svg"
+              src="/images/logos/main-logo.PNG"
               alt="Mefie Logo"
-              width={120}
-              height={40}
+              width={200}
+              height={100}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="w-auto h-10"
+              className="w-auto h-36"
             />
 
-            <p className="text-sm text-gray-100 leading-relaxed">
+            <p className="text-sm text-gray-100 leading-relaxed -mt-10">
               Mefie Directory is a platform designed to make it easier to
               discover and connect with Ghanaian businesses, events, and
               experiences — both in Ghana and across the diaspora. <br /> It

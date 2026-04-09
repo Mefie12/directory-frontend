@@ -46,9 +46,9 @@ export const metadata: Metadata = {
   creator: "Me-fie",
   publisher: "Me-fie",
   icons: {
-    icon: [{ url: "/images/logos/mefie-logo-2.svg", type: "image/svg+xml" }],
-    shortcut: "/images/logos/mefie-logo-2.svg",
-    apple: "/images/logos/mefie-logo-2.svg",
+    icon: [{ url: "/images/logos/main-logo.PNG", type: "image/png" }],
+    shortcut: "/images/logos/main-logo.PNG",
+    apple: "/images/logos/main-logo.PNG",
   },
   robots: {
     index: true,

@@ -20,6 +20,7 @@ import {
   WarningCircle,
   TiktokLogo,
   WhatsappLogo,
+  CaretRight, // Added for link-style appearance
 } from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
@@ -33,26 +34,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-// import {
-//   Accordion,
-//   AccordionContent,
-//   AccordionItem,
-//   AccordionTrigger,
-// } from "@/components/ui/accordion";
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogFooter,
-//   DialogTrigger,
-//   DialogDescription,
-//   DialogClose,
-// } from "@/components/ui/dialog";
-// import { Textarea } from "@/components/ui/textarea";
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { toast } from "sonner";
-// import { Label } from "@/components/ui/label";
 import { ReviewsSection } from "@/components/review-button";
 
 // Imported Components
@@ -129,7 +110,6 @@ interface ApiReview {
   replies?: ReviewReply[];
 }
 
-// Added OpeningHour Interface
 interface OpeningHour {
   day_of_week: string;
   open_time: string;
@@ -166,7 +146,7 @@ interface ApiListingData {
   pricing?: PricingItem[];
   start_date?: string;
   type?: string;
-  opening_hours?: OpeningHour[]; // Added to API Data interface
+  opening_hours?: OpeningHour[];
 }
 
 // --- UI Interfaces ---
@@ -242,7 +222,7 @@ interface TemplateContent {
   faqs: FAQItem[];
   reviews: ReviewItem[];
   gallery: GalleryItem[];
-  hours: OpeningHour[]; // Added to Template content
+  hours: OpeningHour[];
 }
 
 // --- Helper Functions ---
@@ -291,6 +271,10 @@ const extractUserName = (userData: any): string => {
 
 const Divider = () => <div className="w-full h-px bg-gray-200 my-6" />;
 
+/**
+ * REDESIGNED SOCIAL ICON COMPONENT
+ * Displays a professional "link card" with brand colors, icon, and name.
+ */
 const SocialIcon = ({
   href,
   icon: Icon,
@@ -306,344 +290,22 @@ const SocialIcon = ({
     href={href}
     target="_blank"
     rel="noreferrer"
-    className="flex items-center gap-1.5 text-gray-700 hover:text-gray-900 transition-colors"
-    style={{ color: brandColor }}
+    className="group flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 transition-all hover:shadow-sm"
   >
-    <Icon className="h-6 w-6" />
-    <span className="text-sm font-medium">{name}</span>
+    <div className="flex items-center gap-3">
+      <div 
+        className="flex items-center justify-center w-9 h-9 rounded-lg bg-white shadow-sm group-hover:scale-110 transition-transform"
+        style={{ color: brandColor }}
+      >
+        <Icon className="h-5 w-5" weight="fill" />
+      </div>
+      <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">
+        {name}
+      </span>
+    </div>
+    <CaretRight size={14} weight="bold" className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
   </Link>
 );
-
-// const StarRatingInput = ({
-//   rating,
-//   onRatingChange
-// }: {
-//   rating: number;
-//   onRatingChange: (rating: number) => void
-// }) => {
-//   return (
-//     <div className="flex gap-1">
-//       {[1, 2, 3, 4, 5].map((star) => (
-//         <button
-//           key={star}
-//           type="button"
-//           onClick={() => onRatingChange(star)}
-//           className="focus:outline-none"
-//         >
-//           <Star
-//             className={`h-6 w-6 ${
-//               star <= rating
-//                 ? "fill-yellow-400 text-yellow-400"
-//                 : "fill-gray-200 text-gray-200"
-//             }`}
-//           />
-//         </button>
-//       ))}
-//     </div>
-//   );
-// };
-
-// --- Review Item with Reply Dialog & Threads ---
-// const ReviewItemComponent = ({
-//   review,
-//   onReply,
-// }: {
-//   review: ReviewItem;
-//   onReply: (reviewId: string | number, text: string) => void;
-// }) => {
-//   const [isReplyOpen, setIsReplyOpen] = useState(false);
-//   const [replyText, setReplyText] = useState("");
-
-//   const handleSubmitReply = () => {
-//     if (replyText.trim() && review.id) {
-//       onReply(review.id, replyText);
-//       setReplyText("");
-//       setIsReplyOpen(false);
-//     }
-//   };
-
-//   return (
-//     <div className="border-b border-gray-100 last:border-0 py-6">
-//       <div className="flex gap-4">
-//         <Avatar className="h-10 w-10">
-//           <AvatarImage src={review.avatar} />
-//           <AvatarFallback>{review.author.charAt(0)}</AvatarFallback>
-//         </Avatar>
-//         <div className="flex-1 space-y-2">
-//           <div className="flex justify-between items-start">
-//             <div>
-//               <h4 className="font-semibold text-gray-900 text-sm">
-//                 {review.author}
-//               </h4>
-//               <div className="flex items-center gap-5 mt-0.5">
-//                 <div className="flex">
-//                   {[...Array(5)].map((_, i) => (
-//                     <Star
-//                       key={i}
-//                       className={`h-3 w-3 ${
-//                         i < Math.floor(review.rating)
-//                           ? "fill-yellow-400 text-yellow-400"
-//                           : "fill-gray-200 text-gray-200"
-//                       }`}
-//                     />
-//                   ))}
-//                 </div>
-//                 <span className="text-xs text-gray-500">{review.date}</span>
-//               </div>
-//             </div>
-
-//             {/* Reply Dialog Trigger */}
-//             <Dialog open={isReplyOpen} onOpenChange={setIsReplyOpen}>
-//               <DialogTrigger asChild>
-//                 <Button
-//                   variant="ghost"
-//                   size="sm"
-//                   className="h-8 text-xs text-gray-500 hover:text-[#93C01F]"
-//                 >
-//                   <MessageSquare className="w-3 h-3 mr-1.5" />
-//                   Reply
-//                 </Button>
-//               </DialogTrigger>
-//               <DialogContent className="sm:max-w-[425px]">
-//                 <DialogHeader>
-//                   <DialogTitle>Reply to {review.author}</DialogTitle>
-//                   <DialogDescription>
-//                     Your reply will be publicly visible.
-//                   </DialogDescription>
-//                 </DialogHeader>
-//                 <div className="py-4">
-//                   <div className="bg-gray-50 p-3 rounded-md mb-4 text-sm text-gray-600 italic border-l-2 border-gray-300">
-//                     {review.comment}
-//                   </div>
-//                   <Textarea
-//                     placeholder="Type your reply here..."
-//                     value={replyText}
-//                     onChange={(e) => setReplyText(e.target.value)}
-//                     className="min-h-[100px] resize-none"
-//                   />
-//                 </div>
-//                 <DialogFooter>
-//                   <DialogClose asChild>
-//                     <Button variant="outline">Cancel</Button>
-//                   </DialogClose>
-//                   <Button
-//                     onClick={handleSubmitReply}
-//                     className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-//                   >
-//                     Post Reply
-//                   </Button>
-//                 </DialogFooter>
-//               </DialogContent>
-//             </Dialog>
-//           </div>
-
-//           <p className="text-sm text-gray-600 leading-relaxed">
-//             {review.comment}
-//           </p>
-
-//           {/* Threaded Replies */}
-//           {review.replies && review.replies.length > 0 && (
-//             <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-100">
-//               {review.replies.map((reply, index) => (
-//                 <div
-//                   key={index}
-//                   className="flex gap-3 bg-gray-50/50 p-3 rounded-r-lg"
-//                 >
-//                   <CornerDownRight className="w-4 h-4 text-gray-400 mt-1 shrink-0" />
-//                   <div className="flex-1 space-y-1">
-//                     <div className="flex justify-between items-center">
-//                       <span className="text-xs font-semibold text-gray-900">
-//                         {reply.author}
-//                       </span>
-//                       <span className="text-[10px] text-gray-400">
-//                         {reply.date}
-//                       </span>
-//                     </div>
-//                     <p className="text-xs text-gray-600">{reply.comment}</p>
-//                   </div>
-//                 </div>
-//               ))}
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- NEW: Leave Review Dialog Component ---
-// const LeaveReviewDialog = ({
-//   onSubmit
-// }: {
-//   onSubmit: (rating: number, comment: string) => void
-// }) => {
-//   const [isOpen, setIsOpen] = useState(false);
-//   const [rating, setRating] = useState(0);
-//   const [comment, setComment] = useState("");
-
-//   const handleSubmit = () => {
-//     if (rating === 0) {
-//       toast.error("Please select a star rating.");
-//       return;
-//     }
-//     if (!comment.trim()) {
-//       toast.error("Please enter a comment.");
-//       return;
-//     }
-//     onSubmit(rating, comment);
-//     setRating(0);
-//     setComment("");
-//     setIsOpen(false);
-//   };
-
-//   return (
-//     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-//       <DialogTrigger asChild>
-//         <Button className="bg-[#93C01F] hover:bg-[#7da815] text-white flex items-center gap-2">
-//           <Plus className="w-4 h-4" />
-//           Write a Review
-//         </Button>
-//       </DialogTrigger>
-//       <DialogContent className="sm:max-w-[425px]">
-//         <DialogHeader>
-//           <DialogTitle>Leave a Rating</DialogTitle>
-//           <DialogDescription>
-//             Share your experience with the community.
-//           </DialogDescription>
-//         </DialogHeader>
-//         <div className="py-6 space-y-6">
-//           <div className="space-y-2">
-//             <Label className="text-sm font-medium">Your Rating</Label>
-//             <StarRatingInput rating={rating} onRatingChange={setRating} />
-//           </div>
-//           <div className="space-y-2">
-//             <Label className="text-sm font-medium">Your Review</Label>
-//             <Textarea
-//               placeholder="What did you like or dislike?"
-//               value={comment}
-//               onChange={(e) => setComment(e.target.value)}
-//               className="min-h-[120px] resize-none"
-//             />
-//           </div>
-//         </div>
-//         <DialogFooter>
-//           <DialogClose asChild>
-//             <Button variant="outline">Cancel</Button>
-//           </DialogClose>
-//           <Button
-//             onClick={handleSubmit}
-//             className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-//           >
-//             Post Review
-//           </Button>
-//         </DialogFooter>
-//       </DialogContent>
-//     </Dialog>
-//   );
-// };
-
-// --- NEW: Reviews Section Container ---
-// const EnhancedReviewsSection = ({
-//   initialReviews,
-// }: {
-//   initialReviews: ReviewItem[];
-// }) => {
-//   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
-//   const { user } = useAuth();
-
-//   const handleReviewSubmit = (rating: number, comment: string) => {
-//     const newReview: ReviewItem = {
-//       id: Date.now(),
-//       author: user?.name || "Guest User",
-//       rating: rating,
-//       date: "Just now",
-//       comment: comment,
-//       avatar: user?.avatar || "",
-//       replies: [],
-//     };
-
-//     setReviews([newReview, ...reviews]);
-//     toast.success("Review posted successfully!");
-//   };
-
-//   const handleReplySubmit = async (reviewId: string | number, text: string) => {
-//     const token = localStorage.getItem("authToken");
-//     if (!token) {
-//       toast.error("Please login to reply to a review");
-//       return;
-//     }
-
-//     try {
-//       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-//       // API endpoint for replying to a review
-//       const response = await fetch(`${API_URL}/api/ratings/${reviewId}/reply`, {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//           Accept: "application/json",
-//           Authorization: `Bearer ${token}`,
-//         },
-//         body: JSON.stringify({
-//           comment: text,
-//         }),
-//       });
-
-//       if (!response.ok) {
-//         throw new Error("Failed to submit reply");
-//       }
-
-//       const newReply: ReviewReply = {
-//         id: Date.now(),
-//         author: user?.name || "You",
-//         date: "Just now",
-//         comment: text,
-//         avatar: user?.avatar || "",
-//       };
-
-//       setReviews((prev) =>
-//         prev.map((review) => {
-//           if (review.id === reviewId) {
-//             return {
-//               ...review,
-//               replies: [...(review.replies || []), newReply],
-//             };
-//           }
-//           return review;
-//         }),
-//       );
-//       toast.success("Reply posted successfully!");
-//     } catch (error) {
-//       console.error("Reply submission error:", error);
-//       toast.error("Failed to post reply. Please try again.");
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-6">
-//       <div className="flex items-center justify-between border-b pb-4 -mt-6">
-//         <h3 className="text-lg font-bold text-gray-900">Community Reviews</h3>
-//         <LeaveReviewDialog onSubmit={handleReviewSubmit} />
-//       </div>
-
-//       <div className="space-y-2">
-//         {reviews.length > 0 ? (
-//           reviews.map((review, i) => (
-//             <ReviewItemComponent
-//               key={review.id || i}
-//               review={review}
-//               onReply={handleReplySubmit}
-//             />
-//           ))
-//         ) : (
-//           <div className="text-center py-10 text-gray-500">
-//             No reviews yet. Be the first to review!
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
 
 // --- Sub-Components (Stateless) ---
 
@@ -714,11 +376,8 @@ function ProviderTabs({
   listingSlug: string;
 }) {
   const {
-    // experiences, faqs,
     reviews,
   } = {
-    // experiences: template.experience || [],
-    // faqs: template.faqs || [],
     reviews: template.reviews || [],
   };
 
@@ -729,7 +388,6 @@ function ProviderTabs({
           {[
             "Portfolio",
             "Reviews",
-            // "Experience", "FAQs"
           ].map((tab) => (
             <TabsTrigger
               key={tab}
@@ -755,8 +413,6 @@ function ProviderTabs({
         <TabsContent value="reviews" className="mt-6">
           <Card>
             <div className="px-6 py-1">
-              {/* Using the new interactive reviews section */}
-              {/* <EnhancedReviewsSection initialReviews={reviews} /> */}
               <ReviewsSection
                 reviews={reviews as any}
                 listingSlug={listingSlug}
@@ -764,60 +420,6 @@ function ProviderTabs({
             </div>
           </Card>
         </TabsContent>
-
-        {/* <TabsContent value="experience" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                Highlights & experience
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {experiences.length > 0 ? (
-                experiences.map((item, index) => (
-                  <div key={index}>
-                    <h4 className="text-sm font-semibold text-gray-900">
-                      {item.title}
-                    </h4>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {item.description}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">
-                  No experience highlights available.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent> */}
-
-        {/* <TabsContent value="faqs" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">FAQs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {faqs.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                  {faqs.map((f, i) => (
-                    <AccordionItem key={i} value={`faq-${i}`}>
-                      <AccordionTrigger className="text-base text-gray-800">
-                        {f.question}
-                      </AccordionTrigger>
-                      <AccordionContent className="text-sm text-gray-600">
-                        {f.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <p className="text-sm text-gray-500">No FAQs available.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent> */}
       </Tabs>
     </div>
   );
@@ -838,7 +440,6 @@ function SidebarLocation({ provider }: { provider: Provider }) {
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
     if (!token) {
       console.error("Missing Mapbox token");
-      // setIsLoading(false);
       return;
     }
 
@@ -935,12 +536,12 @@ function SidebarInfo({
   provider,
   pricing,
   services,
-  hours, // Added Prop
+  hours,
 }: {
   provider: Provider;
   pricing: PricingItem[];
   services: string[];
-  hours: OpeningHour[]; // Added Prop
+  hours: OpeningHour[];
 }) {
   const socialLinks = provider.socials || {};
 
@@ -976,7 +577,6 @@ function SidebarInfo({
           </>
         )}
 
-        {/* Business Hours Section - Added below Claim button */}
         {hours && hours.length > 0 && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
@@ -1039,47 +639,12 @@ function SidebarInfo({
             </div>
           )}
 
-          {/* {socialLinks.whatsapp && (
-            <div className="flex items-center gap-4">
-              <h6 className="text-base font-medium text-black min-w-12">
-                WhatsApp
-              </h6>
-              <Link
-                href={socialLinks.whatsapp}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 font-medium text-green-600 hover:text-green-700 transition-colors"
-              >
-                <WhatsappLogo className="h-4 w-4 text-green-600" weight="fill" />
-            
-                 {socialLinks.whatsapp
-                  .replace("https://wa.me/", "+")
-                  .replace("http://wa.me/", "+")}
-              </Link>
-            </div>
-          )} */}
-
           {provider.socials && Object.values(socialLinks).some((v) => v) && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4 mt-2">
               <h6 className="text-base font-medium text-black">
-                Socials
+                Socials:
               </h6>
-              <div className="flex flex-col gap-3">
-                {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
-                )}
-                {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" name="Instagram" />
-                )}
-                {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" name="X" />
-                )}
-                {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" name="YouTube" />
-                )}
-                {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101" name="TikTok" />
-                )}
+              <div className="grid grid-cols-1 gap-2.5">
                 {socialLinks.whatsapp && (
                   <SocialIcon
                     href={socialLinks.whatsapp}
@@ -1087,6 +652,21 @@ function SidebarInfo({
                     brandColor="#25D366"
                     name="WhatsApp"
                   />
+                )}
+                {socialLinks.facebook && (
+                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
+                )}
+                {socialLinks.instagram && (
+                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" name="Instagram" />
+                )}
+                {socialLinks.twitter && (
+                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" name="X (Twitter)" />
+                )}
+                {socialLinks.youtube && (
+                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" name="YouTube" />
+                )}
+                {socialLinks.tiktok && (
+                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101" name="TikTok" />
                 )}
               </div>
             </div>
@@ -1114,7 +694,7 @@ function SidebarInfo({
         <div className="mt-4">
           <Button
             onClick={handleClaimBusiness}
-            disabled={!!provider.claim_status} // Disabled when claimed
+            disabled={!!provider.claim_status}
             className={`w-full ${
               provider.claim_status
                 ? "hidden"
@@ -1124,7 +704,6 @@ function SidebarInfo({
             {provider.claim_status ? "Claimed" : "Claim business"}
           </Button>
 
-          {/* Challenge claim link - Added below Claim button */}
           {provider.claim_status && (
             <div className="mt-3 text-center">
               <Link
@@ -1145,13 +724,12 @@ function SidebarInfo({
   );
 }
 
-// --- Main Page Component (Client Side Fetching) ---
+// --- Main Page Component ---
 
 export default function UniversalSlugPage({
   params,
   type = "business",
 }: PageProps) {
-  // Use React.use to unwrap params if in Next.js 15, otherwise direct access might be deprecated
   const resolvedParams = React.use(params);
   const { categorySlug, slug } = resolvedParams;
 
@@ -1165,7 +743,6 @@ export default function UniversalSlugPage({
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
-        // 1. Fetch Listing Details
         const listingResponse = await fetch(
           `${API_URL}/api/listing/${slug}/show`,
           {
@@ -1182,7 +759,6 @@ export default function UniversalSlugPage({
 
           let ratingsData: ApiRatingData[] = [];
 
-          // 2. Fetch Ratings
           if (listingData.id) {
             const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
               headers: {
@@ -1198,7 +774,6 @@ export default function UniversalSlugPage({
                 (r: ApiRatingData) => r.listing_id === listingData.id,
               );
 
-              // 3. Enrich Ratings (User Data)
               ratingsData = await Promise.all(
                 filteredRatings.map(async (rating: ApiRatingData) => {
                   if (
@@ -1235,7 +810,6 @@ export default function UniversalSlugPage({
             }
           }
 
-          // --- Process Data ---
           let socialLinks: SocialLinks = {};
           if (listingData.socials && listingData.socials.length > 0) {
             const socialData = listingData.socials[0];
@@ -1249,7 +823,6 @@ export default function UniversalSlugPage({
             };
           }
 
-          // Supplement socials from dedicated endpoint (ensures whatsapp is included)
           try {
             const token = localStorage.getItem("authToken");
             const socialsHeaders: Record<string, string> = {
@@ -1263,9 +836,7 @@ export default function UniversalSlugPage({
             if (socialsRes.ok) {
               const socialsJson = await socialsRes.json();
               const raw = socialsJson.data || socialsJson;
-              // Handle both array and object responses
               const s = Array.isArray(raw) ? raw[0] || {} : raw;
-              // Merge — only fill in missing values
               if (s.facebook && !socialLinks.facebook)
                 socialLinks.facebook = s.facebook;
               if (s.instagram && !socialLinks.instagram)
@@ -1279,9 +850,7 @@ export default function UniversalSlugPage({
               if (s.whatsapp && !socialLinks.whatsapp)
                 socialLinks.whatsapp = s.whatsapp;
             }
-          } catch {
-            // Non-critical — continue without supplemental socials
-          }
+          } catch {}
 
           const provider: Provider = {
             id: listingData.id,
@@ -1371,7 +940,7 @@ export default function UniversalSlugPage({
             faqs: listingData.faqs || [],
             reviews: mappedReviews,
             gallery: gallery,
-            hours: listingData.opening_hours || [], // Set hours here
+            hours: listingData.opening_hours || [],
           });
         }
       } catch (error) {
@@ -1471,7 +1040,7 @@ export default function UniversalSlugPage({
             provider={providerData}
             pricing={template.pricing}
             services={template.services}
-            hours={template.hours} // Passed prop
+            hours={template.hours}
           />
         </aside>
       </div>

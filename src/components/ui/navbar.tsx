@@ -237,11 +237,11 @@ export default function Navbar() {
             <div className="shrink-0">
               <Link href="/">
                 <Image
-                  src="/images/logos/mefie-logo.svg"
+                  src="/images/logos/main-logo.PNG"
                   alt="MeFie Logo"
                   width={200}
                   height={100}
-                  className="h-auto w-auto"
+                  className="h-36 w-auto"
                 />
               </Link>
             </div>

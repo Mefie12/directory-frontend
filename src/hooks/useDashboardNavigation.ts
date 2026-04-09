@@ -104,7 +104,7 @@ const MENU_CONFIG: MenuItem[] = [
     title: "Reviews",
     url: "/dashboard/reviews",
     icon: "/images/icons/review.svg",
-    roles: ["customer", "admin"],
+    roles: ["customer", "admin", "vendor" ],
   },
 
   // ─── Monetization (Admin) ───
