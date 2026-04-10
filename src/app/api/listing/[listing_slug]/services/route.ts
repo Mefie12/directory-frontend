@@ -54,26 +54,37 @@ export async function POST(
 ) {
   try {
     const { listing_slug } = await params;
-    const body = await request.json();
     const authHeader = request.headers.get('Authorization');
+    const contentType = request.headers.get('Content-Type') || '';
+
+    const isMultipart = contentType.includes('multipart/form-data');
+
+    // Forward body and content-type as-is for multipart (images), JSON otherwise
+    const body = isMultipart
+      ? await request.arrayBuffer()
+      : JSON.stringify(await request.json());
+
+    const forwardHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      ...(authHeader ? { Authorization: authHeader } : {}),
+      ...(isMultipart
+        ? { 'Content-Type': contentType }
+        : { 'Content-Type': 'application/json' }),
+    };
 
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}/services`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(authHeader && { Authorization: authHeader }),
-        },
-        body: JSON.stringify(body),
+        headers: forwardHeaders,
+        body,
       }
     );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.message || 'Failed to create services' },
+        { error: errorData.message || 'Failed to create service' },
         { status: response.status }
       );
     }
@@ -84,12 +95,10 @@ export async function POST(
       status: response.status,
     });
   } catch (error) {
-    console.error('Error creating services:', error);
+    console.error('Error creating service:', error);
     return NextResponse.json(
-      { error: 'Failed to create services' },
+      { error: 'Failed to create service' },
       { status: 500 }
     );
   }
 }
-
-

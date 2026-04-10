@@ -21,14 +21,30 @@ export function HeroCarousel({
   );
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selected, setSelected] = useState(0);
+
   useEffect(() => {
     if (!emblaApi) return;
+
     const onSelect = () => setSelected(emblaApi.selectedScrollSnap());
     emblaApi.on("select", onSelect);
     onSelect();
-    
+
+    // Auto-scroll every 4 seconds; pauses while the user is dragging
+    let paused = false;
+    const onPointerDown = () => { paused = true; };
+    const onPointerUp   = () => { paused = false; };
+    emblaApi.on("pointerDown", onPointerDown);
+    emblaApi.on("pointerUp",   onPointerUp);
+
+    const timer = setInterval(() => {
+      if (!paused) emblaApi.scrollNext();
+    }, 4000);
+
     return () => {
-      emblaApi.off("select", onSelect);
+      clearInterval(timer);
+      emblaApi.off("select",      onSelect);
+      emblaApi.off("pointerDown", onPointerDown);
+      emblaApi.off("pointerUp",   onPointerUp);
     };
   }, [emblaApi]);
 

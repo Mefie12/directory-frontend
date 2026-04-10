@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { MapPin, Calendar, ChevronDown } from "lucide-react";
-import Image from "next/image";
+// import Image from "next/image";
 import {
   Select,
   SelectContent,
@@ -55,15 +55,15 @@ const countries = [
   "Ghana",
 ];
 
-const priceRanges = [
-  { label: "Price", value: "all" },
-  { label: "Free", value: "free" },
-  { label: "$0 - $50", value: "0-50" },
-  { label: "$50 - $100", value: "50-100" },
-  { label: "$100 - $200", value: "100-200" },
-  { label: "$200 - $500", value: "200-500" },
-  { label: "$500+", value: "500+" },
-];
+// const priceRanges = [
+//   { label: "Price", value: "all" },
+//   { label: "Free", value: "free" },
+//   { label: "$0 - $50", value: "0-50" },
+//   { label: "$50 - $100", value: "50-100" },
+//   { label: "$100 - $200", value: "100-200" },
+//   { label: "$200 - $500", value: "200-500" },
+//   { label: "$500+", value: "500+" },
+// ];
 
 const categories = [
   {
@@ -162,14 +162,14 @@ export default function SearchHeader({
     });
   };
 
-  const handlePriceChange = (value: string) => {
-    updateSearchParams("price", value === "all" ? "" : value);
-  };
+  // const handlePriceChange = (value: string) => {
+  //   updateSearchParams("price", value === "all" ? "" : value);
+  // };
 
   const showCountry = true;
   const showCategories = true;
   const showDate = context === "discover" || context === "events";
-  const showPrice = context === "discover" || context === "businesses";
+  // const showPrice = context === "discover" || context === "businesses";
 
   const currentCountry = searchParams.get("country") || "All countries";
   const currentStart = searchParams.get("startDate");
@@ -181,7 +181,7 @@ export default function SearchHeader({
           to: currentEnd ? new Date(currentEnd) : undefined,
         }
       : undefined;
-  const currentPrice = searchParams.get("price") || "all";
+  // const currentPrice = searchParams.get("price") || "all";
  // Determine current category based on pathname
   const currentCategory = categories.find((cat) => 
     cat.link !== "/discover" && pathname.includes(cat.link)
@@ -262,7 +262,7 @@ export default function SearchHeader({
           )}
 
           {/* Price Select */}
-          {showPrice && (
+          {/* {showPrice && (
             <div className="md:w-auto min-w-[140px]">
               <Select value={currentPrice} onValueChange={handlePriceChange}>
                 <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
@@ -289,7 +289,7 @@ export default function SearchHeader({
                 </SelectContent>
               </Select>
             </div>
-          )}
+          )} */}
 
           {/* Category Select */}
           {showCategories && (

@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
+  // Briefcase,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -54,6 +55,7 @@ interface ListingsTableProps {
   onViewClick?: (listing: ListingsTableItem) => void;
   onEditClick?: (listing: ListingsTableItem) => void;
   onDeleteClick?: (id: string) => void;
+  onWhatWeDoClick?: (listing: ListingsTableItem) => void;
 }
 
 const getStatusConfig = (status: ListingStatus) => {
@@ -99,6 +101,7 @@ export function ListingsTable({
   onViewClick,
   onEditClick,
   onDeleteClick,
+  // onWhatWeDoClick,
 }: ListingsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -282,7 +285,19 @@ export function ListingsTable({
                   </div>
                 </TableCell>
                 <TableCell className="py-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {/* <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-[#93C01F]/10 hover:text-[#5F8B0A]"
+                      title="What We Do"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onWhatWeDoClick?.(listing);
+                      }}
+                    >
+                      <Briefcase className="h-4 w-4 text-[#425466]" />
+                    </Button> */}
                     <Button
                       variant="ghost"
                       size="icon"

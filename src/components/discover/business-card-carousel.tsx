@@ -100,14 +100,12 @@ export default function BusinessCardCarousel({
           : typeof business.rating === "string"
           ? parseFloat(business.rating) || 0
           : 0,
-      reviewCount:
-        typeof business.reviewCount === "string"
-          ? business.reviewCount
-          : typeof raw.reviews_count === "number"
-          ? raw.reviews_count.toString()
-          : typeof raw.ratings_count === "number"
-          ? raw.ratings_count.toString()
-          : "0",
+      reviewCount: String(
+        raw.reviewCount ||
+        raw.reviews_count ||
+        raw.ratings_count ||
+        "0"
+      ),
       location: business.location || raw.address || "",
       verified:
         business.verified ||

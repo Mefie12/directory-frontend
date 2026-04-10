@@ -422,6 +422,7 @@ function ProviderTabs({
           </Card>
         </TabsContent>
       </Tabs>
+
     </div>
   );
 }
@@ -509,12 +510,12 @@ function SidebarLocation({ provider }: { provider: Provider }) {
 function SidebarInfo({
   provider,
   pricing,
-  services,
+  // services,
   hours,
 }: {
   provider: Provider;
   pricing: PricingItem[];
-  services: string[];
+  // services: string[];
   hours: OpeningHour[];
 }) {
   const socialLinks = provider.socials || {};
@@ -575,22 +576,6 @@ function SidebarInfo({
           </div>
         )}
 
-        <div>
-          <h5 className="text-lg font-black text-gray-900">What we do</h5>
-          {services.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-3 pl-5 text-sm text-gray-600">
-              {services.map((service, index) => (
-                <li key={index}>{service}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-gray-500">
-              Services list available upon request.
-            </p>
-          )}
-        </div>
-
-        <Divider />
 
         <h5 className="text-lg font-black text-black">Contact</h5>
         <div className="mt-3 space-y-4 text-sm text-gray-600">
@@ -984,7 +969,7 @@ export default function UniversalSlugPage({
       </div>
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 lg:grid-cols-12 lg:px-0">
-        <main className="lg:col-span-8">
+        <main className="lg:col-span-8 space-y-6">
           <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
             <div className="relative w-full">
               <HeroCarousel items={template.gallery} alt={providerData.name} />
@@ -1006,6 +991,36 @@ export default function UniversalSlugPage({
               listingSlug={providerData.slug}
             />
           </div>
+
+          {/* What We Do — standalone section below the main card */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold">What We Do</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {template.services.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {template.services.map((service, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 hover:border-[#93C01F]/30 hover:bg-[#93C01F]/5 transition-colors"
+                    >
+                      <div className="mt-0.5 w-5 h-5 rounded-full bg-[#93C01F]/15 flex items-center justify-center shrink-0">
+                        <div className="w-2 h-2 rounded-full bg-[#93C01F]" />
+                      </div>
+                      <span className="text-sm text-gray-700 leading-relaxed">
+                        {service}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 py-4 text-center">
+                  Services list available upon request.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
@@ -1013,7 +1028,7 @@ export default function UniversalSlugPage({
           <SidebarInfo
             provider={providerData}
             pricing={template.pricing}
-            services={template.services}
+            // services={template.services}
             hours={template.hours}
           />
         </aside>

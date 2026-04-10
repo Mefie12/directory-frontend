@@ -9,7 +9,7 @@ import ScrollableCategoryTabs, {
 import SearchHeader from "@/components/search-header";
 // import { communityCards } from "@/lib/data"; // Removed unused EventsCategory import
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
+// import Image from "next/image";
 import Link from "next/link";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import EventCarousel from "@/components/events/event-carousel";
@@ -161,7 +161,10 @@ export default function EventsContent() {
           categoriesJson.data || categoriesJson.categories || [];
         setApiCategories([
           { label: "All", value: "all" },
-          ...rawCats.map((c) => ({ label: c.name, value: c.slug || slugifyCategory(c.name) })),
+          ...rawCats.map((c) => ({
+            label: c.name,
+            value: c.slug || slugifyCategory(c.name),
+          })),
         ]);
 
         // 2. Process Listings
@@ -205,7 +208,8 @@ export default function EventsContent() {
             location: item.location || item.address || "Online",
             verified: item.is_verified || false,
             category: category?.name || "General",
-            categorySlug: category?.slug || slugifyCategory(category?.name || "general"),
+            categorySlug:
+              category?.slug || slugifyCategory(category?.name || "general"),
             country: item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
             startDate: formattedDate,
@@ -315,7 +319,7 @@ export default function EventsContent() {
                   </Button>
                 </div>
 
-                <section className="py-12 px-4 lg:px-16 bg-white">
+                {/* <section className="py-12 px-4 lg:px-16 bg-white">
                   <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl shadow-sm">
                     <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
                       <Image
@@ -342,7 +346,7 @@ export default function EventsContent() {
                       </Button>
                     </div>
                   </div>
-                </section>
+                </section> */}
 
                 <div className="py-10 px-4 lg:px-16">
                   <div className="flex justify-between items-center mb-6">

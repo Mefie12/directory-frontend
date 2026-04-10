@@ -2,11 +2,14 @@
 "use client";
 
 import { useState, useMemo, Suspense, useEffect } from "react";
-import ScrollableCategoryTabs, { CategoryTabItem, slugifyCategory } from "@/components/scrollable-category-tabs";
+import ScrollableCategoryTabs, {
+  CategoryTabItem,
+  slugifyCategory,
+} from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
+// import Image from "next/image";
 import Link from "next/link";
 import CommunityCarousel from "@/components/communities/community-carousel";
 import BusinessSectionCarousel from "@/components/business-section-carousel";
@@ -82,14 +85,25 @@ const formatDateTime = (dateString?: string) => {
   if (!dateString) return "TBA";
   try {
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? "TBA" : date.toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
-    });
-  } catch { return "TBA"; }
+    return isNaN(date.getTime())
+      ? "TBA"
+      : date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+  } catch {
+    return "TBA";
+  }
 };
 
-const classifyListing = (item: ApiListing): "business" | "event" | "community" => {
-  const rawType = (item.type || item.listing_type || "").toString().trim().toLowerCase();
+const classifyListing = (
+  item: ApiListing,
+): "business" | "event" | "community" => {
+  const rawType = (item.type || item.listing_type || "")
+    .toString()
+    .trim()
+    .toLowerCase();
   if (item.start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
@@ -109,7 +123,7 @@ export default function CommunityContent() {
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   const handleClickEvent = () => {
-   if(user){
+    if (user) {
       router.push("/claim");
     } else {
       router.push("/auth/login?redirect=/claim");
@@ -120,16 +134,18 @@ export default function CommunityContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [listingsRes, categoriesRes] = await Promise.all([
           fetch(`${API_URL}/api/approved_listings?per_page=100`),
-          fetch(`${API_URL}/api/categories`)
+          fetch(`${API_URL}/api/categories`),
         ]);
 
         if (!listingsRes.ok) throw new Error("Failed to fetch listings");
         const listingsJson = await listingsRes.json();
-        const data: ApiListing[] = listingsJson.data || listingsJson.listings || [];
+        const data: ApiListing[] =
+          listingsJson.data || listingsJson.listings || [];
 
         // 1. Process Categories for the Tabs
         if (categoriesRes.ok) {
@@ -137,7 +153,10 @@ export default function CommunityContent() {
           const rawCats: ApiCategory[] = categoriesJson.data || [];
           setApiCategories([
             { label: "All", value: "all" },
-            ...rawCats.map(c => ({ label: c.name, value: c.slug || slugifyCategory(c.name) }))
+            ...rawCats.map((c) => ({
+              label: c.name,
+              value: c.slug || slugifyCategory(c.name),
+            })),
           ]);
         }
 
@@ -148,10 +167,21 @@ export default function CommunityContent() {
         data.forEach((item) => {
           const rawImages = Array.isArray(item.images) ? item.images : [];
           const validImages = rawImages
-            .filter(img => typeof img === "string" || (img && typeof img === "object" && !["processing", "failed"].includes((img as ApiImage).media)))
-            .map(img => getImageUrl(typeof img === "string" ? img : (img as ApiImage).media));
+            .filter(
+              (img) =>
+                typeof img === "string" ||
+                (img &&
+                  typeof img === "object" &&
+                  !["processing", "failed"].includes((img as ApiImage).media)),
+            )
+            .map((img) =>
+              getImageUrl(
+                typeof img === "string" ? img : (img as ApiImage).media,
+              ),
+            );
 
-          if (validImages.length === 0) validImages.push(getImageUrl(item.image || item.cover_image));
+          if (validImages.length === 0)
+            validImages.push(getImageUrl(item.image || item.cover_image));
 
           const category = item.categories?.[0];
           const listingType = classifyListing(item);
@@ -168,7 +198,8 @@ export default function CommunityContent() {
             location: item.location || item.address || "Online",
             verified: item.is_verified || false,
             category: category?.name || "General",
-            categorySlug: category?.slug || slugifyCategory(category?.name || "general"),
+            categorySlug:
+              category?.slug || slugifyCategory(category?.name || "general"),
             tag: category?.name || "General",
             country: item.country || "Ghana",
           };
@@ -176,11 +207,21 @@ export default function CommunityContent() {
           if (listingType === "community") {
             communitiesList.push({ ...commonProps, type: "community" });
           } else if (listingType === "business") {
-            businessesList.push({ ...commonProps, rating: Number(item.rating) || 0, reviewCount: Number(item.ratings_count) || 0 });
+            businessesList.push({
+              ...commonProps,
+              rating: Number(item.rating) || 0,
+              reviewCount: Number(item.ratings_count) || 0,
+            });
           } else if (listingType === "event") {
             const eventDate = item.start_date || item.date || item.created_at;
             const formattedDate = formatDateTime(eventDate);
-            eventsList.push({ ...commonProps, startDate: formattedDate, endDate: formattedDate, date: formattedDate, reviewCount: Number(item.ratings_count) || 0 });
+            eventsList.push({
+              ...commonProps,
+              startDate: formattedDate,
+              endDate: formattedDate,
+              date: formattedDate,
+              reviewCount: Number(item.ratings_count) || 0,
+            });
           }
         });
 
@@ -198,15 +239,21 @@ export default function CommunityContent() {
 
   // --- Dynamic Grouping Logic ---
   const groupedCommunities = useMemo(() => {
-    return communities.reduce((acc, community) => {
-      const tagName = community.tag;
-      if (!acc[tagName]) acc[tagName] = [];
-      acc[tagName].push(community);
-      return acc;
-    }, {} as Record<string, ProcessedCommunity[]>);
+    return communities.reduce(
+      (acc, community) => {
+        const tagName = community.tag;
+        if (!acc[tagName]) acc[tagName] = [];
+        acc[tagName].push(community);
+        return acc;
+      },
+      {} as Record<string, ProcessedCommunity[]>,
+    );
   }, [communities]);
 
-  const availableTags = useMemo(() => Object.keys(groupedCommunities), [groupedCommunities]);
+  const availableTags = useMemo(
+    () => Object.keys(groupedCommunities),
+    [groupedCommunities],
+  );
 
   const filteredCommunities = useMemo(() => {
     if (selectedCategory === "all") return communities;
@@ -250,13 +297,16 @@ export default function CommunityContent() {
                 ))}
 
                 {/* Expanded Dynamic Sections */}
-                {showAllCategories && availableTags.slice(2).map((tag) => (
-                  <CommunityCarousel
-                    key={tag}
-                    communities={groupedCommunities[tag]}
-                    title={tag}
-                  />
-                ))}
+                {showAllCategories &&
+                  availableTags
+                    .slice(2)
+                    .map((tag) => (
+                      <CommunityCarousel
+                        key={tag}
+                        communities={groupedCommunities[tag]}
+                        title={tag}
+                      />
+                    ))}
 
                 <div className="flex justify-center py-10">
                   <Button
@@ -264,37 +314,66 @@ export default function CommunityContent() {
                     variant="outline"
                     className="border-[#9ACC23] text-[#9ACC23] hover:bg-[#9ACC23] hover:text-white transition-all"
                   >
-                    {showAllCategories ? "Show less" : "Explore more communities"}
+                    {showAllCategories
+                      ? "Show less"
+                      : "Explore more communities"}
                   </Button>
                 </div>
 
                 {/* Host Banner */}
-                <section className="py-12 px-4 lg:px-16 bg-white">
+                {/* <section className="py-12 px-4 lg:px-16 bg-white">
                   <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl shadow-sm">
                     <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
-                      <Image src="/images/backgroundImages/community/students.jpg" alt="Banner" fill className="object-cover" unoptimized />
+                      <Image
+                        src="/images/backgroundImages/community/students.jpg"
+                        alt="Banner"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                     <div className="flex flex-col justify-center bg-black text-white w-full lg:w-1/2 p-8 lg:p-16 space-y-6">
-                      <h2 className="text-3xl md:text-5xl font-medium">Host your Community on Mefie</h2>
-                      <p className="text-lg opacity-90">Bring your community initiatives to a wider audience and grow movements that create lasting change.</p>
-                      <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ea919] w-fit">List your Community</Button>
+                      <h2 className="text-3xl md:text-5xl font-medium">
+                        Host your Community on Mefie
+                      </h2>
+                      <p className="text-lg opacity-90">
+                        Bring your community initiatives to a wider audience and
+                        grow movements that create lasting change.
+                      </p>
+                      <Button
+                        onClick={handleClickEvent}
+                        className="bg-[#93C01F] hover:bg-[#7ea919] w-fit"
+                      >
+                        List your Community
+                      </Button>
                     </div>
                   </div>
-                </section>
+                </section> */}
 
                 {/* Cross-Pollination Sections */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="flex justify-between items-center mb-8">
-                    <h2 className="font-semibold text-2xl md:text-4xl">Best deals for you!</h2>
-                    <Link href="/businesses" className="text-[#275782] font-medium">Explore all</Link>
+                    <h2 className="font-semibold text-2xl md:text-4xl">
+                      Best deals for you!
+                    </h2>
+                    <Link
+                      href="/businesses"
+                      className="text-[#275782] font-medium"
+                    >
+                      Explore all
+                    </Link>
                   </div>
                   <BusinessSectionCarousel businesses={businesses} />
                 </div>
 
                 <div className="py-12 px-4 lg:px-16">
                   <div className="flex justify-between items-center mb-8">
-                    <h2 className="font-semibold text-2xl md:text-4xl">Spotlight Events</h2>
-                    <Link href="/events" className="text-[#275782] font-medium">Explore all</Link>
+                    <h2 className="font-semibold text-2xl md:text-4xl">
+                      Spotlight Events
+                    </h2>
+                    <Link href="/events" className="text-[#275782] font-medium">
+                      Explore all
+                    </Link>
                   </div>
                   <EventSectionCarousel events={events} />
                 </div>
@@ -302,8 +381,15 @@ export default function CommunityContent() {
                 {/* Footer CTA */}
                 <div className="py-12 px-4 lg:px-16">
                   <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl h-[350px] overflow-hidden">
-                    <h2 className="text-3xl md:text-5xl font-bold mb-4">Ready to Grow Your Business?</h2>
-                    <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ea919]">List your business today</Button>
+                    <h2 className="text-3xl md:text-5xl font-bold mb-4">
+                      Ready to Grow Your Business?
+                    </h2>
+                    <Button
+                      onClick={handleClickEvent}
+                      className="bg-[#93C01F] hover:bg-[#7ea919]"
+                    >
+                      List your business today
+                    </Button>
                   </div>
                 </div>
               </>
@@ -315,7 +401,9 @@ export default function CommunityContent() {
             )}
           </>
         ) : (
-          <div className="py-16 text-center text-gray-500">No communities found in this category.</div>
+          <div className="py-16 text-center text-gray-500">
+            No communities found in this category.
+          </div>
         )}
       </div>
     </>

@@ -244,7 +244,7 @@ export default function Discover() {
         )}
 
         {/* Ready to grow your business section */}
-        <div className="py-12 px-4 lg:px-16 bg-white">
+        {/* <div className="py-12 px-4 lg:px-16 bg-white">
           <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
             <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
               <Image
@@ -271,7 +271,7 @@ export default function Discover() {
               </Button>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Business section */}
         <div className="py-12 px-4 lg:px-16">

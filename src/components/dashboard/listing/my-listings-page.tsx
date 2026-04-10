@@ -2,21 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  SpinnerGap,
-  PencilSimple,
-  MapPin,
-  Tag,
-  User,
-  Diamond,
-  ArrowsClockwise,
-  Link as LinkIcon,
-  Check,
-  Copy,
-  X,
-} from "@phosphor-icons/react";
-import Image from "next/image";
+import { Plus, SpinnerGap } from "@phosphor-icons/react";
 
 import { ListingsTable } from "@/components/dashboard/listing/listing-table";
 import { Button } from "@/components/ui/button";
@@ -36,17 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Sheet, SheetContent, SheetDescription } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useRolePath } from "@/hooks/useRolePath";
 
 // --- Interfaces ---
@@ -85,7 +62,6 @@ interface ApiResponse {
   meta?: unknown;
 }
 
-// Extended Table Item
 interface ListingsTableItem {
   id: string;
   slug: string;
@@ -103,12 +79,9 @@ interface ListingsTableItem {
   description?: string;
 }
 
-// Helper function for image URLs
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return "/images/placeholder-listing.png";
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
   const API_URL = process.env.API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
@@ -116,34 +89,12 @@ const getImageUrl = (url: string | undefined | null): string => {
 export default function MyListingsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { listingCreate, listingEdit } = useRolePath();
+  const { listingCreate, listingEdit, listingDetail } = useRolePath();
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  // --- Action States ---
-  const [viewListing, setViewListing] = useState<ListingsTableItem | null>(
-    null,
-  );
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === "published") return "bg-[#E9F5D6] text-[#5F8B0A]";
-    if (status === "pending") return "bg-yellow-100 text-yellow-700";
-    return "bg-red-100 text-red-800";
-  };
 
   const fetchListings = useCallback(async () => {
     try {
@@ -171,7 +122,6 @@ export default function MyListingsPage() {
 
       const transformedListings: ListingsTableItem[] = data.data.map(
         (listing) => {
-          // 1. Image Logic
           const rawImages = listing.images || [];
           const validImages = rawImages
             .filter((img) => {
@@ -187,12 +137,12 @@ export default function MyListingsPage() {
               ? validImages[0]
               : getImageUrl("/images/placeholder-listing.png");
 
-          const categoryText = listing.categories?.[0]?.name || "Uncategorized";
+          const categoryText =
+            listing.categories?.[0]?.name || "Uncategorized";
           const location =
             [listing.city, listing.country].filter(Boolean).join(", ") ||
             "Online";
 
-          // 2. Status Mapping
           let status: "published" | "pending" | "drafted" = "drafted";
           const backendStatus = (listing.status || "").toLowerCase();
 
@@ -202,9 +152,7 @@ export default function MyListingsPage() {
             status = "pending";
           }
 
-          // 3. Type Logic
           let resolvedType = listing.type;
-
           if (!resolvedType && listing.categories?.length > 0) {
             const catName = listing.categories[0].name.toLowerCase();
             if (["community", "event"].includes(catName)) {
@@ -244,10 +192,6 @@ export default function MyListingsPage() {
     if (!authLoading && user) fetchListings();
   }, [user, authLoading, fetchListings]);
 
-  const handleEdit = (listing: ListingsTableItem) => {
-    router.push(listingEdit(listing.type, listing.slug));
-  };
-
   const handleDelete = async () => {
     if (!deleteListingId) return;
     setIsDeleting(true);
@@ -282,7 +226,6 @@ export default function MyListingsPage() {
 
       toast.success("Listing deleted successfully");
       setListings((prev) => prev.filter((l) => l.id !== deleteListingId));
-      setViewListing(null);
     } catch (error) {
       console.error(error);
       toast.error(
@@ -292,13 +235,6 @@ export default function MyListingsPage() {
       setIsDeleting(false);
       setDeleteListingId(null);
     }
-  };
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Link copied to clipboard");
-    setTimeout(() => setCopied(false), 5000);
   };
 
   if (loading) {
@@ -330,7 +266,7 @@ export default function MyListingsPage() {
                 onClick={() => router.push(listingCreate(type))}
                 className="capitalize cursor-pointer"
               >
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#93C01F] text-white text-xs  font-medium">
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#93C01F] text-white text-xs font-medium">
                   {index + 1}
                 </span>
                 {type} Listing
@@ -345,290 +281,20 @@ export default function MyListingsPage() {
           listings={listings}
           showPagination={true}
           itemsPerPage={6}
-          onViewClick={setViewListing}
-          onEditClick={handleEdit}
+          onViewClick={(listing) => router.push(listingDetail(listing.slug))}
+          onEditClick={(listing) =>
+            router.push(listingEdit(listing.type, listing.slug))
+          }
           onDeleteClick={(id: string) => setDeleteListingId(id)}
+          onWhatWeDoClick={(listing) =>
+            router.push(`${listingDetail(listing.slug)}?tab=services`)
+          }
         />
       ) : (
         <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-xl bg-gray-50">
           <p className="text-gray-500">No listings yet</p>
         </div>
       )}
-
-      {/* --- VIEW SIDEBAR (Sheet) --- */}
-      <Sheet
-        open={!!viewListing}
-        onOpenChange={(open) => !open && setViewListing(null)}
-      >
-        <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
-          <SheetDescription className="sr-only">
-            Details for {viewListing?.name}
-          </SheetDescription>
-          {viewListing && (
-            <>
-              {/* Header */}
-              <div className="p-6 pb-2 border-b border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleEdit(viewListing)}
-                  >
-                    <PencilSimple className="w-4 h-4" />
-                  </Button>
-                </div>
-                <h2 className="text-2xl font-bold">{viewListing.name}</h2>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-8">
-                {/* Details Grid */}
-                <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
-                  <ArrowsClockwise className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Status</span>
-                  <div className="justify-self-end">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        viewListing.status,
-                      )}`}
-                    >
-                      {viewListing.status === "published"
-                        ? "Published"
-                        : viewListing.status === "pending"
-                          ? "Pending Review"
-                          : "Draft"}
-                    </span>
-                  </div>
-
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Owner</span>
-                  <div className="justify-self-end flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[10px]">
-                        {user
-                          ? getInitials(user.name || user.email || "U")
-                          : "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-gray-900">
-                      {user?.name || user?.email || "You"}
-                    </span>
-                  </div>
-
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Location</span>
-                  <div className="justify-self-end font-medium text-gray-900">
-                    {viewListing.location}
-                  </div>
-
-                  <Tag className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Type</span>
-                  <div className="justify-self-end font-medium text-gray-900 capitalize">
-                    {viewListing.type}
-                  </div>
-
-                  <Diamond className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Category</span>
-                  <div className="justify-self-end">
-                    <Badge variant="outline" className="text-xs">
-                      {viewListing.category}
-                    </Badge>
-                  </div>
-
-                  <LinkIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">URL</span>
-                  <div className="justify-self-end text-sm text-gray-900 items-center gap-2">
-                    {viewListing.slug}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-gray-400 hover:text-[#93C01F] hover:bg-[#93C01F]/10 transition-colors mt-0.5"
-                      onClick={() => handleCopy(viewListing.slug)}
-                    >
-                      {copied ? (
-                        <Check className="w-3.5 h-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900">
-                    Listing Description
-                  </h3>
-                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100">
-                    {viewListing.description || "No description provided."}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex border-b border-gray-200 mb-6">
-                    <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
-                      Media
-                    </button>
-                  </div>
-
-                  {/* Cover Photo Section */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#93C01F]"></span>
-                      Cover Photo
-                    </h4>
-                    <div className="grid grid-cols-1 gap-3">
-                      {viewListing.allImages.length > 0 ? (
-                        <div
-                          className="aspect-video bg-gray-100 rounded-lg relative overflow-hidden group"
-                          onClick={() =>
-                            setPreviewImage(viewListing.allImages[0])
-                          }
-                        >
-                          <Image
-                            src={viewListing.allImages[0]}
-                            alt="Cover image"
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            unoptimized={true}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (!target.src.includes("placeholder")) {
-                                target.src = "/images/placeholder-listing.png";
-                              }
-                            }}
-                          />
-                          <div className="absolute top-2 left-2 bg-[#93C01F] text-white text-xs px-2 py-1 rounded">
-                            Cover
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm border border-dashed border-gray-300">
-                          No cover image
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Gallery Section */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                      Gallery Photos
-                      {viewListing.allImages.length > 1 && (
-                        <span className="text-xs text-gray-400 font-normal">
-                          ({viewListing.allImages.length - 1} photos)
-                        </span>
-                      )}
-                    </h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      {viewListing.allImages.length > 1 ? (
-                        viewListing.allImages.slice(1, 7).map((img, index) => (
-                          <div
-                            key={index}
-                            className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
-                            onClick={() => setPreviewImage(img)}
-                          >
-                            <Image
-                              src={img}
-                              alt={`Gallery ${index + 1}`}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 33vw, 33vw"
-                              unoptimized={true}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                if (!target.src.includes("placeholder")) {
-                                  target.src =
-                                    "/images/placeholder-listing.png";
-                                }
-                              }}
-                            />
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-3 py-8 text-center text-gray-400 text-sm">
-                          No gallery photos
-                        </div>
-                      )}
-
-                      {/* Add Media Button */}
-                      {viewListing.allImages.length < 7 && (
-                        <div
-                          onClick={() => handleEdit(viewListing)}
-                          className="aspect-square bg-gray-50 rounded-lg flex flex-col gap-1 items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-100 border border-dashed border-gray-300 transition-all"
-                        >
-                          <Plus className="w-4 h-4 opacity-50" />
-                          <span>Add</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {viewListing.views}
-                    </div>
-                    <div className="text-sm text-gray-500">Views</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {viewListing.bookmarks}
-                    </div>
-                    <div className="text-sm text-gray-500">Bookmarks</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-gray-100 flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setViewListing(null)}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 bg-[#93C01F] hover:bg-[#82ab1b]"
-                  onClick={() => handleEdit(viewListing)}
-                >
-                  Edit Listing
-                </Button>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none [&>button:last-child]:hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Image Preview</DialogTitle>
-          </DialogHeader>
-          <div className="relative aspect-4/3 w-full max-h-[80vh] flex items-center justify-center">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-6 right-1 z-50 h-8 w-8 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm text-white hover:bg-black/80 border border-white/20 cursor-pointer"
-              aria-label="Close preview"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            {previewImage && (
-              <Image
-                src={previewImage}
-                alt="Preview"
-                width={900}
-                height={900}
-                className="object-contain"
-                unoptimized={true}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog
         open={!!deleteListingId}

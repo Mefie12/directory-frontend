@@ -14,5 +14,6 @@ export function useRolePath() {
     listingCreate: (type: string) => `${ROLE_BASE_PATH}/my-listing/create?type=${type}`,
     listingEdit: (type: string, slug: string) =>
       `${ROLE_BASE_PATH}/my-listing/edit?type=${type}&slug=${slug}`,
+    listingDetail: (slug: string) => `${ROLE_BASE_PATH}/my-listing/${slug}`,
   };
 }
