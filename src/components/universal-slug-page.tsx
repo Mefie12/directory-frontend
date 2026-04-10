@@ -21,6 +21,7 @@ import {
   TiktokLogo,
   WhatsappLogo,
   CaretRight, // Added for link-style appearance
+  NavigationArrow,
 } from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
@@ -434,46 +435,34 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   });
   const [error, setError] = useState<string | null>(null);
 
+  // --- ADD THIS LOGIC HERE ---
+  // Generate Google Maps Directions URL
+  const directionsUrl = provider.latitude && provider.longitude
+    ? `https://www.google.com/maps/dir/?api=1&destination=${provider.latitude},${provider.longitude}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+        provider.name + " " + (provider.location || provider.country || "")
+      )}`;
+
   useEffect(() => {
     if (!mapContainer.current) return;
-
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-    if (!token) {
-      console.error("Missing Mapbox token");
-      return;
-    }
-
+    if (!token) return;
     mapboxgl.accessToken = token;
 
     const initMap = async () => {
       try {
-        let lng: number;
-        let lat: number;
-
+        let lng: number; let lat: number;
         if (provider.latitude && provider.longitude) {
-          lng = provider.longitude;
-          lat = provider.latitude;
+          lng = provider.longitude; lat = provider.latitude;
         } else {
-          const query = encodeURIComponent(
-            provider.name + " " + (provider.location || provider.country || "")
-          );
-          const res = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`
-          );
+          const query = encodeURIComponent(provider.name + " " + (provider.location || provider.country || ""));
+          const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`);
           const data = await res.json();
-          if (data.features?.[0]) {
-            [lng, lat] = data.features[0].center;
-          } else {
-            setError("Location not found");
-            setIsLoading(false);
-            return;
-          }
+          if (data.features?.[0]) { [lng, lat] = data.features[0].center; } 
+          else { setError("Location not found"); setIsLoading(false); return; }
         }
 
-        if (map.current) {
-          map.current.remove();
-        }
-
+        if (map.current) { map.current.remove(); }
         map.current = new mapboxgl.Map({
           container: mapContainer.current!,
           style: "mapbox://styles/mapbox/streets-v12",
@@ -481,26 +470,12 @@ function SidebarLocation({ provider }: { provider: Provider }) {
           zoom: 14,
           interactive: false,
         });
-
-        new mapboxgl.Marker({ color: "#93C01F" })
-          .setLngLat([lng, lat])
-          .addTo(map.current);
-
-        map.current.on("load", () => {
-          setIsLoading(false);
-        });
-      } catch {
-        setError("Failed to load map");
-        setIsLoading(false);
-      }
+        new mapboxgl.Marker({ color: "#93C01F" }).setLngLat([lng, lat]).addTo(map.current);
+        map.current.on("load", () => { setIsLoading(false); });
+      } catch { setError("Failed to load map"); setIsLoading(false); }
     };
-
     initMap();
-
-    return () => {
-      map.current?.remove();
-      map.current = null;
-    };
+    return () => { map.current?.remove(); map.current = null; };
   }, [provider.latitude, provider.longitude, provider.name, provider.location, provider.country]);
 
   return (
@@ -508,25 +483,24 @@ function SidebarLocation({ provider }: { provider: Provider }) {
       <CardContent className="pt-0.5">
         <h4 className="text-lg font-black text-gray-900">Location</h4>
         <div className="mt-3 relative h-40 w-full overflow-hidden rounded-xl bg-gray-100">
-          {isLoading && !error && (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-              Loading...
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-              {error}
-            </div>
-          )}
-          <div 
-            ref={mapContainer} 
-            className="absolute inset-0 w-full h-full" 
-            style={{ minHeight: "160px" }}
-          />
+          {isLoading && !error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}
+          {error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">{error}</div>}
+          <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: "160px" }} />
         </div>
         <p className="mt-3 text-xs text-gray-500">
           {provider.location ?? provider.country ?? "Available internationally"}
         </p>
+
+        {/* --- ADD THIS LINK HERE --- */}
+        <Link
+          href={directionsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-[#93C01F] text-[#93C01F] text-sm font-bold hover:bg-[#93C01F] hover:text-white transition-all group"
+        >
+          <NavigationArrow size={18} weight="fill" className="group-hover:rotate-12 transition-transform" />
+          Get Directions
+        </Link>
       </CardContent>
     </Card>
   );
@@ -711,9 +685,9 @@ function SidebarInfo({
                 className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
               >
                 <WarningCircle className="h-3 w-3" />
-                Business Owner?{" "}
+                Own this business?{" "}
                 <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
-                  Challenge this claim
+                  Request ownership
                 </span>
               </Link>
             </div>
