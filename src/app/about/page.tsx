@@ -4,7 +4,7 @@
 import Image from "next/image";
 import Link from "next/link";
 // import TestimonialCarousel from "@/components/about/testimonial-carousel";
-import { WhatsappLogo, XLogo, EnvelopeSimple } from "@phosphor-icons/react";
+import { WhatsappLogo, InstagramLogo, EnvelopeSimple } from "@phosphor-icons/react";
 // import NewsCard from "@/components/about/news-card";
 // import { Skeleton } from "@/components/ui/skeleton";
 // import { toast } from "sonner";
@@ -236,13 +236,13 @@ export default function About() {
               Share on WhatsApp
             </Link>
             <Link
-              href="https://twitter.com/intent/tweet?text=Check%20out%20Mefie%20Directory%20%E2%80%93%20a%20platform%20to%20discover%20Ghanaian%20businesses%2C%20events%2C%20and%20more!&url=https%3A%2F%2Fme-fie.com"
+              href="https://www.instagram.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-[#E4405F] px-6 py-3 text-white font-medium hover:bg-[#d02d4d] transition-colors"
             >
-              <XLogo size={20} weight="bold" />
-              Share on X
+              <InstagramLogo size={20} weight="fill" />
+              Share on Instagram
             </Link>
             <Link
               href="mailto:?subject=Check%20out%20Mefie%20Directory&body=Hey%2C%20I%20thought%20you%E2%80%99d%20like%20Mefie%20Directory%20%E2%80%93%20a%20platform%20to%20discover%20Ghanaian%20businesses%2C%20events%2C%20and%20more!%20https%3A%2F%2Fme-fie.com"

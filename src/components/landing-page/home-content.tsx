@@ -1,7 +1,7 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import HeroSlider from "@/components/landing-page/hero-slider";
-import { Sort, SortOption } from "@/components/sort";
+// import { Sort, SortOption } from "@/components/sort";
 import { BusinessCarousel } from "@/components/landing-page/business-carousel";
 import { DirectoryEventCarousel } from "@/components/landing-page/directory-event-carousel";
 import Image from "next/image";
@@ -96,7 +96,7 @@ const classifyListing = (
 export default function HomeContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  // const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>(
@@ -231,27 +231,27 @@ export default function HomeContent() {
     fetchData();
   }, []);
 
-  const sortedCategories = useMemo(() => {
-    const sorted = [...categories];
-    switch (sortBy) {
-      case "name-asc":
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      case "name-desc":
-        return sorted.sort((a, b) => b.name.localeCompare(a.name));
-      case "newest":
-        return sorted.sort(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-        );
-      case "oldest":
-        return sorted.sort(
-          (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-        );
-      case "popular":
-        return sorted.sort((a, b) => b.popularity - a.popularity);
-      default:
-        return sorted;
-    }
-  }, [sortBy]);
+    // const sortedCategories = useMemo(() => {
+    //   const sorted = [...categories];
+    //   switch (sortBy) {
+    //     case "name-asc":
+    //       return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    //     case "name-desc":
+    //       return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    //     case "newest":
+    //       return sorted.sort(
+    //         (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    //       );
+    //     case "oldest":
+    //       return sorted.sort(
+    //         (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    //       );
+    //     case "popular":
+    //       return sorted.sort((a, b) => b.popularity - a.popularity);
+    //     default:
+    //       return sorted;
+    //   }
+    // }, [sortBy]);
 
   // --- Skeletons (Implemented with ShadCN) ---
 
@@ -314,12 +314,12 @@ export default function HomeContent() {
               Find exactly what you&apos;re looking for
             </p>
           </div>
-          <div>
-            <Sort value={sortBy} onChange={setSortBy} />
-          </div>
+          {/* <div>
+            <Sort value={sortBy} onChange={setSortBy} /> 
+          </div> */}
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {sortedCategories.map((category) => (
+          {categories.map((category) => (
             <Link
               key={category.id}
               href={`/categories/${category.slug}`}
