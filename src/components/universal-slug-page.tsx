@@ -584,7 +584,12 @@ function SidebarInfo({
               <h6 className="text-base font-medium text-black min-w-12">
                 Phone
               </h6>
-              <p className="font-medium text-gray-900">{provider.phone}</p>
+              <Link
+                href={`tel:${provider.phone}`}
+                className="font-medium text-gray-900 hover:underline focus:underline outline-none"
+              >
+                {provider.phone}
+              </Link>
             </div>
           )}
           {provider.email && (
@@ -592,9 +597,12 @@ function SidebarInfo({
               <h6 className="text-base font-medium text-black min-w-12">
                 Email
               </h6>
-              <p className="font-medium text-gray-900 truncate">
+              <Link
+                href={`mailto:${provider.email}`}
+                className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
+              >
                 {provider.email}
-              </p>
+              </Link>
             </div>
           )}
 
