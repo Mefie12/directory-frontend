@@ -1000,13 +1000,13 @@ export default function UniversalSlugPage({
             />
           </div>
 
-          {/* What We Do — standalone section below the main card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold">What We Do</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {template.services.length > 0 ? (
+          {/* What We Do — only shown when services exist */}
+          {template.services.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold">What We Do</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {template.services.map((service, index) => (
                     <div
@@ -1022,13 +1022,9 @@ export default function UniversalSlugPage({
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-400 py-4 text-center">
-                  Services list available upon request.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
