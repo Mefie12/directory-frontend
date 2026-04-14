@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  // Plus,
   Bookmark,
   TrendingDown,
   Eye,
@@ -12,16 +11,7 @@ import {
   TrendingUp,
   Mail,
   ChevronRight,
-  Plus,
-  Edit,
-  MapPin,
-  Tag,
-  User,
-  Gem,
-  RefreshCcw,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,15 +22,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Sheet, SheetContent, SheetDescription } from "@/components/ui/sheet";
 import StatCard from "@/components/dashboard/stat-cards";
 import RecentActivityCard from "@/components/dashboard/recent-activity";
 import { Chart } from "@/components/dashboard/bar-chart";
 import { ListingsTable } from "@/components/dashboard/listing/listing-table";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { useRolePath } from "@/hooks/useRolePath";
 import { toast } from "sonner";
-import Image from "next/image";
 
 interface ListingImage {
   id: number;
@@ -138,6 +127,7 @@ export default function VendorHome() {
   };
 
   const { user, loading: authLoading } = useAuth();
+  const { listingDetail } = useRolePath();
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,26 +139,8 @@ export default function VendorHome() {
   const [viewsChartData, setViewsChartData] = useState<Record<string, string | number>[] | null>(null);
 
   // --- Action States ---
-  const [viewListing, setViewListing] = useState<ListingsTableItem | null>(
-    null,
-  );
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === "published") return "bg-[#E9F5D6] text-[#5F8B0A]";
-    if (status === "pending") return "bg-yellow-100 text-yellow-700";
-    return "bg-red-100 text-red-800";
-  };
 
   const fetchListings = useCallback(async () => {
     try {
@@ -382,7 +354,6 @@ export default function VendorHome() {
 
       toast.success("Listing deleted successfully");
       setListings((prev) => prev.filter((l) => l.id !== deleteListingId));
-      setViewListing(null);
     } catch (error) {
       console.error(error);
       toast.error(
@@ -527,7 +498,7 @@ export default function VendorHome() {
               listings={listings}
               showPagination={true}
               itemsPerPage={4}
-              onViewClick={setViewListing}
+              onViewClick={(listing) => router.push(listingDetail(listing.slug))}
               onEditClick={handleEdit}
               onDeleteClick={(id: string) => setDeleteListingId(id)}
             />
@@ -538,204 +509,6 @@ export default function VendorHome() {
           )}
         </div>
       </div>
-
-      {/* --- VIEW SIDEBAR (Sheet) --- */}
-      <Sheet
-        open={!!viewListing}
-        onOpenChange={(open) => !open && setViewListing(null)}
-      >
-        <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
-          <SheetDescription className="sr-only">
-            Details for {viewListing?.name}
-          </SheetDescription>
-          {viewListing && (
-            <>
-              {/* Header */}
-              <div className="p-6 pb-2 border-b border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <div
-                    className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900"
-                    onClick={() => setViewListing(null)}
-                  >
-                    ← Back
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleEdit(viewListing)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                </div>
-                <h2 className="text-2xl font-bold">{viewListing.name}</h2>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-8">
-                {/* Details Grid */}
-                <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
-                  <RefreshCcw className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Status</span>
-                  <div className="justify-self-end">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        viewListing.status,
-                      )}`}
-                    >
-                      {viewListing.status === "published"
-                        ? "Published"
-                        : viewListing.status === "pending"
-                          ? "Pending Review"
-                          : "Draft"}
-                    </span>
-                  </div>
-
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Owner</span>
-                  <div className="justify-self-end flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[10px]">
-                        {user
-                          ? getInitials(user.name || user.email || "U")
-                          : "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-gray-900">
-                      {user?.name || user?.email || "You"}
-                    </span>
-                  </div>
-
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Location</span>
-                  <div className="justify-self-end font-medium text-gray-900">
-                    {viewListing.location}
-                  </div>
-
-                  <Tag className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Type</span>
-                  <div className="justify-self-end font-medium text-gray-900 capitalize">
-                    {viewListing.type}
-                  </div>
-
-                  <Gem className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Category</span>
-                  <div className="justify-self-end">
-                    <Badge variant="outline" className="text-xs">
-                      {viewListing.category}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900">
-                    Listing Description
-                  </h3>
-                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100">
-                    {viewListing.description || "No description provided."}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex border-b border-gray-200 mb-6">
-                    <button className="pb-3 px-1 text-sm font-medium text-[#93C01F] border-b-2 border-[#93C01F]">
-                      Media
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {viewListing.allImages.length > 0 ? (
-                      <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group">
-                        <Image
-                          src={viewListing.allImages[0]}
-                          alt="Cover image"
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          unoptimized={true}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (!target.src.includes("placeholder")) {
-                              target.src = "/images/placeholder-listing.png";
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300">
-                        No cover image
-                      </div>
-                    )}
-
-                    {viewListing.allImages.length > 1 &&
-                      viewListing.allImages.slice(1, 4).map((img, index) => (
-                        <div
-                          key={index}
-                          className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden group"
-                        >
-                          <Image
-                            src={img}
-                            alt={`Media ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            unoptimized={true}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (!target.src.includes("placeholder")) {
-                                target.src = "/images/placeholder-listing.png";
-                              }
-                            }}
-                          />
-                        </div>
-                      ))}
-
-                    {viewListing.allImages.length < 4 && (
-                      <div
-                        onClick={() => handleEdit(viewListing)}
-                        className="aspect-square bg-gray-50 rounded-lg flex flex-col gap-2 items-center justify-center text-gray-400 text-xs cursor-pointer hover:bg-gray-100 border border-dashed border-gray-300 transition-all"
-                      >
-                        <Plus className="w-5 h-5 opacity-50" />
-                        <span>Add Media</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {viewListing.views}
-                    </div>
-                    <div className="text-sm text-gray-500">Views</div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {viewListing.bookmarks}
-                    </div>
-                    <div className="text-sm text-gray-500">Bookmarks</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 border-t border-gray-100 flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setViewListing(null)}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 bg-[#93C01F] hover:bg-[#82ab1b]"
-                  onClick={() => handleEdit(viewListing)}
-                >
-                  Edit Listing
-                </Button>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
 
       <AlertDialog
         open={!!deleteListingId}
