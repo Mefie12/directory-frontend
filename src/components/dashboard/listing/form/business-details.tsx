@@ -86,6 +86,43 @@ const convertToHHmm = (time: string | undefined | null): string => {
   return "09:00";
 };
 
+const convertDateToInput = (value: string | undefined | null): string => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) return trimmed.slice(0, 10);
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+
+const convertTimeToInput = (time: string | undefined | null): string => {
+  if (!time) return "";
+  const cleaned = time.trim().toUpperCase();
+
+  const hhmmss = cleaned.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (hhmmss) {
+    return `${hhmmss[1].padStart(2, "0")}:${hhmmss[2]}`;
+  }
+
+  const hhmm = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) {
+    return `${hhmm[1].padStart(2, "0")}:${hhmm[2]}`;
+  }
+
+  const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
+  if (amPmMatch) {
+    let hours = parseInt(amPmMatch[1], 10);
+    const minutes = amPmMatch[2];
+    const period = amPmMatch[3];
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, "0")}:${minutes}`;
+  }
+
+  return "";
+};
+
 export const DetailsFormSchema = z
   .object({
     address: z.string().min(1, "Address is required"),
@@ -312,7 +349,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           );
           if (res.ok) {
             const json = await res.json();
-            const d = json.data;
+            const d = json.data || json;
+            const isEvent = (d?.type || listingType) === "event";
             const mappedHours = form
               .getValues("businessHours")
               .map((defaultDay) => {
@@ -331,12 +369,34 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   : { ...defaultDay, enabled: false };
               });
             reset({
-              address: d.address || d.location?.address || "",
-              city: d.city || d.location?.city || "",
-              country: d.country || d.location?.country || "Ghana",
+              // Event listings use event_* keys from API; non-events use normal address keys.
+              address: isEvent
+                ? d.event_venue || d.address || d.location?.address || ""
+                : d.address || d.location?.address || "",
+              city: isEvent
+                ? d.event_city || d.city || d.location?.city || ""
+                : d.city || d.location?.city || "",
+              country: isEvent
+                ? d.event_country || d.country || d.location?.country || "Ghana"
+                : d.country || d.location?.country || "Ghana",
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
+              event_price: d.event_price || "",
+              event_currency: d.event_currency || "",
+              event_ticket_url: d.event_ticket_url || d.ticket_url || "",
+              event_online_url: d.event_online_url || d.online_url || "",
+              event_start_date: convertDateToInput(
+                d.event_start_date || d.start_date,
+              ),
+              event_end_date: convertDateToInput(
+                d.event_end_date || d.end_date || d.event_start_date || d.start_date,
+              ),
+              event_start_time: convertTimeToInput(
+                d.event_start_time || d.start_time,
+              ),
+              event_end_time: convertTimeToInput(d.event_end_time || d.end_time),
+              event_location: d.event_location || d.event_type || "",
             });
           }
         } catch (err) {
@@ -344,7 +404,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         }
       };
       loadDetails();
-    }, [listingSlug, reset, searchParams, form]);
+    }, [listingSlug, reset, searchParams, form, listingType]);
 
     const saveDataToApi = async () => {
       // 1. Mapbox Confirmation Modal (from Code A logic)
