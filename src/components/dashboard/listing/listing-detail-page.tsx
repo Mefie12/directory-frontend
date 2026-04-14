@@ -387,11 +387,28 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(`https://me-fie.co.uk/listing/${listing?.slug}`);
-    setCopied(true);
-    toast.success("Link copied to clipboard");
-    setTimeout(() => setCopied(false), 3000);
+  const handleCopy = async () => {
+    const url = `https://me-fie.co.uk/listing/${listing?.slug}`;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for non-secure contexts
+        const el = document.createElement("textarea");
+        el.value = url;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      toast.success("Link copied to clipboard");
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      toast.error("Failed to copy link");
+    }
   };
 
   const getInitials = (name: string) =>

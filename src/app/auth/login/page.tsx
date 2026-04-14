@@ -122,19 +122,20 @@ function LoginForm() {
         setTimeout(() => {
           // Check if user is unverified
           if (isUnverified) {
-            // console.log("🚨 User is unverified, redirecting to verify page");
             const encodedEmail = encodeURIComponent(formData.email);
             window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${redirectPath}`;
           } else {
-            // All roles go to /dashboard — the home page handles role-based rendering
-            const userRole = localStorage.getItem("userRole")?.toLowerCase();
+            // If there's a specific redirect target (not just "/"), use it
+            if (redirectPath && redirectPath !== "/") {
+              router.push(redirectPath);
+              return;
+            }
 
-            // 3. Role-based Redirect Logic
+            // Otherwise fall back to role-based routing
+            const userRole = localStorage.getItem("userRole")?.toLowerCase();
             if (userRole === "customer" || userRole === "user") {
-              // Customers/Standard Users go to Bookmarks
               router.push("/discover");
             } else {
-              // Vendors, Admins, etc., go to the standard Dashboard
               router.push("/dashboard");
             }
           }

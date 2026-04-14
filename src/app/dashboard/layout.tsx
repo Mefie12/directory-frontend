@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/dashboard/header";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { pusherService } from "@/lib/pusher";
 import { ROLE_CHANGED_EVENT } from "@/hooks/useRealtimeRole";
 import { normalizeRole } from "@/lib/roles";
@@ -17,6 +17,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, refetchUser } = useAuth();
   const [sidebarKey, setSidebarKey] = useState(0);
 
@@ -54,12 +55,12 @@ export default function Layout({ children }: LayoutProps) {
     };
   }, [user?.id, user?.email, refetchUser]);
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated, preserving the intended route
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/auth/login");
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   if (loading) {
     return (
