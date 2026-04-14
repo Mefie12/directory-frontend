@@ -183,31 +183,31 @@ const Button = ({
   );
 };
 
-const ToggleSwitch = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) => {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        checked ? "bg-lime-500" : "bg-gray-300"
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          checked ? "translate-x-6" : "translate-x-1"
-        }`}
-      />
-    </button>
-  );
-};
+// const ToggleSwitch = ({
+//   checked,
+//   onChange,
+// }: {
+//   checked: boolean;
+//   onChange: (checked: boolean) => void;
+// }) => {
+//   return (
+//     <button
+//       type="button"
+//       role="switch"
+//       aria-checked={checked}
+//       onClick={() => onChange(!checked)}
+//       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+//         checked ? "bg-lime-500" : "bg-gray-300"
+//       }`}
+//     >
+//       <span
+//         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+//           checked ? "translate-x-6" : "translate-x-1"
+//         }`}
+//       />
+//     </button>
+//   );
+// };
 
 // function detectCardType(number: string) {
 //   const cleaned = number.replace(/\D/g, "");
@@ -376,7 +376,7 @@ export default function Settings() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const [isJoiningVendor] = useState(false);
+  // const [isJoiningVendor] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -388,15 +388,15 @@ export default function Settings() {
     description: "",
   });
 
-  const handleClickEvent = () => {
-    if (user) {
-      // Authenticated -> Go to Claim Page
-      router.push("/claim");
-    } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
-      router.push("/auth/login?redirect=/claim");
-    }
-  };
+  // const handleClickEvent = () => {
+  //   if (user) {
+  //     // Authenticated -> Go to Claim Page
+  //     router.push("/claim");
+  //   } else {
+  //     // Not Authenticated -> Go to Login, then redirect to Claim Page
+  //     router.push("/auth/login?redirect=/claim");
+  //   }
+  // };
 
   // Prefill form fields from auth context user
   useEffect(() => {
@@ -410,12 +410,12 @@ export default function Settings() {
   }, [user]);
 
   // Notification toggles
-  const [notifications, setNotifications] = useState({
-    newInquiry: false,
-    newReview: true,
-    listingApproval: false,
-    billingReminder: false,
-  });
+  // const [notifications, setNotifications] = useState({
+  //   newInquiry: false,
+  //   newReview: true,
+  //   listingApproval: false,
+  //   billingReminder: false,
+  // });
 
   // --- API Integrations ---
 
@@ -805,7 +805,7 @@ export default function Settings() {
             <div className="space-y-5 mt-4 py-4">
               {normalizeRole(user?.role ?? "") !== "customer" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
+                  {/* <div className="bg-[#C9D9E8] rounded-xl p-8 flex flex-col justify-between min-h-[200px]">
                     <div className="space-y-2 max-w-sm">
                       <h4 className="text-lg font-semibold text-gray-900">
                         Grow your business with Mefie
@@ -825,7 +825,7 @@ export default function Settings() {
                       )}
                       {isJoiningVendor ? "Joining..." : "Join as a vendor"}
                     </button>
-                  </div>
+                  </div> */}
 
                   <div className="bg-[#275782] rounded-xl p-8 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
                     <div className="relative z-10 space-y-2 max-w-sm">
@@ -937,7 +937,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* New Inquiry Alert */}
+                  {/* New Inquiry Alert 
                   <div className="flex items-start justify-between py-6 border border-gray-200 rounded-lg px-3">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900">
