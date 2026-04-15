@@ -126,7 +126,18 @@ export default function CommunityContent() {
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
   const searchParams = useSearchParams();
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
 
   // Read country from URL params on mount
   useEffect(() => {
@@ -154,6 +165,9 @@ export default function CommunityContent() {
         setIsLoading(true);
 
         let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (clientIp) {
+          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
+        }
         if (selectedCountry) {
           listingsUrl += `&country=${selectedCountry}`;
         }
@@ -265,7 +279,7 @@ export default function CommunityContent() {
       }
     };
     fetchData();
-  }, [selectedCountry]);
+  }, [selectedCountry, clientIp]);
 
   // --- Dynamic Grouping Logic ---
   const groupedCommunities = useMemo(() => {

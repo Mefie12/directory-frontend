@@ -155,6 +155,17 @@ export default function CategoryPageContent() {
   // Geolocation state
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
 
   // Read country from URL params on mount
   useEffect(() => {
@@ -229,6 +240,9 @@ export default function CategoryPageContent() {
 
       // Use geolocation API with country filter
       let listingsUrl = `/api/listings_by_geolocation?${query.toString()}`;
+      if (clientIp) {
+        listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
+      }
       if (selectedCountry) {
         listingsUrl += `&country=${selectedCountry}`;
       }
@@ -300,7 +314,7 @@ export default function CategoryPageContent() {
     } finally {
       setIsListingsLoading(false);
     }
-  }, [activeMainCategory, selectedSubcategory, selectedCountry]);
+  }, [activeMainCategory, selectedSubcategory, selectedCountry, clientIp]);
 
   useEffect(() => {
     if (activeMainCategory && selectedSubcategory) {

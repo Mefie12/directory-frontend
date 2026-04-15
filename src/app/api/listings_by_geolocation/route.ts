@@ -17,12 +17,14 @@ export async function GET(request: NextRequest) {
 
     // Extract the client's real IP and pass it as ip_address query param
     // so the backend can geolocate correctly.
+    // Priority: forwarded headers (behind proxy/CDN) → NextRequest.ip → skip
     const forwarded =
       request.headers.get("x-forwarded-for") ||
       request.headers.get("x-real-ip") ||
       request.headers.get("cf-connecting-ip"); // Cloudflare
 
     const clientIp = forwarded ? forwarded.split(",")[0].trim() : null;
+
     if (clientIp) {
       backendUrl.searchParams.set("ip_address", clientIp);
     }

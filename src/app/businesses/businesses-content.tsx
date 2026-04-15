@@ -108,7 +108,18 @@ export default function BusinessesContent() {
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
   const searchParams = useSearchParams();
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
 
   // Read country from URL params on mount
   useEffect(() => {
@@ -140,6 +151,9 @@ export default function BusinessesContent() {
         setIsLoading(true);
 
         let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (clientIp) {
+          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
+        }
         if (selectedCountry) {
           listingsUrl += `&country=${selectedCountry}`;
         }
@@ -251,7 +265,7 @@ export default function BusinessesContent() {
     };
 
     fetchData();
-  }, [selectedCountry]);
+  }, [selectedCountry, clientIp]);
 
   // The logic now ensures a direct match against the slug provided by the tabs
   const filteredData = useMemo(() => {

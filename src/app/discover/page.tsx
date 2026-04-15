@@ -99,6 +99,17 @@ function DiscoverContent() {
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
 
   const handleCountryChange = useCallback((country: Country | null) => {
     setSelectedCountry(country?.alpha3 || null);
@@ -118,6 +129,9 @@ function DiscoverContent() {
         setIsLoading(true);
 
         let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (clientIp) {
+          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
+        }
         if (selectedCountry) {
           listingsUrl += `&country=${selectedCountry}`;
         }
@@ -222,7 +236,7 @@ function DiscoverContent() {
     };
 
     fetchData();
-  }, [selectedCountry]);
+  }, [selectedCountry, clientIp]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
