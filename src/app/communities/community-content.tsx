@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, {
   CategoryTabItem,
   slugifyCategory,
@@ -17,6 +18,7 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- API & Processed Interfaces ---
 interface ApiImage {
@@ -122,6 +124,18 @@ export default function CommunityContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Read country from URL params on mount
+  useEffect(() => {
+    const urlCountry = searchParams.get("country");
+    if (urlCountry) {
+      setSelectedCountry(urlCountry);
+    }
+  }, [searchParams]);
+
   const handleClickEvent = () => {
     if (user) {
       router.push("/claim");
@@ -130,20 +144,36 @@ export default function CommunityContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    setSelectedCountry(country?.alpha3 || null);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
+        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (selectedCountry) {
+          listingsUrl += `&country=${selectedCountry}`;
+        }
+
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/approved_listings?per_page=100`),
+          fetch(listingsUrl),
           fetch(`${API_URL}/api/categories`),
         ]);
 
         if (!listingsRes.ok) throw new Error("Failed to fetch listings");
         const listingsJson = await listingsRes.json();
+
+        // Extract detected country from API response
+        if (listingsJson.meta?.detected_country) {
+          setDetectedCountry(listingsJson.meta.detected_country);
+        }
+
         const data: ApiListing[] =
           listingsJson.data || listingsJson.listings || [];
 
@@ -235,7 +265,7 @@ export default function CommunityContent() {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedCountry]);
 
   // --- Dynamic Grouping Logic ---
   const groupedCommunities = useMemo(() => {
@@ -273,7 +303,11 @@ export default function CommunityContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="communities" />
+        <SearchHeader 
+          context="communities" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="bg-gray-50">

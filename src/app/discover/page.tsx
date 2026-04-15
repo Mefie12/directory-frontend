@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
@@ -16,6 +16,7 @@ import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- Interfaces ---
 interface ApiImage {
@@ -45,8 +46,8 @@ interface ApiListing {
   bio?: string;
   description?: string;
   start_date?: string;
-  date?: string; // Additional check
-  created_at?: string; // Fallback
+  date?: string;
+  created_at?: string;
   is_verified?: boolean;
 }
 
@@ -64,7 +65,7 @@ const formatDate = (dateString: string | undefined | null) => {
   if (!dateString) return "TBA";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "TBA"; // Invalid date
+    if (isNaN(date.getTime())) return "TBA";
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -83,13 +84,12 @@ const classifyListing = (
     .trim()
     .toLowerCase();
 
-  // If it has a future start_date, treat as event even if type is ambiguous
   if (rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
 
-export default function Discover() {
+function DiscoverContent() {
   const router = useRouter();
   const { user } = useAuth();
   const [businesses, setBusinesses] = useState<any[]>([]);
@@ -97,13 +97,17 @@ export default function Discover() {
   const [communities, setCommunities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  const handleCountryChange = useCallback((country: Country | null) => {
+    setSelectedCountry(country?.alpha3 || null);
+  }, []);
 
   const handleClickEvent = () => {
     if (user) {
-      // Authenticated -> Go to Claim Page
       router.push("/claim");
     } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
       router.push("/auth/login?redirect=/claim");
     }
   };
@@ -112,10 +116,13 @@ export default function Discover() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/approved_listings`, {
+        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (selectedCountry) {
+          listingsUrl += `&country=${selectedCountry}`;
+        }
+
+        const response = await fetch(listingsUrl, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -125,6 +132,12 @@ export default function Discover() {
         if (!response.ok) throw new Error("Failed to fetch listings");
 
         const json = await response.json();
+
+        // Extract detected country from API response
+        if (json.meta?.detected_country) {
+          setDetectedCountry(json.meta.detected_country);
+        }
+
         const data: ApiListing[] = json.data || json.listings || [];
 
         const businessesList: any[] = [];
@@ -209,7 +222,7 @@ export default function Discover() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedCountry]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -224,7 +237,11 @@ export default function Discover() {
       <div className="w-full">
         <NavigationTab />
         <Suspense fallback={<div className="h-20" />}>
-          <SearchHeader context="discover" />
+          <SearchHeader 
+            context="discover" 
+            detectedCountry={detectedCountry}
+            onCountryChange={handleCountryChange}
+          />
         </Suspense>
       </div>
 
@@ -407,5 +424,13 @@ export default function Discover() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Discover() {
+  return (
+    <Suspense fallback={<div className="pt-20">Loading...</div>}>
+      <DiscoverContent />
+    </Suspense>
   );
 }

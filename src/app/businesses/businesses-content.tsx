@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, { slugifyCategory } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 import BusinessSection from "@/components/business/business-section";
@@ -12,6 +13,7 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- Types ---
 interface ApiImage {
@@ -104,6 +106,18 @@ export default function BusinessesContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Read country from URL params on mount
+  useEffect(() => {
+    const urlCountry = searchParams.get("country");
+    if (urlCountry) {
+      setSelectedCountry(urlCountry);
+    }
+  }, [searchParams]);
+
   const router = useRouter();
   const { user } = useAuth();
 
@@ -115,27 +129,40 @@ export default function BusinessesContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    setSelectedCountry(country?.alpha3 || null);
+  }, []);
+
   // --- Fetch Listings ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
+        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (selectedCountry) {
+          listingsUrl += `&country=${selectedCountry}`;
+        }
+
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(
-          `${API_URL}/api/approved_listings?per_page=100`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
+        const response = await fetch(listingsUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
           },
-        );
+        });
 
         if (!response.ok) throw new Error("Failed to fetch listings");
 
         const json = await response.json();
+
+        // Extract detected country from API response
+        if (json.meta?.detected_country) {
+          setDetectedCountry(json.meta.detected_country);
+        }
+
         const data: ApiListing[] = json.data || json.listings || [];
 
         const businessesList: ProcessedBusiness[] = [];
@@ -224,7 +251,7 @@ export default function BusinessesContent() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedCountry]);
 
   // The logic now ensures a direct match against the slug provided by the tabs
   const filteredData = useMemo(() => {
@@ -273,7 +300,11 @@ export default function BusinessesContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="businesses" />
+        <SearchHeader 
+          context="businesses" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="pb-20">

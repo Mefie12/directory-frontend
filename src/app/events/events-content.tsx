@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, {
   CategoryTabItem,
   slugifyCategory,
@@ -18,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import type { ProcessedEvent } from "@/types/event";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- API & Processed Interfaces ---
 interface ApiImage {
@@ -127,6 +129,18 @@ export default function EventsContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Read country from URL params on mount
+  useEffect(() => {
+    const urlCountry = searchParams.get("country");
+    if (urlCountry) {
+      setSelectedCountry(urlCountry);
+    }
+  }, [searchParams]);
+
   const handleClickEvent = () => {
     // Fixed: Replaced ternary with if/else to satisfy no-unused-expressions
     if (user) {
@@ -136,17 +150,30 @@ export default function EventsContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    console.log("Country changed:", country?.alpha3, country?.name);
+    setSelectedCountry(country?.alpha3 || null);
+  }, []);
+
   // --- Data Fetching ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
+        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
+        if (selectedCountry) {
+          listingsUrl += `&country=${selectedCountry}`;
+        }
+
+        console.log("Fetching listings from:", listingsUrl);
+
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         // Fetch Categories and Listings in parallel as requested
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/approved_listings?per_page=100`),
+          fetch(listingsUrl),
           fetch(`${API_URL}/api/categories`),
         ]);
 
@@ -155,6 +182,13 @@ export default function EventsContent() {
 
         const listingsJson = await listingsRes.json();
         const categoriesJson = await categoriesRes.json();
+
+        console.log("Listings response:", listingsJson);
+
+        // Extract detected country from API response
+        if (listingsJson.meta?.detected_country) {
+          setDetectedCountry(listingsJson.meta.detected_country);
+        }
 
         // 1. Process Categories
         const rawCats: ApiCategory[] =
@@ -236,7 +270,7 @@ export default function EventsContent() {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedCountry]);
 
   // --- Dynamic Grouping Logic ---
   const groupedEvents = useMemo(() => {
@@ -274,7 +308,11 @@ export default function EventsContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="events" />
+        <SearchHeader 
+          context="events" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="bg-gray-50">

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   categories,
@@ -18,6 +18,7 @@ import {
   categoryPageContentByMain,
   type ServiceProvider,
 } from "@/lib/data";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- API Types ---
 interface ApiImage {
@@ -57,6 +58,7 @@ interface ApiListingsResponse {
     current_page: number;
     last_page: number;
     total: number;
+    detected_country?: string;
   };
   links: {
     next: string | null;
@@ -132,6 +134,7 @@ const toTitleCase = (str: string) => {
 
 export default function CategoryPageContent() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // --- State ---
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
@@ -148,6 +151,22 @@ export default function CategoryPageContent() {
   const [visibleCountByMain, setVisibleCountByMain] = useState<
     Record<string, number>
   >({});
+
+  // Geolocation state
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  // Read country from URL params on mount
+  useEffect(() => {
+    const urlCountry = searchParams.get("country");
+    if (urlCountry) {
+      setSelectedCountry(urlCountry);
+    }
+  }, [searchParams]);
+
+  const handleCountryChange = useCallback((country: Country | null) => {
+    setSelectedCountry(country?.alpha3 || null);
+  }, []);
 
   // 1. Determine Active Main Category from URL
   const activeMainCategory = useMemo(() => {
@@ -197,7 +216,6 @@ export default function CategoryPageContent() {
     setIsListingsLoading(true);
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const categorySlugToFilter =
         selectedSubcategory === "all"
           ? activeMainCategory
@@ -209,18 +227,29 @@ export default function CategoryPageContent() {
         per_page: "50",
       });
 
+      // Use geolocation API with country filter
+      let listingsUrl = `/api/listings_by_geolocation?${query.toString()}`;
+      if (selectedCountry) {
+        listingsUrl += `&country=${selectedCountry}`;
+      }
+
       const headers: HeadersInit = {
         "Content-Type": "application/json",
         Accept: "application/json",
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_URL}/api/approved_listings?${query}`, {
+      const response = await fetch(listingsUrl, {
         headers,
       });
 
       if (!response.ok) throw new Error("Failed to fetch listings");
       const json: ApiListingsResponse = await response.json();
+
+      // Extract detected country from API response
+      if (json.meta?.detected_country) {
+        setDetectedCountry(json.meta.detected_country);
+      }
 
       const allListings: ExtendedServiceProvider[] = json.data.map((item) => {
         const validImages = processImages(item.images, item.cover_image);
@@ -271,7 +300,7 @@ export default function CategoryPageContent() {
     } finally {
       setIsListingsLoading(false);
     }
-  }, [activeMainCategory, selectedSubcategory]);
+  }, [activeMainCategory, selectedSubcategory, selectedCountry]);
 
   useEffect(() => {
     if (activeMainCategory && selectedSubcategory) {
@@ -465,7 +494,11 @@ export default function CategoryPageContent() {
       {/* Search & Tabs */}
       <div>
         <Suspense fallback={<div className="h-20" />}>
-          <SearchHeader context="discover" />
+          <SearchHeader
+            context="discover"
+            detectedCountry={detectedCountry}
+            onCountryChange={handleCountryChange}
+          />
         </Suspense>
 
         <ScrollableCategoryTabs

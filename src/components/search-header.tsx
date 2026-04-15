@@ -1,14 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { MapPin, Calendar, ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 // import Image from "next/image";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Popover,
@@ -21,11 +20,14 @@ import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
 import Link from "next/link";
+import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
 interface SearchHeaderProps {
   context?: SearchContext;
+  detectedCountry?: string | null;
+  onCountryChange?: (country: Country | null) => void;
 }
 
 const searchPlaceholders: Record<SearchContext, string> = {
@@ -34,26 +36,6 @@ const searchPlaceholders: Record<SearchContext, string> = {
   events: "Search by listing name or keyword...",
   communities: "Search by listing name or keyword...",
 };
-
-const countries = [
-  "All countries",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "France",
-  "Spain",
-  "Italy",
-  "Netherlands",
-  "Japan",
-  "South Korea",
-  "Singapore",
-  "India",
-  "Brazil",
-  "Mexico",
-  "Ghana",
-];
 
 // const priceRanges = [
 //   { label: "Price", value: "all" },
@@ -111,6 +93,8 @@ const categories = [
 
 export default function SearchHeader({
   context = "discover",
+  detectedCountry,
+  onCountryChange,
 }: SearchHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -142,8 +126,9 @@ export default function SearchHeader({
     updateSearchParams("q", value);
   };
 
-  const handleCountryChange = (value: string) => {
-    updateSearchParams("country", value === "All countries" ? "" : value);
+  const handleCountrySelect = (country: Country | null) => {
+    onCountryChange?.(country);
+    updateSearchParams("country", country?.alpha3 || "");
   };
 
   const handleCategoryChange = (value: string) => {
@@ -171,7 +156,6 @@ export default function SearchHeader({
   const showDate = context === "discover" || context === "events";
   // const showPrice = context === "discover" || context === "businesses";
 
-  const currentCountry = searchParams.get("country") || "All countries";
   const currentStart = searchParams.get("startDate");
   const currentEnd = searchParams.get("endDate");
   const currentRange: DateRange | undefined =
@@ -202,25 +186,13 @@ export default function SearchHeader({
 
           {/* Country Select */}
           {showCountry && (
-            <div className="md:w-auto min-w-[140px]">
-              <Select
-                value={currentCountry}
-                onValueChange={handleCountryChange}
-              >
-                <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-gray-600" />
-                    <SelectValue className="text-gray-600" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((country) => (
-                    <SelectItem key={country} value={country}>
-                      {country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="md:w-auto min-w-[180px]">
+              <CountryDropdown
+                defaultValue={detectedCountry || undefined}
+                onChange={handleCountrySelect}
+                placeholder="Select country"
+                slim={false}
+              />
             </div>
           )}
 
