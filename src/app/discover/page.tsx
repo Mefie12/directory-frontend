@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, Suspense, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
@@ -98,22 +99,15 @@ function DiscoverContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [clientIp, setClientIp] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  // IP captured at signup and stored in localStorage
+  const [clientIp] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("user_ip");
+  });
 
-  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
-  useEffect(() => {
-    const cached = sessionStorage.getItem("client_ip");
-    if (cached) { setClientIp(cached); return; }
-    fetch("https://api.ipify.org?format=json")
-      .then((r) => r.json())
-      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
-      .catch(() => {});
-  }, []);
-
-  const handleCountryChange = useCallback((country: Country | null) => {
-    setSelectedCountry(country?.alpha3 || null);
-  }, []);
+  // SearchHeader updates URL params; this is just passed for the detected-country pre-select
+  const handleCountryChange = useCallback((_country: Country | null) => {}, []);
 
   const handleClickEvent = () => {
     if (user) {
@@ -123,18 +117,24 @@ function DiscoverContent() {
     }
   };
 
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category");
+  const filterStartDate = searchParams.get("startDate");
+  const filterEndDate = searchParams.get("endDate");
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
-        if (clientIp) {
-          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
-        }
-        if (selectedCountry) {
-          listingsUrl += `&country=${selectedCountry}`;
-        }
+        const params = new URLSearchParams({ per_page: "100" });
+        if (clientIp) params.set("ip_address", clientIp);
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
+        if (filterStartDate) params.set("start_date", filterStartDate);
+        if (filterEndDate) params.set("end_date", filterEndDate);
+
+        const listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
 
         const response = await fetch(listingsUrl, {
           headers: {
@@ -236,7 +236,7 @@ function DiscoverContent() {
     };
 
     fetchData();
-  }, [selectedCountry, clientIp]);
+  }, [clientIp, filterCountry, filterCategory, filterStartDate, filterEndDate]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

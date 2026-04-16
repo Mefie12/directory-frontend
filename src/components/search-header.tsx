@@ -19,7 +19,6 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
-import Link from "next/link";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
@@ -48,47 +47,15 @@ const searchPlaceholders: Record<SearchContext, string> = {
 // ];
 
 const categories = [
-  {
-    label: "All categories",
-    value: "all",
-    link: "/discover",
-  },
-  {
-    label: "Cultural Services",
-    value: "cultural-services",
-    link: "/categories/cultural-services",
-  },
-  {
-    label: "Education & Learning",
-    value: "education-learning",
-    link: "/categories/education-learning",
-  },
-  {
-    label: "Food & Hospitality",
-    value: "food-hospitality",
-    link: "/categories/food-hospitality",
-  },
-  {
-    label: "Health & Wellness",
-    value: "health-wellness",
-    link: "/categories/health-wellness",
-  },
-  { label: "Events", value: "events", link: "/categories/events" },
-  {
-    label: "Financial Services",
-    value: "financial-services",
-    link: "/categories/financial-services",
-  },
-  {
-    label: "Shipping & Logistics",
-    value: "shipping-logistics",
-    link: "/categories/shipping-logistics",
-  },
-  {
-    label: "Property Relocation",
-    value: "property-relocation",
-    link: "/categories/property-relocation",
-  },
+  { label: "All categories", value: "all" },
+  { label: "Cultural Services", value: "cultural-services" },
+  { label: "Education & Learning", value: "education-learning" },
+  { label: "Food & Hospitality", value: "food-hospitality" },
+  { label: "Health & Wellness", value: "health-wellness" },
+  { label: "Events", value: "events" },
+  { label: "Financial Services", value: "financial-services" },
+  { label: "Shipping & Logistics", value: "shipping-logistics" },
+  { label: "Property Relocation", value: "property-relocation" },
 ];
 
 export default function SearchHeader({
@@ -132,10 +99,7 @@ export default function SearchHeader({
   };
 
   const handleCategoryChange = (value: string) => {
-    const selectedCategory = categories.find((c) => c.value === value);
-    if (selectedCategory) {
-      router.push(selectedCategory.link);
-    }
+    updateSearchParams("category", value === "all" ? "" : value);
   };
 
   const handleDateRangeSelect = (range: DateRange | undefined) => {
@@ -166,10 +130,8 @@ export default function SearchHeader({
         }
       : undefined;
   // const currentPrice = searchParams.get("price") || "all";
- // Determine current category based on pathname
-  const currentCategory = categories.find((cat) => 
-    cat.link !== "/discover" && pathname.includes(cat.link)
-  )?.value || "all";
+  // Determine current category from URL param
+  const currentCategory = searchParams.get("category") || "all";
 
   return (
     <div className="w-full bg-transparent">
@@ -280,11 +242,9 @@ export default function SearchHeader({
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <Link href={category.link} key={category.value}>
-                      <SelectItem value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    </Link>
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
