@@ -40,7 +40,6 @@ interface ApiListing {
   listing_type?: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
   city?: string;
   country?: string;
@@ -51,10 +50,15 @@ interface ApiListing {
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
-  date?: string;
   created_at?: string;
   is_verified?: boolean;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // Unified Community Interface for the Carousel
@@ -106,7 +110,7 @@ const classifyListing = (
     .toString()
     .trim()
     .toLowerCase();
-  if (item.start_date || rawType === "event") return "event";
+  if (item.event_start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
@@ -230,6 +234,10 @@ export default function CommunityContent() {
           const category = item.categories?.[0];
           const listingType = classifyListing(item);
 
+          const location = listingType === "event"
+            ? item.event_city || item.event_country || "Online"
+            : item.city || item.country || "Online";
+
           const commonProps = {
             id: item.id.toString(),
             name: item.name,
@@ -239,13 +247,13 @@ export default function CommunityContent() {
             image: validImages[0],
             imageUrl: validImages[0],
             images: validImages,
-            location: item.location || item.address || "Online",
+            location,
             verified: item.is_verified || false,
             category: category?.name || "General",
             categorySlug:
               category?.slug || slugifyCategory(category?.name || "general"),
             tag: category?.name || "General",
-            country: item.country || "Ghana",
+            country: item.event_country || item.country || "Ghana",
           };
 
           if (listingType === "community") {
@@ -257,13 +265,16 @@ export default function CommunityContent() {
               reviewCount: Number(item.ratings_count) || 0,
             });
           } else if (listingType === "event") {
-            const eventDate = item.start_date || item.date || item.created_at;
-            const formattedDate = formatDateTime(eventDate);
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
+            const startDate = formatDateTime(item.event_start_date);
             eventsList.push({
               ...commonProps,
-              startDate: formattedDate,
-              endDate: formattedDate,
-              date: formattedDate,
+              startDate,
+              endDate: formatDateTime(item.event_end_date || item.event_start_date),
+              date: startDate,
+              price: priceLabel,
               reviewCount: Number(item.ratings_count) || 0,
             });
           }

@@ -38,18 +38,25 @@ interface ApiListing {
   listing_type: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
+  city?: string;
+  country?: string;
   status: string;
   images: (ApiImage | string)[];
   cover_image?: string;
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
-  date?: string;
   created_at?: string;
   is_verified?: boolean;
+  // Event-specific fields
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // --- Helper Functions ---
@@ -106,7 +113,8 @@ function DiscoverContent() {
     return localStorage.getItem("user_ip");
   });
 
-  // SearchHeader updates URL params; this is just passed for the detected-country pre-select
+  // SearchHeader updates URL params via useSearchParams; no local state needed
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCountryChange = useCallback((_country: Country | null) => {}, []);
 
   const handleClickEvent = () => {
@@ -184,8 +192,14 @@ function DiscoverContent() {
           }
 
           const categoryName = item.categories?.[0]?.name || "General";
-          const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
+
+          const buildLocation = () => {
+            if (listingType === "event") {
+              return item.event_city || item.event_country || "Online";
+            }
+            return item.city || item.country || "Online";
+          };
 
           const commonProps = {
             id: item.id.toString(),
@@ -195,7 +209,7 @@ function DiscoverContent() {
             description: item.bio || item.description || "",
             image: validImages[0],
             images: validImages,
-            location: location,
+            location: buildLocation(),
             verified: item.is_verified || false,
           };
 
@@ -204,16 +218,16 @@ function DiscoverContent() {
               ...commonProps,
             });
           } else if (listingType === "event") {
-            // FIX: Robust Date Checking
-            const eventDate = item.start_date || item.date || item.created_at;
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
 
             eventsList.push({
               ...commonProps,
               category: categoryName,
-              // Use helper function
-              startDate: formatDate(eventDate),
-              endDate: formatDate(eventDate), // Assuming single day for now
-              price: "Free",
+              startDate: formatDate(item.event_start_date),
+              endDate: formatDate(item.event_end_date || item.event_start_date),
+              price: priceLabel,
             });
           } else {
             businessesList.push({
