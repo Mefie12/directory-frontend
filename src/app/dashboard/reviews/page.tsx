@@ -114,7 +114,19 @@ interface UserData {
 }
 
 interface ApiResponse {
-  data?: RawReview[];
+  data?: {
+    ratings?: RawReview[];
+    meta?: {
+      current_page?: number;
+      last_page?: number;
+      per_page?: number;
+    };
+    summary?: {
+      total_listings?: number;
+      total_reviews?: number;
+      overall_average_rating?: number;
+    };
+  };
   items?: RawReview[];
   last_page?: number;
   totalPages?: number;
@@ -123,7 +135,7 @@ interface ApiResponse {
 export default function ReviewsPage() {
   const { user: authUser, loading: authLoading } = useAuth();
   const isCustomer = authUser ? normalizeRole(authUser.role) === "customer" : false;
-  const isVendor = authUser ? normalizeRole(authUser.role) === "vendor" : false
+  const isVendor = authUser ? normalizeRole(authUser.role) === "vendor" : false;
 
   // --- State ---
   const [data, setData] = useState<Review[]>([]);
@@ -140,6 +152,7 @@ export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [vendorListingSlug, setVendorListingSlug] = useState<string | null>(null);
 
   const itemsPerPage = 10;
 
@@ -248,7 +261,7 @@ export default function ReviewsPage() {
       const rawItems: RawReview[] = (
         Array.isArray(response)
           ? response
-          : response.data || response.items || []
+          : response.data?.ratings || response.data || response.items || []
       ) as RawReview[];
 
       // console.log("=== DEBUG: Raw API Response ===");
@@ -338,6 +351,31 @@ export default function ReviewsPage() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
+        let listingSlug = vendorListingSlug;
+        if (isVendor && !listingSlug) {
+          const listingsRes = await fetch(`${API_URL}/api/listing/my_listings`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+          });
+          if (listingsRes.ok) {
+            const listingsJson = await listingsRes.json();
+            const listings: { slug?: string }[] = listingsJson.data || [];
+            if (listings.length > 0 && listings[0].slug) {
+              listingSlug = listings[0].slug;
+              setVendorListingSlug(listingSlug);
+            }
+          }
+        }
+
+        if (isVendor && !listingSlug) {
+          setIsLoading(false);
+          setData([]);
+          return;
+        }
+
         let apiStatus = "";
         if (statusFilter !== "All") {
           apiStatus = statusFilter.toLowerCase();
@@ -366,7 +404,11 @@ export default function ReviewsPage() {
 
         // console.log(`Fetching from: ${API_URL}/api/ratings?${queryParams}`);
 
-        const endpoint = isCustomer ? "my_ratings" : "ratings";
+        const endpoint = isCustomer ? "my_ratings" : isVendor ? "vendor_ratings" : "ratings";
+
+        if (isVendor && listingSlug) {
+          queryParams.append("listing_slug", listingSlug);
+        }
 
         const response = await fetch(
           `${API_URL}/api/${endpoint}?${queryParams}`,
@@ -410,7 +452,7 @@ export default function ReviewsPage() {
         setData(reviews);
 
         const pageData = json as ApiResponse;
-        const total = pageData.last_page || pageData.totalPages || 1;
+        const total = pageData.data?.meta?.last_page || pageData.last_page || pageData.totalPages || 1;
         setTotalPages(total);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
@@ -427,7 +469,7 @@ export default function ReviewsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [authUser, authLoading, isCustomer, currentPage, search, statusFilter, ratingFilter, date, getAuthToken, extractReviewsFromResponse, isVendor]);
+  }, [authUser, authLoading, isCustomer, currentPage, search, statusFilter, ratingFilter, date, getAuthToken, extractReviewsFromResponse, isVendor, vendorListingSlug]);
 
   // --- Client-Side Safety Filter ---
   useEffect(() => {
