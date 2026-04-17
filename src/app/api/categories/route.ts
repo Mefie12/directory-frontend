@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       // });
 
     const response = await fetch(
-      `${API_BASE_URL}/api/categories`,
+      `${API_BASE_URL.replace(/\/$/, "")}/api/categories`,
       {
         method: 'GET',
         headers: {

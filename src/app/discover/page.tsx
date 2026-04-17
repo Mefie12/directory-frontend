@@ -125,10 +125,12 @@ function DiscoverContent() {
     }
   };
 
+  const filterQ = searchParams.get("q");
   const filterCountry = searchParams.get("country");
-  const filterCategory = searchParams.get("category");
-  const filterStartDate = searchParams.get("startDate");
-  const filterEndDate = searchParams.get("endDate");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,13 +138,19 @@ function DiscoverContent() {
         setIsLoading(true);
 
         const params = new URLSearchParams({ per_page: "100" });
-        if (clientIp) params.set("ip_address", clientIp);
         if (filterCountry) params.set("country", filterCountry);
-        if (filterCategory && filterCategory !== "all") params.set("category", filterCategory);
-        if (filterStartDate) params.set("start_date", filterStartDate);
-        if (filterEndDate) params.set("end_date", filterEndDate);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
 
-        const listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
 
         const response = await fetch(listingsUrl, {
           headers: {
@@ -250,7 +258,7 @@ function DiscoverContent() {
     };
 
     fetchData();
-  }, [clientIp, filterCountry, filterCategory, filterStartDate, filterEndDate]);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

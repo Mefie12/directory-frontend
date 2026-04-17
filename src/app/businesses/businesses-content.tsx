@@ -112,9 +112,15 @@ export default function BusinessesContent() {
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [clientIp, setClientIp] = useState<string | null>(null);
   const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
   useEffect(() => {
@@ -125,14 +131,6 @@ export default function BusinessesContent() {
       .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
       .catch(() => {});
   }, []);
-
-  // Read country from URL params on mount
-  useEffect(() => {
-    const urlCountry = searchParams.get("country");
-    if (urlCountry) {
-      setSelectedCountry(urlCountry);
-    }
-  }, [searchParams]);
 
   const router = useRouter();
   const { user } = useAuth();
@@ -146,7 +144,7 @@ export default function BusinessesContent() {
   };
 
   const handleCountryChange = useCallback((country: Country | null) => {
-    setSelectedCountry(country?.alpha3 || null);
+    void country;
   }, []);
 
   // --- Fetch Listings ---
@@ -155,12 +153,19 @@ export default function BusinessesContent() {
       try {
         setIsLoading(true);
 
-        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
-        if (clientIp) {
-          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
-        }
-        if (selectedCountry) {
-          listingsUrl += `&country=${selectedCountry}`;
+        const params = new URLSearchParams({ per_page: "100" });
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
         }
 
         const response = await fetch(listingsUrl, {
@@ -273,7 +278,7 @@ export default function BusinessesContent() {
     };
 
     fetchData();
-  }, [selectedCountry, clientIp]);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // The logic now ensures a direct match against the slug provided by the tabs
   const filteredData = useMemo(() => {

@@ -1,8 +1,8 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
-// import Image from "next/image";
 import {
   Select,
   SelectContent,
@@ -36,27 +36,11 @@ const searchPlaceholders: Record<SearchContext, string> = {
   communities: "Search by listing name or keyword...",
 };
 
-// const priceRanges = [
-//   { label: "Price", value: "all" },
-//   { label: "Free", value: "free" },
-//   { label: "$0 - $50", value: "0-50" },
-//   { label: "$50 - $100", value: "50-100" },
-//   { label: "$100 - $200", value: "100-200" },
-//   { label: "$200 - $500", value: "200-500" },
-//   { label: "$500+", value: "500+" },
-// ];
-
-const categories = [
-  { label: "All categories", value: "all" },
-  { label: "Cultural Services", value: "cultural-services" },
-  { label: "Education & Learning", value: "education-learning" },
-  { label: "Food & Hospitality", value: "food-hospitality" },
-  { label: "Health & Wellness", value: "health-wellness" },
-  { label: "Events", value: "events" },
-  { label: "Financial Services", value: "financial-services" },
-  { label: "Shipping & Logistics", value: "shipping-logistics" },
-  { label: "Property Relocation", value: "property-relocation" },
-];
+interface ApiCategory {
+  slug: string;
+  name: string;
+  type?: string;
+}
 
 export default function SearchHeader({
   context = "discover",
@@ -66,6 +50,18 @@ export default function SearchHeader({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories_with_listings")
+      .then((r) => r.json())
+      .then((json) => {
+        setCategories(json.data as ApiCategory[] || []);
+      })
+      .catch(() => {});
+  }, []);
 
   const updateSearchParams = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -89,39 +85,38 @@ export default function SearchHeader({
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Debounce URL update so typing doesn't cause a navigation on every keystroke
   const handleSearchChange = (value: string) => {
-    updateSearchParams("q", value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      updateSearchParams("q", value);
+    }, 500);
   };
 
   const handleCountrySelect = (country: Country | null) => {
     onCountryChange?.(country);
-    updateSearchParams("country", country?.alpha3 || "");
+    updateSearchParams("country", country?.alpha2 || "");
   };
 
   const handleCategoryChange = (value: string) => {
-    updateSearchParams("category", value === "all" ? "" : value);
+    updateSearchParams("category_id", value === "all" ? "" : value);
   };
 
   const handleDateRangeSelect = (range: DateRange | undefined) => {
     const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
     const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
     updateSearchParamsBatch({
-      startDate: start,
-      endDate: end,
+      event_start_date: start,
+      event_end_date: end,
     });
   };
-
-  // const handlePriceChange = (value: string) => {
-  //   updateSearchParams("price", value === "all" ? "" : value);
-  // };
 
   const showCountry = true;
   const showCategories = true;
   const showDate = context === "discover" || context === "events";
-  // const showPrice = context === "discover" || context === "businesses";
 
-  const currentStart = searchParams.get("startDate");
-  const currentEnd = searchParams.get("endDate");
+  const currentStart = searchParams.get("event_start_date");
+  const currentEnd = searchParams.get("event_end_date");
   const currentRange: DateRange | undefined =
     currentStart || currentEnd
       ? {
@@ -129,9 +124,8 @@ export default function SearchHeader({
           to: currentEnd ? new Date(currentEnd) : undefined,
         }
       : undefined;
-  // const currentPrice = searchParams.get("price") || "all";
-  // Determine current category from URL param
-  const currentCategory = searchParams.get("category") || "all";
+
+  const currentCategory = searchParams.get("category_id") || "all";
 
   return (
     <div className="w-full bg-transparent">
@@ -170,14 +164,8 @@ export default function SearchHeader({
                     <Calendar className="h-5 w-5 mr-2 text-gray-600" />
                     {currentRange?.from
                       ? currentRange.to
-                        ? `${format(
-                            currentRange.from,
-                            "MMM dd, yyyy"
-                          )} - ${format(currentRange.to, "MMM dd, yyyy")}`
-                        : `${format(
-                            currentRange.from,
-                            "MMM dd, yyyy"
-                          )} - End date`
+                        ? `${format(currentRange.from, "MMM dd, yyyy")} - ${format(currentRange.to, "MMM dd, yyyy")}`
+                        : `${format(currentRange.from, "MMM dd, yyyy")} - End date`
                       : "Dates"}
                     <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" />
                   </Button>
@@ -195,36 +183,6 @@ export default function SearchHeader({
             </div>
           )}
 
-          {/* Price Select */}
-          {/* {showPrice && (
-            <div className="md:w-auto min-w-[140px]">
-              <Select value={currentPrice} onValueChange={handlePriceChange}>
-                <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
-                  <div className="flex items-center gap-2">
-                    <Image
-                      src="/images/icons/price.svg"
-                      alt="Price"
-                      width={20}
-                      height={20}
-                      className="text-gray-600"
-                    />
-                    <span className="text-gray-600">
-                      {priceRanges.find((p) => p.value === currentPrice)
-                        ?.label || "Price"}
-                    </span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {priceRanges.map((price) => (
-                    <SelectItem key={price.value} value={price.value}>
-                      {price.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )} */}
-
           {/* Category Select */}
           {showCategories && (
             <div className="md:w-auto min-w-[140px]">
@@ -235,15 +193,16 @@ export default function SearchHeader({
                 <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600">
-                      {categories.find((c) => c.value === currentCategory)
-                        ?.label || "All categories"}
+                      {categories.find((c) => c.slug === currentCategory)
+                        ?.name || "All categories"}
                     </span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
                   {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
+                    <SelectItem key={category.slug} value={category.slug}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

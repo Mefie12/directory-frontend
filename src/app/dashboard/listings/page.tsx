@@ -82,7 +82,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 // --- Types ---
-type TabType = "all" | "approved" | "pending" | "flagged" | "categories";
+type TabType = "all" | "approved" | "pending" | "suspended" | "rejected" | "categories";
 
 interface Listing {
   id: string;
@@ -478,7 +478,8 @@ export default function Listings() {
     if (cat.type !== "subCategory") return false;
     if (!selectedMainCategory) return false;
     const catParentId = cat.parent_id?.toString();
-    const selectedParentId = selectedMainCategory.id.toString();
+    const selectedParentId = selectedMainCategory.id?.toString();
+    if (!selectedParentId) return false;
     return catParentId === selectedParentId;
   });
 
@@ -720,21 +721,21 @@ export default function Listings() {
       });
 
       if (search) params.append("search", search);
-
-      if (activeTab === "pending") {
-        params.set("status", "pending");
-      } else if (activeTab === "approved") {
-        params.set("status", "approved"); // Or "published" depending on your API
-      } else if (activeTab === "flagged") {
-        params.set("status", "suspended");
-      } else {
-        if (statusFilter !== "all") params.append("status", statusFilter);
-      }
-
       if (typeFilter !== "all") params.append("type", typeFilter);
+      if (activeTab === "all" && statusFilter !== "all") params.append("status", statusFilter);
+
+      const endpointMap: Record<string, string> = {
+        all: "admin/all_listings",
+        approved: "admin/all_listings",
+        pending: "admin/pending_listings",
+        suspended: "admin/suspended_listings",
+        rejected: "admin/rejected_listings",
+      };
+      const endpoint = endpointMap[activeTab] || "admin/all_listings";
+      if (activeTab === "approved") params.set("status", "approved");
 
       const response = await fetch(
-        `${API_URL}/api/admin_listings?${params.toString()}`,
+        `${API_URL}/api/${endpoint}?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -816,10 +817,10 @@ export default function Listings() {
 
     if (activeTab === "pending") {
       filteredData = safeAllData.filter((item) => item.approval === "Pending");
-    } else if (activeTab === "flagged") {
-      filteredData = safeAllData.filter(
-        (item) => item.approval === "Suspended" || item.approval === "Rejected",
-      );
+    } else if (activeTab === "suspended") {
+      filteredData = safeAllData.filter((item) => item.approval === "Suspended");
+    } else if (activeTab === "rejected") {
+      filteredData = safeAllData.filter((item) => item.approval === "Rejected");
     } else {
       if (statusFilter !== "all") {
         const status = statusFilter.toLowerCase();
@@ -938,8 +939,8 @@ export default function Listings() {
           { key: "all", label: "All" },
           { key: "approved", label: "Approved" },
           { key: "pending", label: "Pending" },
-          { key: "flagged", label: "Flagged" },
-          // { key: "categories", label: "Categories" },
+          { key: "suspended", label: "Suspended" },
+          { key: "rejected", label: "Rejected" },
         ].map((tab) => (
           <Button
             key={tab.key}

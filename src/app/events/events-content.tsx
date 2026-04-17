@@ -133,9 +133,15 @@ export default function EventsContent() {
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [clientIp, setClientIp] = useState<string | null>(null);
   const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
   useEffect(() => {
@@ -147,16 +153,7 @@ export default function EventsContent() {
       .catch(() => {});
   }, []);
 
-  // Read country from URL params on mount
-  useEffect(() => {
-    const urlCountry = searchParams.get("country");
-    if (urlCountry) {
-      setSelectedCountry(urlCountry);
-    }
-  }, [searchParams]);
-
   const handleClickEvent = () => {
-    // Fixed: Replaced ternary with if/else to satisfy no-unused-expressions
     if (user) {
       router.push("/claim");
     } else {
@@ -165,8 +162,7 @@ export default function EventsContent() {
   };
 
   const handleCountryChange = useCallback((country: Country | null) => {
-    console.log("Country changed:", country?.alpha3, country?.name);
-    setSelectedCountry(country?.alpha3 || null);
+    void country;
   }, []);
 
   // --- Data Fetching ---
@@ -175,20 +171,24 @@ export default function EventsContent() {
       try {
         setIsLoading(true);
 
-        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
-        if (clientIp) {
-          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
-        }
-        if (selectedCountry) {
-          listingsUrl += `&country=${selectedCountry}`;
-        }
+        const params = new URLSearchParams({ per_page: "100" });
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
 
-        console.log("Fetching listings from:", listingsUrl);
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
 
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // Fetch Categories and Listings in parallel as requested
         const [listingsRes, categoriesRes] = await Promise.all([
           fetch(listingsUrl),
           fetch(`${API_URL}/api/categories`),
@@ -199,8 +199,6 @@ export default function EventsContent() {
 
         const listingsJson = await listingsRes.json();
         const categoriesJson = await categoriesRes.json();
-
-        console.log("Listings response:", listingsJson);
 
         // Extract detected country from API response
         if (listingsJson.meta?.detected_country) {
@@ -295,7 +293,7 @@ export default function EventsContent() {
       }
     };
     fetchData();
-  }, [selectedCountry, clientIp]);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // --- Dynamic Grouping Logic ---
   const groupedEvents = useMemo(() => {

@@ -129,9 +129,15 @@ export default function CommunityContent() {
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [clientIp, setClientIp] = useState<string | null>(null);
   const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
   useEffect(() => {
@@ -143,14 +149,6 @@ export default function CommunityContent() {
       .catch(() => {});
   }, []);
 
-  // Read country from URL params on mount
-  useEffect(() => {
-    const urlCountry = searchParams.get("country");
-    if (urlCountry) {
-      setSelectedCountry(urlCountry);
-    }
-  }, [searchParams]);
-
   const handleClickEvent = () => {
     if (user) {
       router.push("/claim");
@@ -160,7 +158,7 @@ export default function CommunityContent() {
   };
 
   const handleCountryChange = useCallback((country: Country | null) => {
-    setSelectedCountry(country?.alpha3 || null);
+    void country;
   }, []);
 
   useEffect(() => {
@@ -168,12 +166,19 @@ export default function CommunityContent() {
       try {
         setIsLoading(true);
 
-        let listingsUrl = `/api/listings_by_geolocation?per_page=100`;
-        if (clientIp) {
-          listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
-        }
-        if (selectedCountry) {
-          listingsUrl += `&country=${selectedCountry}`;
+        const params = new URLSearchParams({ per_page: "100" });
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
         }
 
         const API_URL =
@@ -290,7 +295,7 @@ export default function CommunityContent() {
       }
     };
     fetchData();
-  }, [selectedCountry, clientIp]);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // --- Dynamic Grouping Logic ---
   const groupedCommunities = useMemo(() => {

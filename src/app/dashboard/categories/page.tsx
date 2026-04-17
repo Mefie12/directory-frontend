@@ -166,7 +166,8 @@ export default function CategoriesPage() {
     if (cat.type !== "subCategory") return false;
     if (!selectedMainCategory) return false;
     const catParentId = cat.parent_id?.toString();
-    const selectedParentId = selectedMainCategory.id.toString();
+    const selectedParentId = selectedMainCategory.id?.toString();
+    if (!selectedParentId) return false;
     return catParentId === selectedParentId;
   });
 
