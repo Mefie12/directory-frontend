@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
+import { countries as allCountries } from "country-data-list";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
@@ -53,6 +54,9 @@ export default function SearchHeader({
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     fetch("/api/categories_with_listings")
@@ -61,6 +65,80 @@ export default function SearchHeader({
         setCategories(json.data as ApiCategory[] || []);
       })
       .catch(() => {});
+  }, []);
+
+  // Fetch countries that have listings from backend
+  useEffect(() => {
+    const API_URL =
+      process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+    fetch(`${API_URL}/api/countries_dropdown`, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        const list: unknown[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
+
+        // Normalize backend entries (could be strings or objects) and
+        // map each to the Country shape using country-data-list so flags work.
+        const mapped: Country[] = list
+          .map((entry): Country | null => {
+            let name: string | undefined;
+            let alpha2: string | undefined;
+            let alpha3: string | undefined;
+
+            if (typeof entry === "string") {
+              name = entry;
+            } else if (entry && typeof entry === "object") {
+              const e = entry as Record<string, unknown>;
+              name =
+                (e.name as string) ||
+                (e.country as string) ||
+                (e.label as string);
+              alpha2 =
+                (e.alpha2 as string) ||
+                (e.code as string) ||
+                (e.iso2 as string) ||
+                (e.country_code as string);
+              alpha3 = (e.alpha3 as string) || (e.iso3 as string);
+            }
+
+            const match = (allCountries.all as Country[]).find(
+              (c) =>
+                (alpha2 && c.alpha2?.toLowerCase() === alpha2.toLowerCase()) ||
+                (alpha3 && c.alpha3?.toLowerCase() === alpha3.toLowerCase()) ||
+                (name && c.name?.toLowerCase() === name.toLowerCase()),
+            );
+
+            if (match) return match;
+            if (name && alpha2) {
+              return {
+                alpha2,
+                alpha3: alpha3 || "",
+                countryCallingCodes: [],
+                currencies: [],
+                ioc: "",
+                languages: [],
+                name,
+                status: "assigned",
+              };
+            }
+            return null;
+          })
+          .filter((c): c is Country => c !== null);
+
+        if (mapped.length > 0) setCountryOptions(mapped);
+      })
+      .catch(() => {
+        // Fallback: leave options undefined so CountryDropdown uses its default full list
+      });
   }, []);
 
   const updateSearchParams = (key: string, value: string) => {
@@ -95,7 +173,7 @@ export default function SearchHeader({
 
   const handleCountrySelect = (country: Country | null) => {
     onCountryChange?.(country);
-    updateSearchParams("country", country?.alpha2 || "");
+    updateSearchParams("country", country?.name || "");
   };
 
   const handleCategoryChange = (value: string) => {
@@ -148,6 +226,7 @@ export default function SearchHeader({
                 onChange={handleCountrySelect}
                 placeholder="Select country"
                 slim={false}
+                options={countryOptions}
               />
             </div>
           )}

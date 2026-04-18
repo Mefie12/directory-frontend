@@ -138,7 +138,10 @@ function DiscoverContent() {
         setIsLoading(true);
 
         const params = new URLSearchParams({ per_page: "100" });
-        if (filterCountry) params.set("country", filterCountry);
+        // NOTE: Do NOT send `country` to the backend here. The discover page
+        // shows a mix of businesses AND events; backend filters by the
+        // `country` column which is null for events, so it would wrongly hide
+        // them. We apply the country filter client-side below.
         if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
         if (filterStartDate) params.set("event_start_date", filterStartDate);
         if (filterEndDate) params.set("event_end_date", filterEndDate);
@@ -201,6 +204,19 @@ function DiscoverContent() {
 
           const categoryName = item.categories?.[0]?.name || "General";
           const listingType = classifyListing(item);
+
+          // Client-side country filter (handles events' event_country too)
+          if (filterCountry) {
+            const target = filterCountry.toLowerCase();
+            const itemCountry = (
+              listingType === "event"
+                ? item.event_country || item.country
+                : item.country || item.event_country
+            )
+              ?.toString()
+              .toLowerCase();
+            if (itemCountry !== target) return;
+          }
 
           const buildLocation = () => {
             if (listingType === "event") {

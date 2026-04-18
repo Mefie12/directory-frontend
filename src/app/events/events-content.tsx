@@ -172,7 +172,10 @@ export default function EventsContent() {
         setIsLoading(true);
 
         const params = new URLSearchParams({ per_page: "100" });
-        if (filterCountry) params.set("country", filterCountry);
+        // NOTE: Do NOT send `country` to the backend on the events page.
+        // Events store their country in `event_country` (the `country` column
+        // is null), so `?country=Ghana` would filter out all events.
+        // We apply the country filter client-side below instead.
         if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
         if (filterStartDate) params.set("event_start_date", filterStartDate);
         if (filterEndDate) params.set("event_end_date", filterEndDate);
@@ -276,6 +279,20 @@ export default function EventsContent() {
             rating: Number(item.rating) || 0,
             reviewCount: Number(item.ratings_count) || 0,
           };
+
+          // Client-side country filter (backend filter doesn't apply to events
+          // because their location is stored in event_country, not country).
+          if (filterCountry) {
+            const target = filterCountry.toLowerCase();
+            const itemCountry = (
+              item.event_country ||
+              item.country ||
+              ""
+            )
+              .toString()
+              .toLowerCase();
+            if (itemCountry !== target) return;
+          }
 
           if (listingType === "event") {
             eventsList.push({ ...commonProps, type: "event" });
