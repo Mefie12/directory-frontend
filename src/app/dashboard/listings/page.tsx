@@ -725,7 +725,7 @@ export default function Listings() {
 
       const endpointMap: Record<string, string> = {
         all: "admin/all_listings",
-        approved: "admin/all_listings",
+        approved: "admin/approved_listings",
         pending: "admin/pending_listings",
         suspended: "admin/suspended_listings",
         rejected: "admin/rejected_listings",
