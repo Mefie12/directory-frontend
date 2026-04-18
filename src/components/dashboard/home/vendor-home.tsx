@@ -43,7 +43,7 @@ interface Category {
 }
 
 interface ApiListing {
-  id: number;
+  id?: number;
   name: string;
   slug: string;
   bio: string;
@@ -149,8 +149,7 @@ export default function VendorHome() {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      const response = await fetch(`${API_URL}/api/listing/my_listings`, {
+      const response = await fetch(`/api/listing/my_listings`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -165,11 +164,19 @@ export default function VendorHome() {
       }
 
       const data: ApiResponse = await response.json();
+      console.log("[vendor-home] raw response:", JSON.stringify(data).slice(0, 500));
 
-      // DEBUG: Check what the API is actually returning
-      // console.log("Raw API Listings Data:", data.data);
+      // Handle: { data: [...] }  OR  { data: { data: [...] } }  OR  { listings: [...] }
+      let rawListings: ApiListing[] = [];
+      if (Array.isArray(data?.data)) {
+        rawListings = data.data;
+      } else if (Array.isArray((data as any)?.data?.data)) {
+        rawListings = (data as any).data.data;
+      } else if (Array.isArray((data as any)?.listings)) {
+        rawListings = (data as any).listings;
+      }
 
-      const transformedListings: ListingsTableItem[] = data.data.map(
+      const transformedListings: ListingsTableItem[] = rawListings.map(
         (listing) => {
           // 1. Image Logic
           const rawImages = listing.images || [];
@@ -216,7 +223,7 @@ export default function VendorHome() {
           }
 
           return {
-            id: listing.id.toString(),
+            id: listing.id?.toString() ?? listing.slug,
             slug: listing.slug,
             name: listing.name,
             image: coverImage,
@@ -254,7 +261,7 @@ export default function VendorHome() {
       setAvgRating(avg);
 
       // --- Fetch detailed views per listing for chart ---
-      fetchListingViews(data.data, token!);
+      fetchListingViews(rawListings, token!);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load listings");

@@ -41,7 +41,7 @@ interface Category {
 }
 
 interface ApiListing {
-  id: number;
+  id?: number;
   name: string;
   slug: string;
   bio: string;
@@ -105,8 +105,7 @@ export default function MyListingsPage() {
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-      const response = await fetch(`${API_URL}/api/listing/my_listings`, {
+      const response = await fetch(`/api/listing/my_listings`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -121,8 +120,17 @@ export default function MyListingsPage() {
       }
 
       const data: ApiResponse = await response.json();
+      // Handle: { data: [...] }  OR  { data: { data: [...] } }  OR  { listings: [...] }
+      let rawListings: ApiListing[] = [];
+      if (Array.isArray(data?.data)) {
+        rawListings = data.data;
+      } else if (Array.isArray((data as any)?.data?.data)) {
+        rawListings = (data as any).data.data;
+      } else if (Array.isArray((data as any)?.listings)) {
+        rawListings = (data as any).listings;
+      }
 
-      const transformedListings: ListingsTableItem[] = data.data.map(
+      const transformedListings: ListingsTableItem[] = rawListings.map(
         (listing) => {
           const rawImages = listing.images || [];
           const validImages = rawImages
@@ -163,7 +171,7 @@ export default function MyListingsPage() {
           }
 
           return {
-            id: listing.id.toString(),
+            id: listing.id?.toString() ?? listing.slug,
             slug: listing.slug,
             name: listing.name,
             image: coverImage,

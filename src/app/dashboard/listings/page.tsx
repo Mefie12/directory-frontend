@@ -215,7 +215,7 @@ interface CategoryFormData {
 const categoryApi = {
   getCategories: async (): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const response = await fetch(`${API_URL}/api/categories`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -505,11 +505,10 @@ export default function Listings() {
     }
   }, [authLoading, selectedMainCategory]);
 
+  // Load categories on mount so the listing creation form always has options
   useEffect(() => {
-    if (activeTab === "categories") {
-      loadCategories();
-    }
-  }, [activeTab, loadCategories]);
+    loadCategories();
+  }, [loadCategories]);
 
   const handleAddCategoryClick = () => {
     setEditingCategoryId(null);

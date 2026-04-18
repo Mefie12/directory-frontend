@@ -4,17 +4,15 @@ const API_BASE_URL = process.env.API_URL || 'https://me-fie.co.uk/';
 
 export async function GET(request: NextRequest) {
   try {
-    // const searchParams = request.nextUrl.searchParams;
+    const searchParams = request.nextUrl.searchParams;
     const authHeader = request.headers.get('Authorization');
 
-    // Build query string
-      // const params = new URLSearchParams();
-      // searchParams.forEach((value, key) => {
-      //   params.append(key, value);
-      // });
+    const params = new URLSearchParams();
+    searchParams.forEach((value, key) => params.append(key, value));
+    const queryString = params.toString();
 
     const response = await fetch(
-      `${API_BASE_URL.replace(/\/$/, "")}/api/categories`,
+      `${API_BASE_URL.replace(/\/$/, "")}/api/categories${queryString ? `?${queryString}` : ""}`,
       {
         method: 'GET',
         headers: {

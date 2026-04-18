@@ -62,10 +62,11 @@ export type BusinessFormValues = z.infer<typeof businessFormSchema>;
 
 // API Category Interface
 interface Category {
-  id: string;
-  name: string;
+  id: number;
   slug: string;
-  parent_id: string | null;
+  name: string;
+  type: string;
+  parent_slug: string | null;
 }
 
 interface Props {
@@ -161,13 +162,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           setError(null);
 
           const token = localStorage.getItem("authToken");
-          if (!token) return;
 
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          const response = await fetch(`${API_URL}/api/categories`, {
+          const response = await fetch(`/api/categories`, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              ...(token && { Authorization: `Bearer ${token}` }),
               "Content-Type": "application/json",
             },
           });
@@ -192,7 +190,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           setCategories(categoriesData);
 
           const mainCats = categoriesData.filter(
-            (cat) => cat.parent_id === null,
+            (cat) => cat.parent_slug === null || cat.type === "mainCategory",
           );
           setMainCategories(mainCats);
         } catch (error) {
@@ -220,7 +218,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       setSelectedMainCategory(selectedCategory);
 
       const subCats = categories.filter(
-        (cat) => String(cat.parent_id) === idStr,
+        (cat) => cat.parent_slug === selectedCategory.slug,
       );
       setSubCategories(subCats);
 
@@ -368,10 +366,15 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             });
 
             // If categories exist, set the main category ID for the UI logic
-            if (d.categories?.[0]?.parent_id) {
-              setSelectedMainCategoryId(String(d.categories[0].parent_id));
-            } else if (d.categories?.[0]) {
-              setSelectedMainCategoryId(String(d.categories[0].id));
+            if (d.categories?.[0]) {
+              const firstCat = d.categories[0];
+              const parentSlug = firstCat.parent_slug;
+              if (parentSlug) {
+                const parentCat = categories.find((c) => c.slug === parentSlug);
+                if (parentCat) setSelectedMainCategoryId(String(parentCat.id));
+              } else {
+                setSelectedMainCategoryId(String(firstCat.id));
+              }
             }
           }
         } catch (error) {
