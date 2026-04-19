@@ -44,11 +44,30 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data: unknown;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      // Backend returned non-JSON (HTML error page, etc.) — surface it.
+      return NextResponse.json(
+        {
+          message: "Upstream returned non-JSON response",
+          upstreamStatus: response.status,
+          upstreamBody: rawText.slice(0, 500),
+          backendUrl: backendUrl.toString(),
+        },
+        { status: 502 },
+      );
+    }
 
     if (!response.ok) {
+      const maybeMessage =
+        typeof data === "object" && data !== null && "message" in data
+          ? (data as { message?: string }).message
+          : undefined;
       return NextResponse.json(
-        { message: data.message || "Failed to fetch listings" },
+        { message: maybeMessage || "Failed to fetch listings" },
         { status: response.status },
       );
     }
@@ -56,8 +75,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error("Geolocation listings error:", error);
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json(
-      { message: "Internal Server Error" },
+      {
+        message: "Internal Server Error",
+        error: message,
+        apiBase: API_BASE_URL,
+      },
       { status: 500 },
     );
   }
