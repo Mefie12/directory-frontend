@@ -160,7 +160,7 @@ function VerifyForm() {
   // Show loading while checking for email
   if (!hasProcessed || (email === null && authLoading)) {
     return (
-      <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
+      <div className="relative min-h-[98vh] flex items-center justify-center px-3 sm:px-4 py-6 login-bg rounded-2xl">
         <div className="absolute inset-0 bg-black/30 rounded-2xl" />
         <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none">
           <CardContent className="flex items-center justify-center py-12">
@@ -174,7 +174,7 @@ function VerifyForm() {
   // Show error if no email
   if (!email) {
     return (
-      <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
+      <div className="relative min-h-[98vh] flex items-center justify-center px-3 sm:px-4 py-6 login-bg rounded-2xl">
         <div className="absolute inset-0 bg-black/30 rounded-2xl" />
         <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none">
           <CardContent className="py-12 text-center">
@@ -199,7 +199,7 @@ function VerifyForm() {
 
   // Show verification form
   return (
-    <div className="relative h-[98vh] flex items-center justify-center px-4 login-bg rounded-2xl">
+    <div className="relative min-h-[98vh] flex items-center justify-center px-3 sm:px-4 py-6 login-bg rounded-2xl">
       <div className="absolute inset-0 bg-black/30 rounded-2xl" />
       <Card className="relative z-10 w-full max-w-md rounded-2xl shadow-sm bg-white/95 backdrop-blur-md border-none">
         <CardHeader className="space-y-1">

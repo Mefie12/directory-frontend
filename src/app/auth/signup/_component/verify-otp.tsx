@@ -59,22 +59,25 @@ export default function VerifyOtp({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Confirm your email</h2>
-        <p className="text-sm text-gray-500 mt-2">
-          Please enter the code sent to your email {email}
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+          Confirm your email
+        </h2>
+        <p className="text-xs sm:text-sm text-gray-500 mt-2 break-all px-2">
+          Please enter the code sent to your email{" "}
+          <span className="font-medium text-gray-700">{email}</span>
         </p>
       </div>
 
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
         {otp.map((digit, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-1.5 sm:gap-2">
             <Input
               ref={(el) => {
                 inputRefs.current[i] = el;
               }}
-              className="w-13 h-14 text-center text-xl font-bold rounded-lg border-2 border-gray-200 focus:border-[#93C01F] focus:ring-[#93C01F] transition-colors"
+              className="w-10 h-12 sm:w-13 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-lg border-2 border-gray-200 focus:border-[#93C01F] focus:ring-[#93C01F] transition-colors p-0"
               value={digit}
               maxLength={1}
               inputMode="numeric"
@@ -83,7 +86,9 @@ export default function VerifyOtp({
               onKeyDown={(e) => handleKeyDown(e, i)}
             />
             {i === 2 && (
-              <span className="text-2xl font-bold text-gray-400 mx-1">-</span>
+              <span className="text-xl sm:text-2xl font-bold text-gray-400 mx-0.5 sm:mx-1">
+                -
+              </span>
             )}
           </div>
         ))}
