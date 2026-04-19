@@ -292,6 +292,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
      const eventLocationType = watch("event_location");
     const selectedCountryName = watch("country");
+    const startDateValue = watch("event_start_date");
+
+    const minEndDate = startDateValue || undefined;
 
     useEffect(() => {
       const loadDetails = async () => {
@@ -733,6 +736,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 <Input
                   {...register("event_end_date")}
                   type="date"
+                  min={minEndDate}
                   className={cn(errors.event_end_date && "border-red-500")}
                 />
                 {errors.event_end_date && (

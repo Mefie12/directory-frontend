@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, {
   CategoryTabItem,
   slugifyCategory,
@@ -18,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import type { ProcessedEvent } from "@/types/event";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- API & Processed Interfaces ---
 interface ApiImage {
@@ -39,10 +41,9 @@ interface ApiListing {
   listing_type?: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
-  city?: string; // Added missing property
-  country?: string; // Added missing property
+  city?: string;
+  country?: string;
   status: string;
   images: (ApiImage | string)[];
   cover_image?: string;
@@ -50,11 +51,15 @@ interface ApiListing {
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
-  end_date?: string;
-  date?: string;
   created_at?: string;
   is_verified?: boolean;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // Unified interface to satisfy all carousel components
@@ -111,7 +116,7 @@ const classifyListing = (
     .toString()
     .trim()
     .toLowerCase();
-  if (item.start_date || rawType === "event") return "event";
+  if (item.event_start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
@@ -127,8 +132,28 @@ export default function EventsContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
+
   const handleClickEvent = () => {
-    // Fixed: Replaced ternary with if/else to satisfy no-unused-expressions
     if (user) {
       router.push("/claim");
     } else {
@@ -136,17 +161,39 @@ export default function EventsContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    void country;
+  }, []);
+
   // --- Data Fetching ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
+        const params = new URLSearchParams({ per_page: "100" });
+        // NOTE: Do NOT send `country` to the backend on the events page.
+        // Events store their country in `event_country` (the `country` column
+        // is null), so `?country=Ghana` would filter out all events.
+        // We apply the country filter client-side below instead.
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
+
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // Fetch Categories and Listings in parallel as requested
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/approved_listings?per_page=100`),
+          fetch(listingsUrl),
           fetch(`${API_URL}/api/categories`),
         ]);
 
@@ -155,6 +202,11 @@ export default function EventsContent() {
 
         const listingsJson = await listingsRes.json();
         const categoriesJson = await categoriesRes.json();
+
+        // Extract detected country from API response
+        if (listingsJson.meta?.detected_country) {
+          setDetectedCountry(listingsJson.meta.detected_country);
+        }
 
         // 1. Process Categories
         const rawCats: ApiCategory[] =
@@ -194,8 +246,16 @@ export default function EventsContent() {
 
           const listingType = classifyListing(item);
           const category = item.categories?.[0];
-          const eventDate = item.start_date || item.date || item.created_at;
-          const formattedDate = formatDateTime(eventDate);
+
+          const location = listingType === "event"
+            ? item.event_city || item.event_country || "Online"
+            : item.city || item.country || "Online";
+
+          const startDate = formatDateTime(item.event_start_date);
+          const endDate = formatDateTime(item.event_end_date || item.event_start_date);
+          const priceLabel = item.event_price
+            ? `${item.event_currency || ""} ${item.event_price}`.trim()
+            : "Free";
 
           const commonProps = {
             id: item.id.toString(),
@@ -205,20 +265,34 @@ export default function EventsContent() {
             description: item.bio || item.description || "",
             image: validImages[0],
             images: validImages,
-            location: item.location || item.address || "Online",
+            location,
             verified: item.is_verified || false,
             category: category?.name || "General",
             categorySlug:
               category?.slug || slugifyCategory(category?.name || "general"),
-            country: item.country || "Ghana",
+            country: item.event_country || item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
-            startDate: formattedDate,
-            endDate: formattedDate,
-            date: formattedDate,
-            price: "Free",
+            startDate,
+            endDate,
+            date: startDate,
+            price: priceLabel,
             rating: Number(item.rating) || 0,
-            reviewCount: Number(item.ratings_count) || 0, // Population for type safety
+            reviewCount: Number(item.ratings_count) || 0,
           };
+
+          // Client-side country filter (backend filter doesn't apply to events
+          // because their location is stored in event_country, not country).
+          if (filterCountry) {
+            const target = filterCountry.toLowerCase();
+            const itemCountry = (
+              item.event_country ||
+              item.country ||
+              ""
+            )
+              .toString()
+              .toLowerCase();
+            if (itemCountry !== target) return;
+          }
 
           if (listingType === "event") {
             eventsList.push({ ...commonProps, type: "event" });
@@ -236,7 +310,7 @@ export default function EventsContent() {
       }
     };
     fetchData();
-  }, []);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // --- Dynamic Grouping Logic ---
   const groupedEvents = useMemo(() => {
@@ -274,7 +348,11 @@ export default function EventsContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="events" />
+        <SearchHeader 
+          context="events" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="bg-gray-50">

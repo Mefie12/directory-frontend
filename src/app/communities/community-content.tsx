@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, {
   CategoryTabItem,
   slugifyCategory,
@@ -17,6 +18,7 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- API & Processed Interfaces ---
 interface ApiImage {
@@ -38,7 +40,6 @@ interface ApiListing {
   listing_type?: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
   city?: string;
   country?: string;
@@ -49,10 +50,15 @@ interface ApiListing {
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
-  date?: string;
   created_at?: string;
   is_verified?: boolean;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // Unified Community Interface for the Carousel
@@ -104,7 +110,7 @@ const classifyListing = (
     .toString()
     .trim()
     .toLowerCase();
-  if (item.start_date || rawType === "event") return "event";
+  if (item.event_start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
@@ -122,6 +128,27 @@ export default function CommunityContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
+
   const handleClickEvent = () => {
     if (user) {
       router.push("/claim");
@@ -130,20 +157,46 @@ export default function CommunityContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    void country;
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
+        const params = new URLSearchParams({ per_page: "100" });
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
+
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [listingsRes, categoriesRes] = await Promise.all([
-          fetch(`${API_URL}/api/approved_listings?per_page=100`),
+          fetch(listingsUrl),
           fetch(`${API_URL}/api/categories`),
         ]);
 
         if (!listingsRes.ok) throw new Error("Failed to fetch listings");
         const listingsJson = await listingsRes.json();
+
+        // Extract detected country from API response
+        if (listingsJson.meta?.detected_country) {
+          setDetectedCountry(listingsJson.meta.detected_country);
+        }
+
         const data: ApiListing[] =
           listingsJson.data || listingsJson.listings || [];
 
@@ -186,6 +239,10 @@ export default function CommunityContent() {
           const category = item.categories?.[0];
           const listingType = classifyListing(item);
 
+          const location = listingType === "event"
+            ? item.event_city || item.event_country || "Online"
+            : item.city || item.country || "Online";
+
           const commonProps = {
             id: item.id.toString(),
             name: item.name,
@@ -195,13 +252,13 @@ export default function CommunityContent() {
             image: validImages[0],
             imageUrl: validImages[0],
             images: validImages,
-            location: item.location || item.address || "Online",
+            location,
             verified: item.is_verified || false,
             category: category?.name || "General",
             categorySlug:
               category?.slug || slugifyCategory(category?.name || "general"),
             tag: category?.name || "General",
-            country: item.country || "Ghana",
+            country: item.event_country || item.country || "Ghana",
           };
 
           if (listingType === "community") {
@@ -213,13 +270,16 @@ export default function CommunityContent() {
               reviewCount: Number(item.ratings_count) || 0,
             });
           } else if (listingType === "event") {
-            const eventDate = item.start_date || item.date || item.created_at;
-            const formattedDate = formatDateTime(eventDate);
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
+            const startDate = formatDateTime(item.event_start_date);
             eventsList.push({
               ...commonProps,
-              startDate: formattedDate,
-              endDate: formattedDate,
-              date: formattedDate,
+              startDate,
+              endDate: formatDateTime(item.event_end_date || item.event_start_date),
+              date: startDate,
+              price: priceLabel,
               reviewCount: Number(item.ratings_count) || 0,
             });
           }
@@ -235,7 +295,7 @@ export default function CommunityContent() {
       }
     };
     fetchData();
-  }, []);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // --- Dynamic Grouping Logic ---
   const groupedCommunities = useMemo(() => {
@@ -273,7 +333,11 @@ export default function CommunityContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="communities" />
+        <SearchHeader 
+          context="communities" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="bg-gray-50">

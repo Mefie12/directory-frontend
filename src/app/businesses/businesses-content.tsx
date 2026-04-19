@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from "react";
+import { useState, useMemo, Suspense, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import ScrollableCategoryTabs, { slugifyCategory } from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 import BusinessSection from "@/components/business/business-section";
@@ -12,6 +13,7 @@ import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- Types ---
 interface ApiImage {
@@ -33,19 +35,24 @@ interface ApiListing {
   listing_type?: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
+  city?: string;
+  country?: string;
   images: (ApiImage | string)[];
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
   created_at?: string;
   is_verified?: boolean;
   image?: string;
   cover_image?: string;
-  country?: string;
-  date?: string;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 interface ProcessedBusiness {
@@ -92,7 +99,7 @@ const classifyListing = (
   const rawType = (item.type || item.listing_type || "")
     .toString()
     .toLowerCase();
-  if (item.start_date || rawType === "event") return "event";
+  if (item.event_start_date || rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
@@ -103,6 +110,27 @@ export default function BusinessesContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllCategories, setShowAllCategories] = useState(false);
+
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [clientIp, setClientIp] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
+
+  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
+  useEffect(() => {
+    const cached = sessionStorage.getItem("client_ip");
+    if (cached) { setClientIp(cached); return; }
+    fetch("https://api.ipify.org?format=json")
+      .then((r) => r.json())
+      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
+      .catch(() => {});
+  }, []);
 
   const router = useRouter();
   const { user } = useAuth();
@@ -115,27 +143,47 @@ export default function BusinessesContent() {
     }
   };
 
+  const handleCountryChange = useCallback((country: Country | null) => {
+    void country;
+  }, []);
+
   // --- Fetch Listings ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(
-          `${API_URL}/api/approved_listings?per_page=100`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
+        const params = new URLSearchParams({ per_page: "100" });
+        if (filterCountry) params.set("country", filterCountry);
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
+
+        const response = await fetch(listingsUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
           },
-        );
+        });
 
         if (!response.ok) throw new Error("Failed to fetch listings");
 
         const json = await response.json();
+
+        // Extract detected country from API response
+        if (json.meta?.detected_country) {
+          setDetectedCountry(json.meta.detected_country);
+        }
+
         const data: ApiListing[] = json.data || json.listings || [];
 
         const businessesList: ProcessedBusiness[] = [];
@@ -175,8 +223,11 @@ export default function BusinessesContent() {
             "general",
           ];
           const categoryName = item.categories?.[0]?.name || "General";
-          const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
+
+          const location = listingType === "event"
+            ? item.event_city || item.event_country || "Online"
+            : item.city || item.country || "Online";
 
           const commonProps = {
             id: item.id.toString(),
@@ -185,26 +236,29 @@ export default function BusinessesContent() {
             description: item.bio || item.description || "",
             image: validImages[0],
             images: validImages,
-            location: location,
+            location,
             verified: item.is_verified || false,
             rating: Number(item.rating) || 0,
             reviewCount: String(item.ratings_count) || "0",
             category: categoryName,
             categorySlugs: categorySlugs,
             type: listingType as "business",
-            country: item.country || "Ghana",
+            country: item.event_country || item.country || "Ghana",
             createdAt: item.created_at ? new Date(item.created_at) : new Date(),
           };
 
           if (listingType === "event") {
-            const eventDate = item.start_date || item.date || item.created_at;
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
             eventsList.push({
               ...commonProps,
               type: "event",
               title: item.name,
-              startDate: formatDate(eventDate),
-              endDate: formatDate(eventDate),
-              date: formatDate(eventDate),
+              startDate: formatDate(item.event_start_date),
+              endDate: formatDate(item.event_end_date || item.event_start_date),
+              date: formatDate(item.event_start_date),
+              price: priceLabel,
             });
           } else if (listingType === "business") {
             businessesList.push({
@@ -224,7 +278,7 @@ export default function BusinessesContent() {
     };
 
     fetchData();
-  }, []);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   // The logic now ensures a direct match against the slug provided by the tabs
   const filteredData = useMemo(() => {
@@ -273,7 +327,11 @@ export default function BusinessesContent() {
       />
 
       <Suspense fallback={<div className="h-20" />}>
-        <SearchHeader context="businesses" />
+        <SearchHeader 
+          context="businesses" 
+          detectedCountry={detectedCountry}
+          onCountryChange={handleCountryChange}
+        />
       </Suspense>
 
       <div className="pb-20">

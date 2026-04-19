@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.API_URL || 'https://me-fie.co.uk/';
+const API_BASE_URL = (process.env.API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
 export async function GET(request: NextRequest) {
   try {
-    // const searchParams = request.nextUrl.searchParams;
     const authHeader = request.headers.get('Authorization');
-
-    // Build query string
-    // const params = new URLSearchParams();
-    // searchParams.forEach((value, key) => {
-    //   params.append(key, value);
-    // });
 
     const response = await fetch(
       `${API_BASE_URL}/api/listing/my_listings`,
@@ -22,7 +15,7 @@ export async function GET(request: NextRequest) {
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        next: { revalidate: 60 },
+        cache: 'no-store',
       }
     );
 
@@ -36,12 +29,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    return NextResponse.json(data, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
-      },
-    });
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('Error fetching my listings:', error);
     return NextResponse.json(

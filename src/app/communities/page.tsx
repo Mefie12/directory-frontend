@@ -1,6 +1,6 @@
+import { Suspense } from "react";
 import NavigationTab from "@/components/navigation-tab";
 import CommunityContent from "./community-content";
-// import { communityCategories } from "@/lib/data";
 
 export default async function CommunityPage() {
   return (
@@ -10,10 +10,9 @@ export default async function CommunityPage() {
         <NavigationTab />
 
         {/* Category Tabs & Content */}
-        <CommunityContent
-          // categories={communityCategories}
-          // communities={communityCards}
-        />
+        <Suspense fallback={<div className="h-20" />}>
+          <CommunityContent />
+        </Suspense>
       </div>
     </div>
   );

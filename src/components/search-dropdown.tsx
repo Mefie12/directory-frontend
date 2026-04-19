@@ -66,11 +66,8 @@ export default function SearchDropdown({
         setShowDropdown(true);
 
         try {
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
-
-          // 1. Using the provided Search Endpoint
           const response = await fetch(
-            `${API_URL}/api/search?q=${encodeURIComponent(query)}`,
+            `/api/search?q=${encodeURIComponent(query)}`,
             {
               method: "GET",
               headers: {

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     });
 
     const response = await fetch(
-      `${API_BASE_URL}/api/search?${params.toString()}`,
+      `${API_BASE_URL.replace(/\/$/, "")}/api/search?${params.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        next: { revalidate: 60 },
+        cache: "no-store",
       }
     );
 

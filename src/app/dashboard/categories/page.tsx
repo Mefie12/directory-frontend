@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
@@ -35,13 +34,12 @@ import { toast } from "sonner";
 
 // --- Types ---
 interface Category {
-  id: string;
+  id: number;
+  slug: string;
   name: string;
   type: "subCategory" | "mainCategory" | "tag";
-  parent_id: string | null;
-  description?: string;
-  created_at?: string;
-  updated_at?: string;
+  description?: string | null;
+  parent_slug: string | null;
 }
 
 interface CategoryFormData {
@@ -49,14 +47,14 @@ interface CategoryFormData {
   type: "subCategory" | "mainCategory" | "tag";
   description: string;
   is_main: boolean;
-  parent_id: string | null;
+  parent_slug: string | null;
 }
 
 const categoryApi = {
-  getCategories: async (): Promise<Category[]> => {
+  getCategories: async (params?: Record<string, string>): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-    const response = await fetch(`${API_URL}/api/categories`, {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    const response = await fetch(`/api/categories${qs}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -73,7 +71,7 @@ const categoryApi = {
       name: categoryData.name,
       type: categoryData.type,
       description: categoryData.description || "",
-      parent_id: categoryData.is_main ? null : categoryData.parent_id,
+      parent_id: categoryData.is_main ? null : categoryData.parent_slug,
     };
     const response = await fetch(`${API_URL}/api/categories`, {
       method: "POST",
@@ -91,7 +89,7 @@ const categoryApi = {
     return data.data;
   },
   updateCategory: async (
-    id: string,
+    slug: string,
     categoryData: CategoryFormData
   ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
@@ -100,9 +98,9 @@ const categoryApi = {
       name: categoryData.name,
       type: categoryData.type,
       description: categoryData.description,
-      parent_id: categoryData.is_main ? null : categoryData.parent_id,
+      parent_id: categoryData.is_main ? null : categoryData.parent_slug,
     };
-    const response = await fetch(`${API_URL}/api/categories/${id}`, {
+    const response = await fetch(`${API_URL}/api/categories/${slug}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -117,10 +115,10 @@ const categoryApi = {
     const data = await response.json();
     return data.data;
   },
-  deleteCategory: async (id: string): Promise<void> => {
+  deleteCategory: async (slug: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-    const response = await fetch(`${API_URL}/api/categories/${id}`, {
+    const response = await fetch(`${API_URL}/api/categories/${slug}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -142,12 +140,8 @@ export default function CategoriesPage() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
-    null
-  );
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
-    null
-  );
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
@@ -155,20 +149,18 @@ export default function CategoriesPage() {
     type: "subCategory",
     description: "",
     is_main: false,
-    parent_id: null,
+    parent_slug: null,
   });
 
   const mainCategories = allCategories.filter(
-    (cat) => cat.type === "mainCategory" || cat.parent_id === null
+    (cat) => cat.type === "mainCategory" || cat.parent_slug === null
   );
 
-  const subCategories = allCategories.filter((cat) => {
-    if (cat.type !== "subCategory") return false;
-    if (!selectedMainCategory) return false;
-    const catParentId = cat.parent_id?.toString();
-    const selectedParentId = selectedMainCategory.id.toString();
-    return catParentId === selectedParentId;
-  });
+  const subCategories = selectedMainCategory
+    ? allCategories.filter(
+        (cat) => cat.parent_slug === selectedMainCategory.slug
+      )
+    : [];
 
   const loadCategories = useCallback(async () => {
     if (authLoading) return;
@@ -176,86 +168,65 @@ export default function CategoriesPage() {
     try {
       const categories = await categoryApi.getCategories();
       setAllCategories(categories);
-      // Auto-select first main category if none selected
-      if (categories.length > 0 && !selectedMainCategory) {
-        const firstMainCategory = categories.find(
-          (cat) => cat.type === "mainCategory" || cat.parent_id === null
-        );
-        if (firstMainCategory) {
-          setSelectedMainCategory(firstMainCategory);
-        }
-      }
+      setSelectedMainCategory((prev) => {
+        if (prev) return prev;
+        return categories.find((c) => c.type === "mainCategory" || c.parent_slug === null) || null;
+      });
     } catch (error) {
       toast.error("Failed to load categories");
       console.error("Error loading categories:", error);
     } finally {
       setIsLoadingCategories(false);
     }
-  }, [authLoading, selectedMainCategory]);
+  }, [authLoading]);
 
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
 
-  // Update form parent_id when switching main category logic
-  useEffect(() => {
-    if (!categoryFormData.is_main && selectedMainCategory) {
-      setCategoryFormData((prev) => ({
-        ...prev,
-        parent_id: selectedMainCategory.id,
-      }));
-    }
-  }, [selectedMainCategory, categoryFormData.is_main]);
-
   const handleAddCategoryClick = () => {
-    setEditingCategoryId(null);
+    setEditingSlug(null);
     setCategoryFormData({
       name: "",
       type: "subCategory",
       description: "",
       is_main: false,
-      parent_id:
-        selectedMainCategory?.id ||
-        (mainCategories.length > 0 ? mainCategories[0].id : null),
+      parent_slug: selectedMainCategory?.slug || (mainCategories[0]?.slug ?? null),
     });
     setIsCategoryDialogOpen(true);
   };
 
   const handleEditCategoryClick = (category: Category) => {
-    setEditingCategoryId(category.id);
+    setEditingSlug(category.slug);
     setCategoryFormData({
       name: category.name,
       type: category.type,
       description: category.description || "",
       is_main: category.type === "mainCategory",
-      parent_id: category.parent_id,
+      parent_slug: null,
     });
     setIsCategoryDialogOpen(true);
   };
 
   const handleDeleteCategoryConfirm = async () => {
-    if (!categoryToDelete?.id) return;
+    if (!categoryToDelete?.slug) return;
     setIsDeletingCategory(true);
     try {
-      await categoryApi.deleteCategory(categoryToDelete.id);
+      await categoryApi.deleteCategory(categoryToDelete.slug);
       setAllCategories((prev) =>
-        prev.filter((item) => item.id !== categoryToDelete.id)
+        prev.filter((item) => item.slug !== categoryToDelete.slug)
       );
-      
-      // If deleted the selected main category, clear selection
-      if (selectedMainCategory?.id === categoryToDelete.id) {
-          setSelectedMainCategory(null);
+      if (selectedMainCategory?.slug === categoryToDelete.slug) {
+        setSelectedMainCategory(null);
       }
-
       toast.success("Category deleted successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(errorMessage);
-      console.error("Delete error:", error);
     } finally {
-        setIsDeletingCategory(false);
-        setCategoryToDelete(null);
+      setIsDeletingCategory(false);
+      setCategoryToDelete(null);
     }
   };
 
@@ -264,22 +235,20 @@ export default function CategoriesPage() {
       toast.error("Category name is required");
       return;
     }
-    if (!categoryFormData.is_main && !categoryFormData.parent_id) {
+    if (!categoryFormData.is_main && !categoryFormData.parent_slug) {
       toast.error("Please select a parent category for the sub-category");
       return;
     }
 
     setIsSavingCategory(true);
     try {
-      if (editingCategoryId) {
+      if (editingSlug) {
         const updatedCategory = await categoryApi.updateCategory(
-          editingCategoryId,
+          editingSlug,
           categoryFormData
         );
         setAllCategories((prev) =>
-          prev.map((item) =>
-            item.id === editingCategoryId ? updatedCategory : item
-          )
+          prev.map((item) => (item.slug === editingSlug ? updatedCategory : item))
         );
         toast.success("Category updated successfully");
       } else {
@@ -295,7 +264,6 @@ export default function CategoriesPage() {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(errorMessage);
-      console.error("Save error:", error);
     } finally {
       setIsSavingCategory(false);
     }
@@ -306,10 +274,9 @@ export default function CategoriesPage() {
       ...prev,
       is_main: checked,
       type: checked ? "mainCategory" : "subCategory",
-      parent_id: checked
+      parent_slug: checked
         ? null
-        : selectedMainCategory?.id ||
-          (mainCategories.length > 0 ? mainCategories[0].id : null),
+        : selectedMainCategory?.slug || (mainCategories[0]?.slug ?? null),
     }));
   };
 
@@ -339,9 +306,9 @@ export default function CategoriesPage() {
               <div className="space-y-3">
                 {mainCategories.map((cat) => (
                   <div
-                    key={cat.id}
+                    key={cat.slug}
                     className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-colors border group ${
-                      selectedMainCategory?.id === cat.id
+                      selectedMainCategory?.slug === cat.slug
                         ? "bg-[#F4F9E8] border-[#93C01F] text-gray-900 font-medium"
                         : "bg-white border-gray-100 text-gray-600 hover:bg-gray-50"
                     }`}
@@ -381,18 +348,10 @@ export default function CategoriesPage() {
             {/* Sub Categories Column */}
             <div className="border border-gray-200 rounded-xl bg-white p-6 h-fit min-h-[500px]">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
-                Sub Categories
+                {selectedMainCategory
+                  ? `${selectedMainCategory.name} — Sub Categories`
+                  : "Sub Categories"}
               </h2>
-
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  Showing sub-categories for:{" "}
-                  <span className="font-semibold">
-                    {selectedMainCategory?.name ||
-                      "No main category selected"}
-                  </span>
-                </p>
-              </div>
 
               <Button
                 variant="secondary"
@@ -402,13 +361,13 @@ export default function CategoriesPage() {
                 <Plus className="w-4 h-4" /> Add sub category
               </Button>
 
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {subCategories.map((sub) => (
                   <div
-                    key={sub.id}
-                    className="flex items-center justify-between group border-b border-gray-50 pb-4 last:border-0"
+                    key={sub.slug}
+                    className="flex items-center justify-between group border-b border-gray-50 pb-3 last:border-0"
                   >
-                    <span className="text-gray-700">{sub.name}</span>
+                    <span className="text-gray-700 text-sm">{sub.name}</span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         className="p-1 text-gray-400 hover:text-gray-600"
@@ -428,8 +387,8 @@ export default function CategoriesPage() {
                 {subCategories.length === 0 && (
                   <div className="text-center text-gray-500 py-4">
                     {selectedMainCategory
-                      ? "No sub categories found for this main category"
-                      : "Select a main category to view sub categories"}
+                      ? `No sub categories for ${selectedMainCategory.name}`
+                      : "Select a main category"}
                   </div>
                 )}
               </div>
@@ -439,19 +398,15 @@ export default function CategoriesPage() {
       </div>
 
       {/* --- ADD/EDIT CATEGORY DIALOG --- */}
-      <Dialog
-        open={isCategoryDialogOpen}
-        onOpenChange={setIsCategoryDialogOpen}
-      >
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
-              {editingCategoryId ? "Edit category" : "Adding a new category"}
+              {editingSlug ? "Edit category" : "Adding a new category"}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Category Name */}
             <div className="space-y-2">
               <Label htmlFor="cat_name" className="text-gray-600">
                 Category name
@@ -460,16 +415,12 @@ export default function CategoriesPage() {
                 id="cat_name"
                 value={categoryFormData.name}
                 onChange={(e) =>
-                  setCategoryFormData((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
+                  setCategoryFormData((prev) => ({ ...prev, name: e.target.value }))
                 }
                 placeholder="Category name"
               />
             </div>
 
-            {/* Set as Main Category Checkbox */}
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="main_cat"
@@ -485,19 +436,15 @@ export default function CategoriesPage() {
               </label>
             </div>
 
-            {/* Parent Category Selector (only show for sub-categories) */}
             {!categoryFormData.is_main && (
               <div className="space-y-2">
                 <Label htmlFor="parent_category" className="text-gray-600">
                   Parent Category
                 </Label>
                 <Select
-                  value={categoryFormData.parent_id || ""}
+                  value={categoryFormData.parent_slug || ""}
                   onValueChange={(value) =>
-                    setCategoryFormData((prev) => ({
-                      ...prev,
-                      parent_id: value,
-                    }))
+                    setCategoryFormData((prev) => ({ ...prev, parent_slug: value }))
                   }
                 >
                   <SelectTrigger className="w-full text-gray-500">
@@ -505,7 +452,7 @@ export default function CategoriesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {mainCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
+                      <SelectItem key={category.slug} value={category.slug}>
                         {category.name}
                       </SelectItem>
                     ))}
@@ -519,20 +466,14 @@ export default function CategoriesPage() {
               </div>
             )}
 
-            {/* Category Type */}
             <div className="space-y-2">
               <Label htmlFor="cat_type" className="text-gray-600">
                 Category type
               </Label>
               <Select
                 value={categoryFormData.type}
-                onValueChange={(
-                  value: "subCategory" | "mainCategory" | "tag"
-                ) =>
-                  setCategoryFormData((prev) => ({
-                    ...prev,
-                    type: value,
-                  }))
+                onValueChange={(value: "subCategory" | "mainCategory" | "tag") =>
+                  setCategoryFormData((prev) => ({ ...prev, type: value }))
                 }
               >
                 <SelectTrigger className="w-full text-gray-500">
@@ -546,7 +487,6 @@ export default function CategoriesPage() {
               </Select>
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="desc" className="text-gray-600">
                 Description
@@ -556,10 +496,7 @@ export default function CategoriesPage() {
                 placeholder="Description"
                 value={categoryFormData.description}
                 onChange={(e) =>
-                  setCategoryFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
+                  setCategoryFormData((prev) => ({ ...prev, description: e.target.value }))
                 }
                 className="placeholder:text-gray-400"
               />
@@ -581,7 +518,7 @@ export default function CategoriesPage() {
             >
               {isSavingCategory
                 ? "Saving..."
-                : editingCategoryId
+                : editingSlug
                 ? "Save Changes"
                 : "Add category"}
             </Button>
@@ -599,7 +536,8 @@ export default function CategoriesPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
-              category {categoryToDelete?.name} and potentially affect associated data.
+              category <strong>{categoryToDelete?.name}</strong> and potentially
+              affect associated listings.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -613,10 +551,12 @@ export default function CategoriesPage() {
               disabled={isDeletingCategory}
             >
               {isDeletingCategory ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Deleting...
-                  </>
-              ) : "Delete Category"}
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Deleting...
+                </>
+              ) : (
+                "Delete Category"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

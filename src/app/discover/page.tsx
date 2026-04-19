@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
@@ -16,6 +17,7 @@ import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { Country } from "@/components/ui/country-dropdown";
 
 // --- Interfaces ---
 interface ApiImage {
@@ -36,18 +38,25 @@ interface ApiListing {
   listing_type: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
+  city?: string;
+  country?: string;
   status: string;
   images: (ApiImage | string)[];
   cover_image?: string;
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
-  date?: string; // Additional check
-  created_at?: string; // Fallback
+  created_at?: string;
   is_verified?: boolean;
+  // Event-specific fields
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // --- Helper Functions ---
@@ -64,7 +73,7 @@ const formatDate = (dateString: string | undefined | null) => {
   if (!dateString) return "TBA";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "TBA"; // Invalid date
+    if (isNaN(date.getTime())) return "TBA";
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -83,13 +92,12 @@ const classifyListing = (
     .trim()
     .toLowerCase();
 
-  // If it has a future start_date, treat as event even if type is ambiguous
   if (rawType === "event") return "event";
   if (rawType === "community") return "community";
   return "business";
 };
 
-export default function Discover() {
+function DiscoverContent() {
   const router = useRouter();
   const { user } = useAuth();
   const [businesses, setBusinesses] = useState<any[]>([]);
@@ -97,25 +105,57 @@ export default function Discover() {
   const [communities, setCommunities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  // IP captured at signup and stored in localStorage
+  const [clientIp] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("user_ip");
+  });
+
+  // SearchHeader updates URL params via useSearchParams; no local state needed
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleCountryChange = useCallback((_country: Country | null) => {}, []);
 
   const handleClickEvent = () => {
     if (user) {
-      // Authenticated -> Go to Claim Page
       router.push("/claim");
     } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
       router.push("/auth/login?redirect=/claim");
     }
   };
+
+  const filterQ = searchParams.get("q");
+  const filterCountry = searchParams.get("country");
+  const filterCategory = searchParams.get("category_id");
+  const filterStartDate = searchParams.get("event_start_date");
+  const filterEndDate = searchParams.get("event_end_date");
+  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/approved_listings`, {
+        const params = new URLSearchParams({ per_page: "100" });
+        // NOTE: Do NOT send `country` to the backend here. The discover page
+        // shows a mix of businesses AND events; backend filters by the
+        // `country` column which is null for events, so it would wrongly hide
+        // them. We apply the country filter client-side below.
+        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
+        if (filterStartDate) params.set("event_start_date", filterStartDate);
+        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        if (filterQ) params.set("q", filterQ);
+
+        let listingsUrl: string;
+        if (hasFilters) {
+          listingsUrl = `/api/search?${params.toString()}`;
+        } else {
+          if (clientIp) params.set("ip_address", clientIp);
+          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+        }
+
+        const response = await fetch(listingsUrl, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -125,6 +165,12 @@ export default function Discover() {
         if (!response.ok) throw new Error("Failed to fetch listings");
 
         const json = await response.json();
+
+        // Extract detected country from API response
+        if (json.meta?.detected_country) {
+          setDetectedCountry(json.meta.detected_country);
+        }
+
         const data: ApiListing[] = json.data || json.listings || [];
 
         const businessesList: any[] = [];
@@ -157,8 +203,27 @@ export default function Discover() {
           }
 
           const categoryName = item.categories?.[0]?.name || "General";
-          const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
+
+          // Client-side country filter (handles events' event_country too)
+          if (filterCountry) {
+            const target = filterCountry.toLowerCase();
+            const itemCountry = (
+              listingType === "event"
+                ? item.event_country || item.country
+                : item.country || item.event_country
+            )
+              ?.toString()
+              .toLowerCase();
+            if (itemCountry !== target) return;
+          }
+
+          const buildLocation = () => {
+            if (listingType === "event") {
+              return item.event_city || item.event_country || "Online";
+            }
+            return item.city || item.country || "Online";
+          };
 
           const commonProps = {
             id: item.id.toString(),
@@ -168,7 +233,7 @@ export default function Discover() {
             description: item.bio || item.description || "",
             image: validImages[0],
             images: validImages,
-            location: location,
+            location: buildLocation(),
             verified: item.is_verified || false,
           };
 
@@ -177,16 +242,16 @@ export default function Discover() {
               ...commonProps,
             });
           } else if (listingType === "event") {
-            // FIX: Robust Date Checking
-            const eventDate = item.start_date || item.date || item.created_at;
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
 
             eventsList.push({
               ...commonProps,
               category: categoryName,
-              // Use helper function
-              startDate: formatDate(eventDate),
-              endDate: formatDate(eventDate), // Assuming single day for now
-              price: "Free",
+              startDate: formatDate(item.event_start_date),
+              endDate: formatDate(item.event_end_date || item.event_start_date),
+              price: priceLabel,
             });
           } else {
             businessesList.push({
@@ -209,7 +274,7 @@ export default function Discover() {
     };
 
     fetchData();
-  }, []);
+  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -224,7 +289,11 @@ export default function Discover() {
       <div className="w-full">
         <NavigationTab />
         <Suspense fallback={<div className="h-20" />}>
-          <SearchHeader context="discover" />
+          <SearchHeader 
+            context="discover" 
+            detectedCountry={detectedCountry}
+            onCountryChange={handleCountryChange}
+          />
         </Suspense>
       </div>
 
@@ -407,5 +476,13 @@ export default function Discover() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Discover() {
+  return (
+    <Suspense fallback={<div className="pt-20">Loading...</div>}>
+      <DiscoverContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
+import { Suspense } from "react";
 import NavigationTab from "@/components/navigation-tab";
 import EventsContent from "./events-content";
-// import { events as eventsCategories } from "@/lib/data";
 
 export default async function EventsPage() {
   return (
@@ -10,9 +10,9 @@ export default async function EventsPage() {
         <NavigationTab />
 
         {/* Category Tabs & Content */}
-        <EventsContent 
-        //categories={eventsCategories} />
-        />
+        <Suspense fallback={<div className="h-20" />}>
+          <EventsContent />
+        </Suspense>
       </div>
     </div>
   );

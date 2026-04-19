@@ -190,9 +190,16 @@ function SignupForm() {
         throw new Error(data.message || "Invalid OTP code provided.");
 
       const newToken = data.token || data.access_token || data.data?.token;
+
+      // Capture and store the user's public IP for geolocation on discover page
+      fetch("https://api.ipify.org?format=json")
+        .then((r) => r.json())
+        .then((d) => localStorage.setItem("user_ip", d.ip))
+        .catch(() => {});
+
       if (newToken) {
         await login(newToken);
-        
+
         // Redirect to the original page user was trying to access, or dashboard bookmarks for customers
         router.push(redirectPath !== "/" ? redirectPath : "/dashboard/bookmarks");
         router.refresh();

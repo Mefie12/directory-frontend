@@ -47,16 +47,23 @@ interface ApiListing {
   listing_type: string;
   rating: string | number;
   ratings_count: string | number;
-  location?: string;
   address?: string;
+  city?: string;
+  country?: string;
   status: string;
   images: (ApiImage | string)[];
   cover_image?: string;
   categories: ApiCategory[];
   bio?: string;
   description?: string;
-  start_date?: string;
   is_verified?: boolean;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_price?: string | null;
+  event_currency?: string | null;
 }
 
 // --- Helper: Robust URL Generator ---
@@ -80,7 +87,7 @@ const classifyListing = (
     .toLowerCase();
 
   // 1. Check for events first (by date or explicit type)
-  if (item.start_date || rawType === "event") {
+  if (item.event_start_date || rawType === "event") {
     return "event";
   }
 
@@ -172,8 +179,10 @@ export default function HomeContent() {
           }
 
           const categoryName = item.categories?.[0]?.name || "General";
-          const location = item.location || item.address || "Online";
           const listingType = classifyListing(item);
+          const location = listingType === "event"
+            ? item.event_city || item.event_country || "Online"
+            : item.city || item.country || "Online";
 
           // --- Distribute Data ---
           if (listingType === "community") {
@@ -186,22 +195,27 @@ export default function HomeContent() {
               slug: item.slug,
             });
           } else if (listingType === "event") {
+            const priceLabel = item.event_price
+              ? `${item.event_currency || ""} ${item.event_price}`.trim()
+              : "Free";
             events.push({
               id: item.id.toString(),
               name: item.name,
               slug: item.slug,
               category: categoryName,
-              startDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : new Date().toDateString(),
-              endDate: item.start_date
-                ? new Date(item.start_date).toDateString()
-                : new Date().toDateString(),
-              location: location,
+              startDate: item.event_start_date
+                ? new Date(item.event_start_date).toDateString()
+                : "TBA",
+              endDate: item.event_end_date
+                ? new Date(item.event_end_date).toDateString()
+                : item.event_start_date
+                  ? new Date(item.event_start_date).toDateString()
+                  : "TBA",
+              location,
               image: validImages[0],
               description: item.description || item.bio || "",
               verified: item.is_verified || false,
-              price: "Free",
+              price: priceLabel,
             } as unknown as Event);
           } else {
             businesses.push({

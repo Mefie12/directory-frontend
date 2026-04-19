@@ -1,14 +1,13 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { MapPin, Calendar, ChevronDown } from "lucide-react";
-// import Image from "next/image";
+import { Calendar, ChevronDown } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Popover,
@@ -20,12 +19,15 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
-import Link from "next/link";
+import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
+import { countries as allCountries } from "country-data-list";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
 interface SearchHeaderProps {
   context?: SearchContext;
+  detectedCountry?: string | null;
+  onCountryChange?: (country: Country | null) => void;
 }
 
 const searchPlaceholders: Record<SearchContext, string> = {
@@ -35,86 +37,109 @@ const searchPlaceholders: Record<SearchContext, string> = {
   communities: "Search by listing name or keyword...",
 };
 
-const countries = [
-  "All countries",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "France",
-  "Spain",
-  "Italy",
-  "Netherlands",
-  "Japan",
-  "South Korea",
-  "Singapore",
-  "India",
-  "Brazil",
-  "Mexico",
-  "Ghana",
-];
-
-// const priceRanges = [
-//   { label: "Price", value: "all" },
-//   { label: "Free", value: "free" },
-//   { label: "$0 - $50", value: "0-50" },
-//   { label: "$50 - $100", value: "50-100" },
-//   { label: "$100 - $200", value: "100-200" },
-//   { label: "$200 - $500", value: "200-500" },
-//   { label: "$500+", value: "500+" },
-// ];
-
-const categories = [
-  {
-    label: "All categories",
-    value: "all",
-    link: "/discover",
-  },
-  {
-    label: "Cultural Services",
-    value: "cultural-services",
-    link: "/categories/cultural-services",
-  },
-  {
-    label: "Education & Learning",
-    value: "education-learning",
-    link: "/categories/education-learning",
-  },
-  {
-    label: "Food & Hospitality",
-    value: "food-hospitality",
-    link: "/categories/food-hospitality",
-  },
-  {
-    label: "Health & Wellness",
-    value: "health-wellness",
-    link: "/categories/health-wellness",
-  },
-  { label: "Events", value: "events", link: "/categories/events" },
-  {
-    label: "Financial Services",
-    value: "financial-services",
-    link: "/categories/financial-services",
-  },
-  {
-    label: "Shipping & Logistics",
-    value: "shipping-logistics",
-    link: "/categories/shipping-logistics",
-  },
-  {
-    label: "Property Relocation",
-    value: "property-relocation",
-    link: "/categories/property-relocation",
-  },
-];
+interface ApiCategory {
+  slug: string;
+  name: string;
+  type?: string;
+}
 
 export default function SearchHeader({
   context = "discover",
+  detectedCountry,
+  onCountryChange,
 }: SearchHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    fetch("/api/categories_with_listings")
+      .then((r) => r.json())
+      .then((json) => {
+        setCategories(json.data as ApiCategory[] || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch countries that have listings from backend
+  useEffect(() => {
+    const API_URL =
+      process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+
+    fetch(`${API_URL}/api/countries_dropdown`, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        const list: unknown[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
+
+        // Normalize backend entries (could be strings or objects) and
+        // map each to the Country shape using country-data-list so flags work.
+        const mapped: Country[] = list
+          .map((entry): Country | null => {
+            let name: string | undefined;
+            let alpha2: string | undefined;
+            let alpha3: string | undefined;
+
+            if (typeof entry === "string") {
+              name = entry;
+            } else if (entry && typeof entry === "object") {
+              const e = entry as Record<string, unknown>;
+              name =
+                (e.name as string) ||
+                (e.country as string) ||
+                (e.label as string);
+              alpha2 =
+                (e.alpha2 as string) ||
+                (e.code as string) ||
+                (e.iso2 as string) ||
+                (e.country_code as string);
+              alpha3 = (e.alpha3 as string) || (e.iso3 as string);
+            }
+
+            const match = (allCountries.all as Country[]).find(
+              (c) =>
+                (alpha2 && c.alpha2?.toLowerCase() === alpha2.toLowerCase()) ||
+                (alpha3 && c.alpha3?.toLowerCase() === alpha3.toLowerCase()) ||
+                (name && c.name?.toLowerCase() === name.toLowerCase()),
+            );
+
+            if (match) return match;
+            if (name && alpha2) {
+              return {
+                alpha2,
+                alpha3: alpha3 || "",
+                countryCallingCodes: [],
+                currencies: [],
+                ioc: "",
+                languages: [],
+                name,
+                status: "assigned",
+              };
+            }
+            return null;
+          })
+          .filter((c): c is Country => c !== null);
+
+        if (mapped.length > 0) setCountryOptions(mapped);
+      })
+      .catch(() => {
+        // Fallback: leave options undefined so CountryDropdown uses its default full list
+      });
+  }, []);
 
   const updateSearchParams = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -138,42 +163,38 @@ export default function SearchHeader({
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Debounce URL update so typing doesn't cause a navigation on every keystroke
   const handleSearchChange = (value: string) => {
-    updateSearchParams("q", value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      updateSearchParams("q", value);
+    }, 500);
   };
 
-  const handleCountryChange = (value: string) => {
-    updateSearchParams("country", value === "All countries" ? "" : value);
+  const handleCountrySelect = (country: Country | null) => {
+    onCountryChange?.(country);
+    updateSearchParams("country", country?.name || "");
   };
 
   const handleCategoryChange = (value: string) => {
-    const selectedCategory = categories.find((c) => c.value === value);
-    if (selectedCategory) {
-      router.push(selectedCategory.link);
-    }
+    updateSearchParams("category_id", value === "all" ? "" : value);
   };
 
   const handleDateRangeSelect = (range: DateRange | undefined) => {
     const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
     const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
     updateSearchParamsBatch({
-      startDate: start,
-      endDate: end,
+      event_start_date: start,
+      event_end_date: end,
     });
   };
-
-  // const handlePriceChange = (value: string) => {
-  //   updateSearchParams("price", value === "all" ? "" : value);
-  // };
 
   const showCountry = true;
   const showCategories = true;
   const showDate = context === "discover" || context === "events";
-  // const showPrice = context === "discover" || context === "businesses";
 
-  const currentCountry = searchParams.get("country") || "All countries";
-  const currentStart = searchParams.get("startDate");
-  const currentEnd = searchParams.get("endDate");
+  const currentStart = searchParams.get("event_start_date");
+  const currentEnd = searchParams.get("event_end_date");
   const currentRange: DateRange | undefined =
     currentStart || currentEnd
       ? {
@@ -181,11 +202,8 @@ export default function SearchHeader({
           to: currentEnd ? new Date(currentEnd) : undefined,
         }
       : undefined;
-  // const currentPrice = searchParams.get("price") || "all";
- // Determine current category based on pathname
-  const currentCategory = categories.find((cat) => 
-    cat.link !== "/discover" && pathname.includes(cat.link)
-  )?.value || "all";
+
+  const currentCategory = searchParams.get("category_id") || "all";
 
   return (
     <div className="w-full bg-transparent">
@@ -202,25 +220,14 @@ export default function SearchHeader({
 
           {/* Country Select */}
           {showCountry && (
-            <div className="md:w-auto min-w-[140px]">
-              <Select
-                value={currentCountry}
-                onValueChange={handleCountryChange}
-              >
-                <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-gray-600" />
-                    <SelectValue className="text-gray-600" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((country) => (
-                    <SelectItem key={country} value={country}>
-                      {country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="md:w-auto min-w-[180px]">
+              <CountryDropdown
+                defaultValue={detectedCountry || undefined}
+                onChange={handleCountrySelect}
+                placeholder="Select country"
+                slim={false}
+                options={countryOptions}
+              />
             </div>
           )}
 
@@ -236,14 +243,8 @@ export default function SearchHeader({
                     <Calendar className="h-5 w-5 mr-2 text-gray-600" />
                     {currentRange?.from
                       ? currentRange.to
-                        ? `${format(
-                            currentRange.from,
-                            "MMM dd, yyyy"
-                          )} - ${format(currentRange.to, "MMM dd, yyyy")}`
-                        : `${format(
-                            currentRange.from,
-                            "MMM dd, yyyy"
-                          )} - End date`
+                        ? `${format(currentRange.from, "MMM dd, yyyy")} - ${format(currentRange.to, "MMM dd, yyyy")}`
+                        : `${format(currentRange.from, "MMM dd, yyyy")} - End date`
                       : "Dates"}
                     <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" />
                   </Button>
@@ -261,36 +262,6 @@ export default function SearchHeader({
             </div>
           )}
 
-          {/* Price Select */}
-          {/* {showPrice && (
-            <div className="md:w-auto min-w-[140px]">
-              <Select value={currentPrice} onValueChange={handlePriceChange}>
-                <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
-                  <div className="flex items-center gap-2">
-                    <Image
-                      src="/images/icons/price.svg"
-                      alt="Price"
-                      width={20}
-                      height={20}
-                      className="text-gray-600"
-                    />
-                    <span className="text-gray-600">
-                      {priceRanges.find((p) => p.value === currentPrice)
-                        ?.label || "Price"}
-                    </span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {priceRanges.map((price) => (
-                    <SelectItem key={price.value} value={price.value}>
-                      {price.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )} */}
-
           {/* Category Select */}
           {showCategories && (
             <div className="md:w-auto min-w-[140px]">
@@ -301,18 +272,17 @@ export default function SearchHeader({
                 <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600">
-                      {categories.find((c) => c.value === currentCategory)
-                        ?.label || "All categories"}
+                      {categories.find((c) => c.slug === currentCategory)
+                        ?.name || "All categories"}
                     </span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
                   {categories.map((category) => (
-                    <Link href={category.link} key={category.value}>
-                      <SelectItem value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    </Link>
+                    <SelectItem key={category.slug} value={category.slug}>
+                      {category.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
