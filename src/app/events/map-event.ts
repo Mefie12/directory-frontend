@@ -1,0 +1,62 @@
+import { slugifyCategory } from "@/components/scrollable-category-tabs";
+import { ApiListing } from "@/lib/directory/types";
+import { processImages, formatDateTime } from "@/lib/directory/image-utils";
+import type { ProcessedEvent } from "@/types/event";
+
+/**
+ * Creates an event mapper. The factory allows closing over a client-side
+ * country filter — needed because events store country in `event_country`,
+ * which the backend doesn't currently filter on.
+ */
+export function createEventMapper(filterCountry?: string | null) {
+  return function mapEvent(item: ApiListing): ProcessedEvent | null {
+    // Client-side country filter
+    if (filterCountry) {
+      const target = filterCountry.toLowerCase();
+      const itemCountry = (item.event_country || item.country || "")
+        .toString()
+        .toLowerCase();
+      if (itemCountry !== target) return null;
+    }
+
+    const images = processImages(item.images, [item.image, item.cover_image]);
+    const category = item.categories?.[0];
+
+    const startDate = formatDateTime(item.event_start_date);
+    const endDate = formatDateTime(
+      item.event_end_date || item.event_start_date,
+    );
+    const priceLabel = item.event_price
+      ? `${item.event_currency || ""} ${item.event_price}`.trim()
+      : "Free";
+
+    return {
+      id: item.id.toString(),
+      name: item.name,
+      title: item.name,
+      slug: item.slug,
+      description: item.bio || item.description || "",
+      image: images[0],
+      images,
+      location:
+        item.event_city ||
+        item.event_country ||
+        item.city ||
+        item.country ||
+        "Online",
+      verified: item.is_verified || false,
+      category: category?.name || "General",
+      categorySlug:
+        category?.slug || slugifyCategory(category?.name || "general"),
+      country: item.event_country || item.country || "Ghana",
+      createdAt: item.created_at ? new Date(item.created_at) : new Date(),
+      startDate,
+      endDate,
+      date: startDate,
+      price: priceLabel,
+      rating: Number(item.rating) || 0,
+      reviewCount: Number(item.ratings_count) || 0,
+      type: "event",
+    };
+  };
+}
