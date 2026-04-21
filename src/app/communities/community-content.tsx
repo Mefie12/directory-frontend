@@ -17,6 +17,7 @@ export default function CommunityContent() {
     useDirectoryListings<ProcessedCommunity>({
       endpoint: "/api/communities",
       mapItem: mapCommunity,
+      forwardParams: ["category_id"],
     });
 
   const handleCtaClick = () => {

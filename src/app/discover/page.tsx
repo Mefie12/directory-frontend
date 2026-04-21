@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
@@ -125,12 +125,12 @@ function DiscoverContent() {
     }
   };
 
-  const filterQ = searchParams.get("q");
+  const [searchQuery, setSearchQuery] = useState("");
   const filterCountry = searchParams.get("country");
   const filterCategory = searchParams.get("category_id");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
-  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
+  const hasApiFilters = !!((filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -138,17 +138,14 @@ function DiscoverContent() {
         setIsLoading(true);
 
         const params = new URLSearchParams({ per_page: "100" });
-        // NOTE: Do NOT send `country` to the backend here. The discover page
-        // shows a mix of businesses AND events; backend filters by the
-        // `country` column which is null for events, so it would wrongly hide
-        // them. We apply the country filter client-side below.
+        // Country filter and date/category filters go to the API.
+        // Text search is handled client-side to avoid a navigation on every keystroke.
         if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
         if (filterStartDate) params.set("event_start_date", filterStartDate);
         if (filterEndDate) params.set("event_end_date", filterEndDate);
-        if (filterQ) params.set("q", filterQ);
 
         let listingsUrl: string;
-        if (hasFilters) {
+        if (hasApiFilters) {
           listingsUrl = `/api/search?${params.toString()}`;
         } else {
           if (clientIp) params.set("ip_address", clientIp);
@@ -274,7 +271,35 @@ function DiscoverContent() {
     };
 
     fetchData();
-  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
+  }, [clientIp, filterCountry, filterCategory, filterStartDate, filterEndDate, hasApiFilters]);
+
+  // Client-side text filtering — no re-fetch, no navigation
+  const q = searchQuery.toLowerCase();
+  const filteredBusinesses = useMemo(() =>
+    q ? businesses.filter(b =>
+      b.name?.toLowerCase().includes(q) ||
+      b.category?.toLowerCase().includes(q) ||
+      b.description?.toLowerCase().includes(q) ||
+      b.location?.toLowerCase().includes(q)
+    ) : businesses,
+  [businesses, q]);
+
+  const filteredEvents = useMemo(() =>
+    q ? events.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.category?.toLowerCase().includes(q) ||
+      e.description?.toLowerCase().includes(q) ||
+      e.location?.toLowerCase().includes(q)
+    ) : events,
+  [events, q]);
+
+  const filteredCommunities = useMemo(() =>
+    q ? communities.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.description?.toLowerCase().includes(q) ||
+      c.location?.toLowerCase().includes(q)
+    ) : communities,
+  [communities, q]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -289,10 +314,11 @@ function DiscoverContent() {
       <div className="w-full">
         <NavigationTab />
         <Suspense fallback={<div className="h-20" />}>
-          <SearchHeader 
-            context="discover" 
+          <SearchHeader
+            context="discover"
             detectedCountry={detectedCountry}
             onCountryChange={handleCountryChange}
+            onSearchChange={setSearchQuery}
           />
         </Suspense>
       </div>
@@ -306,9 +332,9 @@ function DiscoverContent() {
           </div>
         ) : (
           <>
-            <BusinessCardCarousel businesses={businesses} />
-            <EventCardCarousel events={events} />
-            <BusinessBestCarousel businesses={businesses} />
+            <BusinessCardCarousel businesses={filteredBusinesses} />
+            <EventCardCarousel events={filteredEvents} />
+            <BusinessBestCarousel businesses={filteredBusinesses} />
           </>
         )}
 
@@ -366,7 +392,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <BusinessSectionCarousel businesses={businesses} />
+            <BusinessSectionCarousel businesses={filteredBusinesses} />
           )}
         </div>
 
@@ -394,7 +420,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <EventSectionCarousel events={events} />
+            <EventSectionCarousel events={filteredEvents} />
           )}
         </div>
 
@@ -422,7 +448,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <CommunitySectionCarousel communities={communities} />
+            <CommunitySectionCarousel communities={filteredCommunities} />
           )}
         </div>
 

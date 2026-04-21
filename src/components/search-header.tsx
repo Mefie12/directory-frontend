@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
 import {
   Select,
@@ -28,6 +28,7 @@ interface SearchHeaderProps {
   context?: SearchContext;
   detectedCountry?: string | null;
   onCountryChange?: (country: Country | null) => void;
+  onSearchChange?: (query: string) => void;
 }
 
 const searchPlaceholders: Record<SearchContext, string> = {
@@ -47,8 +48,8 @@ export default function SearchHeader({
   context = "discover",
   detectedCountry,
   onCountryChange,
+  onSearchChange,
 }: SearchHeaderProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,34 +142,46 @@ export default function SearchHeader({
       });
   }, []);
 
-  const updateSearchParams = (key: string, value: string) => {
+  // Update the URL via `window.history.replaceState` rather than
+  // `router.push`. Since Next.js 14.1+, `useSearchParams()` subscribes to
+  // native history events, so filter-reading hooks still react to the
+  // change — but the server component wrapping the page is NOT re-run,
+  // which is what was causing the "refresh" on every keystroke.
+  const writeParams = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`${pathname}?${params.toString()}`);
+    mutate(params);
+    const qs = params.toString();
+    const url = qs ? `${pathname}?${qs}` : pathname;
+    window.history.replaceState(null, "", url);
+  };
+
+  const updateSearchParams = (key: string, value: string) => {
+    writeParams((p) => {
+      if (value) p.set(key, value);
+      else p.delete(key);
+    });
   };
 
   const updateSearchParamsBatch = (updates: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
+    writeParams((p) => {
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) p.set(key, value);
+        else p.delete(key);
       }
     });
-    router.push(`${pathname}?${params.toString()}`);
   };
 
-  // Debounce URL update so typing doesn't cause a navigation on every keystroke
   const handleSearchChange = (value: string) => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      updateSearchParams("q", value);
-    }, 500);
+    if (onSearchChange) {
+      // In-memory filtering — no URL update, no navigation
+      onSearchChange(value);
+    } else {
+      // Fallback: update URL param for pages that rely on it
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        updateSearchParams("q", value);
+      }, 500);
+    }
   };
 
   const handleCountrySelect = (country: Country | null) => {
@@ -222,7 +235,12 @@ export default function SearchHeader({
           {showCountry && (
             <div className="md:w-auto min-w-[180px]">
               <CountryDropdown
-                defaultValue={detectedCountry || undefined}
+                // Prefer the URL-selected country so the dropdown visibly
+                // reflects the active filter across re-renders; fall back to
+                // the geolocation-detected country on first load.
+                defaultValue={
+                  searchParams.get("country") || detectedCountry || undefined
+                }
                 onChange={handleCountrySelect}
                 placeholder="Select country"
                 slim={false}

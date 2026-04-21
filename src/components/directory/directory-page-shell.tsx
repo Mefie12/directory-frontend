@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, Suspense, useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
@@ -77,23 +78,58 @@ export function DirectoryPageShell<T>({
   renderMidBanner,
   renderFooterCta,
 }: DirectoryPageShellProps<T>) {
+  const searchParams = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const filterCountry = searchParams.get("country");
+
+  const headerFilteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const targetCountry = filterCountry?.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const record = item as Record<string, unknown>;
+      const textFields = [
+        record.name,
+        record.title,
+        record.description,
+        record.category,
+        record.tag,
+        record.location,
+      ];
+
+      const passesSearch =
+        !q ||
+        textFields.some((value) =>
+          value?.toString().toLowerCase().includes(q),
+        );
+      if (!passesSearch) return false;
+
+      if (!targetCountry) return true;
+
+      const itemCountry = record.country?.toString().toLowerCase();
+      const itemLocation = record.location?.toString().toLowerCase();
+      return itemCountry === targetCountry || !!itemLocation?.includes(targetCountry);
+    });
+  }, [items, searchQuery, filterCountry]);
 
   const grouped = useMemo(() => {
-    return items.reduce<Record<string, T[]>>((acc, item) => {
+    return headerFilteredItems.reduce<Record<string, T[]>>((acc, item) => {
       const key = groupBy(item);
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
     }, {});
-  }, [items, groupBy]);
+  }, [headerFilteredItems, groupBy]);
 
   const groupNames = useMemo(() => Object.keys(grouped), [grouped]);
 
   const filtered = useMemo(() => {
-    if (selectedCategory === "all") return items;
-    return items.filter((item) => matchesCategory(item, selectedCategory));
-  }, [items, selectedCategory, matchesCategory]);
+    if (selectedCategory === "all") return headerFilteredItems;
+    return headerFilteredItems.filter((item) =>
+      matchesCategory(item, selectedCategory),
+    );
+  }, [headerFilteredItems, selectedCategory, matchesCategory]);
 
   const handleCountryChange = useCallback((_country: Country | null) => {
     // Placeholder — SearchHeader currently owns country mutation via URL.
@@ -117,6 +153,7 @@ export function DirectoryPageShell<T>({
           context={context}
           detectedCountry={detectedCountry}
           onCountryChange={handleCountryChange}
+          onSearchChange={setSearchQuery}
         />
       </Suspense>
 
@@ -127,7 +164,7 @@ export function DirectoryPageShell<T>({
           </div>
         ) : selectedCategory === "all" ? (
           <>
-            {renderHero(items.slice(0, heroSize))}
+            {renderHero(filtered.slice(0, heroSize))}
 
             {groupNames.slice(0, visibleGroups).map((name) => (
               <div key={name}>{renderGroup(name, grouped[name])}</div>
@@ -135,8 +172,8 @@ export function DirectoryPageShell<T>({
 
             {renderCard && (
               <PaginatedGrid<T>
-                key={`all-${items.length}`}
-                items={items}
+                key={`all-${filtered.length}`}
+                items={filtered}
                 initialCount={initialGridCount}
                 loadMoreStep={gridLoadMoreStep}
                 title={gridTitle}

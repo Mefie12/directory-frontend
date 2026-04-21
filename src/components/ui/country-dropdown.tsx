@@ -70,20 +70,20 @@ const CountryDropdownComponent = (
   );
 
   useEffect(() => {
-    if (defaultValue) {
-      const initialCountry = options.find(
-        (country) => country.alpha3 === defaultValue,
-      );
-      if (initialCountry) {
-        setSelectedCountry(initialCountry);
-      } else {
-        // Reset selected country if defaultValue is not found
-        setSelectedCountry(undefined);
-      }
-    } else {
-      // Reset selected country if defaultValue is undefined or null
+    if (!defaultValue) {
       setSelectedCountry(undefined);
+      return;
     }
+    // `defaultValue` may be a country name, ISO alpha2 or alpha3 code — accept
+    // any of them (case-insensitive) so callers can pass whatever they have.
+    const needle = defaultValue.toLowerCase();
+    const initialCountry = options.find(
+      (country) =>
+        country.alpha3?.toLowerCase() === needle ||
+        country.alpha2?.toLowerCase() === needle ||
+        country.name?.toLowerCase() === needle,
+    );
+    setSelectedCountry(initialCountry ?? undefined);
   }, [defaultValue, options]);
 
   const handleSelect = useCallback(

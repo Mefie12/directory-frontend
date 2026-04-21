@@ -13,6 +13,7 @@ export interface ProcessedCommunity {
   images: string[];
   location: string;
   verified: boolean;
+  country: string;
   category: string;
   categorySlug: string;
   tag: string;
@@ -34,6 +35,7 @@ export function mapCommunity(item: ApiListing): ProcessedCommunity {
     images,
     location: item.city || item.country || "Online",
     verified: item.is_verified || false,
+    country: item.country || item.event_country || "Ghana",
     category: category?.name || "General",
     categorySlug:
       category?.slug || slugifyCategory(category?.name || "general"),

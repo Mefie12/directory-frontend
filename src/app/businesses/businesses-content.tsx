@@ -27,6 +27,7 @@ export default function BusinessesContent() {
     useDirectoryListings<ProcessedBusiness>({
       endpoint: "/api/businesses",
       mapItem: mapBusiness,
+      forwardParams: ["category_id"],
     });
 
   const handleJoinAsVendor = () => {

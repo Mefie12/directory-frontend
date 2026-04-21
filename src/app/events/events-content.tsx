@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import EventCarousel from "@/components/events/event-carousel";
@@ -17,21 +16,14 @@ export default function EventsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
 
-  const filterCountry = searchParams.get("country");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
-
-  // Recreate the mapper when the country filter changes so client-side
-  // skipping stays in sync with the URL.
-  const mapItem = useMemo(
-    () => createEventMapper(filterCountry),
-    [filterCountry],
-  );
 
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
-      mapItem,
+      mapItem: createEventMapper(),
+      forwardParams: ["category_id"],
       // Events also accept date-range filters; send them when present.
       extraParams: {
         event_start_date: filterStartDate ?? undefined,
