@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import EventCarousel from "@/components/events/event-carousel";
@@ -19,10 +20,13 @@ export default function EventsContent() {
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
 
+  // Stable mapper reference — recreate only when date filters change
+  const eventMapper = useMemo(() => createEventMapper(), []);
+
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
-      mapItem: createEventMapper(),
+      mapItem: eventMapper,
       forwardParams: ["category_id"],
       // Events also accept date-range filters; send them when present.
       extraParams: {
@@ -42,6 +46,7 @@ export default function EventsContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      mapItem={eventMapper}
       groupBy={(e) => e.category}
       matchesCategory={(e, slug) => e.categorySlug === slug}
       heroSize={8}

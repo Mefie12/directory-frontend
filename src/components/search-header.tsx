@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
 import {
@@ -39,10 +39,67 @@ const searchPlaceholders: Record<SearchContext, string> = {
 };
 
 interface ApiCategory {
-  slug: string;
+  id?: number | string;
+  slug?: string;
   name: string;
   type?: string;
 }
+
+interface CategoryOption {
+  label: string;
+  value: string;
+}
+
+const categoryEndpointByContext: Record<SearchContext, string[]> = {
+  discover: [
+    "/api/business_categories",
+    "/api/event_categories",
+    "/api/community_categories",
+  ],
+  businesses: ["/api/business_categories"],
+  events: ["/api/event_categories"],
+  communities: ["/api/community_categories"],
+};
+
+const slugifyCategory = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const normalizeCategories = (raw: unknown): CategoryOption[] => {
+  const list: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { data?: unknown[] } | null)?.data)
+      ? ((raw as { data: unknown[] }).data ?? [])
+      : [];
+
+  const mapped: CategoryOption[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as ApiCategory;
+    const name = item.name?.toString().trim();
+    if (!name) continue;
+
+    const value =
+      item.slug?.toString().trim() ||
+      (item.id !== undefined ? String(item.id) : "") ||
+      slugifyCategory(name);
+
+    const key = `${value}::${name.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    mapped.push({
+      label: name,
+      value,
+    });
+  }
+
+  return mapped;
+};
 
 export default function SearchHeader({
   context = "discover",
@@ -54,19 +111,44 @@ export default function SearchHeader({
   const searchParams = useSearchParams();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
     undefined,
   );
 
   useEffect(() => {
-    fetch("/api/categories_with_listings")
-      .then((r) => r.json())
-      .then((json) => {
-        setCategories(json.data as ApiCategory[] || []);
-      })
-      .catch(() => {});
-  }, []);
+    let cancelled = false;
+
+    const fetchCategories = async () => {
+      try {
+        const endpoints = categoryEndpointByContext[context] || [];
+        const results = await Promise.all(
+          endpoints.map((endpoint) =>
+            fetch(endpoint, {
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              cache: "no-store",
+            })
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ),
+        );
+
+        if (cancelled) return;
+        const merged = results.flatMap((json) => normalizeCategories(json));
+        setCategories(merged);
+      } catch {
+        if (!cancelled) setCategories([]);
+      }
+    };
+
+    fetchCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, [context]);
 
   // Fetch countries that have listings from backend
   useEffect(() => {
@@ -185,8 +267,11 @@ export default function SearchHeader({
   };
 
   const handleCountrySelect = (country: Country | null) => {
-    onCountryChange?.(country);
-    updateSearchParams("country", country?.name || "");
+    if (onCountryChange) {
+      onCountryChange(country);
+    } else {
+      updateSearchParams("country", country?.name || "");
+    }
   };
 
   const handleCategoryChange = (value: string) => {
@@ -203,7 +288,7 @@ export default function SearchHeader({
   };
 
   const showCountry = true;
-  const showCategories = true;
+  const showCategories = context !== "discover";
   const showDate = context === "discover" || context === "events";
 
   const currentStart = searchParams.get("event_start_date");
@@ -217,6 +302,12 @@ export default function SearchHeader({
       : undefined;
 
   const currentCategory = searchParams.get("category_id") || "all";
+  const currentCategoryLabel = useMemo(
+    () =>
+      categories.find((c) => c.value === currentCategory)?.label ||
+      "All categories",
+    [categories, currentCategory],
+  );
 
   return (
     <div className="w-full bg-transparent">
@@ -290,16 +381,15 @@ export default function SearchHeader({
                 <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600">
-                      {categories.find((c) => c.slug === currentCategory)
-                        ?.name || "All categories"}
+                      {currentCategoryLabel}
                     </span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
                   {categories.map((category) => (
-                    <SelectItem key={category.slug} value={category.slug}>
-                      {category.name}
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -323,6 +323,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
     const [isSaving, setIsSaving] = useState(false);
+    // Tracks the backend event record ID so we can use the update endpoint on subsequent saves.
+    const [eventId, setEventId] = useState<string | null>(null);
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
@@ -354,6 +356,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             const json = await res.json();
             const d = json.data || json;
             const isEvent = (d?.type || listingType) === "event";
+            // Capture the event record ID for subsequent saves (update vs create)
+            if (isEvent) {
+              const eid = d.event?.id ?? d.event_id ?? null;
+              if (eid) setEventId(String(eid));
+            }
             const mappedHours = form
               .getValues("businessHours")
               .map((defaultDay) => {
@@ -410,10 +417,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     }, [listingSlug, reset, searchParams, form, listingType]);
 
     const saveDataToApi = async () => {
-      // 1. Mapbox Confirmation Modal (from Code A logic)
-      const result = await showConfirm();
-      if (result.type === "change") {
-        return false; // Stop submission to let user confirm suggested address
+      // Only run Mapbox address confirmation when a token is present.
+      // Without a token showConfirm() throws, which silently blocks submission.
+      if (MAPBOX_TOKEN) {
+        const confirmResult = await showConfirm();
+        if (confirmResult.type === "change") {
+          return false; // User wants to correct the suggested address
+        }
       }
 
       // Skip business hours processing for events
@@ -509,13 +519,25 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 }))
             : [];
 
-        const detailsEndpoint =
-          listingType === "event"
-            ? `${API_URL}/api/listing/${effectiveSlug}/eventDetails`
-            : `${API_URL}/api/listing/${effectiveSlug}/address`;
+        // For events: POST to create on first save, PATCH update endpoint on subsequent saves.
+        // For business/community: PUT to the address proxy.
+        let detailsEndpoint: string;
+        let detailsMethod: string;
+        if (listingType === "event") {
+          if (eventId) {
+            detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventId}/update`;
+            detailsMethod = "PATCH";
+          } else {
+            detailsEndpoint = `/api/listing/${effectiveSlug}/eventDetails`;
+            detailsMethod = "POST";
+          }
+        } else {
+          detailsEndpoint = `/api/listing/${effectiveSlug}/address`;
+          detailsMethod = "PUT";
+        }
 
         const detailsReq = fetch(detailsEndpoint, {
-          method: listingType === "event" ? "PATCH" : "PUT",
+          method: detailsMethod,
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -586,10 +608,23 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           throw new Error("Update failed");
         }
 
+        // If this was a create (POST), capture the returned event ID for subsequent saves.
+        if (listingType === "event" && !eventId) {
+          try {
+            const created = await detailsRes.clone().json();
+            const newId = created?.data?.id ?? created?.id ?? null;
+            if (newId) setEventId(String(newId));
+          } catch {
+            // Non-fatal — next page load will re-hydrate the ID
+          }
+        }
+
         setBusinessDetails({ ...businessDetails, ...data });
         toast.success("Details saved!");
         return true;
       } catch (error) {
+        const msg = error instanceof Error ? error.message : "Failed to save details";
+        toast.error(msg);
         return false;
       } finally {
         setIsSaving(false);

@@ -31,6 +31,7 @@ export default function CommunityContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      mapItem={mapCommunity}
       groupBy={(c) => c.tag}
       matchesCategory={(c, slug) => c.categorySlug === slug}
       heroSize={9}

@@ -41,6 +41,7 @@ export default function BusinessesContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      mapItem={mapBusiness}
       groupBy={(b) => b.category}
       matchesCategory={(b, slug) => b.categorySlugs.includes(slug)}
       heroSize={8}
