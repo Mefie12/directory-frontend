@@ -136,6 +136,7 @@ interface ApiListingData {
   longitude?: number;
   rating?: number | string;
   reviews_count?: number | string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   claim_status?: string;
   images?: (ApiImage | string)[];
@@ -830,7 +831,7 @@ export default function UniversalSlugPage({
             location:
               listingData.address || listingData.city || listingData.location,
             country: listingData.country,
-            verified: listingData.is_verified,
+            verified: !!(listingData.listing_verified ?? listingData.is_verified),
             claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()

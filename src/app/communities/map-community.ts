@@ -34,7 +34,7 @@ export function mapCommunity(item: ApiListing): ProcessedCommunity {
     imageUrl: images[0],
     images,
     location: item.city || item.country || "Online",
-    verified: item.is_verified || false,
+    verified: !!(item.listing_verified ?? item.is_verified ?? item.isVerified ?? item.verified),
     country: item.country || item.event_country || "Ghana",
     category: category?.name || "General",
     categorySlug:

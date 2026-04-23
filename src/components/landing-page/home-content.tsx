@@ -56,6 +56,7 @@ interface ApiListing {
   categories: ApiCategory[];
   bio?: string;
   description?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   event_start_date?: string;
   event_end_date?: string;
@@ -214,7 +215,7 @@ export default function HomeContent() {
               location,
               image: validImages[0],
               description: item.description || item.bio || "",
-              verified: item.is_verified || false,
+              verified: !!(item.listing_verified ?? item.is_verified),
               price: priceLabel,
             } as unknown as Event);
           } else {
@@ -227,7 +228,7 @@ export default function HomeContent() {
               rating: Number(item.rating) || 0,
               reviewCount: Number(item.ratings_count) || 0,
               location: location,
-              verified: item.status === "active" || item.status === "published",
+              verified: !!(item.listing_verified ?? item.is_verified),
             } as Business);
           }
         });

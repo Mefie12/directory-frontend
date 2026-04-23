@@ -48,6 +48,7 @@ interface ApiListing {
   bio?: string;
   description?: string;
   created_at?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   // Event-specific fields
   event_start_date?: string;
@@ -193,7 +194,7 @@ function DiscoverContent() {
           image: validImages[0],
           images: validImages,
           location: buildLocation(),
-          verified: item.is_verified || false,
+          verified: !!(item.listing_verified ?? item.is_verified),
         };
 
         if (listingType === "community") {

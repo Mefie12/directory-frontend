@@ -123,6 +123,7 @@ interface RawListing {
   name?: string;
   title?: string;
   vendor?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   business_name?: string;
   vendorAvatar?: string;
@@ -327,6 +328,7 @@ export default function Listings() {
   const [listingToDelete, setListingToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -465,7 +467,7 @@ export default function Listings() {
             linkedin: socialsData?.linkedin,
           },
         },
-        verified: !!item.is_verified,
+        verified: !!(item.listing_verified ?? item.is_verified),
       };
     });
   };
@@ -896,13 +898,53 @@ export default function Listings() {
     return pages;
   };
 
-  // Verification logic
+  // Sync verified toggle when sidebar opens a different listing
   useEffect(() => {
     if (selectedListing) {
-      // Sync with the selected listing's data
       setIsVerified(selectedListing.verified);
     }
   }, [selectedListing]);
+
+  const handleVerifyToggle = async (checked: boolean) => {
+    if (!selectedListing) return;
+    setIsVerifying(true);
+    setIsVerified(checked);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `/api/listing/${selectedListing.slug}/verify_listing`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            listing_id: selectedListing.id,
+            is_verified: checked,
+          }),
+        },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || "Failed to update verification");
+      }
+      setAllData((prev) =>
+        prev.map((item) =>
+          item.slug === selectedListing.slug ? { ...item, verified: checked } : item,
+        ),
+      );
+      setSelectedListing((prev) => prev ? { ...prev, verified: checked } : prev);
+      toast.success(checked ? "Listing verified" : "Verification removed");
+    } catch (error) {
+      setIsVerified(!checked);
+      const msg = error instanceof Error ? error.message : "Failed to update verification";
+      toast.error(msg);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // --- SOCIAL ICON HELPER ---
   const SocialLink = ({
@@ -1798,11 +1840,8 @@ export default function Listings() {
                       <Switch
                         id="verify-mode"
                         checked={isVerified}
-                        onCheckedChange={(checked) => {
-                          setIsVerified(checked);
-                          // Optional: Add your API call here to persist verify status
-                          // updateVerificationStatus(selectedListing.id, checked);
-                        }}
+                        onCheckedChange={handleVerifyToggle}
+                        disabled={isVerifying}
                         className="data-[state=checked]:bg-[#93C01F]"
                       />
                     </div>
