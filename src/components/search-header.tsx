@@ -150,12 +150,9 @@ export default function SearchHeader({
     };
   }, [context]);
 
-  // Fetch countries that have listings from backend
+  // Fetch countries that have listings from the Next.js proxy
   useEffect(() => {
-    const API_URL =
-      process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-    fetch(`${API_URL}/api/countries_dropdown`, {
+    fetch(`/api/countries_dropdown`, {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -220,7 +217,7 @@ export default function SearchHeader({
         if (mapped.length > 0) setCountryOptions(mapped);
       })
       .catch(() => {
-        // Fallback: leave options undefined so CountryDropdown uses its default full list
+        setCountryOptions([]);
       });
   }, []);
 
