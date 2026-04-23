@@ -4,7 +4,7 @@ const API_BASE_URL = (
   process.env.API_URL || "https://me-fie.co.uk"
 ).replace(/\/$/, "");
 
-export async function PATCH(
+export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ listing_slug: string; event_id: string }> },
 ) {
@@ -16,7 +16,7 @@ export async function PATCH(
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}/event/${event_id}/update`,
       {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -53,12 +53,4 @@ export async function PATCH(
     console.error("event update proxy error:", error);
     return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
   }
-}
-
-// Backend may also accept PUT for this endpoint
-export async function PUT(
-  request: NextRequest,
-  context: { params: Promise<{ listing_slug: string; event_id: string }> },
-) {
-  return PATCH(request, context);
 }

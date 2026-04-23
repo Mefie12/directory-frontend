@@ -526,7 +526,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         if (listingType === "event") {
           if (eventId) {
             detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventId}/update`;
-            detailsMethod = "PATCH";
+            detailsMethod = "PUT";
           } else {
             detailsEndpoint = `/api/listing/${effectiveSlug}/eventDetails`;
             detailsMethod = "POST";
