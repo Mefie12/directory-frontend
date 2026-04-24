@@ -110,11 +110,7 @@ export default function BusinessBestCarousel({
         "0"
       ),
       location: business.location || raw.address || "",
-      verified:
-        business.verified ||
-        raw.is_verified ||
-        raw.status === "active" ||
-        false,
+      verified: !!(raw.listing_verified ?? raw.is_verified ?? business.verified),
       // FIX: Removed 'openStatus' because it does not exist in the BusinessCard type
       discount: business.discount,
     };

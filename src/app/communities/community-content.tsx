@@ -17,6 +17,7 @@ export default function CommunityContent() {
     useDirectoryListings<ProcessedCommunity>({
       endpoint: "/api/communities",
       mapItem: mapCommunity,
+      forwardParams: ["category_id"],
     });
 
   const handleCtaClick = () => {
@@ -30,6 +31,7 @@ export default function CommunityContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      mapItem={mapCommunity}
       groupBy={(c) => c.tag}
       matchesCategory={(c, slug) => c.categorySlug === slug}
       heroSize={9}

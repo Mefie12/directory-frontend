@@ -36,7 +36,7 @@ export function mapBusiness(item: ApiListing): ProcessedBusiness {
     image: images[0],
     images,
     location: item.city || item.country || "Online",
-    verified: item.is_verified || false,
+    verified: !!(item.listing_verified ?? item.is_verified ?? item.isVerified ?? item.verified),
     rating: Number(item.rating) || 0,
     reviewCount: String(item.ratings_count) || "0",
     category: categoryName,

@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export type CategoryTabItem = {
   label: string;
   value: string;
+  id?: number;
   count?: number;
 };
 
@@ -30,11 +30,14 @@ export function slugifyCategory(name: string): string {
 export interface ScrollableCategoryTabsProps {
   categories?: CategoryTabItem[];
   mainCategorySlug?: string;
+  context?: "discover" | "businesses" | "events" | "communities";
   value?: string;
   defaultValue?: string;
   className?: string;
   containerClassName?: string;
   onChange?: (value: string) => void;
+  /** Fires with both the slug and the numeric category id (null for "all"). */
+  onCategoryChange?: (slug: string, id: number | null) => void;
 }
 
 const EMPTY_CATEGORIES: CategoryTabItem[] = [];
@@ -42,11 +45,13 @@ const EMPTY_CATEGORIES: CategoryTabItem[] = [];
 export default function ScrollableCategoryTabs({
   categories = EMPTY_CATEGORIES,
   mainCategorySlug,
+  context,
   value: controlledValue,
   defaultValue = "all",
   className,
   containerClassName,
   onChange,
+  onCategoryChange,
 }: ScrollableCategoryTabsProps) {
   const [displayCategories, setDisplayCategories] = useState<CategoryTabItem[]>(
     [],
@@ -59,6 +64,7 @@ export default function ScrollableCategoryTabs({
   const activeValue = isControlled ? controlledValue : internalValue;
 
   const prevMainCategorySlug = useRef<string | undefined>(undefined);
+  const prevContext = useRef<string | undefined>(undefined);
   const prevCategoriesJson = useRef<string>("[]");
 
   useEffect(() => {
@@ -68,6 +74,75 @@ export default function ScrollableCategoryTabs({
         setDisplayCategories(categories);
         prevCategoriesJson.current = json;
       }
+      return;
+    }
+
+    const endpointByContext: Record<string, string> = {
+      businesses: "/api/business_categories",
+      events: "/api/event_categories",
+      communities: "/api/community_categories",
+    };
+
+    const allLabelByContext: Record<string, string> = {
+      businesses: "All Business",
+      events: "All Events",
+      communities: "All Communities",
+    };
+
+    if (context && endpointByContext[context]) {
+      if (context === prevContext.current) return;
+
+      const fetchContextCategories = async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch(endpointByContext[context], {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          });
+
+          if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+          }
+
+          const json = await response.json();
+          const list: ApiCategory[] = Array.isArray(json)
+            ? json
+            : Array.isArray(json?.data)
+              ? json.data
+              : [];
+
+          const seen = new Set<string>();
+          const tabs: CategoryTabItem[] = [
+            { label: allLabelByContext[context], value: "all" },
+          ];
+
+          list.forEach((cat) => {
+            const name = cat?.name?.toString().trim();
+            if (!name) return;
+            const value =
+              cat.slug?.toString().trim() ||
+              (cat.id !== undefined ? String(cat.id) : "") ||
+              slugifyCategory(name);
+            if (seen.has(value)) return;
+            seen.add(value);
+            tabs.push({ label: name, value, id: cat.id });
+          });
+
+          setDisplayCategories(tabs);
+          prevContext.current = context;
+        } catch (error) {
+          console.error("Fetch Failure:", error);
+          setDisplayCategories([{ label: allLabelByContext[context], value: "all" }]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchContextCategories();
       return;
     }
 
@@ -161,7 +236,7 @@ export default function ScrollableCategoryTabs({
     };
 
     fetchSubCategories();
-  }, [mainCategorySlug, categories]);
+  }, [mainCategorySlug, categories, context]);
 
   const select = useCallback(
     (next: string) => {
@@ -169,8 +244,12 @@ export default function ScrollableCategoryTabs({
         setInternalValue(next);
       }
       if (onChange) onChange(next);
+      if (onCategoryChange) {
+        const found = displayCategories.find((c) => c.value === next);
+        onCategoryChange(next, found?.id ?? null);
+      }
     },
-    [onChange, isControlled],
+    [onChange, onCategoryChange, isControlled, displayCategories],
   );
 
   if (isLoading && displayCategories.length === 0) {

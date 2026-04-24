@@ -44,7 +44,7 @@ export function createEventMapper(filterCountry?: string | null) {
         item.city ||
         item.country ||
         "Online",
-      verified: item.is_verified || false,
+      verified: !!(item.listing_verified ?? item.is_verified ?? item.isVerified ?? item.verified),
       category: category?.name || "General",
       categorySlug:
         category?.slug || slugifyCategory(category?.name || "general"),

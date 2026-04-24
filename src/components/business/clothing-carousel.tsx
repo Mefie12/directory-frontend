@@ -122,12 +122,7 @@ export default function ClothingSectionCarousel({
 
       location: business.location || raw.address || "",
 
-      // Check verified status variations
-      verified:
-        business.verified ||
-        raw.is_verified ||
-        raw.status === "active" ||
-        false,
+      verified: !!(raw.listing_verified ?? raw.is_verified ?? business.verified),
 
       // Check open status variations
       // Note: 'openStatus' is not on ApiBusiness, so we must access it via 'raw' or map it

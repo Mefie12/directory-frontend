@@ -81,6 +81,8 @@ export function useDirectoryListings<T>({
         setError(null);
 
         const params = new URLSearchParams({ per_page: String(perPage) });
+        const categoryId = searchParams.get("category_id");
+        const country = searchParams.get("country");
 
         for (const key of forwardParams) {
           const v = searchParams.get(key);
@@ -95,7 +97,14 @@ export function useDirectoryListings<T>({
           }
         }
 
-        const res = await fetch(`${endpoint}?${params.toString()}`, {
+        const hasCategoryFilter = !!(categoryId && categoryId !== "all");
+        const targetEndpoint = hasCategoryFilter
+          ? country
+            ? "/api/all_listings_by_country_and_category"
+            : "/api/all_listings_by_category_and_geolocation"
+          : endpoint;
+
+        const res = await fetch(`${targetEndpoint}?${params.toString()}`, {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -107,7 +116,9 @@ export function useDirectoryListings<T>({
           throw new Error(`Request failed (${res.status})`);
         }
 
-        const json = (await res.json()) as ApiListingsResponse;
+        const json = (await res.json()) as ApiListingsResponse & {
+          listings?: ApiListing[];
+        };
 
         if (cancelled) return;
 
@@ -115,7 +126,11 @@ export function useDirectoryListings<T>({
           setDetectedCountry(json.meta.detected_country);
         }
 
-        const raw = Array.isArray(json.data) ? json.data : [];
+        const raw = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.listings)
+            ? json.listings
+            : [];
         const mapped: T[] = [];
         for (const item of raw) {
           const out = mapItemRef.current(item);

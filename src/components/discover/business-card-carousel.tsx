@@ -107,11 +107,7 @@ export default function BusinessCardCarousel({
         "0"
       ),
       location: business.location || raw.address || "",
-      verified:
-        business.verified ||
-        raw.is_verified ||
-        raw.status === "active" ||
-        false,
+      verified: !!(raw.listing_verified ?? raw.is_verified ?? business.verified),
       discount: business.discount,
     };
   };

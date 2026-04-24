@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
@@ -48,6 +48,7 @@ interface ApiListing {
   bio?: string;
   description?: string;
   created_at?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   // Event-specific fields
   event_start_date?: string;
@@ -97,6 +98,7 @@ const classifyListing = (
   return "business";
 };
 
+
 function DiscoverContent() {
   const router = useRouter();
   const { user } = useAuth();
@@ -125,30 +127,116 @@ function DiscoverContent() {
     }
   };
 
-  const filterQ = searchParams.get("q");
+  const [searchQuery, setSearchQuery] = useState("");
   const filterCountry = searchParams.get("country");
-  const filterCategory = searchParams.get("category_id");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
-  const hasFilters = !!(filterQ || filterCountry || (filterCategory && filterCategory !== "all") || filterStartDate || filterEndDate);
+  const hasApiFilters = !!(filterStartDate || filterEndDate);
 
   useEffect(() => {
+    const mapListings = (data: ApiListing[]) => {
+      const businessesList: any[] = [];
+      const eventsList: any[] = [];
+      const communitiesList: any[] = [];
+
+      data.forEach((item) => {
+        const rawImages = Array.isArray(item.images) ? item.images : [];
+        const validImages = rawImages
+          .filter((img: any) => {
+            if (typeof img === "string") return true;
+            if (img && typeof img === "object" && img.media) {
+              return !["processing", "failed", "pending", "error"].includes(
+                img.media,
+              );
+            }
+            return false;
+          })
+          .map((img: any) => {
+            const mediaPath = typeof img === "string" ? img : img.media;
+            return getImageUrl(mediaPath);
+          });
+
+        if (validImages.length === 0 && item.cover_image) {
+          validImages.push(getImageUrl(item.cover_image));
+        }
+        if (validImages.length === 0) {
+          validImages.push("/images/placeholders/generic.jpg");
+        }
+
+        const categoryName = item.categories?.[0]?.name || "General";
+        const listingType = classifyListing(item);
+
+        if (filterCountry) {
+          const target = filterCountry.toLowerCase();
+          const itemCountry = (
+            listingType === "event"
+              ? item.event_country || item.country
+              : item.country || item.event_country
+          )
+            ?.toString()
+            .toLowerCase();
+          if (itemCountry !== target) return;
+        }
+
+        const buildLocation = () => {
+          if (listingType === "event") {
+            return item.event_city || item.event_country || "Online";
+          }
+          return item.city || item.country || "Online";
+        };
+
+        const commonProps = {
+          id: item.id.toString(),
+          name: item.name,
+          title: item.name,
+          slug: item.slug,
+          description: item.bio || item.description || "",
+          image: validImages[0],
+          images: validImages,
+          location: buildLocation(),
+          verified: !!(item.listing_verified ?? item.is_verified),
+        };
+
+        if (listingType === "community") {
+          communitiesList.push(commonProps);
+        } else if (listingType === "event") {
+          const priceLabel = item.event_price
+            ? `${item.event_currency || ""} ${item.event_price}`.trim()
+            : "Free";
+          eventsList.push({
+            ...commonProps,
+            category: categoryName,
+            startDate: formatDate(item.event_start_date),
+            endDate: formatDate(item.event_end_date || item.event_start_date),
+            price: priceLabel,
+          });
+        } else {
+          businessesList.push({
+            ...commonProps,
+            category: categoryName,
+            rating: Number(item.rating) || 0,
+            reviewCount: Number(item.ratings_count) || 0,
+          });
+        }
+      });
+
+      return {
+        businessesList,
+        eventsList,
+        communitiesList,
+      };
+    };
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
         const params = new URLSearchParams({ per_page: "100" });
-        // NOTE: Do NOT send `country` to the backend here. The discover page
-        // shows a mix of businesses AND events; backend filters by the
-        // `country` column which is null for events, so it would wrongly hide
-        // them. We apply the country filter client-side below.
-        if (filterCategory && filterCategory !== "all") params.set("category_id", filterCategory);
         if (filterStartDate) params.set("event_start_date", filterStartDate);
         if (filterEndDate) params.set("event_end_date", filterEndDate);
-        if (filterQ) params.set("q", filterQ);
 
         let listingsUrl: string;
-        if (hasFilters) {
+        if (hasApiFilters) {
           listingsUrl = `/api/search?${params.toString()}`;
         } else {
           if (clientIp) params.set("ip_address", clientIp);
@@ -161,111 +249,18 @@ function DiscoverContent() {
             Accept: "application/json",
           },
         });
-
         if (!response.ok) throw new Error("Failed to fetch listings");
 
         const json = await response.json();
-
-        // Extract detected country from API response
-        if (json.meta?.detected_country) {
+        if (json?.meta?.detected_country) {
           setDetectedCountry(json.meta.detected_country);
         }
 
         const data: ApiListing[] = json.data || json.listings || [];
-
-        const businessesList: any[] = [];
-        const eventsList: any[] = [];
-        const communitiesList: any[] = [];
-
-        data.forEach((item) => {
-          // --- Image Logic ---
-          const rawImages = Array.isArray(item.images) ? item.images : [];
-          const validImages = rawImages
-            .filter((img: any) => {
-              if (typeof img === "string") return true;
-              if (img && typeof img === "object" && img.media) {
-                return !["processing", "failed", "pending", "error"].includes(
-                  img.media
-                );
-              }
-              return false;
-            })
-            .map((img: any) => {
-              const mediaPath = typeof img === "string" ? img : img.media;
-              return getImageUrl(mediaPath);
-            });
-
-          if (validImages.length === 0 && item.cover_image) {
-            validImages.push(getImageUrl(item.cover_image));
-          }
-          if (validImages.length === 0) {
-            validImages.push("/images/placeholders/generic.jpg");
-          }
-
-          const categoryName = item.categories?.[0]?.name || "General";
-          const listingType = classifyListing(item);
-
-          // Client-side country filter (handles events' event_country too)
-          if (filterCountry) {
-            const target = filterCountry.toLowerCase();
-            const itemCountry = (
-              listingType === "event"
-                ? item.event_country || item.country
-                : item.country || item.event_country
-            )
-              ?.toString()
-              .toLowerCase();
-            if (itemCountry !== target) return;
-          }
-
-          const buildLocation = () => {
-            if (listingType === "event") {
-              return item.event_city || item.event_country || "Online";
-            }
-            return item.city || item.country || "Online";
-          };
-
-          const commonProps = {
-            id: item.id.toString(),
-            name: item.name,
-            title: item.name,
-            slug: item.slug,
-            description: item.bio || item.description || "",
-            image: validImages[0],
-            images: validImages,
-            location: buildLocation(),
-            verified: item.is_verified || false,
-          };
-
-          if (listingType === "community") {
-            communitiesList.push({
-              ...commonProps,
-            });
-          } else if (listingType === "event") {
-            const priceLabel = item.event_price
-              ? `${item.event_currency || ""} ${item.event_price}`.trim()
-              : "Free";
-
-            eventsList.push({
-              ...commonProps,
-              category: categoryName,
-              startDate: formatDate(item.event_start_date),
-              endDate: formatDate(item.event_end_date || item.event_start_date),
-              price: priceLabel,
-            });
-          } else {
-            businessesList.push({
-              ...commonProps,
-              category: categoryName,
-              rating: Number(item.rating) || 0,
-              reviewCount: Number(item.ratings_count) || 0,
-            });
-          }
-        });
-
-        setBusinesses(businessesList);
-        setEvents(eventsList);
-        setCommunities(communitiesList);
+        const mapped = mapListings(data);
+        setBusinesses(mapped.businessesList);
+        setEvents(mapped.eventsList);
+        setCommunities(mapped.communitiesList);
       } catch (error) {
         console.error("Failed to fetch discover data", error);
       } finally {
@@ -274,7 +269,41 @@ function DiscoverContent() {
     };
 
     fetchData();
-  }, [clientIp, filterQ, filterCountry, filterCategory, filterStartDate, filterEndDate, hasFilters]);
+  }, [
+    clientIp,
+    filterCountry,
+    filterEndDate,
+    filterStartDate,
+    hasApiFilters,
+  ]);
+
+  // Client-side text filtering — no re-fetch, no navigation
+  const q = searchQuery.toLowerCase();
+  const filteredBusinesses = useMemo(() =>
+    q ? businesses.filter(b =>
+      b.name?.toLowerCase().includes(q) ||
+      b.category?.toLowerCase().includes(q) ||
+      b.description?.toLowerCase().includes(q) ||
+      b.location?.toLowerCase().includes(q)
+    ) : businesses,
+  [businesses, q]);
+
+  const filteredEvents = useMemo(() =>
+    q ? events.filter(e =>
+      e.name?.toLowerCase().includes(q) ||
+      e.category?.toLowerCase().includes(q) ||
+      e.description?.toLowerCase().includes(q) ||
+      e.location?.toLowerCase().includes(q)
+    ) : events,
+  [events, q]);
+
+  const filteredCommunities = useMemo(() =>
+    q ? communities.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.description?.toLowerCase().includes(q) ||
+      c.location?.toLowerCase().includes(q)
+    ) : communities,
+  [communities, q]);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -289,10 +318,11 @@ function DiscoverContent() {
       <div className="w-full">
         <NavigationTab />
         <Suspense fallback={<div className="h-20" />}>
-          <SearchHeader 
-            context="discover" 
+          <SearchHeader
+            context="discover"
             detectedCountry={detectedCountry}
             onCountryChange={handleCountryChange}
+            onSearchChange={setSearchQuery}
           />
         </Suspense>
       </div>
@@ -306,9 +336,9 @@ function DiscoverContent() {
           </div>
         ) : (
           <>
-            <BusinessCardCarousel businesses={businesses} />
-            <EventCardCarousel events={events} />
-            <BusinessBestCarousel businesses={businesses} />
+            <BusinessCardCarousel businesses={filteredBusinesses} />
+            <EventCardCarousel events={filteredEvents} />
+            <BusinessBestCarousel businesses={filteredBusinesses} />
           </>
         )}
 
@@ -366,7 +396,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <BusinessSectionCarousel businesses={businesses} />
+            <BusinessSectionCarousel businesses={filteredBusinesses} />
           )}
         </div>
 
@@ -394,7 +424,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <EventSectionCarousel events={events} />
+            <EventSectionCarousel events={filteredEvents} />
           )}
         </div>
 
@@ -422,7 +452,7 @@ function DiscoverContent() {
           {isLoading ? (
             <SectionSkeleton />
           ) : (
-            <CommunitySectionCarousel communities={communities} />
+            <CommunitySectionCarousel communities={filteredCommunities} />
           )}
         </div>
 

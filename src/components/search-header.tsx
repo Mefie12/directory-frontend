@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
 import {
   Select,
@@ -28,6 +28,7 @@ interface SearchHeaderProps {
   context?: SearchContext;
   detectedCountry?: string | null;
   onCountryChange?: (country: Country | null) => void;
+  onSearchChange?: (query: string) => void;
 }
 
 const searchPlaceholders: Record<SearchContext, string> = {
@@ -38,41 +39,120 @@ const searchPlaceholders: Record<SearchContext, string> = {
 };
 
 interface ApiCategory {
-  slug: string;
+  id?: number | string;
+  slug?: string;
   name: string;
   type?: string;
 }
+
+interface CategoryOption {
+  label: string;
+  value: string;
+}
+
+const categoryEndpointByContext: Record<SearchContext, string[]> = {
+  discover: [
+    "/api/business_categories",
+    "/api/event_categories",
+    "/api/community_categories",
+  ],
+  businesses: ["/api/business_categories"],
+  events: ["/api/event_categories"],
+  communities: ["/api/community_categories"],
+};
+
+const slugifyCategory = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const normalizeCategories = (raw: unknown): CategoryOption[] => {
+  const list: unknown[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { data?: unknown[] } | null)?.data)
+      ? ((raw as { data: unknown[] }).data ?? [])
+      : [];
+
+  const mapped: CategoryOption[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as ApiCategory;
+    const name = item.name?.toString().trim();
+    if (!name) continue;
+
+    const value =
+      item.slug?.toString().trim() ||
+      (item.id !== undefined ? String(item.id) : "") ||
+      slugifyCategory(name);
+
+    const key = `${value}::${name.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    mapped.push({
+      label: name,
+      value,
+    });
+  }
+
+  return mapped;
+};
 
 export default function SearchHeader({
   context = "discover",
   detectedCountry,
   onCountryChange,
+  onSearchChange,
 }: SearchHeaderProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
     undefined,
   );
 
   useEffect(() => {
-    fetch("/api/categories_with_listings")
-      .then((r) => r.json())
-      .then((json) => {
-        setCategories(json.data as ApiCategory[] || []);
-      })
-      .catch(() => {});
-  }, []);
+    let cancelled = false;
 
-  // Fetch countries that have listings from backend
+    const fetchCategories = async () => {
+      try {
+        const endpoints = categoryEndpointByContext[context] || [];
+        const results = await Promise.all(
+          endpoints.map((endpoint) =>
+            fetch(endpoint, {
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              cache: "no-store",
+            })
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ),
+        );
+
+        if (cancelled) return;
+        const merged = results.flatMap((json) => normalizeCategories(json));
+        setCategories(merged);
+      } catch {
+        if (!cancelled) setCategories([]);
+      }
+    };
+
+    fetchCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, [context]);
+
+  // Fetch countries that have listings from the Next.js proxy
   useEffect(() => {
-    const API_URL =
-      process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-    fetch(`${API_URL}/api/countries_dropdown`, {
+    fetch(`/api/countries_dropdown`, {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -137,43 +217,58 @@ export default function SearchHeader({
         if (mapped.length > 0) setCountryOptions(mapped);
       })
       .catch(() => {
-        // Fallback: leave options undefined so CountryDropdown uses its default full list
+        setCountryOptions([]);
       });
   }, []);
 
-  const updateSearchParams = (key: string, value: string) => {
+  // Update the URL via `window.history.replaceState` rather than
+  // `router.push`. Since Next.js 14.1+, `useSearchParams()` subscribes to
+  // native history events, so filter-reading hooks still react to the
+  // change — but the server component wrapping the page is NOT re-run,
+  // which is what was causing the "refresh" on every keystroke.
+  const writeParams = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    router.push(`${pathname}?${params.toString()}`);
+    mutate(params);
+    const qs = params.toString();
+    const url = qs ? `${pathname}?${qs}` : pathname;
+    window.history.replaceState(null, "", url);
+  };
+
+  const updateSearchParams = (key: string, value: string) => {
+    writeParams((p) => {
+      if (value) p.set(key, value);
+      else p.delete(key);
+    });
   };
 
   const updateSearchParamsBatch = (updates: Record<string, string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
+    writeParams((p) => {
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) p.set(key, value);
+        else p.delete(key);
       }
     });
-    router.push(`${pathname}?${params.toString()}`);
   };
 
-  // Debounce URL update so typing doesn't cause a navigation on every keystroke
   const handleSearchChange = (value: string) => {
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      updateSearchParams("q", value);
-    }, 500);
+    if (onSearchChange) {
+      // In-memory filtering — no URL update, no navigation
+      onSearchChange(value);
+    } else {
+      // Fallback: update URL param for pages that rely on it
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        updateSearchParams("q", value);
+      }, 500);
+    }
   };
 
   const handleCountrySelect = (country: Country | null) => {
-    onCountryChange?.(country);
-    updateSearchParams("country", country?.name || "");
+    if (onCountryChange) {
+      onCountryChange(country);
+    } else {
+      updateSearchParams("country", country?.name || "");
+    }
   };
 
   const handleCategoryChange = (value: string) => {
@@ -190,7 +285,7 @@ export default function SearchHeader({
   };
 
   const showCountry = true;
-  const showCategories = true;
+  const showCategories = context !== "discover";
   const showDate = context === "discover" || context === "events";
 
   const currentStart = searchParams.get("event_start_date");
@@ -204,6 +299,12 @@ export default function SearchHeader({
       : undefined;
 
   const currentCategory = searchParams.get("category_id") || "all";
+  const currentCategoryLabel = useMemo(
+    () =>
+      categories.find((c) => c.value === currentCategory)?.label ||
+      "All categories",
+    [categories, currentCategory],
+  );
 
   return (
     <div className="w-full bg-transparent">
@@ -222,7 +323,12 @@ export default function SearchHeader({
           {showCountry && (
             <div className="md:w-auto min-w-[180px]">
               <CountryDropdown
-                defaultValue={detectedCountry || undefined}
+                // Prefer the URL-selected country so the dropdown visibly
+                // reflects the active filter across re-renders; fall back to
+                // the geolocation-detected country on first load.
+                defaultValue={
+                  searchParams.get("country") || detectedCountry || undefined
+                }
                 onChange={handleCountrySelect}
                 placeholder="Select country"
                 slim={false}
@@ -272,16 +378,15 @@ export default function SearchHeader({
                 <SelectTrigger className="h-10 rounded-full border-[#E2E8F0] px-4">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600">
-                      {categories.find((c) => c.slug === currentCategory)
-                        ?.name || "All categories"}
+                      {currentCategoryLabel}
                     </span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
                   {categories.map((category) => (
-                    <SelectItem key={category.slug} value={category.slug}>
-                      {category.name}
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

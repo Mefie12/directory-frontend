@@ -23,6 +23,30 @@ import {
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
+import { getImageUrl } from "@/lib/directory/image-utils";
+
+/**
+ * Resolve the cover image src from either the API `primary_image` field or
+ * the local `media.coverPhoto` context value. `coverPhoto` can be:
+ *   - null
+ *   - a newly picked File/Blob (needs object URL)
+ *   - a string URL (already resolved)
+ *   - a server image object `{ id, media, ... }` (take `.media`)
+ */
+function resolveCoverSrc(
+  primaryImage: string | null | undefined,
+  coverPhoto: unknown,
+): string | null {
+  if (primaryImage) return getImageUrl(primaryImage);
+  if (!coverPhoto) return null;
+  if (coverPhoto instanceof Blob) return URL.createObjectURL(coverPhoto);
+  if (typeof coverPhoto === "string") return getImageUrl(coverPhoto);
+  if (typeof coverPhoto === "object" && coverPhoto !== null) {
+    const media = (coverPhoto as { media?: unknown }).media;
+    if (typeof media === "string") return getImageUrl(media);
+  }
+  return null;
+}
 
 interface Props {
   listingSlug: string;
@@ -152,14 +176,11 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     const socials = socialLinks || listingData?.social_media;
 
-    // Prepare Display Data (Prefer API data, fallback to "Not provided")
-    const displayImage =
-      listingData?.primary_image ||
-      (media.coverPhoto
-        ? media.coverPhoto instanceof Blob
-          ? URL.createObjectURL(media.coverPhoto)
-          : media.coverPhoto
-        : null);
+    // Prepare Display Data (Prefer API data, fallback to local upload state)
+    const displayImage = resolveCoverSrc(
+      listingData?.primary_image,
+      media.coverPhoto,
+    );
 
     // Process additional images for gallery
     const galleryImages = listingData?.images?.slice(0, 3) || [];
@@ -208,7 +229,8 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           {/* Additional Images Grid */}
           <div className="grid grid-cols-3 gap-3 h-24">
             {[0, 1, 2].map((i) => {
-              const imgSrc = galleryImages[i]?.media;
+              const rawMedia = galleryImages[i]?.media;
+              const imgSrc = rawMedia ? getImageUrl(rawMedia) : null;
               return (
                 <div
                   key={i}

@@ -54,6 +54,7 @@ interface ApiRawItem {
   image?: string;
   cover_image?: string;
   location?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
   description?: string;
   bio?: string;
@@ -310,7 +311,7 @@ export default function CustomerHome() {
               category: categoryName,
               image: finalImage,
               location: item.location || "Online",
-              verified: !!item.is_verified,
+              verified: !!(item.listing_verified ?? item.is_verified),
               description: descriptionText,
               date: item.start_date
                 ? `${new Date(item.start_date).toLocaleDateString()}`
@@ -376,7 +377,7 @@ export default function CustomerHome() {
               category: categoryName,
               image: finalImage,
               location: item.location || "TBD",
-              verified: !!item.is_verified,
+              verified: !!(item.listing_verified ?? item.is_verified),
               description: item.description || item.bio || "",
               date: item.start_date
                 ? `${new Date(item.start_date).toLocaleDateString()}`

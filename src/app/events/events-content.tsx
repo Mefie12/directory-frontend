@@ -17,21 +17,17 @@ export default function EventsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
 
-  const filterCountry = searchParams.get("country");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
 
-  // Recreate the mapper when the country filter changes so client-side
-  // skipping stays in sync with the URL.
-  const mapItem = useMemo(
-    () => createEventMapper(filterCountry),
-    [filterCountry],
-  );
+  // Stable mapper reference — recreate only when date filters change
+  const eventMapper = useMemo(() => createEventMapper(), []);
 
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
-      mapItem,
+      mapItem: eventMapper,
+      forwardParams: ["category_id"],
       // Events also accept date-range filters; send them when present.
       extraParams: {
         event_start_date: filterStartDate ?? undefined,
@@ -50,6 +46,7 @@ export default function EventsContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      mapItem={eventMapper}
       groupBy={(e) => e.category}
       matchesCategory={(e, slug) => e.categorySlug === slug}
       heroSize={8}

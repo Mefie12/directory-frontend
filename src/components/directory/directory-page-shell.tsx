@@ -1,21 +1,28 @@
 "use client";
 
-import { ReactNode, Suspense, useCallback, useMemo, useState } from "react";
+import { ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableCategoryTabs from "@/components/scrollable-category-tabs";
 import SearchHeader from "@/components/search-header";
 import { Country } from "@/components/ui/country-dropdown";
+import { ApiListing } from "@/lib/directory/types";
 
 export interface DirectoryPageShellProps<T> {
   /** Slug passed to `<ScrollableCategoryTabs mainCategorySlug=...>`. */
   mainCategorySlug: string;
-  /** Context passed to `<SearchHeader>` for filter-bar behaviour. */
+  /** Context passed to `<SearchHeader>` and `<ScrollableCategoryTabs>`. */
   context: "businesses" | "events" | "communities";
   /** Mapped items produced by `useDirectoryListings`. */
   items: T[];
   isLoading: boolean;
   detectedCountry: string | null;
+  /**
+   * Map a raw API listing to the page item type.
+   * Required for category-pill fetches from the geolocation endpoints.
+   */
+  mapItem?: (item: ApiListing) => T | null;
 
   /** Returns the group-by key for an item (category / tag name). */
   groupBy: (item: T) => string;
@@ -50,18 +57,13 @@ export interface DirectoryPageShellProps<T> {
   renderFooterCta?: () => ReactNode;
 }
 
-/**
- * Shared page shell for directory listing pages (businesses, events,
- * communities). Owns tab state, category grouping, the expand/collapse
- * button, loading skeleton, and empty state. Carousel rendering is
- * delegated to the caller via render props.
- */
 export function DirectoryPageShell<T>({
   mainCategorySlug,
   context,
   items,
   isLoading,
   detectedCountry,
+  mapItem,
   groupBy,
   matchesCategory,
   heroSize,
@@ -77,28 +79,171 @@ export function DirectoryPageShell<T>({
   renderMidBanner,
   renderFooterCta,
 }: DirectoryPageShellProps<T>) {
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const searchParams = useSearchParams();
+  const filterCountry = searchParams.get("country");
+  // Store both id and slug in the URL so the backend can use whichever it supports.
+  const categoryIdParam = searchParams.get("category_id");
+  const categorySlugParam = searchParams.get("category_slug");
+  // Prefer slug for tab-pill active-state matching; fall back to id string.
+  const selectedCategory = categorySlugParam || categoryIdParam || "all";
+  const isCategorySelected = selectedCategory !== "all";
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<string>(
+    () => filterCountry?.toLowerCase() || "",
+  );
+
+  // Items fetched when a category pill (non-"all") is selected
+  const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
+  const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isCategorySelected || !mapItem) {
+      setTopCategoryItems([]);
+      setAllCategoryItems([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsCategoryLoading(true);
+
+    // Send both params — backend uses whichever it supports.
+    const params = new URLSearchParams();
+    if (categoryIdParam) params.set("category_id", categoryIdParam);
+    if (categorySlugParam) params.set("category_slug", categorySlugParam);
+    const hasCountry = !!selectedCountry;
+    if (hasCountry) params.set("country", selectedCountry);
+
+    Promise.all([
+      fetch(
+        hasCountry
+          ? `/api/top_listings_by_country_and_category?${params}`
+          : `/api/top_listings_by_category_and_geolocation?${params}`,
+        {
+        headers: { Accept: "application/json" },
+      },
+      ).then((r) => {
+        if (!r.ok) throw new Error(`Top request failed (${r.status})`);
+        return r.json();
+      }),
+      fetch(
+        hasCountry
+          ? `/api/all_listings_by_country_and_category?${params}`
+          : `/api/all_listings_by_category_and_geolocation?${params}`,
+        {
+        headers: { Accept: "application/json" },
+      },
+      ).then((r) => {
+        if (!r.ok) throw new Error(`All request failed (${r.status})`);
+        return r.json();
+      }),
+    ])
+      .then(([topJson, allJson]) => {
+        if (cancelled) return;
+        const mapper = mapItem;
+        const topRaw: ApiListing[] = Array.isArray(topJson.data)
+          ? topJson.data
+          : Array.isArray(topJson.listings)
+            ? topJson.listings
+            : [];
+        const allRaw: ApiListing[] = Array.isArray(allJson.data)
+          ? allJson.data
+          : Array.isArray(allJson.listings)
+            ? allJson.listings
+            : [];
+        setTopCategoryItems(
+          topRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
+        );
+        setAllCategoryItems(
+          allRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTopCategoryItems([]);
+          setAllCategoryItems([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsCategoryLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem]);
+
+  const handleCategoryTabChange = useCallback(
+    (slug: string, id: number | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (slug === "all") {
+        params.delete("category_id");
+        params.delete("category_slug");
+      } else {
+        // Write both so the backend can use whichever it supports.
+        if (id !== null) params.set("category_id", String(id));
+        params.set("category_slug", slug);
+      }
+      const qs = params.toString();
+      const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      window.history.replaceState(null, "", url);
+    },
+    [searchParams],
+  );
+
+  const handleCountryChange = useCallback((country: Country | null) => {
+    setSelectedCountry(country?.name?.toLowerCase() || "");
+  }, []);
+
+  const headerFilteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const targetCountry = selectedCountry.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const record = item as Record<string, unknown>;
+      const textFields = [
+        record.name,
+        record.title,
+        record.description,
+        record.category,
+        record.tag,
+        record.location,
+      ];
+
+      const passesSearch =
+        !q ||
+        textFields.some((value) =>
+          value?.toString().toLowerCase().includes(q),
+        );
+      if (!passesSearch) return false;
+
+      if (!targetCountry) return true;
+
+      const itemCountry = record.country?.toString().toLowerCase();
+      const itemLocation = record.location?.toString().toLowerCase();
+      return itemCountry === targetCountry || !!itemLocation?.includes(targetCountry);
+    });
+  }, [items, searchQuery, selectedCountry]);
 
   const grouped = useMemo(() => {
-    return items.reduce<Record<string, T[]>>((acc, item) => {
+    return headerFilteredItems.reduce<Record<string, T[]>>((acc, item) => {
       const key = groupBy(item);
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
     }, {});
-  }, [items, groupBy]);
+  }, [headerFilteredItems, groupBy]);
 
   const groupNames = useMemo(() => Object.keys(grouped), [grouped]);
 
   const filtered = useMemo(() => {
-    if (selectedCategory === "all") return items;
-    return items.filter((item) => matchesCategory(item, selectedCategory));
-  }, [items, selectedCategory, matchesCategory]);
+    if (selectedCategory === "all") return headerFilteredItems;
+    return headerFilteredItems.filter((item) =>
+      matchesCategory(item, selectedCategory),
+    );
+  }, [headerFilteredItems, selectedCategory, matchesCategory]);
 
-  const handleCountryChange = useCallback((_country: Country | null) => {
-    // Placeholder — SearchHeader currently owns country mutation via URL.
-    void _country;
-  }, []);
+  const usingCategoryFetch = isCategorySelected && !!mapItem;
 
   if (isLoading) return <DirectoryPageSkeleton />;
 
@@ -106,9 +251,10 @@ export function DirectoryPageShell<T>({
     <div className="bg-gray-50 min-h-screen">
       <ScrollableCategoryTabs
         mainCategorySlug={mainCategorySlug}
+        context={context}
         defaultValue="all"
         value={selectedCategory}
-        onChange={setSelectedCategory}
+        onCategoryChange={handleCategoryTabChange}
         containerClassName="pt-4 pb-1"
       />
 
@@ -117,17 +263,30 @@ export function DirectoryPageShell<T>({
           context={context}
           detectedCountry={detectedCountry}
           onCountryChange={handleCountryChange}
+          onSearchChange={setSearchQuery}
         />
       </Suspense>
 
       <div className="pb-8">
-        {filtered.length === 0 ? (
+        {isCategoryLoading ? (
+          <div className="space-y-8 px-4 lg:px-16 pt-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-80 w-full rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        ) : usingCategoryFetch && topCategoryItems.length === 0 && allCategoryItems.length === 0 ? (
+          <div className="py-16 text-center text-gray-500 font-medium">
+            {emptyMessage}
+          </div>
+        ) : !usingCategoryFetch && filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-500 font-medium">
             {emptyMessage}
           </div>
         ) : selectedCategory === "all" ? (
           <>
-            {renderHero(items.slice(0, heroSize))}
+            {renderHero(filtered.slice(0, heroSize))}
 
             {groupNames.slice(0, visibleGroups).map((name) => (
               <div key={name}>{renderGroup(name, grouped[name])}</div>
@@ -135,13 +294,33 @@ export function DirectoryPageShell<T>({
 
             {renderCard && (
               <PaginatedGrid<T>
-                key={`all-${items.length}`}
-                items={items}
+                key={`all-${filtered.length}`}
+                items={filtered}
                 initialCount={initialGridCount}
                 loadMoreStep={gridLoadMoreStep}
                 title={gridTitle}
                 renderCard={renderCard}
               />
+            )}
+
+            {renderMidBanner?.()}
+            {renderFooterCta?.()}
+          </>
+        ) : usingCategoryFetch ? (
+          <>
+            {topCategoryItems.length > 0 && renderHero(topCategoryItems.slice(0, heroSize))}
+
+            {renderCard ? (
+              <PaginatedGrid<T>
+                key={`cat-${categoryIdParam ?? categorySlugParam}-${allCategoryItems.length}`}
+                items={allCategoryItems}
+                initialCount={initialGridCount}
+                loadMoreStep={gridLoadMoreStep}
+                title={gridTitle}
+                renderCard={renderCard}
+              />
+            ) : (
+              renderFiltered(allCategoryItems)
             )}
 
             {renderMidBanner?.()}

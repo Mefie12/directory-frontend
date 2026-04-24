@@ -33,7 +33,10 @@ export interface ApiListing {
   bio?: string;
   description?: string;
   created_at?: string;
+  listing_verified?: boolean;
   is_verified?: boolean;
+  verified?: boolean;
+  isVerified?: boolean;
   badge?: string;
   // Event-only fields
   event_start_date?: string;
