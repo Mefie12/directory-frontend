@@ -71,11 +71,11 @@ export default function BusinessCardCarousel({
         images = raw.images as string[];
       } else if (
         raw.images.every(
-          (img: { media?: string }) =>
-            img && typeof img === "object" && "media" in img
+          (img: { original?: string }) =>
+            img && typeof img === "object" && "original" in img
         )
       ) {
-        images = raw.images.map((img: { media?: string }) => img.media || "");
+        images = raw.images.map((img: { original?: string }) => img.original || "");
       }
     } else if (business.image && typeof business.image === "string") {
       images = [business.image];
@@ -84,7 +84,7 @@ export default function BusinessCardCarousel({
     // Fallback logic
     images = images.filter((img) => img && img.trim() !== "");
     if (images.length === 0) {
-      images = ["/images/placeholders/generic.jpg"];
+      images = ["/images/no-image.jpg"];
     }
 
     // Map Fields

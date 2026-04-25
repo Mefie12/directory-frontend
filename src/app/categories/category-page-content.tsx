@@ -23,9 +23,10 @@ import { Country } from "@/components/ui/country-dropdown";
 // --- API Types ---
 interface ApiImage {
   id?: number;
-  media?: string;
-  url?: string;
-  media_type?: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface ApiListing {
@@ -74,7 +75,7 @@ type ExtendedServiceProvider = Omit<ServiceProvider, "title" | "badge"> & {
 
 // --- Utilities ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholder-listing.png";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
@@ -90,26 +91,15 @@ const processImages = (
 
   const validImages = rawImages
     .filter((img: string | ApiImage) => {
-      if (typeof img === "string") {
-        return img.trim().length > 0;
-      }
-      if (img && typeof img === "object") {
-        if (img.media) {
-          const badStatuses = ["processing", "failed", "pending", "error"];
-          return !badStatuses.includes(img.media);
-        }
-        if (img.url && img.url.trim().length > 0) {
-          return true;
-        }
-      }
-      return false;
+      if (typeof img === "string") return img.trim().length > 0;
+      return !!(img && typeof img === "object" && img.original);
     })
     .map((img: string | ApiImage) => {
       let mediaPath = "";
       if (typeof img === "string") {
         mediaPath = img;
       } else if (img && typeof img === "object") {
-        mediaPath = img.media || img.url || "";
+        mediaPath = img.original;
       }
       return getImageUrl(mediaPath);
     });
@@ -118,7 +108,7 @@ const processImages = (
     validImages.push(getImageUrl(coverImage));
   }
   if (validImages.length === 0) {
-    validImages.push("/images/placeholder-listing.png");
+    validImages.push("/images/no-image.jpg");
   }
 
   return validImages;
@@ -270,7 +260,7 @@ export default function CategoryPageContent() {
         const primaryImage =
           validImages.length > 0
             ? validImages[0]
-            : "/images/placeholder-listing.png";
+            : "/images/no-image.jpg";
 
         return {
           id: item.id.toString(),
@@ -591,9 +581,9 @@ export default function CategoryPageContent() {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               if (
-                                !target.src.includes("placeholder-listing.png")
+                                !target.src.includes("no-image.jpg")
                               ) {
-                                target.src = "/images/placeholder-listing.png";
+                                target.src = "/images/no-image.jpg";
                               }
                             }}
                           />
@@ -721,9 +711,9 @@ export default function CategoryPageContent() {
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             if (
-                              !target.src.includes("placeholder-listing.png")
+                              !target.src.includes("no-image.jpg")
                             ) {
-                              target.src = "/images/placeholder-listing.png";
+                              target.src = "/images/no-image.jpg";
                             }
                           }}
                         />
@@ -888,9 +878,9 @@ export default function CategoryPageContent() {
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               if (
-                                !target.src.includes("placeholder-listing.png")
+                                !target.src.includes("no-image.jpg")
                               ) {
-                                target.src = "/images/placeholder-listing.png";
+                                target.src = "/images/no-image.jpg";
                               }
                             }}
                           />

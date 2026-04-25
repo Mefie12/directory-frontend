@@ -73,11 +73,10 @@ export default function ClothingSectionCarousel({
         images = raw.images as string[];
       } else if (
         raw.images.every(
-          (img: any) => img && typeof img === "object" && "media" in img
+          (img: any) => img && typeof img === "object" && "original" in img
         )
       ) {
-        // Explicitly type 'img' as any to fix the implicit any error
-        images = raw.images.map((img: any) => img.media || "");
+        images = raw.images.map((img: any) => img.original || "");
       }
     }
     // Fallback to the strict 'image' property if it exists
@@ -88,7 +87,7 @@ export default function ClothingSectionCarousel({
     // Clean up images
     images = images.filter((img) => img && img.trim() !== "");
     if (images.length === 0) {
-      images = ["/images/placeholders/generic.jpg"];
+      images = ["/images/no-image.jpg"];
     }
 
     // 2. Map other fields using 'raw' to avoid property does not exist errors

@@ -73,7 +73,7 @@ function ReviewItem({
         return;
       }
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
         `${API_URL}/api/ratings/${review.id}/reply`,
@@ -116,6 +116,7 @@ function ReviewItem({
               alt={review.author}
               width={48}
               height={48}
+              unoptimized
               className="h-full w-full object-cover"
             />
           ) : (
@@ -270,7 +271,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
 
     setIsSubmitting(true);
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const response = await fetch(`${API_URL}/api/listing/${listingSlug}/rating`, {
         method: "POST",
         headers: {

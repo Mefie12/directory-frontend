@@ -31,8 +31,10 @@ export interface Community {
 // --- API Interfaces ---
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface ApiCategory {
@@ -69,11 +71,11 @@ interface ApiListing {
 
 // --- Helper: Robust URL Generator ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -126,7 +128,7 @@ export default function HomeContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         // FIX: Added '?per_page=100' query param.
         // This requests 100 items instead of the default (usually 15).
@@ -154,20 +156,11 @@ export default function HomeContent() {
 
           const validImages = rawImages
             .filter((img: string | ApiImage) => {
-              if (typeof img === "string") return true;
-              if (img && typeof img === "object" && img.media) {
-                const badStatuses = [
-                  "processing",
-                  "failed",
-                  "pending",
-                  "error",
-                ];
-                return !badStatuses.includes(img.media);
-              }
-              return false;
+              if (typeof img === "string") return !!img;
+              return !!(img && typeof img === "object" && img.original);
             })
             .map((img: string | ApiImage) => {
-              const mediaPath = typeof img === "string" ? img : img.media;
+              const mediaPath = typeof img === "string" ? img : img.original;
               return getImageUrl(mediaPath);
             });
 
@@ -176,7 +169,7 @@ export default function HomeContent() {
             validImages.push(getImageUrl(item.cover_image));
           }
           if (validImages.length === 0) {
-            validImages.push("/images/placeholders/generic.jpg");
+            validImages.push("/images/no-image.jpg");
           }
 
           const categoryName = item.categories?.[0]?.name || "General";

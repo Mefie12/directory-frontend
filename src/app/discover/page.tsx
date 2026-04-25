@@ -22,8 +22,10 @@ import { Country } from "@/components/ui/country-dropdown";
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface ApiCategory {
@@ -62,7 +64,7 @@ interface ApiListing {
 
 // --- Helper Functions ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
@@ -143,16 +145,11 @@ function DiscoverContent() {
         const rawImages = Array.isArray(item.images) ? item.images : [];
         const validImages = rawImages
           .filter((img: any) => {
-            if (typeof img === "string") return true;
-            if (img && typeof img === "object" && img.media) {
-              return !["processing", "failed", "pending", "error"].includes(
-                img.media,
-              );
-            }
-            return false;
+            if (typeof img === "string") return !!img;
+            return !!(img && typeof img === "object" && img.original);
           })
           .map((img: any) => {
-            const mediaPath = typeof img === "string" ? img : img.media;
+            const mediaPath = typeof img === "string" ? img : img.original;
             return getImageUrl(mediaPath);
           });
 
@@ -160,7 +157,7 @@ function DiscoverContent() {
           validImages.push(getImageUrl(item.cover_image));
         }
         if (validImages.length === 0) {
-          validImages.push("/images/placeholders/generic.jpg");
+          validImages.push("/images/no-image.jpg");
         }
 
         const categoryName = item.categories?.[0]?.name || "General";
@@ -180,9 +177,14 @@ function DiscoverContent() {
 
         const buildLocation = () => {
           if (listingType === "event") {
-            return item.event_city || item.event_country || "Online";
+            return (
+              item.event_venue ||
+              item.event_city ||
+              item.event_country ||
+              (item.event_location_type === "online" ? "Online" : "TBA")
+            );
           }
-          return item.city || item.country || "Online";
+          return item.city || item.country || "";
         };
 
         const commonProps = {

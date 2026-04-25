@@ -31,7 +31,7 @@ import { getImageUrl } from "@/lib/directory/image-utils";
  *   - null
  *   - a newly picked File/Blob (needs object URL)
  *   - a string URL (already resolved)
- *   - a server image object `{ id, media, ... }` (take `.media`)
+ *   - a server image object `{ id, original, ... }` (take `.original`)
  */
 function resolveCoverSrc(
   primaryImage: string | null | undefined,
@@ -42,8 +42,8 @@ function resolveCoverSrc(
   if (coverPhoto instanceof Blob) return URL.createObjectURL(coverPhoto);
   if (typeof coverPhoto === "string") return getImageUrl(coverPhoto);
   if (typeof coverPhoto === "object" && coverPhoto !== null) {
-    const media = (coverPhoto as { media?: unknown }).media;
-    if (typeof media === "string") return getImageUrl(media);
+    const original = (coverPhoto as { original?: unknown }).original;
+    if (typeof original === "string") return getImageUrl(original);
   }
   return null;
 }
@@ -100,7 +100,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
             method: "GET",
             headers: {
@@ -128,7 +128,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -233,7 +233,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           {/* Additional Images Grid */}
           <div className="grid grid-cols-3 gap-3 h-24">
             {[0, 1, 2].map((i) => {
-              const rawMedia = galleryImages[i]?.media;
+              const rawMedia = galleryImages[i]?.original;
               const imgSrc = rawMedia ? getImageUrl(rawMedia) : null;
               return (
                 <div

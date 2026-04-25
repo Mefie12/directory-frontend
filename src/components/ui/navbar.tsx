@@ -130,7 +130,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/notifications`, {
         method: "GET",
@@ -169,7 +169,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/mark-all-read`, {
         method: "POST",
@@ -191,7 +191,7 @@ export default function Navbar() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: "PATCH",

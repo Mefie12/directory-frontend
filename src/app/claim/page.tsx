@@ -35,8 +35,10 @@ import { toast } from "sonner";
 // --- Types ---
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface Business {
@@ -68,18 +70,18 @@ export default function ClaimPage() {
   const getImageUrl = (
     imageEntry: ApiImage | string | undefined | null,
   ): string => {
-    if (!imageEntry) return "/images/placeholders/generic.jpg";
+    if (!imageEntry) return "/images/no-image.jpg";
     let url = "";
     if (
       typeof imageEntry === "object" &&
       imageEntry !== null &&
-      "media" in imageEntry
+      "original" in imageEntry
     ) {
-      url = imageEntry.media;
+      url = imageEntry.original;
     } else if (typeof imageEntry === "string") {
       url = imageEntry;
     }
-    if (!url) return "/images/placeholders/generic.jpg";
+    if (!url) return "/images/no-image.jpg";
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     return `${API_URL}/${url.replace(/^\//, "")}`;

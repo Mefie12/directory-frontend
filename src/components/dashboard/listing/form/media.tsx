@@ -328,7 +328,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            The first file will be your cover.
+            Upload images or videos. The first file will be your cover. Max 4 files, 50 MB each.
           </p>
         </div>
 
@@ -390,7 +390,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               }}
               multiple={true}
               maxFiles={3}
-              accept="image/jpeg,image/jpg,image/webp"
+              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime"
               maxSize={MAX_FILE_SIZE_BYTES}
             />
           </div>

@@ -35,7 +35,7 @@ export default function NewsCard(props: NewsCardProps) {
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               // Simple fallback on load error
-              e.currentTarget.srcset = "/images/placeholders/generic-news.jpg";
+              e.currentTarget.srcset = "/images/no-image.jpg";
             }}
           />
         </div>

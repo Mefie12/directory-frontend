@@ -136,7 +136,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       try {
         setIsUploading(true);
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         // Create flow always POSTs to /media (media_update is only for the edit flow)
         const endpoint = `${API_URL}/api/listing/${listingSlug}/media`;
