@@ -50,7 +50,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
   // 1. LOGIC FIX: robustly find the image source
   // The API maps to 'image', but legacy data might use 'imageUrl'. We check both.
   const initialImage =
-    community.image || community.imageUrl || "/images/placeholders/generic.jpg";
+    community.image || community.imageUrl || "/images/no-image.jpg";
 
   // 2. Use State to hold the image source (Prevents looping)
   const [imageSrc, setImageSrc] = useState(initialImage);
@@ -84,8 +84,8 @@ export default function CommunityCard({ community }: CommunityCardProps) {
             unoptimized={true} // Bypass Next.js optimization for external URLs
             onError={() => {
               // 4. Safety check to prevent infinite loops
-              if (imageSrc !== "/images/placeholders/generic.jpg") {
-                setImageSrc("/images/placeholders/generic.jpg");
+              if (imageSrc !== "/images/no-image.jpg") {
+                setImageSrc("/images/no-image.jpg");
               }
             }}
           />

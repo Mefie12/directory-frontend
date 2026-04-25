@@ -33,8 +33,10 @@ import { toast } from "sonner";
 
 interface ListingImage {
   id: number;
-  media: string | null;
-  media_type: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface Category {
@@ -118,11 +120,11 @@ export default function VendorHome() {
 
   // Helper function for image URLs
   const getImageUrl = (url: string | undefined | null): string => {
-    if (!url) return "/images/placeholder-listing.png";
+    if (!url) return "/images/no-image.jpg";
     if (url.startsWith("http://") || url.startsWith("https://")) {
       return url;
     }
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     return `${API_URL}/${url.replace(/^\//, "")}`;
   };
 
@@ -181,18 +183,13 @@ export default function VendorHome() {
           // 1. Image Logic
           const rawImages = listing.images || [];
           const validImages = rawImages
-            .filter((img) => {
-              if (!img.media) return false;
-              const badStatuses = ["processing", "failed", "pending", "error"];
-              if (badStatuses.includes(img.media)) return false;
-              return true;
-            })
-            .map((img) => getImageUrl(img.media));
+            .filter((img) => !!img.original)
+            .map((img) => getImageUrl(img.original));
 
           const coverImage =
             validImages.length > 0
               ? validImages[0]
-              : getImageUrl("/images/placeholder-listing.png");
+              : getImageUrl("/images/no-image.jpg");
 
           const categoryText = listing.categories?.[0]?.name || "Uncategorized";
           const location =
@@ -272,7 +269,7 @@ export default function VendorHome() {
 
   const fetchListingViews = async (apiListings: ApiListing[], token: string) => {
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const viewsPromises = apiListings.map((listing) =>
         fetch(`${API_URL}/api/listing/${listing.slug}/views`, {
           headers: {

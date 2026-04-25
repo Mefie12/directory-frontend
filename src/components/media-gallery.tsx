@@ -102,7 +102,14 @@ function GalleryThumb({
           }}
         />
       ) : (
-        <Image src={src || ""} alt={alt} fill className="object-cover" />
+        <Image
+          src={src || ""}
+          alt={alt}
+          fill
+          sizes="(max-width: 768px) 50vw, 33vw"
+          className="object-cover"
+          unoptimized
+        />
       )}
       {isVideo && (
         <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white font-medium">
@@ -224,8 +231,10 @@ function Lightbox({
                 src={src}
                 alt={`Gallery item ${currentIndex + 1}`}
                 fill
+                sizes="100vw"
                 className="object-contain"
                 priority
+                unoptimized
               />
             </div>
           )}

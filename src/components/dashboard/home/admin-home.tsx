@@ -307,7 +307,7 @@ export default function AdminHome() {
       (data.listings || []).map((item) => ({
         id: item.id,
         name: item.name,
-        image: item.image || "/images/placeholder.png",
+        image: item.image || "/images/no-image.jpg",
         category: item.category,
         location: item.location,
         status: item.status,
@@ -337,7 +337,7 @@ export default function AdminHome() {
       setIsLoading(true);
       try {
         const token = getAuthToken();
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/admin/dashboard`, {
           headers: {

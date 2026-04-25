@@ -227,6 +227,7 @@ export function ListingsTable({
                         alt={listing.name}
                         width={40}
                         height={40}
+                        unoptimized
                         className="w-full h-full object-cover"
                       />
                     </div>

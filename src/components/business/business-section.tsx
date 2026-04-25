@@ -103,7 +103,7 @@ export default function BusinessSection({
                 ? Array.isArray(business.image)
                   ? business.image.filter((img: any) => typeof img === "string")
                   : [business.image]
-                : ["/images/placeholders/generic.jpg"],
+                : ["/images/no-image.jpg"],
             };
 
             return (

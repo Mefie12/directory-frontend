@@ -74,11 +74,12 @@ export async function DELETE(
       );
     }
 
-    const data = await response.json().catch(() => ({}));
+    if (response.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting opening hours:', error);
     return NextResponse.json(

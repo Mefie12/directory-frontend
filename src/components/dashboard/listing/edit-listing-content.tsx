@@ -37,8 +37,10 @@ interface ApiHour {
 }
 
 interface ApiImage {
-  media: string;
   id?: number;
+  original: string;
+  thumb: string;
+  webp: string;
 }
 
 const EDIT_STORAGE_KEY = "listing-edit-step";
@@ -115,7 +117,7 @@ export default function EditListingContent() {
       try {
         setIsFetching(true);
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const response = await fetch(`${API_URL}/api/listing/${slug}/show`, {
           headers: {
@@ -211,14 +213,13 @@ export default function EditListingContent() {
         // 4. Media
         if (data.images) {
           const validImages = data.images.filter(
-            (img: ApiImage) => img.media && !["processing", "failed"].includes(img.media)
+            (img: ApiImage) => !!img.original
           );
 
           if (validImages.length > 0) {
-            // Map API images to the format expected by FileUploader (with url property)
             const mappedImages = validImages.map((img: ApiImage) => ({
-              url: img.media,
-              name: img.media.split('/').pop() || 'existing-image',
+              url: img.original,
+              name: img.original.split('/').pop() || 'existing-image',
               id: img.id
             }));
             

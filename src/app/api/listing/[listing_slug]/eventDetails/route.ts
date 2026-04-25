@@ -38,12 +38,12 @@ async function handleEventDetails(
     }
 
     if (!response.ok) {
-      const maybeMessage =
-        typeof data === "object" && data !== null && "message" in data
-          ? (data as { message?: string }).message
-          : undefined;
+      const err = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
       return NextResponse.json(
-        { message: maybeMessage || "Failed to save event details" },
+        {
+          message: (err.message as string) || "Failed to save event details",
+          errors: err.errors,
+        },
         { status: response.status },
       );
     }

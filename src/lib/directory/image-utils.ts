@@ -1,7 +1,6 @@
 import { ApiImage } from "./types";
 
-const FALLBACK_IMAGE = "/images/placeholders/generic.jpg";
-const BAD_IMAGE_STATUSES = ["processing", "failed", "pending", "error"];
+const FALLBACK_IMAGE = "/images/no-image.jpg";
 
 /**
  * Resolve a possibly-relative media URL to an absolute URL against
@@ -16,7 +15,7 @@ export function getImageUrl(url: string | undefined | null): string {
 
 /**
  * Normalise a listing's images array into a non-empty list of absolute URLs.
- * Skips images that are in a bad processing state. Falls back to the item's
+ * Reads `img.original` (Spatie V2 shape). Falls back to the item's
  * `image` / `cover_image` field, and finally to the generic placeholder.
  */
 export function processImages(
@@ -27,14 +26,11 @@ export function processImages(
 
   const valid = raw
     .filter((img): img is string | ApiImage => {
-      if (typeof img === "string") return true;
-      if (img && typeof img === "object" && "media" in img) {
-        return !BAD_IMAGE_STATUSES.includes((img as ApiImage).media);
-      }
-      return false;
+      if (typeof img === "string") return !!img;
+      return !!(img && typeof img === "object" && img.original);
     })
     .map((img) =>
-      getImageUrl(typeof img === "string" ? img : (img as ApiImage).media),
+      getImageUrl(typeof img === "string" ? img : img.original),
     );
 
   if (valid.length > 0) return valid;

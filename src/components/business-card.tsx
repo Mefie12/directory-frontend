@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Star, Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export type Business = {
   id: string;
@@ -26,7 +26,8 @@ type BusinessCardProps = {
 export function BusinessCard({ business }: BusinessCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(business.slug);
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname();
+  const router = useRouter();
 
   // Determine the base path for navigation based on current page
   const getBasePath = () => {
@@ -60,7 +61,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
   const initialImage =
     business.images && business.images.length > 0
       ? business.images[0]
-      : "/images/placeholders/generic.jpg";
+      : "/images/no-image.jpg";
 
   // 2. Use State to hold the image source.
   // This is the cure for the "looping" issue.
@@ -86,8 +87,8 @@ export function BusinessCard({ business }: BusinessCardProps) {
           onError={() => {
             // 4. If it fails, switch state to placeholder ONE TIME only.
             // This stops the infinite loop.
-            if (imageSrc !== "/images/placeholders/generic.jpg") {
-              setImageSrc("/images/placeholders/generic.jpg");
+            if (imageSrc !== "/images/no-image.jpg") {
+              setImageSrc("/images/no-image.jpg");
             }
           }}
         />
@@ -142,13 +143,18 @@ export function BusinessCard({ business }: BusinessCardProps) {
             />
           ))}
         </div>
-        <Link
-          href={`${getBusinessLink()}#reviews`}
-          className="text-sm text-gray-600 hover:text-[#275782] hover:underline transition-colors -mt-0.5"
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            router.push(`${getBusinessLink()}#reviews`);
+          }}
+          className="text-sm text-gray-600 hover:text-[#275782] hover:underline transition-colors -mt-0.5 text-left"
         >
           {business.reviewCount}{" "}
           {Number(business.reviewCount) === 1 ? "Review" : "Reviews"}
-        </Link>
+        </button>
         <div className="flex items-center gap-0.5 text-sm text-gray-500 mt-1">
           <Image
             src="/images/icons/location.svg"

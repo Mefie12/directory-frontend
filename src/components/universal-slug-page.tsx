@@ -117,6 +117,27 @@ interface OpeningHour {
   close_time: string;
 }
 
+interface ApiEventData {
+  id?: number;
+  event_start_date?: string;
+  event_end_date?: string;
+  event_start_time?: string;
+  event_end_time?: string;
+  event_venue?: string;
+  event_city?: string;
+  event_country?: string;
+  event_location_type?: string;
+  event_type?: string;
+  event_price?: string | number;
+  event_currency?: string;
+  is_free?: boolean;
+  formatted_price?: string;
+  event_ticket_url?: string;
+  event_online_url?: string;
+  starts_at?: string;
+  ends_at?: string;
+}
+
 interface ApiListingData {
   id: number;
   name: string;
@@ -146,9 +167,9 @@ interface ApiListingData {
   reviews?: ApiReview[];
   experience?: ExperienceItem[];
   pricing?: PricingItem[];
-  start_date?: string;
   type?: string;
   opening_hours?: OpeningHour[];
+  event?: ApiEventData;
 }
 
 // --- UI Interfaces ---
@@ -183,7 +204,7 @@ interface Provider {
   socials?: SocialLinks;
   latitude?: number;
   longitude?: number;
-  startDate?: string;
+  eventData?: ApiEventData;
 }
 
 interface GalleryItem {
@@ -229,7 +250,7 @@ interface TemplateContent {
 
 // --- Helper Functions ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
@@ -267,6 +288,10 @@ const extractUserName = (userData: any): string => {
       rawUser.username || rawUser.email?.split("@")[0] || "Unknown User";
   }
   return fullName;
+};
+
+const isVideoFile = (url: string): boolean => {
+  return /\.(mp4|webm|ogg|mov|quicktime)$/i.test(url);
 };
 
 // --- Helper Components ---
@@ -352,9 +377,9 @@ function ProviderHeader({
               </span>
             )}
           </span>
-          {type === "event" && provider.startDate && (
+          {provider.eventData?.starts_at && (
             <span className="flex items-center gap-1 text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full text-xs font-medium">
-              📅 {formatDateTime(provider.startDate)}
+              {formatDateTime(provider.eventData.starts_at)}
             </span>
           )}
         </div>
@@ -508,6 +533,142 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   );
 }
 
+const format12Hour = (time?: string) => {
+  if (!time) return "";
+  const [h, m] = time.split(":");
+  let hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${hours}:${m} ${ampm}`;
+};
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(dateStr));
+  } catch {
+    return dateStr;
+  }
+};
+
+function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
+  const locationType = eventData.event_location_type;
+  const locationLabel =
+    locationType === "in_person"
+      ? "In Person"
+      : locationType === "online"
+      ? "Online"
+      : locationType === "hybrid"
+      ? "Hybrid"
+      : null;
+
+  const venueParts = [eventData.event_venue, eventData.event_city, eventData.event_country]
+    .filter(Boolean)
+    .join(", ");
+
+  const sameDay = eventData.event_start_date === eventData.event_end_date;
+  const dateRange = sameDay
+    ? formatDate(eventData.event_start_date)
+    : `${formatDate(eventData.event_start_date)} – ${formatDate(eventData.event_end_date)}`;
+
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-4">
+        <h4 className="text-lg font-black text-gray-900">Event Details</h4>
+
+        {/* Date */}
+        {eventData.event_start_date && (
+          <div className="flex items-start gap-3">
+            {/* <span className="text-xl">📅</span> */}
+            <div>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Date</p>
+              <p className="text-sm font-semibold text-gray-800">{dateRange}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Time */}
+        {eventData.event_start_time && (
+          <div className="flex items-start gap-3">
+            {/* <span className="text-xl">🕐</span> */}
+            <div>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Time</p>
+              <p className="text-sm font-semibold text-gray-800">
+                {format12Hour(eventData.event_start_time)}
+                {eventData.event_end_time && ` – ${format12Hour(eventData.event_end_time)}`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Location type + venue */}
+        {(locationLabel || venueParts) && (
+          <div className="flex items-start gap-3">
+            {/* <span className="text-xl">📍</span> */}
+            <div>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Location</p>
+              {locationLabel && (
+                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
+                  locationType === "online"
+                    ? "bg-blue-50 text-blue-700"
+                    : locationType === "hybrid"
+                    ? "bg-purple-50 text-purple-700"
+                    : "bg-green-50 text-green-700"
+                }`}>
+                  {locationLabel}
+                </span>
+              )}
+              {venueParts && (
+                <p className="text-sm font-semibold text-gray-800">{venueParts}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Price */}
+        <div className="flex items-start gap-3">
+          {/* <span className="text-xl">🎟️</span> */}
+          <div>
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Tickets</p>
+            <p className="text-sm font-semibold text-gray-800">
+              {eventData.is_free ? "Free" : eventData.formatted_price || "See details"}
+            </p>
+          </div>
+        </div>
+
+        {/* Online event join link */}
+        {eventData.event_online_url && (locationType === "online" || locationType === "hybrid") && (
+          <Link
+            href={eventData.event_online_url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+          >
+            🖥️ Join Online
+          </Link>
+        )}
+
+        {/* Ticket purchase link */}
+        {eventData.event_ticket_url && (
+          <Link
+            href={eventData.event_ticket_url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+          >
+             Get Tickets
+          </Link>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SidebarInfo({
   provider,
   pricing,
@@ -523,15 +684,6 @@ function SidebarInfo({
 
   const { user } = useAuth();
   const router = useRouter();
-
-  const format12Hour = (time: string) => {
-    if (!time) return "";
-    const [hours, minutes] = time.split(":");
-    let h = parseInt(hours, 10);
-    const ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    return `${h}:${minutes} ${ampm}`;
-  };
 
   const handleClaimBusiness = () => {
     if (user) {
@@ -829,8 +981,18 @@ export default function UniversalSlugPage({
               listingData.description ||
               "No description provided.",
             location:
-              listingData.address || listingData.city || listingData.location,
-            country: listingData.country,
+              listingData.type === "event"
+                ? listingData.event?.event_venue ||
+                  listingData.event?.event_city ||
+                  listingData.address ||
+                  listingData.city
+                : listingData.address ||
+                  listingData.city ||
+                  listingData.location,
+            country:
+              listingData.type === "event"
+                ? listingData.event?.event_country || listingData.country
+                : listingData.country,
             verified: !!(listingData.listing_verified ?? listingData.is_verified),
             claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
@@ -843,35 +1005,37 @@ export default function UniversalSlugPage({
             socials: socialLinks,
             latitude: listingData.latitude,
             longitude: listingData.longitude,
-            startDate: listingData.start_date,
+            eventData: listingData.type === "event" ? listingData.event : undefined,
           };
 
           const rawImages = listingData.images || [];
           const gallery: GalleryItem[] = rawImages.map((img) => {
-            if (typeof img === "object" && img.media) {
+            if (typeof img === "object" && img.original) {
+              const src = getImageUrl(img.original);
               return {
-                type: "image",
-                src: getImageUrl(img.media),
+                type: isVideoFile(src) ? "video" : "image",
+                src: src,
                 alt: provider.name,
               };
             }
             if (typeof img === "string") {
+              const src = getImageUrl(img);
               return {
-                type: "image",
-                src: getImageUrl(img),
+                type: isVideoFile(src) ? "video" : "image",
+                src: src,
                 alt: provider.name,
               };
             }
             return {
               type: "image",
-              src: "/images/placeholders/generic.jpg",
+              src: "/images/no-image.jpg",
               alt: "Placeholder",
             };
           });
           if (gallery.length === 0) {
             gallery.push({
               type: "image",
-              src: "/images/placeholders/generic.jpg",
+              src: "/images/no-image.jpg",
               alt: provider.name,
             });
           }
@@ -1030,6 +1194,9 @@ export default function UniversalSlugPage({
 
         <aside className="lg:col-span-4 space-y-6">
           <SidebarLocation provider={providerData} />
+          {providerData.eventData && (
+            <SidebarEventDetails eventData={providerData.eventData} />
+          )}
           <SidebarInfo
             provider={providerData}
             pricing={template.pricing}

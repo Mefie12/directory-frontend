@@ -286,7 +286,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         };
 
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         try {
           // UPDATED LOGIC HERE:
@@ -329,7 +329,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
             `${API_URL}/api/listing/${listingSlug}/show`,
             {

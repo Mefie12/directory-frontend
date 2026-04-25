@@ -157,13 +157,11 @@ interface RawListing {
   }>;
   images?: Array<{
     id: number;
-    media: string;
-    media_type: string;
-    file_size: number;
-    file_size_formatted: string;
-    mime_type: string;
-    is_compressed: number;
-    compression_status: string;
+    original: string;
+    thumb: string;
+    webp: string;
+    file_size?: number;
+    mime_type?: string;
     created_at: string;
     updated_at: string;
   }>;
@@ -229,7 +227,7 @@ const categoryApi = {
   },
   createCategory: async (categoryData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
@@ -256,7 +254,7 @@ const categoryApi = {
     categoryData: CategoryFormData,
   ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
@@ -280,7 +278,7 @@ const categoryApi = {
   },
   deleteCategory: async (id: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const response = await fetch(`${API_URL}/api/categories/${id}`, {
       method: "DELETE",
       headers: {
@@ -359,11 +357,11 @@ export default function Listings() {
     }
 
     const getImageUrl = (url: string | undefined): string => {
-      if (!url) return "/images/placeholder-listing.png";
+      if (!url) return "/images/no-image.jpg";
       if (url.startsWith("http://") || url.startsWith("https://")) {
         return url;
       }
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       return `${API_URL}/${url.replace(/^\//, "")}`;
     };
 
@@ -386,13 +384,11 @@ export default function Listings() {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
-      let imageUrl = "/images/placeholder-listing.png";
+      let imageUrl = "/images/no-image.jpg";
       if (item.images && item.images.length > 0) {
-        const validImage = item.images.find(
-          (img) => img.media && img.media !== "processing",
-        );
+        const validImage = item.images.find((img) => !!img.original);
         if (validImage) {
-          imageUrl = getImageUrl(validImage.media);
+          imageUrl = getImageUrl(validImage.original);
         }
       } else if (item.image || item.thumbnail) {
         imageUrl = getImageUrl(item.image || item.thumbnail);
@@ -447,8 +443,8 @@ export default function Listings() {
         image: imageUrl,
         images: item.images
           ? item.images
-              .filter((img) => img.media && img.media !== "processing")
-              .map((img) => getImageUrl(img.media))
+              .filter((img) => !!img.original)
+              .map((img) => getImageUrl(img.original))
           : imageUrl
             ? [imageUrl]
             : [],
@@ -560,7 +556,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
         `${API_URL}/api/listing/${listingToDelete}`,
@@ -604,7 +600,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
         `${API_URL}/api/listing/${listingSlug}/update_status`,
@@ -714,7 +710,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const params = new URLSearchParams({
         page: currentPage.toString(),

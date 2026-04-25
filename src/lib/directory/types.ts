@@ -4,8 +4,15 @@
 
 export interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  /** Spatie V2: full-size S3 URL */
+  original: string;
+  /** Spatie V2: 200×200 thumbnail URL (falls back to original while conversion is pending) */
+  thumb: string;
+  /** Spatie V2: WebP version URL (falls back to original while conversion is pending) */
+  webp: string;
+  mime_type?: string;
+  file_size?: number;
+  size?: string;
 }
 
 export interface ApiCategory {
@@ -38,14 +45,18 @@ export interface ApiListing {
   verified?: boolean;
   isVerified?: boolean;
   badge?: string;
-  // Event-only fields
+  // Event-only fields (flat — populated by ListingResource when events relation is loaded)
   event_start_date?: string;
   event_end_date?: string;
+  event_start_time?: string;
+  event_end_time?: string;
   event_venue?: string;
+  event_venue_address?: string | null;
   event_city?: string;
   event_country?: string;
   event_price?: string | null;
   event_currency?: string | null;
+  event_location_type?: string | null;
 }
 
 export interface ApiListingsResponse<T = ApiListing> {

@@ -39,7 +39,7 @@ export default function Analytics() {
       const token = localStorage.getItem("authToken");
       if (!token) return;
 
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       // 1. Fetch listings to get aggregate stats
       const listingsRes = await fetch(`${API_URL}/api/listing/my_listings`, {
