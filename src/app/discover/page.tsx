@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
@@ -17,8 +17,6 @@ import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Country } from "@/components/ui/country-dropdown";
-
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
@@ -111,15 +109,6 @@ function DiscoverContent() {
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  // IP captured at signup and stored in localStorage
-  const [clientIp] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("user_ip");
-  });
-
-  // SearchHeader updates URL params via useSearchParams; no local state needed
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleCountryChange = useCallback((_country: Country | null) => {}, []);
 
   const handleClickEvent = () => {
     if (user) {
@@ -162,18 +151,6 @@ function DiscoverContent() {
 
         const categoryName = item.categories?.[0]?.name || "General";
         const listingType = classifyListing(item);
-
-        if (filterCountry) {
-          const target = filterCountry.toLowerCase();
-          const itemCountry = (
-            listingType === "event"
-              ? item.event_country || item.country
-              : item.country || item.event_country
-          )
-            ?.toString()
-            .toLowerCase();
-          if (itemCountry !== target) return;
-        }
 
         const buildLocation = () => {
           if (listingType === "event") {
@@ -233,36 +210,56 @@ function DiscoverContent() {
       try {
         setIsLoading(true);
 
-        const params = new URLSearchParams({ per_page: "100" });
-        if (filterStartDate) params.set("event_start_date", filterStartDate);
-        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        // Build the URL for each type-scoped fetch
+        const makeUrl = (type: string) => {
+          const params = new URLSearchParams({ type, per_page: "20" });
 
-        let listingsUrl: string;
-        if (hasApiFilters) {
-          listingsUrl = `/api/search?${params.toString()}`;
-        } else {
-          if (clientIp) params.set("ip_address", clientIp);
-          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+          // User manually selected a country — server-side filter via country endpoint
+          if (filterCountry) {
+            params.set("country", filterCountry);
+            return `/api/all_listings_by_country_and_category?${params.toString()}`;
+          }
+
+          // Date filters active — route through search (also type-scoped)
+          if (hasApiFilters) {
+            if (filterStartDate) params.set("event_start_date", filterStartDate);
+            if (filterEndDate) params.set("event_end_date", filterEndDate);
+            return `/api/search?${params.toString()}`;
+          }
+
+          // Default — geo detection via BFF header IP extraction
+          return `/api/listings_by_geolocation?${params.toString()}`;
+        };
+
+        const headers = { "Content-Type": "application/json", Accept: "application/json" };
+
+        const [bizRes, evtRes, comRes] = await Promise.all([
+          fetch(makeUrl("business"), { headers }),
+          fetch(makeUrl("event"), { headers }),
+          fetch(makeUrl("community"), { headers }),
+        ]);
+
+        if (!bizRes.ok || !evtRes.ok || !comRes.ok) {
+          throw new Error("Failed to fetch listings");
         }
 
-        const response = await fetch(listingsUrl, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
-        if (!response.ok) throw new Error("Failed to fetch listings");
+        const [bizJson, evtJson, comJson] = await Promise.all([
+          bizRes.json(),
+          evtRes.json(),
+          comRes.json(),
+        ]);
 
-        const json = await response.json();
-        if (json?.meta?.detected_country) {
-          setDetectedCountry(json.meta.detected_country);
-        }
+        // Capture detected country from the first response that has it
+        const detected = bizJson?.meta?.detected_country ?? evtJson?.meta?.detected_country ?? null;
+        if (detected) setDetectedCountry(detected);
 
-        const data: ApiListing[] = json.data || json.listings || [];
-        const mapped = mapListings(data);
-        setBusinesses(mapped.businessesList);
-        setEvents(mapped.eventsList);
-        setCommunities(mapped.communitiesList);
+        const bizData: ApiListing[] = bizJson.data || bizJson.listings || [];
+        const evtData: ApiListing[] = evtJson.data || evtJson.listings || [];
+        const comData: ApiListing[] = comJson.data || comJson.listings || [];
+
+        setBusinesses(mapListings(bizData).businessesList);
+        setEvents(mapListings(evtData).eventsList);
+        setCommunities(mapListings(comData).communitiesList);
       } catch (error) {
         console.error("Failed to fetch discover data", error);
       } finally {
@@ -272,7 +269,6 @@ function DiscoverContent() {
 
     fetchData();
   }, [
-    clientIp,
     filterCountry,
     filterEndDate,
     filterStartDate,
@@ -323,7 +319,6 @@ function DiscoverContent() {
           <SearchHeader
             context="discover"
             detectedCountry={detectedCountry}
-            onCountryChange={handleCountryChange}
             onSearchChange={setSearchQuery}
           />
         </Suspense>
@@ -338,7 +333,10 @@ function DiscoverContent() {
           </div>
         ) : (
           <>
-            <BusinessCardCarousel businesses={filteredBusinesses} />
+            <BusinessCardCarousel
+              businesses={filteredBusinesses}
+              title={detectedCountry ? "Explore Businesses near you" : "Explore Businesses"}
+            />
             <EventCardCarousel events={filteredEvents} />
             <BusinessBestCarousel businesses={filteredBusinesses} />
           </>
