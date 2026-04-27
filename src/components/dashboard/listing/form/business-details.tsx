@@ -253,8 +253,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
     const [isSaving, setIsSaving] = useState(false);
-    // Tracks the backend event record ID so we can use the update endpoint on subsequent saves.
-    const [eventId, setEventId] = useState<string | null>(null);
+    // Tracks the backend event record slug so we can use the update endpoint on subsequent saves.
+    const [eventSlug, setEventSlug] = useState<string | null>(null);
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
@@ -284,10 +284,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             const json = await res.json();
             const d = json.data || json;
             const isEvent = (d?.type || listingType) === "event";
-            // Capture the event record ID for subsequent saves (update vs create)
+            // Capture the event record slug for subsequent saves (update vs create)
             if (isEvent) {
-              const eid = d.event?.id ?? d.event_id ?? null;
-              if (eid) setEventId(String(eid));
+              const eSlug = d.event?.slug ?? null;
+              if (eSlug) setEventSlug(String(eSlug));
             }
             const mappedHours = form
               .getValues("businessHours")
@@ -433,7 +433,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsPayload.event_end_time = data.event_end_time;
           // event_location = in_person/online/hybrid (required by backend)
           detailsPayload.event_location = data.event_location;
-          // event_type = duration (1_day/2-days/multi_days, nullable)
+          // event_type = duration (1_day/2_days/multi_days, nullable)
           detailsPayload.event_type = data.event_type || null;
         } else {
           // For business/community: use standard field names including google_plus_code
@@ -471,9 +471,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         let detailsEndpoint: string;
         let detailsMethod: string;
         if (listingType === "event") {
-          if (eventId) {
-            detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventId}/update`;
-            detailsMethod = "PUT";
+          if (eventSlug) {
+            detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventSlug}/update`;
+            detailsMethod = "PATCH";
           } else {
             detailsEndpoint = `/api/listing/${effectiveSlug}/eventDetails`;
             detailsMethod = "POST";
@@ -593,14 +593,14 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           return false;
         }
 
-        // If this was a create (POST), capture the returned event ID for subsequent saves.
-        if (listingType === "event" && !eventId) {
+        // If this was a create (POST), capture the returned event slug for subsequent saves.
+        if (listingType === "event" && !eventSlug) {
           try {
             const created = await detailsRes.clone().json();
-            const newId = created?.data?.id ?? created?.id ?? null;
-            if (newId) setEventId(String(newId));
+            const newSlug = created?.data?.slug ?? created?.slug ?? null;
+            if (newSlug) setEventSlug(String(newSlug));
           } catch {
-            // Non-fatal — next page load will re-hydrate the ID
+            // Non-fatal — next page load will re-hydrate the slug
           }
         }
 
@@ -998,7 +998,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1_day">1 Day</SelectItem>
-                        <SelectItem value="2-days">2 Days</SelectItem>
+                        <SelectItem value="2_days">2 Days</SelectItem>
                         <SelectItem value="multi_days">Multi-Day</SelectItem>
                       </SelectContent>
                     </Select>
