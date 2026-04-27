@@ -327,6 +327,7 @@ export default function Listings() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<{ slug: string; name: string; value: boolean } | null>(null);
 
   const itemsPerPage = 10;
 
@@ -901,14 +902,22 @@ export default function Listings() {
     }
   }, [selectedListing]);
 
-  const handleVerifyToggle = async (checked: boolean) => {
+  const handleVerifyToggle = (checked: boolean) => {
     if (!selectedListing) return;
+    // Store intent and open confirmation dialog — don't fire the API yet
+    setPendingVerification({ slug: selectedListing.slug, name: selectedListing.name, value: checked });
+  };
+
+  const handleVerifyConfirm = async () => {
+    if (!pendingVerification || !selectedListing) return;
+    const { slug, value } = pendingVerification;
+    setPendingVerification(null);
     setIsVerifying(true);
-    setIsVerified(checked);
+    setIsVerified(value);
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `/api/listing/${selectedListing.slug}/verify_listing`,
+        `/api/listing/${slug}/verify_listing`,
         {
           method: "PUT",
           headers: {
@@ -916,10 +925,7 @@ export default function Listings() {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            listing_id: selectedListing.id,
-            is_verified: checked,
-          }),
+          body: JSON.stringify({ listing_verified: value }),
         },
       );
       if (!response.ok) {
@@ -928,18 +934,23 @@ export default function Listings() {
       }
       setAllData((prev) =>
         prev.map((item) =>
-          item.slug === selectedListing.slug ? { ...item, verified: checked } : item,
+          item.slug === slug ? { ...item, verified: value } : item,
         ),
       );
-      setSelectedListing((prev) => prev ? { ...prev, verified: checked } : prev);
-      toast.success(checked ? "Listing verified" : "Verification removed");
+      setSelectedListing((prev) => prev ? { ...prev, verified: value } : prev);
+      toast.success(value ? "Listing verified successfully" : "Verification removed");
     } catch (error) {
-      setIsVerified(!checked);
+      setIsVerified(!value);
       const msg = error instanceof Error ? error.message : "Failed to update verification";
       toast.error(msg);
     } finally {
       setIsVerifying(false);
     }
+  };
+
+  const handleVerifyCancel = () => {
+    // Revert the toggle visually — user dismissed the dialog
+    setPendingVerification(null);
   };
 
   // --- SOCIAL ICON HELPER ---
@@ -1547,6 +1558,34 @@ export default function Listings() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* --- VERIFY CONFIRMATION DIALOG --- */}
+      <AlertDialog
+        open={!!pendingVerification}
+        onOpenChange={(open) => { if (!open) handleVerifyCancel(); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingVerification?.value ? "Verify this listing?" : "Remove verification?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingVerification?.value
+                ? `This will mark "${pendingVerification?.name}" as a verified listing. A verification badge will appear on its public card.`
+                : `This will remove the verification badge from "${pendingVerification?.name}". The listing will remain approved and visible.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleVerifyCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleVerifyConfirm}
+              className={pendingVerification?.value ? "bg-[#93C01F] hover:bg-[#7ea919]" : "bg-orange-500 hover:bg-orange-600"}
+            >
+              {pendingVerification?.value ? "Yes, verify listing" : "Yes, remove verification"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* --- SIDEBAR (SHEET) --- */}
       <Sheet
         open={!!selectedListing}
@@ -1835,7 +1874,7 @@ export default function Listings() {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="verify-mode"
-                        checked={isVerified}
+                        checked={pendingVerification?.slug === selectedListing?.slug ? pendingVerification.value : isVerified}
                         onCheckedChange={handleVerifyToggle}
                         disabled={isVerifying}
                         className="data-[state=checked]:bg-[#93C01F]"

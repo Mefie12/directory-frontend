@@ -145,17 +145,6 @@ export default function CategoryPageContent() {
   // Geolocation state
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [clientIp, setClientIp] = useState<string | null>(null);
-
-  // Detect client IP once on mount; cache in sessionStorage to avoid repeat calls
-  useEffect(() => {
-    const cached = sessionStorage.getItem("client_ip");
-    if (cached) { setClientIp(cached); return; }
-    fetch("https://api.ipify.org?format=json")
-      .then((r) => r.json())
-      .then((d) => { sessionStorage.setItem("client_ip", d.ip); setClientIp(d.ip); })
-      .catch(() => {});
-  }, []);
 
   // Read country from URL params on mount
   useEffect(() => {
@@ -223,18 +212,18 @@ export default function CategoryPageContent() {
           : selectedSubcategory;
 
       const query = new URLSearchParams({
-        page: "1",
-        category: categorySlugToFilter,
+        category_slug: categorySlugToFilter,
         per_page: "50",
       });
 
-      // Use geolocation API with country filter
-      let listingsUrl = `/api/listings_by_geolocation?${query.toString()}`;
-      if (clientIp) {
-        listingsUrl += `&ip_address=${encodeURIComponent(clientIp)}`;
-      }
+      // When country is explicitly selected use country endpoint; otherwise use
+      // the geo endpoint and let the BFF extract the client IP from request headers
+      let listingsUrl: string;
       if (selectedCountry) {
-        listingsUrl += `&country=${selectedCountry}`;
+        query.set("country", selectedCountry);
+        listingsUrl = `/api/all_listings_by_country_and_category?${query.toString()}`;
+      } else {
+        listingsUrl = `/api/all_listings_by_category_and_geolocation?${query.toString()}`;
       }
 
       const headers: HeadersInit = {
@@ -304,7 +293,7 @@ export default function CategoryPageContent() {
     } finally {
       setIsListingsLoading(false);
     }
-  }, [activeMainCategory, selectedSubcategory, selectedCountry, clientIp]);
+  }, [activeMainCategory, selectedSubcategory, selectedCountry]);
 
   useEffect(() => {
     if (activeMainCategory && selectedSubcategory) {

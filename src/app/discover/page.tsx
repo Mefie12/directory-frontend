@@ -1,24 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
 import EventCardCarousel from "@/components/discover/event-card-carousel";
-import BusinessBestCarousel from "@/components/discover/business-best-carousel";
+import CommunityCarousel from "@/components/communities/community-carousel";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import BusinessSectionCarousel from "@/components/business-section-carousel";
-import EventSectionCarousel from "@/components/event-section-carousel";
-import CommunitySectionCarousel from "@/components/community-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Country } from "@/components/ui/country-dropdown";
-
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
@@ -105,21 +99,35 @@ function DiscoverContent() {
   const router = useRouter();
   const { user } = useAuth();
   const [businesses, setBusinesses] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
+  const [weekEvents, setWeekEvents] = useState<any[]>([]);
+  const [soonEvents, setSoonEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  // Stable ref — holds the detected country full name for geo context preservation.
+  // Using a ref instead of state avoids adding it to the useEffect dependency array
+  // (which would cause an infinite fetch loop: fetch → set name → re-fetch → …).
+  const detectedCountryRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
-  // IP captured at signup and stored in localStorage
-  const [clientIp] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("user_ip");
-  });
 
-  // SearchHeader updates URL params via useSearchParams; no local state needed
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleCountryChange = useCallback((_country: Country | null) => {}, []);
+  // Top 15 businesses sorted by highest rating — derived from geo-filtered state
+  const topBusinesses = useMemo(
+    () =>
+      [...businesses]
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 15),
+    [businesses]
+  );
+
+  // Top 15 communities sorted by highest rating — derived from geo-filtered state
+  const topCommunities = useMemo(
+    () =>
+      [...communities]
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 15),
+    [communities]
+  );
 
   const handleClickEvent = () => {
     if (user) {
@@ -129,8 +137,8 @@ function DiscoverContent() {
     }
   };
 
-  const [searchQuery, setSearchQuery] = useState("");
   const filterCountry = searchParams.get("country");
+  const filterQuery = searchParams.get("q");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
   const hasApiFilters = !!(filterStartDate || filterEndDate);
@@ -163,18 +171,6 @@ function DiscoverContent() {
         const categoryName = item.categories?.[0]?.name || "General";
         const listingType = classifyListing(item);
 
-        if (filterCountry) {
-          const target = filterCountry.toLowerCase();
-          const itemCountry = (
-            listingType === "event"
-              ? item.event_country || item.country
-              : item.country || item.event_country
-          )
-            ?.toString()
-            .toLowerCase();
-          if (itemCountry !== target) return;
-        }
-
         const buildLocation = () => {
           if (listingType === "event") {
             return (
@@ -200,7 +196,10 @@ function DiscoverContent() {
         };
 
         if (listingType === "community") {
-          communitiesList.push(commonProps);
+          communitiesList.push({
+            ...commonProps,
+            rating: Number(item.rating) || 0,
+          });
         } else if (listingType === "event") {
           const priceLabel = item.event_price
             ? `${item.event_currency || ""} ${item.event_price}`.trim()
@@ -229,83 +228,128 @@ function DiscoverContent() {
       };
     };
 
+    let stale = false;
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        const params = new URLSearchParams({ per_page: "100" });
-        if (filterStartDate) params.set("event_start_date", filterStartDate);
-        if (filterEndDate) params.set("event_end_date", filterEndDate);
+        // Build the URL for each type-scoped fetch
+        const makeUrl = (type: string) => {
+          const params = new URLSearchParams({ type, per_page: "20" });
 
-        let listingsUrl: string;
-        if (hasApiFilters) {
-          listingsUrl = `/api/search?${params.toString()}`;
-        } else {
-          if (clientIp) params.set("ip_address", clientIp);
-          listingsUrl = `/api/listings_by_geolocation?${params.toString()}`;
+          // G-05: Text search → search endpoint for full-dataset coverage.
+          // Carries geo/country context and any active date filters along.
+          if (filterQuery) {
+            params.set("q", filterQuery);
+            if (filterCountry) {
+              params.set("country", filterCountry);
+            } else if (detectedCountryRef.current) {
+              params.set("country", detectedCountryRef.current);
+            }
+            if (filterStartDate) params.set("event_start_date", filterStartDate);
+            if (filterEndDate) params.set("event_end_date", filterEndDate);
+            return `/api/search?${params.toString()}`;
+          }
+
+          // Manual country selection (no text search)
+          if (filterCountry) {
+            params.set("country", filterCountry);
+            return `/api/all_listings_by_country_and_category?${params.toString()}`;
+          }
+
+          // G-04: Date filters only — inject detected country so geo context is
+          // preserved even though the search endpoint has no IP detection of its own.
+          if (hasApiFilters) {
+            if (filterStartDate) params.set("event_start_date", filterStartDate);
+            if (filterEndDate) params.set("event_end_date", filterEndDate);
+            if (detectedCountryRef.current) {
+              params.set("country", detectedCountryRef.current);
+            }
+            return `/api/search?${params.toString()}`;
+          }
+
+          // Default — geo detection via BFF header IP extraction
+          return `/api/listings_by_geolocation?${params.toString()}`;
+        };
+
+        const headers = { "Content-Type": "application/json", Accept: "application/json" };
+
+        // Phase 1 — businesses + communities (filter-aware, geo-capable)
+        // Run first so the geo-detected country name is available before event fetches start.
+        const [bizRes, comRes] = await Promise.all([
+          fetch(makeUrl("business"), { headers }),
+          fetch(makeUrl("community"), { headers }),
+        ]);
+
+        if (stale) return;
+
+        if (!bizRes.ok || !comRes.ok) {
+          throw new Error("Failed to fetch listings");
         }
 
-        const response = await fetch(listingsUrl, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
-        if (!response.ok) throw new Error("Failed to fetch listings");
+        const [bizJson, comJson] = await Promise.all([
+          bizRes.json(),
+          comRes.json(),
+        ]);
 
-        const json = await response.json();
-        if (json?.meta?.detected_country) {
-          setDetectedCountry(json.meta.detected_country);
+        if (stale) return;
+
+        // Capture geo-detected country before firing event fetches
+        const detected = bizJson?.meta?.detected_country ?? null;
+        const detectedName = bizJson?.meta?.detected_country_name ?? null;
+        if (detected) setDetectedCountry(detected);
+        if (detectedName && !detectedCountryRef.current) {
+          detectedCountryRef.current = detectedName;
         }
 
-        const data: ApiListing[] = json.data || json.listings || [];
-        const mapped = mapListings(data);
-        setBusinesses(mapped.businessesList);
-        setEvents(mapped.eventsList);
-        setCommunities(mapped.communitiesList);
+        // Phase 2 — events with country now known
+        // Priority: explicit URL filter > geo-detected name > no filter (global)
+        const eventCountry = filterCountry || detectedCountryRef.current || null;
+        const eventParams = new URLSearchParams({ per_page: "15" });
+        if (eventCountry) eventParams.set("country", eventCountry);
+
+        const [weekRes, soonRes] = await Promise.all([
+          fetch(`/api/discover_events?preset=this_week&${eventParams}`, { headers }),
+          fetch(`/api/discover_events?preset=happening_soon&${eventParams}`, { headers }),
+        ]);
+
+        const [weekJson, soonJson] = await Promise.all([
+          weekRes.ok ? weekRes.json() : Promise.resolve({ data: [] }),
+          soonRes.ok ? soonRes.json() : Promise.resolve({ data: [] }),
+        ]);
+
+        if (stale) return;
+
+        const bizData: ApiListing[] = bizJson.data || bizJson.listings || [];
+        const comData: ApiListing[] = comJson.data || comJson.listings || [];
+        const weekData: ApiListing[] = weekJson.data || [];
+        const soonData: ApiListing[] = soonJson.data || [];
+
+        setBusinesses(mapListings(bizData).businessesList);
+        setCommunities(mapListings(comData).communitiesList);
+        setWeekEvents(mapListings(weekData).eventsList);
+        setSoonEvents(mapListings(soonData).eventsList);
       } catch (error) {
-        console.error("Failed to fetch discover data", error);
+        if (!stale) console.error("Failed to fetch discover data", error);
       } finally {
-        setIsLoading(false);
+        if (!stale) setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [
-    clientIp,
-    filterCountry,
-    filterEndDate,
-    filterStartDate,
-    hasApiFilters,
-  ]);
+    return () => { stale = true; };
+  }, [filterCountry, filterEndDate, filterStartDate, hasApiFilters, filterQuery]);
 
-  // Client-side text filtering — no re-fetch, no navigation
-  const q = searchQuery.toLowerCase();
-  const filteredBusinesses = useMemo(() =>
-    q ? businesses.filter(b =>
-      b.name?.toLowerCase().includes(q) ||
-      b.category?.toLowerCase().includes(q) ||
-      b.description?.toLowerCase().includes(q) ||
-      b.location?.toLowerCase().includes(q)
-    ) : businesses,
-  [businesses, q]);
+  // G-09 / G-14: Carousel titles reflect whether geo worked, a country was manually chosen, or we're in global fallback
+  const locationLabel = filterCountry
+    ? `in ${filterCountry}`
+    : detectedCountry
+    ? "near you"
+    : null;
 
-  const filteredEvents = useMemo(() =>
-    q ? events.filter(e =>
-      e.name?.toLowerCase().includes(q) ||
-      e.category?.toLowerCase().includes(q) ||
-      e.description?.toLowerCase().includes(q) ||
-      e.location?.toLowerCase().includes(q)
-    ) : events,
-  [events, q]);
-
-  const filteredCommunities = useMemo(() =>
-    q ? communities.filter(c =>
-      c.name?.toLowerCase().includes(q) ||
-      c.description?.toLowerCase().includes(q) ||
-      c.location?.toLowerCase().includes(q)
-    ) : communities,
-  [communities, q]);
+  const businessTitle = locationLabel ? `Top Businesses ${locationLabel}` : "Top Businesses";
+  const communityTitle = locationLabel ? `Popular communities ${locationLabel}` : "Popular communities";
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -323,8 +367,6 @@ function DiscoverContent() {
           <SearchHeader
             context="discover"
             detectedCountry={detectedCountry}
-            onCountryChange={handleCountryChange}
-            onSearchChange={setSearchQuery}
           />
         </Suspense>
       </div>
@@ -338,9 +380,28 @@ function DiscoverContent() {
           </div>
         ) : (
           <>
-            <BusinessCardCarousel businesses={filteredBusinesses} />
-            <EventCardCarousel events={filteredEvents} />
-            <BusinessBestCarousel businesses={filteredBusinesses} />
+            <BusinessCardCarousel
+              businesses={topBusinesses}
+              title={businessTitle}
+            />
+            {weekEvents.length > 0 && (
+              <EventCardCarousel
+                events={weekEvents}
+                title="Happening this week"
+              />
+            )}
+            {soonEvents.length > 0 && (
+              <EventCardCarousel
+                events={soonEvents}
+                title="Happening soon"
+              />
+            )}
+            <CommunityCarousel
+              communities={topCommunities}
+              title={communityTitle}
+              showTitle={true}
+              showNavigation={true}
+            />
           </>
         )}
 
@@ -373,90 +434,6 @@ function DiscoverContent() {
             </div>
           </div>
         </div> */}
-
-        {/* Business section */}
-        <div className="py-12 px-4 lg:px-16">
-          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
-            <div className="flex flex-col space-y-2">
-              <h2 className="font-semibold text-xl md:text-4xl">Businesses</h2>
-            </div>
-            <div>
-              <Link
-                href="/businesses"
-                className="text-[#275782] font-medium hidden lg:block"
-              >
-                Explore Businesses
-              </Link>
-              <Link
-                href="/businesses"
-                className="text-[#275782] font-medium lg:hidden"
-              >
-                Explore all
-              </Link>
-            </div>
-          </div>
-          {isLoading ? (
-            <SectionSkeleton />
-          ) : (
-            <BusinessSectionCarousel businesses={filteredBusinesses} />
-          )}
-        </div>
-
-        {/* Events section */}
-        <div className="py-12 px-4 lg:px-16">
-          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
-            <div className="flex flex-col space-y-2">
-              <h2 className="font-semibold text-xl md:text-4xl">Events</h2>
-            </div>
-            <div>
-              <Link
-                href="/events"
-                className="text-[#275782] font-medium hidden lg:block"
-              >
-                Explore Events
-              </Link>
-              <Link
-                href="/events"
-                className="text-[#275782] font-medium lg:hidden"
-              >
-                Explore all
-              </Link>
-            </div>
-          </div>
-          {isLoading ? (
-            <SectionSkeleton />
-          ) : (
-            <EventSectionCarousel events={filteredEvents} />
-          )}
-        </div>
-
-        {/* Communities section */}
-        <div className="py-10 px-4 lg:px-16">
-          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-6">
-            <div className="flex flex-col space-y-2">
-              <h2 className="font-semibold text-xl md:text-4xl">Communities</h2>
-            </div>
-            <div>
-              <Link
-                href="/communities"
-                className="text-[#275782] font-medium hidden lg:block"
-              >
-                Explore Communities
-              </Link>
-              <Link
-                href="/communities"
-                className="text-[#275782] font-medium lg:hidden"
-              >
-                Explore all
-              </Link>
-            </div>
-          </div>
-          {isLoading ? (
-            <SectionSkeleton />
-          ) : (
-            <CommunitySectionCarousel communities={filteredCommunities} />
-          )}
-        </div>
 
         {/* CTA */}
         <div className="py-12 px-4 lg:px-16">

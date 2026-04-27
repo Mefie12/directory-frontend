@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { z } from "zod";
-import { useUserLocation } from "@/hooks/useUserLocation";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -36,7 +35,6 @@ const signupSchema = z.object({
 function SignupForm() {
   const router = useRouter();
   const { login } = useAuth();
-  const { location: userLocation } = useUserLocation();
 
   const searchParams = useSearchParams();
 
@@ -191,12 +189,6 @@ function SignupForm() {
 
       const newToken = data.token || data.access_token || data.data?.token;
 
-      // Capture and store the user's public IP for geolocation on discover page
-      fetch("https://api.ipify.org?format=json")
-        .then((r) => r.json())
-        .then((d) => localStorage.setItem("user_ip", d.ip))
-        .catch(() => {});
-
       if (newToken) {
         await login(newToken);
 
@@ -333,7 +325,7 @@ function SignupForm() {
               <div className="space-y-2">
                 <Label className="text-xs">Phone Number</Label>
                 <PhoneInput
-                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
+                  defaultCountry="gh"
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}
