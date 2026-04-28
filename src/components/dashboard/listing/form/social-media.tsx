@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { forwardRef, useImperativeHandle, useEffect } from "react";
@@ -18,12 +17,7 @@ import {
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
-
-// --- Helper function to validate URL (allows without protocol) ---
-const isValidUrl = (url: string): boolean => {
-  if (!url) return true;
-  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=@]*)*\/?$/i.test(url);
-};
+import { isValidUrl, normalizeUrl, normalizeWhatsApp } from "@/lib/directory/utils";
 
 // --- Platform-specific URL validators ---
 const isPlatformUrl = (url: string, patterns: RegExp[]): boolean => {
@@ -85,25 +79,6 @@ const isValidPhone = (phone: string): boolean => {
   return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
 };
 
-// --- Helper function to normalize URL (add https:// if missing) ---
-const normalizeUrl = (url: string): string => {
-  if (!url) return "";
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-  return url;
-};
-
-const normalizeWhatsApp = (value: string): string => {
-  if (!value) return "";
-  // If already a URL, return as-is
-  if (value.startsWith("http://") || value.startsWith("https://")) return value;
-  // If it's a wa.me link without protocol
-  if (value.startsWith("wa.me/")) return `https://${value}`;
-  // Strip spaces, dashes, parentheses, and leading + for phone numbers
-  const digits = value.replace(/[\s\-\(\)\+]/g, "");
-  return `https://wa.me/${digits}`;
-};
 /* ---------------------------------------------------
    SCHEMA
 --------------------------------------------------- */
@@ -245,10 +220,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/socials`,
+            `/api/listing/${listingSlug}/socials`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -326,14 +299,9 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         const socialData = normalizedData;
 
-        // If no social media links provided, we still proceed to next step
         if (Object.keys(socialData).length === 0) return true;
 
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-        // UPDATED: Use the /update endpoint with PATCH method
-        const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
+        const endpoint = `/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
           method: "POST",

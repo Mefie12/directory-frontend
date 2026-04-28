@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
@@ -20,6 +18,13 @@ import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries } from "country-data-list";
+import {
+  normalizeUrl,
+  convertToHHmm,
+  convertDateToInput,
+  convertTimeToInput,
+  parseMapboxAddress,
+} from "@/lib/directory/utils";
 
 import {
   Tooltip,
@@ -35,97 +40,17 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
-// --- Mapbox Imports Updated ---
 import {
   AddressAutofill,
   AddressMinimap,
   useConfirmAddress,
 } from "@mapbox/search-js-react";
-
-// --- Helper function to validate URL (allows without protocol) ---
-const isValidUrl = (url: string): boolean => {
-  if (!url) return true; // Empty is valid (optional field)
-  // Allow URLs with or without protocol
-  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
-};
-
-// --- Helper function to normalize URL (add https:// if missing) ---
-const normalizeUrl = (url: string): string => {
-  if (!url) return "";
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-  return url;
-};
-
-// --- Helper function to validate URL (Strict https requirement) ---
-const isStrictHttpsUrl = (url: string): boolean => {
-  if (!url) return true;
-  return (
-    url.startsWith("https://") &&
-    /^(https:\/\/)([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url)
-  );
-};
-
-const convertToHHmm = (time: string | undefined | null): string => {
-  if (!time) return "09:00";
-  const cleaned = time.trim().toUpperCase();
-  const timeMatch = cleaned.match(/^(\d{1,2}):(\d{2})/);
-  if (timeMatch && !cleaned.includes("AM") && !cleaned.includes("PM")) {
-    return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
-  }
-  const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
-  if (amPmMatch) {
-    let hours = parseInt(amPmMatch[1]);
-    const minutes = amPmMatch[2];
-    const period = amPmMatch[3];
-    if (period === "PM" && hours < 12) hours += 12;
-    else if (period === "AM" && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
-  }
-  return "09:00";
-};
-
-const convertDateToInput = (value: string | undefined | null): string => {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) return trimmed.slice(0, 10);
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toISOString().slice(0, 10);
-};
-
-const convertTimeToInput = (time: string | undefined | null): string => {
-  if (!time) return "";
-  const cleaned = time.trim().toUpperCase();
-
-  const hhmmss = cleaned.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-  if (hhmmss) {
-    return `${hhmmss[1].padStart(2, "0")}:${hhmmss[2]}`;
-  }
-
-  const hhmm = cleaned.match(/^(\d{1,2}):(\d{2})$/);
-  if (hhmm) {
-    return `${hhmm[1].padStart(2, "0")}:${hhmm[2]}`;
-  }
-
-  const amPmMatch = cleaned.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM)$/);
-  if (amPmMatch) {
-    let hours = parseInt(amPmMatch[1], 10);
-    const minutes = amPmMatch[2];
-    const period = amPmMatch[3];
-    if (period === "PM" && hours < 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-    return `${hours.toString().padStart(2, "0")}:${minutes}`;
-  }
-
-  return "";
-};
+import type { Feature, Point, GeoJsonProperties } from "geojson";
 
 export const DetailsFormSchema = z
   .object({
     address: z.string().min(1, "Address is required"),
+    event_venue: z.string().min(1, "Venue name is required"),
     country: z.string().min(1, "Country is required"),
     city: z.string().min(1, "City is required"),
     google_plus_code: z.string().optional(),
@@ -166,7 +91,8 @@ export const DetailsFormSchema = z
     event_end_date: z.string().min(1, "End date is required"),
     event_start_time: z.string().min(1, "Start time is required"),
     event_end_time: z.string().min(1, "End time is required"),
-    event_location: z.string().min(1, "Event type is required"),
+    event_location: z.string().min(1, "Event format is required"),
+    event_type: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -207,6 +133,8 @@ const formTextConfig = {
     subtitle: "Provide the business details below",
   },
   event: {
+    venueLabel: "Event Venue Name",
+    venuePlaceholder: "e.g., Royal Albert Hall",
     addressLabel: "Event Venue Address",
     addressPlaceholder: "Enter event venue address",
     cityLabel: "Event City",
@@ -241,7 +169,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     const { formRef, showConfirm } = useConfirmAddress({
       accessToken: MAPBOX_TOKEN,
     });
-    const [minimapFeature, setMinimapFeature] = useState<any>();
+    const [minimapFeature, setMinimapFeature] = useState<Feature<Point, GeoJsonProperties> | undefined>(undefined);
+    const [coordinates, setCoordinates] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
 
     useEffect(() => {
       setMounted(true);
@@ -309,6 +238,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         event_start_time: "",
         event_end_time: "",
         event_location: "",
+        event_type: "",
       },
     });
 
@@ -323,8 +253,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
     const [isSaving, setIsSaving] = useState(false);
-    // Tracks the backend event record ID so we can use the update endpoint on subsequent saves.
-    const [eventId, setEventId] = useState<string | null>(null);
+    // Tracks the backend event record slug so we can use the update endpoint on subsequent saves.
+    const [eventSlug, setEventSlug] = useState<string | null>(null);
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
@@ -341,10 +271,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         if (!effectiveSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${effectiveSlug}/show`,
+            `/api/listing/${effectiveSlug}/show`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -356,10 +284,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             const json = await res.json();
             const d = json.data || json;
             const isEvent = (d?.type || listingType) === "event";
-            // Capture the event record ID for subsequent saves (update vs create)
+            // Capture the event record slug for subsequent saves (update vs create)
             if (isEvent) {
-              const eid = d.event?.id ?? d.event_id ?? null;
-              if (eid) setEventId(String(eid));
+              const eSlug = d.event?.slug ?? null;
+              if (eSlug) setEventSlug(String(eSlug));
             }
             const mappedHours = form
               .getValues("businessHours")
@@ -378,11 +306,16 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     }
                   : { ...defaultDay, enabled: false };
               });
+            if (d.latitude && d.longitude) {
+              setCoordinates({ lat: Number(d.latitude), lng: Number(d.longitude) });
+            }
+
             reset({
               // Event listings use event_* keys from API; non-events use normal address keys.
               address: isEvent
-                ? d.event_venue || d.address || d.location?.address || ""
+                ? d.event_venue_address || d.address || d.location?.address || ""
                 : d.address || d.location?.address || "",
+              event_venue: isEvent ? d.event_venue || "" : "",
               city: isEvent
                 ? d.event_city || d.city || d.location?.city || ""
                 : d.city || d.location?.city || "",
@@ -406,7 +339,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 d.event_start_time || d.start_time,
               ),
               event_end_time: convertTimeToInput(d.event_end_time || d.end_time),
-              event_location: d.event_location || d.event_type || "",
+              // Resource returns event_location_type (renamed from the DB column event_location)
+              event_location: d.event_location_type || d.event?.event_location_type || "",
+              // Duration type — only on the nested event object
+              event_type: d.event?.event_type || "",
             });
           }
         } catch (err) {
@@ -448,12 +384,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           return false;
         }
       } else {
-        // For events, validate address fields AND event details
         const isValid = await trigger([
+          "event_venue",
           "address",
           "country",
           "city",
-          "google_plus_code",
           "event_start_date",
           "event_end_date",
           "event_start_time",
@@ -470,7 +405,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         return false;
       }
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
@@ -479,31 +413,36 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const detailsPayload: Record<string, unknown> = {};
 
         if (listingType === "event") {
-          // For events: use event-specific field names and EXCLUDE google_plus_code
-          detailsPayload.event_venue = data.address;
+          detailsPayload.event_venue = data.event_venue;
+          detailsPayload.event_venue_address = data.address;
           detailsPayload.event_city = data.city;
           detailsPayload.event_country = data.country;
-
-          // Add event-specific fields
-          detailsPayload.event_price = data.event_price;
-          detailsPayload.event_currency = data.event_currency;
-          detailsPayload.event_ticket_url = normalizeUrl(
-            data.event_ticket_url || "",
-          );
-          detailsPayload.event_online_url = normalizeUrl(
-            data.event_online_url || "",
-          );
+          detailsPayload.latitude = coordinates.lat;
+          detailsPayload.longitude = coordinates.lng;
+          // event_price / event_currency — send null when blank so backend nullable rules pass
+          detailsPayload.event_price = data.event_price || null;
+          detailsPayload.event_currency = data.event_currency || null;
+          // URL fields — normalise non-empty values; send null when blank (backend: nullable|url)
+          const rawTicketUrl = data.event_ticket_url?.trim();
+          detailsPayload.event_ticket_url = rawTicketUrl ? normalizeUrl(rawTicketUrl) : null;
+          const rawOnlineUrl = data.event_online_url?.trim();
+          detailsPayload.event_online_url = rawOnlineUrl ? normalizeUrl(rawOnlineUrl) : null;
           detailsPayload.event_start_date = data.event_start_date;
           detailsPayload.event_end_date = data.event_end_date;
           detailsPayload.event_start_time = data.event_start_time;
           detailsPayload.event_end_time = data.event_end_time;
+          // event_location = in_person/online/hybrid (required by backend)
           detailsPayload.event_location = data.event_location;
+          // event_type = duration (1_day/2_days/multi_days, nullable)
+          detailsPayload.event_type = data.event_type || null;
         } else {
           // For business/community: use standard field names including google_plus_code
           detailsPayload.address = data.address;
           detailsPayload.city = data.city;
           detailsPayload.country = data.country;
           detailsPayload.google_plus_code = data.google_plus_code;
+          detailsPayload.latitude = coordinates.lat;
+          detailsPayload.longitude = coordinates.lng;
         }
 
         // Only prepare business hours for non-event listings
@@ -519,14 +458,22 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 }))
             : [];
 
+        // Days that were loaded from the server (have an ID) but user has since unchecked
+        const hoursToDelete =
+          listingType !== "event"
+            ? data.businessHours
+                .filter((h: DaySchedule) => !h.enabled && !!h.id)
+                .map((h: DaySchedule) => h.id as number)
+            : [];
+
         // For events: POST to create on first save, PATCH update endpoint on subsequent saves.
         // For business/community: PUT to the address proxy.
         let detailsEndpoint: string;
         let detailsMethod: string;
         if (listingType === "event") {
-          if (eventId) {
-            detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventId}/update`;
-            detailsMethod = "PUT";
+          if (eventSlug) {
+            detailsEndpoint = `/api/listing/${effectiveSlug}/event/${eventSlug}/update`;
+            detailsMethod = "PATCH";
           } else {
             detailsEndpoint = `/api/listing/${effectiveSlug}/eventDetails`;
             detailsMethod = "POST";
@@ -548,74 +495,112 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
-        if (listingType !== "event" && enabledHours.length > 0) {
-          const hasExistingHours = enabledHours.some((h: any) => h.id);
-
-          if (hasExistingHours) {
-            // PUT each hour individually to update existing opening hours
-            hoursResults = await Promise.all(
-              enabledHours.map((h: any) => {
-                if (h.id) {
-                  return fetch(`${API_URL}/api/opening_hours/${h.id}`, {
-                    method: "PUT",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Accept: "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      day_of_week: h.day_of_week,
-                      open_time: h.open_time,
-                      close_time: h.close_time,
-                    }),
-                  });
-                } else {
-                  return fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Accept: "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify([{
-                      day_of_week: h.day_of_week,
-                      open_time: h.open_time,
-                      close_time: h.close_time,
-                    }]),
-                  });
-                }
-              }),
+        if (listingType !== "event") {
+          // DELETE hours for days the user has unchecked
+          if (hoursToDelete.length > 0) {
+            await Promise.all(
+              hoursToDelete.map((id) =>
+                fetch(`/api/opening_hours/${id}`, {
+                  method: "DELETE",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                }),
+              ),
             );
-          } else {
-            // POST all hours as a batch for initial creation
-            const res = await fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(enabledHours),
-            });
-            hoursResults = [res];
+          }
+
+          if (enabledHours.length > 0) {
+            const hasExistingHours = enabledHours.some((h) => !!h.id);
+
+            if (hasExistingHours) {
+              hoursResults = await Promise.all(
+                enabledHours.map((h) => {
+                  if (h.id) {
+                    return fetch(`/api/opening_hours/${h.id}`, {
+                      method: "PUT",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        day_of_week: h.day_of_week,
+                        open_time: h.open_time,
+                        close_time: h.close_time,
+                      }),
+                    });
+                  } else {
+                    return fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify([{
+                        day_of_week: h.day_of_week,
+                        open_time: h.open_time,
+                        close_time: h.close_time,
+                      }]),
+                    });
+                  }
+                }),
+              );
+            } else {
+              // POST all hours as a batch for initial creation
+              const res = await fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(enabledHours),
+              });
+              hoursResults = [res];
+            }
           }
         }
 
         const [detailsRes] = await Promise.all([detailsReq]);
 
         const hoursOk = hoursResults.every((r) => r.ok);
-        if (!detailsRes.ok || !hoursOk) {
-          throw new Error("Update failed");
+
+        if (!detailsRes.ok) {
+          const errJson = await detailsRes.json().catch(() => ({}));
+          if (detailsRes.status === 422 && errJson.errors) {
+            const fieldMap: Record<string, keyof DetailsFormValues> = {
+              event_type: "event_location",
+            };
+            Object.entries(errJson.errors as Record<string, string[]>).forEach(
+              ([field, messages]) => {
+                const formField = (fieldMap[field] ?? field) as keyof DetailsFormValues;
+                form.setError(formField, { message: messages[0] });
+              },
+            );
+            toast.error("Please correct the highlighted fields.");
+          } else {
+            toast.error(errJson.message || "Failed to save details");
+          }
+          return false;
         }
 
-        // If this was a create (POST), capture the returned event ID for subsequent saves.
-        if (listingType === "event" && !eventId) {
+        if (!hoursOk) {
+          toast.error("Failed to save opening hours");
+          return false;
+        }
+
+        // If this was a create (POST), capture the returned event slug for subsequent saves.
+        if (listingType === "event" && !eventSlug) {
           try {
             const created = await detailsRes.clone().json();
-            const newId = created?.data?.id ?? created?.id ?? null;
-            if (newId) setEventId(String(newId));
+            const newSlug = created?.data?.slug ?? created?.slug ?? null;
+            if (newSlug) setEventSlug(String(newSlug));
           } catch {
-            // Non-fatal — next page load will re-hydrate the ID
+            // Non-fatal — next page load will re-hydrate the slug
           }
         }
 
@@ -637,20 +622,17 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       },
     }));
 
-    // --- Mapbox Handler Updated ---
-    const handleRetrieve = (res: any) => {
-      const feature = res.features[0];
-      if (feature) {
-        setMinimapFeature(feature); // For visual map
-        const placeName =
-          feature.properties.full_address || feature.properties.name || "";
-        const city = feature.properties.context?.place?.name || "";
-        const country = feature.properties.context?.country?.name || "";
-
-        setValue("address", placeName, { shouldValidate: true });
-        if (city) setValue("city", city, { shouldValidate: true });
-        if (country) setValue("country", country, { shouldValidate: true });
+    const handleRetrieve = (res: { features?: Feature<Point, GeoJsonProperties>[] }) => {
+      const feature = res.features?.[0];
+      if (!feature) return;
+      setMinimapFeature(feature);
+      const parsed = parseMapboxAddress(feature);
+      if (parsed.lat !== null && parsed.lng !== null) {
+        setCoordinates({ lat: parsed.lat, lng: parsed.lng });
       }
+      setValue("address", parsed.fullAddress, { shouldValidate: true });
+      if (parsed.city) setValue("city", parsed.city, { shouldValidate: true });
+      if (parsed.country) setValue("country", parsed.country, { shouldValidate: true });
     };
 
     return (
@@ -666,115 +648,203 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">{text.countryLabel}</label>
-            <CountryDropdown
-              placeholder="Select your country"
-              defaultValue={
-                countries.all.find((c) => c.name === selectedCountryName)
-                  ?.alpha3
-              }
-              onChange={(country: Country) =>
-                setValue("country", country.name, { shouldValidate: true })
-              }
-            />
-            {errors.country && (
-              <p className="text-red-500 text-xs">{errors.country.message}</p>
+            {listingType === "event" ? (
+              <>
+                <label className="font-medium text-sm">{(text as typeof formTextConfig["event"]).venueLabel}</label>
+                <Input
+                  {...register("event_venue")}
+                  placeholder={(text as typeof formTextConfig["event"]).venuePlaceholder}
+                  className={cn(errors.event_venue && "border-red-500")}
+                />
+                {errors.event_venue && (
+                  <p className="text-red-500 text-xs">{errors.event_venue.message}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <label className="font-medium text-sm">{text.countryLabel}</label>
+                <CountryDropdown
+                  placeholder="Select your country"
+                  defaultValue={
+                    countries.all.find((c) => c.name === selectedCountryName)
+                      ?.alpha3
+                  }
+                  onChange={(country: Country) =>
+                    setValue("country", country.name, { shouldValidate: true })
+                  }
+                />
+                {errors.country && (
+                  <p className="text-red-500 text-xs">{errors.country.message}</p>
+                )}
+              </>
             )}
           </div>
 
           <div className="space-y-1">
-            <label className="font-medium text-sm">{text.addressLabel}</label>
-            <div className="relative">
-              {mounted && MAPBOX_TOKEN ? (
-                <AddressAutofill
-                  accessToken={MAPBOX_TOKEN}
-                  onRetrieve={handleRetrieve}
-                >
+            <label className="font-medium text-sm">
+              {listingType === "event" ? text.countryLabel : text.addressLabel}
+            </label>
+            {listingType === "event" ? (
+              <CountryDropdown
+                placeholder="Select your country"
+                defaultValue={
+                  countries.all.find((c) => c.name === selectedCountryName)
+                    ?.alpha3
+                }
+                onChange={(country: Country) =>
+                  setValue("country", country.name, { shouldValidate: true })
+                }
+              />
+            ) : (
+              <div className="relative">
+                {mounted && MAPBOX_TOKEN ? (
+                  <AddressAutofill
+                    accessToken={MAPBOX_TOKEN}
+                    onRetrieve={handleRetrieve}
+                  >
+                    <Input
+                      {...register("address")}
+                      autoComplete="shipping address-line1"
+                      placeholder={text.addressPlaceholder}
+                      className={cn(errors.address && "border-red-500")}
+                    />
+                  </AddressAutofill>
+                ) : (
                   <Input
                     {...register("address")}
-                    autoComplete="shipping address-line1"
                     placeholder={text.addressPlaceholder}
-                    className={cn(errors.address && "border-red-500")}
                   />
-                </AddressAutofill>
-              ) : (
-                <Input
-                  {...register("address")}
-                  placeholder={text.addressPlaceholder}
+                )}
+                <MapPin
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
                 />
-              )}
-              <MapPin
-                size={18}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-              />
-            </div>
-            {errors.address && (
-              <p className="text-red-500 text-xs">{errors.address.message}</p>
+              </div>
+            )}
+            {errors[listingType === "event" ? "country" : "address"] && (
+              <p className="text-red-500 text-xs">
+                {errors[listingType === "event" ? "country" : "address"]?.message}
+              </p>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">{text.cityLabel}</label>
-            <Input
-              {...register("city")}
-              autoComplete="shipping address-level2"
-              placeholder="e.g., Accra"
-              className={cn(errors.city && "border-red-500")}
-            />
-            {errors.city && (
-              <p className="text-red-500 text-xs">{errors.city.message}</p>
+            <label className="font-medium text-sm">
+              {listingType === "event" ? text.addressLabel : text.cityLabel}
+            </label>
+            {listingType === "event" ? (
+              <div className="relative">
+                {mounted && MAPBOX_TOKEN ? (
+                  <AddressAutofill
+                    accessToken={MAPBOX_TOKEN}
+                    onRetrieve={handleRetrieve}
+                  >
+                    <Input
+                      {...register("address")}
+                      autoComplete="shipping address-line1"
+                      placeholder={text.addressPlaceholder}
+                      className={cn(errors.address && "border-red-500")}
+                    />
+                  </AddressAutofill>
+                ) : (
+                  <Input
+                    {...register("address")}
+                    placeholder={text.addressPlaceholder}
+                  />
+                )}
+                <MapPin
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                />
+              </div>
+            ) : (
+              <Input
+                {...register("city")}
+                autoComplete="shipping address-level2"
+                placeholder="e.g., Accra"
+                className={cn(errors.city && "border-red-500")}
+              />
+            )}
+            {errors[listingType === "event" ? "address" : "city"] && (
+              <p className="text-red-500 text-xs">
+                {errors[listingType === "event" ? "address" : "city"]?.message}
+              </p>
+            )}
+            {listingType === "event" && mounted && MAPBOX_TOKEN && minimapFeature && (
+              <div className="mt-2 rounded-xl overflow-hidden h-36 border border-gray-200">
+                <AddressMinimap
+                  show
+                  feature={minimapFeature}
+                  accessToken={MAPBOX_TOKEN}
+                />
+              </div>
             )}
           </div>
 
-          {listingType !== "event" && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <label className="font-medium text-sm">
-                  {text.googlePlusCodeLabel}
-                </label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <Question size={14} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-[280px] p-3">
-                      <div className="space-y-2 text-xs">
-                        <p className="font-semibold">What is a Plus Code?</p>
-                        <p>
-                          A simple digital address that works like a street
-                          address.
-                        </p>
-                        <p className="font-semibold">How to find it:</p>
-                        <ol className="list-decimal list-inside space-y-1">
-                          <li>Open Google Maps and tap your location.</li>
-                          <li>
-                            Look for the plus code icon (e.g., 849VCWC8+R9).
-                          </li>
-                        </ol>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                {...register("google_plus_code")}
-                placeholder="e.g., 849VCWC8+R9"
-                className={cn(errors.google_plus_code && "border-red-500")}
-              />
-              {errors.google_plus_code && (
-                <p className="text-red-500 text-xs">
-                  {errors.google_plus_code.message}
-                </p>
-              )}
-            </div>
-          )}
+          <div className="space-y-1">
+            {listingType === "event" ? (
+              <>
+                <label className="font-medium text-sm">{text.cityLabel}</label>
+                <Input
+                  {...register("city")}
+                  autoComplete="shipping address-level2"
+                  placeholder="e.g., Accra"
+                  className={cn(errors.city && "border-red-500")}
+                />
+                {errors.city && (
+                  <p className="text-red-500 text-xs">{errors.city.message}</p>
+                )}
+              </>
+            ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <label className="font-medium text-sm">
+                      {text.googlePlusCodeLabel}
+                    </label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Question size={14} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[280px] p-3">
+                          <div className="space-y-2 text-xs">
+                            <p className="font-semibold">What is a Plus Code?</p>
+                            <p>
+                              A simple digital address that works like a street
+                              address.
+                            </p>
+                            <p className="font-semibold">How to find it:</p>
+                            <ol className="list-decimal list-inside space-y-1">
+                              <li>Open Google Maps and tap your location.</li>
+                              <li>
+                                Look for the plus code icon (e.g., 849VCWC8+R9).
+                              </li>
+                            </ol>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    {...register("google_plus_code")}
+                    placeholder="e.g., 849VCWC8+R9"
+                    className={cn(errors.google_plus_code && "border-red-500")}
+                  />
+                  {errors.google_plus_code && (
+                    <p className="text-red-500 text-xs">
+                      {errors.google_plus_code.message}
+                    </p>
+                  )}
+                </div>
+            )}
+          </div>
         </div>
 
         {listingType !== "event" && (
@@ -877,17 +947,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             </div>
 
             {/* Event Type */}
-            <div
-              className={cn(
-                "grid grid-cols-1 gap-4",
-                eventLocationType === "online"
-                  ? "md:grid-cols-2"
-                  : "md:grid-cols-1",
-              )}
-            >
+            {/* Row 1: Event Format + Event Duration */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="font-medium text-sm">
-                  Event Type <span className="text-red-500">*</span>
+                  Event Format <span className="text-red-500">*</span>
                 </label>
                 <Controller
                   name="event_location"
@@ -900,11 +964,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                           errors.event_location && "border-red-500",
                         )}
                       >
-                        <SelectValue placeholder="Select event type" />
+                        <SelectValue placeholder="Select event format" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="online">Online</SelectItem>
                         <SelectItem value="in_person">In-Person</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
                         <SelectItem value="hybrid">Hybrid</SelectItem>
                       </SelectContent>
                     </Select>
@@ -917,33 +981,59 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 )}
               </div>
 
-              {(eventLocationType === "online" || eventLocationType === "hybrid") && (
-                <div className="space-y-1">
-                  <label className="font-medium text-sm">
-                    Event Online URL (Optional)
-                  </label>
-                  <div className="relative">
-                    <Input
-                      {...register("event_online_url")}
-                      placeholder="https://zoom.us/j/..."
-                      className={cn(
-                        "h-10 rounded-lg border-gray-300 pl-10",
-                        errors.event_online_url && "border-red-500",
-                      )}
-                    />
-                    <Globe
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    />
-                  </div>
-                  {errors.event_online_url && (
-                    <p className="text-red-500 text-xs">
-                      {errors.event_online_url.message}
-                    </p>
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Event Duration (Optional)
+                </label>
+                <Controller
+                  name="event_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? ""}
+                    >
+                      <SelectTrigger className="h-10 rounded-lg border-gray-300 w-full">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1_day">1 Day</SelectItem>
+                        <SelectItem value="2_days">2 Days</SelectItem>
+                        <SelectItem value="multi_days">Multi-Day</SelectItem>
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
-              )}
+                />
+              </div>
             </div>
+
+            {/* Row 2: Online URL (only for online/hybrid) */}
+            {(eventLocationType === "online" || eventLocationType === "hybrid") && (
+              <div className="space-y-1">
+                <label className="font-medium text-sm">
+                  Event Online URL (Optional)
+                </label>
+                <div className="relative">
+                  <Input
+                    {...register("event_online_url")}
+                    placeholder="https://zoom.us/j/..."
+                    className={cn(
+                      "h-10 rounded-lg border-gray-300 pl-10",
+                      errors.event_online_url && "border-red-500",
+                    )}
+                  />
+                  <Globe
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+                {errors.event_online_url && (
+                  <p className="text-red-500 text-xs">
+                    {errors.event_online_url.message}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

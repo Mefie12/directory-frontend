@@ -65,7 +65,7 @@ interface ApiRawItem {
 
 // --- 1. ROBUST IMAGE HELPER ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
@@ -99,7 +99,7 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             if (!target.src.includes("generic.jpg")) {
-              target.src = "/images/placeholders/generic.jpg";
+              target.src = "/images/no-image.jpg";
             }
           }}
         />
@@ -280,15 +280,10 @@ export default function CustomerHome() {
             const validImages = rawImages
               .filter((img: any) => {
                 if (typeof img === "string") return true;
-                if (img && typeof img === "object" && img.media) {
-                  return !["processing", "failed", "pending", "error"].includes(
-                    img.media
-                  );
-                }
-                return false;
+                return !!(img && typeof img === "object" && img.original);
               })
               .map((img: any) => {
-                const mediaPath = typeof img === "string" ? img : img.media;
+                const mediaPath = typeof img === "string" ? img : img.original;
                 return getImageUrl(mediaPath);
               });
 
@@ -301,7 +296,7 @@ export default function CustomerHome() {
             const finalImage =
               validImages.length > 0
                 ? validImages[0]
-                : "/images/placeholders/generic.jpg";
+                : "/images/no-image.jpg";
 
             return {
               id: item.id.toString(),
@@ -346,15 +341,10 @@ export default function CustomerHome() {
             const validImages = rawImages
               .filter((img: any) => {
                 if (typeof img === "string") return true;
-                if (img && typeof img === "object" && img.media) {
-                  return !["processing", "failed", "pending", "error"].includes(
-                    img.media
-                  );
-                }
-                return false;
+                return !!(img && typeof img === "object" && img.original);
               })
               .map((img: any) => {
-                const mediaPath = typeof img === "string" ? img : img.media;
+                const mediaPath = typeof img === "string" ? img : img.original;
                 return getImageUrl(mediaPath);
               });
 
@@ -367,7 +357,7 @@ export default function CustomerHome() {
             const finalImage =
               validImages.length > 0
                 ? validImages[0]
-                : "/images/placeholders/generic.jpg";
+                : "/images/no-image.jpg";
 
             return {
               id: item.id.toString(),

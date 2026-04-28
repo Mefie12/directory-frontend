@@ -157,13 +157,11 @@ interface RawListing {
   }>;
   images?: Array<{
     id: number;
-    media: string;
-    media_type: string;
-    file_size: number;
-    file_size_formatted: string;
-    mime_type: string;
-    is_compressed: number;
-    compression_status: string;
+    original: string;
+    thumb: string;
+    webp: string;
+    file_size?: number;
+    mime_type?: string;
     created_at: string;
     updated_at: string;
   }>;
@@ -229,7 +227,7 @@ const categoryApi = {
   },
   createCategory: async (categoryData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
@@ -256,7 +254,7 @@ const categoryApi = {
     categoryData: CategoryFormData,
   ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const payload = {
       name: categoryData.name,
       type: categoryData.type,
@@ -280,7 +278,7 @@ const categoryApi = {
   },
   deleteCategory: async (id: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const response = await fetch(`${API_URL}/api/categories/${id}`, {
       method: "DELETE",
       headers: {
@@ -329,6 +327,7 @@ export default function Listings() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<{ slug: string; name: string; value: boolean } | null>(null);
 
   const itemsPerPage = 10;
 
@@ -359,11 +358,11 @@ export default function Listings() {
     }
 
     const getImageUrl = (url: string | undefined): string => {
-      if (!url) return "/images/placeholder-listing.png";
+      if (!url) return "/images/no-image.jpg";
       if (url.startsWith("http://") || url.startsWith("https://")) {
         return url;
       }
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       return `${API_URL}/${url.replace(/^\//, "")}`;
     };
 
@@ -386,13 +385,11 @@ export default function Listings() {
         vendorName = item.vendor || item.business_name || "Unknown Vendor";
       }
 
-      let imageUrl = "/images/placeholder-listing.png";
+      let imageUrl = "/images/no-image.jpg";
       if (item.images && item.images.length > 0) {
-        const validImage = item.images.find(
-          (img) => img.media && img.media !== "processing",
-        );
+        const validImage = item.images.find((img) => !!img.original);
         if (validImage) {
-          imageUrl = getImageUrl(validImage.media);
+          imageUrl = getImageUrl(validImage.original);
         }
       } else if (item.image || item.thumbnail) {
         imageUrl = getImageUrl(item.image || item.thumbnail);
@@ -447,8 +444,8 @@ export default function Listings() {
         image: imageUrl,
         images: item.images
           ? item.images
-              .filter((img) => img.media && img.media !== "processing")
-              .map((img) => getImageUrl(img.media))
+              .filter((img) => !!img.original)
+              .map((img) => getImageUrl(img.original))
           : imageUrl
             ? [imageUrl]
             : [],
@@ -560,7 +557,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
         `${API_URL}/api/listing/${listingToDelete}`,
@@ -604,7 +601,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(
         `${API_URL}/api/listing/${listingSlug}/update_status`,
@@ -714,7 +711,7 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -905,14 +902,22 @@ export default function Listings() {
     }
   }, [selectedListing]);
 
-  const handleVerifyToggle = async (checked: boolean) => {
+  const handleVerifyToggle = (checked: boolean) => {
     if (!selectedListing) return;
+    // Store intent and open confirmation dialog — don't fire the API yet
+    setPendingVerification({ slug: selectedListing.slug, name: selectedListing.name, value: checked });
+  };
+
+  const handleVerifyConfirm = async () => {
+    if (!pendingVerification || !selectedListing) return;
+    const { slug, value } = pendingVerification;
+    setPendingVerification(null);
     setIsVerifying(true);
-    setIsVerified(checked);
+    setIsVerified(value);
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `/api/listing/${selectedListing.slug}/verify_listing`,
+        `/api/listing/${slug}/verify_listing`,
         {
           method: "PUT",
           headers: {
@@ -920,10 +925,7 @@ export default function Listings() {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            listing_id: selectedListing.id,
-            is_verified: checked,
-          }),
+          body: JSON.stringify({ listing_verified: value }),
         },
       );
       if (!response.ok) {
@@ -932,18 +934,23 @@ export default function Listings() {
       }
       setAllData((prev) =>
         prev.map((item) =>
-          item.slug === selectedListing.slug ? { ...item, verified: checked } : item,
+          item.slug === slug ? { ...item, verified: value } : item,
         ),
       );
-      setSelectedListing((prev) => prev ? { ...prev, verified: checked } : prev);
-      toast.success(checked ? "Listing verified" : "Verification removed");
+      setSelectedListing((prev) => prev ? { ...prev, verified: value } : prev);
+      toast.success(value ? "Listing verified successfully" : "Verification removed");
     } catch (error) {
-      setIsVerified(!checked);
+      setIsVerified(!value);
       const msg = error instanceof Error ? error.message : "Failed to update verification";
       toast.error(msg);
     } finally {
       setIsVerifying(false);
     }
+  };
+
+  const handleVerifyCancel = () => {
+    // Revert the toggle visually — user dismissed the dialog
+    setPendingVerification(null);
   };
 
   // --- SOCIAL ICON HELPER ---
@@ -1551,6 +1558,34 @@ export default function Listings() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* --- VERIFY CONFIRMATION DIALOG --- */}
+      <AlertDialog
+        open={!!pendingVerification}
+        onOpenChange={(open) => { if (!open) handleVerifyCancel(); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingVerification?.value ? "Verify this listing?" : "Remove verification?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingVerification?.value
+                ? `This will mark "${pendingVerification?.name}" as a verified listing. A verification badge will appear on its public card.`
+                : `This will remove the verification badge from "${pendingVerification?.name}". The listing will remain approved and visible.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleVerifyCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleVerifyConfirm}
+              className={pendingVerification?.value ? "bg-[#93C01F] hover:bg-[#7ea919]" : "bg-orange-500 hover:bg-orange-600"}
+            >
+              {pendingVerification?.value ? "Yes, verify listing" : "Yes, remove verification"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* --- SIDEBAR (SHEET) --- */}
       <Sheet
         open={!!selectedListing}
@@ -1839,7 +1874,7 @@ export default function Listings() {
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="verify-mode"
-                        checked={isVerified}
+                        checked={pendingVerification?.slug === selectedListing?.slug ? pendingVerification.value : isVerified}
                         onCheckedChange={handleVerifyToggle}
                         disabled={isVerifying}
                         className="data-[state=checked]:bg-[#93C01F]"

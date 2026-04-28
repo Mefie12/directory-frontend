@@ -7,7 +7,6 @@ const API_BASE_URL = (
 async function handleEventDetails(
   request: NextRequest,
   listing_slug: string,
-  method: "POST" | "PATCH",
 ) {
   try {
     const body = await request.json();
@@ -16,7 +15,7 @@ async function handleEventDetails(
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}/eventDetails`,
       {
-        method,
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -38,12 +37,12 @@ async function handleEventDetails(
     }
 
     if (!response.ok) {
-      const maybeMessage =
-        typeof data === "object" && data !== null && "message" in data
-          ? (data as { message?: string }).message
-          : undefined;
+      const err = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
       return NextResponse.json(
-        { message: maybeMessage || "Failed to save event details" },
+        {
+          message: (err.message as string) || "Failed to save event details",
+          errors: err.errors,
+        },
         { status: response.status },
       );
     }
@@ -60,13 +59,5 @@ export async function POST(
   { params }: { params: Promise<{ listing_slug: string }> },
 ) {
   const { listing_slug } = await params;
-  return handleEventDetails(request, listing_slug, "POST");
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ listing_slug: string }> },
-) {
-  const { listing_slug } = await params;
-  return handleEventDetails(request, listing_slug, "PATCH");
+  return handleEventDetails(request, listing_slug);
 }

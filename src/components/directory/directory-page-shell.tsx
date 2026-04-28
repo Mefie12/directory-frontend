@@ -93,6 +93,11 @@ export function DirectoryPageShell<T>({
     () => filterCountry?.toLowerCase() || "",
   );
 
+  // Sync selectedCountry state with URL when it changes (e.g., browser back/forward)
+  useEffect(() => {
+    setSelectedCountry(filterCountry?.toLowerCase() || "");
+  }, [filterCountry]);
+
   // Items fetched when a category pill (non-"all") is selected
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
   const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
@@ -192,8 +197,20 @@ export function DirectoryPageShell<T>({
   );
 
   const handleCountryChange = useCallback((country: Country | null) => {
-    setSelectedCountry(country?.name?.toLowerCase() || "");
-  }, []);
+    const countryName = country?.name || "";
+    setSelectedCountry(countryName.toLowerCase());
+    
+    // Update URL params so useDirectoryListings re-fetches with the new country filter
+    const params = new URLSearchParams(searchParams.toString());
+    if (countryName) {
+      params.set("country", countryName);
+    } else {
+      params.delete("country");
+    }
+    const qs = params.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", url);
+  }, [searchParams]);
 
   const headerFilteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

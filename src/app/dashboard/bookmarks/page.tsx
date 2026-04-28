@@ -45,8 +45,10 @@ interface ListingItem {
 
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface ApiRawItem {
@@ -76,7 +78,7 @@ interface ApiRawItem {
 
 // --- 1. ROBUST IMAGE HELPER ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
@@ -141,8 +143,8 @@ const ListingCard = ({
           className="object-cover group-hover:scale-105 transition-transform duration-300"
           unoptimized={true}
           onError={() => {
-            if (imageSrc !== "/images/placeholders/generic.jpg") {
-              setImageSrc("/images/placeholders/generic.jpg");
+            if (imageSrc !== "/images/no-image.jpg") {
+              setImageSrc("/images/no-image.jpg");
             }
           }}
         />
@@ -299,20 +301,11 @@ export default function Bookmarks() {
           const rawImages = Array.isArray(item.images) ? item.images : [];
           const validImages = rawImages
             .filter((img: any) => {
-              if (typeof img === "string") return true;
-              if (img && typeof img === "object" && img.media) {
-                const badStatuses = [
-                  "processing",
-                  "failed",
-                  "pending",
-                  "error",
-                ];
-                return !badStatuses.includes(img.media);
-              }
-              return false;
+              if (typeof img === "string") return !!img;
+              return !!(img && typeof img === "object" && img.original);
             })
             .map((img: any) => {
-              const mediaPath = typeof img === "string" ? img : img.media;
+              const mediaPath = typeof img === "string" ? img : img.original;
               return getImageUrl(mediaPath);
             });
 
@@ -325,7 +318,7 @@ export default function Bookmarks() {
           const finalImage =
             validImages.length > 0
               ? validImages[0]
-              : "/images/placeholders/generic.jpg";
+              : "/images/no-image.jpg";
 
           // --- FIX: Slug Fallback to ID ---
           // This ensures if slug is null, the ID is used for routing

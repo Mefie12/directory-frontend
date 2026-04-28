@@ -40,6 +40,7 @@ export interface ListingsTableItem {
   location: string;
   status: "published" | "pending" | "drafted";
   type: string;
+  verified: boolean;
   views: number;
   comments: number;
   bookmarks: number;
@@ -227,17 +228,26 @@ export function ListingsTable({
                         alt={listing.name}
                         width={40}
                         height={40}
+                        unoptimized
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="flex items-center justify-between w-full gap-4">
                       <div className="flex flex-col gap-1">
-                        <span className="font-bold text-[#1F3A4C] leading-tight">
-                          {listing.name}
-                        </span>
-                        {/* <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100 font-medium text-[10px] px-2 py-0">
-                          {listing.type}
-                        </Badge> */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[#1F3A4C] leading-tight">
+                            {listing.name}
+                          </span>
+                          {listing.verified && (
+                            <Image
+                              src="/images/icons/verify.svg"
+                              alt="Verified"
+                              width={16}
+                              height={16}
+                              title="Verified listing"
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

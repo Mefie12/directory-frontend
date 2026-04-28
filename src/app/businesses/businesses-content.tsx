@@ -2,7 +2,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import BusinessSection from "@/components/business/business-section";
 import { BusinessCard } from "@/components/business-card";
 import { Button } from "@/components/ui/button";
@@ -22,13 +23,37 @@ const adapt = (b: ProcessedBusiness): any => ({
 export default function BusinessesContent() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+
+  const filterCountry = searchParams.get("country");
 
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedBusiness>({
       endpoint: "/api/businesses",
       mapItem: mapBusiness,
-      forwardParams: ["category_id"],
+      forwardParams: ["category_id", "category_slug", "country"],
     });
+
+  const locationLabel = filterCountry
+    ? `in ${filterCountry}`
+    : detectedCountry
+    ? "near you"
+    : null;
+
+  const heroTitle = locationLabel
+    ? `Top Businesses ${locationLabel}`
+    : "Top Businesses";
+
+  const sortedItems = useMemo(
+    () =>
+      [...items].sort((a, b) => {
+        // Verified businesses always appear before unverified
+        if (a.verified !== b.verified) return a.verified ? -1 : 1;
+        // Within the same verification group, highest rating first
+        return b.rating - a.rating;
+      }),
+    [items]
+  );
 
   const handleJoinAsVendor = () => {
     router.push(user ? "/claim" : "/auth/login?redirect=/claim");
@@ -38,20 +63,20 @@ export default function BusinessesContent() {
     <DirectoryPageShell<ProcessedBusiness>
       mainCategorySlug="business"
       context="businesses"
-      items={items}
+      items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
       mapItem={mapBusiness}
       groupBy={(b) => b.category}
       matchesCategory={(b, slug) => b.categorySlugs.includes(slug)}
       heroSize={8}
-      visibleGroups={3}
+      visibleGroups={0}
       emptyMessage="No businesses found in this category."
       gridTitle="All businesses"
       renderHero={(heroItems) => (
         <BusinessSection
-          businesses={heroItems.map(adapt)}
-          title="Today's best deals just for you!"
+          businesses={heroItems.filter((b) => b.verified).map(adapt)}
+          title={heroTitle}
         />
       )}
       renderGroup={(name, groupItems) => (

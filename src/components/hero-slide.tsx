@@ -14,9 +14,14 @@ export function HeroCarousel({
 }) {
   const heroItems = useMemo(
     () =>
-      items
-        .map((m) => (typeof m === "string" ? { type: "image" as const, src: m } : m))
-        .filter((m) => m.type !== "video" || !!m.poster),
+      items.map((m) => {
+        if (typeof m === "string") {
+          const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(m);
+          return { type: isVideo ? ("video" as const) : ("image" as const), src: m };
+        }
+        return m;
+      })
+      .filter((m) => m.type !== "video" || !!m.poster || !m.src.includes("_next/image")),
     [items]
   );
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
@@ -59,8 +64,10 @@ export function HeroCarousel({
                   src={item.type === "image" ? item.src : item.poster || item.src}
                   alt={alt}
                   fill
+                  sizes="100vw"
                   className="object-cover"
                   priority={i === 0}
+                  unoptimized
                 />
               </div>
             </div>

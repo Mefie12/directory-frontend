@@ -33,7 +33,7 @@ import { WhatsappLogo, InstagramLogo, EnvelopeSimple } from "@phosphor-icons/rea
  * Robustly resolves an image URL from various API formats
  */
 // const resolveImageUrl = (imageField: ApiNewsItem["image"]): string => {
-//   let path = "/images/placeholders/generic-news.jpg"; // Default fallback
+//   let path = "/images/no-image.jpg"; // Default fallback
 
 //   if (!imageField) return path;
 

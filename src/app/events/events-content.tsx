@@ -17,23 +17,52 @@ export default function EventsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
 
+  const filterCountry = searchParams.get("country");
   const filterStartDate = searchParams.get("event_start_date");
   const filterEndDate = searchParams.get("event_end_date");
 
-  // Stable mapper reference — recreate only when date filters change
   const eventMapper = useMemo(() => createEventMapper(), []);
 
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
       mapItem: eventMapper,
-      forwardParams: ["category_id"],
-      // Events also accept date-range filters; send them when present.
+      forwardParams: ["category_id", "category_slug", "country"],
       extraParams: {
         event_start_date: filterStartDate ?? undefined,
         event_end_date: filterEndDate ?? undefined,
       },
     });
+
+  const locationLabel = filterCountry
+    ? `in ${filterCountry}`
+    : detectedCountry
+    ? "near you"
+    : null;
+
+  const heroTitle = "Events coming up";
+  const gridTitle = locationLabel
+    ? `All Events ${locationLabel}`
+    : "All Events";
+
+  // 4 months from today — the window for hero carousel events.
+  const fourMonthsFromNow = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 4);
+    return d;
+  }, []);
+
+  // All events: verified-first, then soonest within each group.
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.verified !== b.verified) return a.verified ? -1 : 1;
+      const ta =
+        a.startDateRaw ? new Date(a.startDateRaw).getTime() : Infinity;
+      const tb =
+        b.startDateRaw ? new Date(b.startDateRaw).getTime() : Infinity;
+      return ta - tb;
+    });
+  }, [items]);
 
   const handleCtaClick = () => {
     router.push(user ? "/claim" : "/auth/login?redirect=/claim");
@@ -43,23 +72,32 @@ export default function EventsContent() {
     <DirectoryPageShell<ProcessedEvent>
       mainCategorySlug="events"
       context="events"
-      items={items}
+      items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
       mapItem={eventMapper}
       groupBy={(e) => e.category}
       matchesCategory={(e, slug) => e.categorySlug === slug}
       heroSize={8}
-      visibleGroups={3}
+      visibleGroups={0}
       emptyMessage="No events found in this category."
-      gridTitle="All events"
-      renderHero={(heroItems) => (
-        <EventCarousel
-          events={heroItems}
-          title="Popular Events coming up"
-          showNavigation
-        />
-      )}
+      gridTitle={gridTitle}
+      renderHero={(heroItems) => {
+        // Hero shows only verified events starting within the next 4 months.
+        const upcomingVerified = heroItems.filter((e) => {
+          if (!e.verified) return false;
+          if (!e.startDateRaw) return false;
+          const start = new Date(e.startDateRaw);
+          return !isNaN(start.getTime()) && start <= fourMonthsFromNow;
+        });
+        return (
+          <EventCarousel
+            events={upcomingVerified}
+            title={heroTitle}
+            showNavigation
+          />
+        );
+      }}
       renderGroup={(name, groupItems) => (
         <div className="py-12 px-4 lg:px-16">
           <EventSectionCarousel events={groupItems} title={name} />

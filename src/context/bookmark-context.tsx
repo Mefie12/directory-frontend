@@ -29,7 +29,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper to safely access Env Var on client
-  const getApiUrl = () => process.env.API_URL || "https://me-fie.co.uk";
+  const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
   // --- 1. Define refreshBookmarks FIRST (wrapped in useCallback) ---
   const refreshBookmarks = useCallback(async () => {
