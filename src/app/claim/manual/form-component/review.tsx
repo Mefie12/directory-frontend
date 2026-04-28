@@ -59,7 +59,7 @@ interface ApiListingData {
   name: string;
   type: string;
   primary_image: string | null;
-  images?: { media: string }[];
+  images?: Array<{ original?: string; media?: string }>;
   categories: { name: string }[];
   address: string | null;
   city: string | null;

@@ -46,8 +46,12 @@ import { useAuth } from "@/context/auth-context";
 // --- API Interfaces ---
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original?: string;
+  thumb?: string;
+  webp?: string;
+  mime_type?: string;
+  file_size?: number;
+  size?: string;
 }
 
 interface ApiSocialItem {

@@ -44,8 +44,12 @@ import { HeroCarousel } from "@/components/hero-slide";
 // --- Types ---
 interface ApiImage {
   id?: number;
-  media: string;
-  media_type?: string;
+  original?: string;
+  thumb?: string;
+  webp?: string;
+  mime_type?: string;
+  file_size?: number;
+  size?: string;
 }
 
 interface ApiSocialItem {
@@ -97,7 +101,8 @@ const getImageUrl = (
   if (
     typeof imageEntry === "object" &&
     imageEntry !== null &&
-    "original" in imageEntry
+    "original" in imageEntry &&
+    typeof imageEntry.original === "string"
   ) {
     url = imageEntry.original;
   } else if (typeof imageEntry === "string") {

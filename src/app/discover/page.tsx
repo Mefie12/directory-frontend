@@ -54,6 +54,7 @@ interface ApiListing {
   event_country?: string;
   event_price?: string | null;
   event_currency?: string | null;
+  event_location_type?: string | null;
 }
 
 // --- Helper Functions ---
