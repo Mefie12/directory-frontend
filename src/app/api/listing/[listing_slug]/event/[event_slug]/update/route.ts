@@ -4,19 +4,19 @@ const API_BASE_URL = (
   process.env.API_URL || "https://me-fie.co.uk"
 ).replace(/\/$/, "");
 
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ listing_slug: string; event_id: string }> },
+  { params }: { params: Promise<{ listing_slug: string; event_slug: string }> },
 ) {
   try {
-    const { listing_slug, event_id } = await params;
+    const { listing_slug, event_slug } = await params;
     const body = await request.json();
     const authHeader = request.headers.get("Authorization");
 
     const response = await fetch(
-      `${API_BASE_URL}/api/listing/${listing_slug}/event/${event_id}/update`,
+      `${API_BASE_URL}/api/listing/${listing_slug}/event/${event_slug}/update`,
       {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
