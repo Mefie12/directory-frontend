@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extractClientIp } from "@/lib/bff/extract-client-ip";
 
 const API_BASE_URL = (
   process.env.API_URL || "https://me-fie.co.uk"
@@ -14,6 +15,11 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
+    // Forward real client IP as fallback when the discover page has not yet
+    // resolved the detected country (e.g. on first load before Phase 1 completes).
+    const clientIp = extractClientIp(request);
+    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
+
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",
@@ -25,7 +31,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch(backendUrl.toString(), {
       method: "GET",
       headers,
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     const rawText = await response.text();

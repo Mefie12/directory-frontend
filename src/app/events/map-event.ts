@@ -52,6 +52,7 @@ export function createEventMapper(filterCountry?: string | null) {
       country: item.event_country || item.country || "Ghana",
       createdAt: item.created_at ? new Date(item.created_at) : new Date(),
       startDate,
+      startDateRaw: item.event_start_date || "",
       endDate,
       date: startDate,
       price: priceLabel,
