@@ -389,7 +389,7 @@ export default function EventSlugPage({ params }: PageProps) {
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         // 3. Make API Call
         const response = await fetch(`${API_URL}/api/events/${slug}`, {
@@ -433,7 +433,7 @@ export default function EventSlugPage({ params }: PageProps) {
           image:
             data.cover_image ||
             data.image ||
-            "/images/placeholders/event-placeholder.jpg",
+            "/images/no-image.jpg",
           gallery: Array.isArray(data.gallery)
             ? data.gallery.map((img: unknown) =>
                 typeof img === "string"

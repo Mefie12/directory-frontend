@@ -94,7 +94,7 @@ export default function MyEvents() {
       setIsLoading(true);
 
       try {
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
         const response = await fetch(`${API_URL}/api/user/events/saved`, {
           method: "GET",
           headers: {
@@ -125,7 +125,7 @@ export default function MyEvents() {
           image:
             item.image ||
             item.cover_image ||
-            "/images/placeholders/generic.jpg",
+            "/images/no-image.jpg",
           description: item.description || "No description provided.",
           location: item.location || "TBD",
           date: item.start_date

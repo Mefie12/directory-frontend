@@ -42,3 +42,7 @@ next-env.d.ts
 
 
 /plans
+
+# accidental duplicate — not a real route
+src/app/api/listings copy/
+

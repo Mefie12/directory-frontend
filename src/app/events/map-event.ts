@@ -39,11 +39,12 @@ export function createEventMapper(filterCountry?: string | null) {
       image: images[0],
       images,
       location:
+        item.event_venue ||
         item.event_city ||
         item.event_country ||
         item.city ||
         item.country ||
-        "Online",
+        (item.event_location_type === "online" ? "Online" : "TBA"),
       verified: !!(item.listing_verified ?? item.is_verified ?? item.isVerified ?? item.verified),
       category: category?.name || "General",
       categorySlug:
@@ -51,6 +52,7 @@ export function createEventMapper(filterCountry?: string | null) {
       country: item.event_country || item.country || "Ghana",
       createdAt: item.created_at ? new Date(item.created_at) : new Date(),
       startDate,
+      startDateRaw: item.event_start_date || "",
       endDate,
       date: startDate,
       price: priceLabel,

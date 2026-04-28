@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractClientIp } from "@/lib/bff/extract-client-ip";
 
 const API_BASE_URL = (
   process.env.API_URL || "https://me-fie.co.uk"
@@ -7,15 +6,7 @@ const API_BASE_URL = (
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const backendUrl = new URL(`${API_BASE_URL}/api/communities`);
-
-    searchParams.forEach((value, key) => {
-      backendUrl.searchParams.set(key, value);
-    });
-
-    const clientIp = extractClientIp(request);
-    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
+    const backendUrl = new URL(`${API_BASE_URL}/api/my_bookmarks`);
 
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -40,7 +31,6 @@ export async function GET(request: NextRequest) {
           message: "Upstream returned non-JSON response",
           upstreamStatus: response.status,
           upstreamBody: rawText.slice(0, 500),
-          backendUrl: backendUrl.toString(),
         },
         { status: 502 },
       );
@@ -52,22 +42,17 @@ export async function GET(request: NextRequest) {
           ? (data as { message?: string }).message
           : undefined;
       return NextResponse.json(
-        { message: maybeMessage || "Failed to fetch communities" },
+        { message: maybeMessage || "Failed to fetch bookmarks" },
         { status: response.status },
       );
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Communities proxy error:", error);
     const message =
       error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json(
-      {
-        message: "Internal Server Error",
-        error: message,
-        apiBase: API_BASE_URL,
-      },
+      { message: "Internal Server Error", error: message },
       { status: 500 },
     );
   }

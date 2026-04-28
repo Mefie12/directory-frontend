@@ -31,8 +31,10 @@ import { Input } from "@/components/ui/input";
 
 interface ListingImage {
   id: number;
-  media: string | null;
-  media_type: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface Category {
@@ -56,6 +58,8 @@ interface ApiListing {
   ratings_count: number;
   views_count: number;
   bookmarks_count: number;
+  listing_verified?: boolean;
+  is_verified?: boolean;
 }
 
 interface ApiResponse {
@@ -73,6 +77,7 @@ interface ListingsTableItem {
   location: string;
   status: "published" | "pending" | "drafted";
   type: string;
+  verified: boolean;
   views: number;
   comments: number;
   bookmarks: number;
@@ -81,9 +86,9 @@ interface ListingsTableItem {
 }
 
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholder-listing.png";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
@@ -134,18 +139,13 @@ export default function MyListingsPage() {
         (listing) => {
           const rawImages = listing.images || [];
           const validImages = rawImages
-            .filter((img) => {
-              if (!img.media) return false;
-              const badStatuses = ["processing", "failed", "pending", "error"];
-              if (badStatuses.includes(img.media)) return false;
-              return true;
-            })
-            .map((img) => getImageUrl(img.media));
+            .filter((img) => !!img.original)
+            .map((img) => getImageUrl(img.original));
 
           const coverImage =
             validImages.length > 0
               ? validImages[0]
-              : getImageUrl("/images/placeholder-listing.png");
+              : getImageUrl("/images/no-image.jpg");
 
           const categoryText =
             listing.categories?.[0]?.name || "Uncategorized";
@@ -180,6 +180,7 @@ export default function MyListingsPage() {
             location: location,
             status: status,
             type: resolvedType || "business",
+            verified: !!(listing.listing_verified ?? listing.is_verified ?? false),
             views: listing.views_count || 0,
             comments: listing.ratings_count || 0,
             bookmarks: listing.bookmarks_count || 0,

@@ -26,17 +26,17 @@ import {
 
 // --- Helper: Get Full Image URL ---
 const getImageUrl = (imageEntry: any): string => {
-  if (!imageEntry) return "/images/placeholders/generic.jpg";
+  if (!imageEntry) return "/images/no-image.jpg";
   
   let url = "";
   // Handle object with media property (API format)
-  if (typeof imageEntry === "object" && imageEntry !== null && "media" in imageEntry) {
-    url = imageEntry.media;
+  if (typeof imageEntry === "object" && imageEntry !== null && "original" in imageEntry) {
+    url = imageEntry.original;
   } else if (typeof imageEntry === "string") {
     url = imageEntry;
   }
   
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   // Return as-is if already a full URL
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   

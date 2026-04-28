@@ -16,7 +16,9 @@ import { useAuth } from "@/context/auth-context";
 // --- Types ---
 interface ApiImage {
   id?: number;
-  media: string;
+  original: string;
+  thumb: string;
+  webp: string;
 }
 
 interface ApiCategory {
@@ -68,7 +70,7 @@ interface ProcessedBusiness {
 
 // --- Helpers ---
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholders/generic.jpg";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http")) return url;
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
@@ -144,20 +146,14 @@ export default function BusinessesContent() {
           const validImages = rawImages
             .filter((img): img is string | ApiImage => {
               if (typeof img === "string") return true;
-              if (img && typeof img === "object" && "media" in img) {
-                const badStatuses = [
-                  "processing",
-                  "failed",
-                  "pending",
-                  "error",
-                ];
-                return !badStatuses.includes((img as ApiImage).media);
+              if (img && typeof img === "object" && "original" in img) {
+                return !!(img as ApiImage).original;
               }
               return false;
             })
             .map((img) => {
               const mediaPath =
-                typeof img === "string" ? img : (img as ApiImage).media;
+                typeof img === "string" ? img : (img as ApiImage).original;
               return getImageUrl(mediaPath);
             });
 
@@ -165,7 +161,7 @@ export default function BusinessesContent() {
             if (item.image) validImages.push(getImageUrl(item.image));
             else if (item.cover_image)
               validImages.push(getImageUrl(item.cover_image));
-            else validImages.push("/images/placeholders/generic.jpg");
+            else validImages.push("/images/no-image.jpg");
           }
 
           const categorySlugs = item.categories?.map(c => c.slug) || ["general"];

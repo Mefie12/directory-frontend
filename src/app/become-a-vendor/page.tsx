@@ -109,7 +109,7 @@ export default function BecomeVendor() {
     }
 
     try {
-      const API_URL = process.env.API_URL || "https://me-fie.co.uk";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",

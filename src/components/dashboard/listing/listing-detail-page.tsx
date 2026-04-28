@@ -66,8 +66,10 @@ type PageProps = {
 
 interface ListingImage {
   id: number;
-  media: string | null;
-  media_type: string;
+  original: string;
+  thumb: string;
+  webp: string;
+  mime_type?: string;
 }
 
 interface Category {
@@ -127,7 +129,7 @@ interface ListingDetail {
 // --- Helpers ---
 
 const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/placeholder-listing.png";
+  if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   const API_URL = "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
@@ -198,12 +200,8 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       const rawImages = data.images || [];
       const validImages = rawImages
-        .filter((img) => {
-          if (!img.media) return false;
-          const bad = ["processing", "failed", "pending", "error"];
-          return !bad.includes(img.media);
-        })
-        .map((img) => getImageUrl(img.media));
+        .filter((img) => !!img.original)
+        .map((img) => getImageUrl(img.original));
 
       const backendStatus = (data.status || "").toLowerCase();
       let status: "published" | "pending" | "drafted" = "drafted";
@@ -229,7 +227,7 @@ export default function ListingDetailPage({ params }: PageProps) {
         type: resolvedType || "business",
         category: data.categories?.[0]?.name || "Uncategorized",
         coverImage:
-          validImages[0] || "/images/placeholder-listing.png",
+          validImages[0] || "/images/no-image.jpg",
         allImages: validImages,
         views: data.views_count || 0,
         bookmarks: data.bookmarks_count || 0,
@@ -540,7 +538,7 @@ export default function ListingDetailPage({ params }: PageProps) {
           onError={(e) => {
             const t = e.target as HTMLImageElement;
             if (!t.src.includes("placeholder"))
-              t.src = "/images/placeholder-listing.png";
+              t.src = "/images/no-image.jpg";
           }}
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent" />

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
@@ -13,27 +12,11 @@ import { cn } from "@/lib/utils";
 import { SpinnerGap } from "@phosphor-icons/react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { useUserLocation } from "@/hooks/useUserLocation";
+import { isValidUrl, normalizeUrl, parseLaravel422Errors } from "@/lib/directory/utils";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
-
-// --- Helper function to validate URL (allows without protocol) ---
-const isValidUrl = (url: string): boolean => {
-  if (!url) return true; // Empty is valid (optional field)
-  // Allow URLs with or without protocol
-  return /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i.test(url);
-};
-
-// --- Helper function to normalize URL (add https:// if missing) ---
-const normalizeUrl = (url: string): string => {
-  if (!url) return "";
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-  return url;
-};
 
 // --- Validation Schema ---
 export const businessFormSchema = z.object({
@@ -103,7 +86,6 @@ const basicInfoConfig = {
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
   ({ listingType, listingSlug }, ref) => {
     // --- State ---
-    const { location: userLocation } = useUserLocation();
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
     const [subCategories, setSubCategories] = useState<Category[]>([]);
@@ -229,7 +211,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
     // --- 3. Submit Handler ---
     useImperativeHandle(ref, () => ({
       async submit() {
-        // 1. Manually trigger validation
         const isValid = await trigger();
         if (!isValid) {
           toast.error("Please correct the errors in the form.");
@@ -238,7 +219,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
         const rawData = form.getValues();
 
-        // Helper to extract the local phone digits
         const cleanPhone = (fullPhone: string, dialCode: string) => {
           if (!fullPhone) return "";
           const digits = fullPhone.replace(/\D/g, "");
@@ -248,7 +228,6 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             : digits;
         };
 
-        // 2. Map data to API structure
         const submissionData: Record<string, unknown> = {
           name: rawData.name,
           email: rawData.email,
@@ -273,14 +252,11 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         };
 
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.API_URL || "https://me-fie.co.uk";
 
         try {
-          // UPDATED LOGIC HERE:
-          // If listingSlug exists, use the /update endpoint with PATCH
           const endpoint = listingSlug
-            ? `${API_URL}/api/listing/${listingSlug}/update`
-            : `${API_URL}/api/listing/profile`;
+            ? `/api/listing/${listingSlug}/update`
+            : `/api/listing/profile`;
 
           const method = listingSlug ? "PATCH" : "POST";
 
@@ -297,11 +273,18 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           const json = await res.json();
 
           if (!res.ok) {
-            console.error("API Error Response:", json);
-            throw new Error(json.message || "Submission failed");
+            if (res.status === 422 && json.errors) {
+              const fieldErrors = parseLaravel422Errors(json.errors);
+              Object.entries(fieldErrors).forEach(([field, message]) => {
+                form.setError(field as keyof BusinessFormValues, { message });
+              });
+              toast.error("Please correct the highlighted fields.");
+            } else {
+              toast.error(json.error || json.message || "Submission failed");
+            }
+            return false;
           }
 
-          // Return result to parent to trigger setCurrentStep(currentStep + 1)
           return json.data || json;
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Failed to save";
@@ -316,9 +299,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
+            `/api/listing/${listingSlug}/show`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -443,7 +425,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
+                  defaultCountry="gh"
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone);
@@ -489,7 +471,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry={userLocation?.country_code?.toLowerCase() || "gh"}
+                  defaultCountry="gh"
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone);
