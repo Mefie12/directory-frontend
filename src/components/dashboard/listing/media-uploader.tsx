@@ -32,9 +32,17 @@ function isVideoItem(item: FileOrImage): boolean {
   return /\.(mp4|mov|avi|wmv|webm)$/i.test(url);
 }
 
+function resolveMediaUrl(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+  return `${API_URL}/${url.replace(/^\//, "")}`;
+}
+
 function getPreviewSrc(item: FileOrImage): string {
   if (item instanceof File) return URL.createObjectURL(item);
-  return item?.url || item?.original || "";
+  const raw = item?.url || item?.original || "";
+  return resolveMediaUrl(raw);
 }
 
 function getFileName(item: FileOrImage): string {

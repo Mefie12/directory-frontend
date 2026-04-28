@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.me-fie.co.uk",
         pathname: "/**",
-        
+
       },
       {
         protocol: 'http',
@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
         port: '8000',
         pathname: '/**',
       },
-      
+
     ],
     // Optional: If you want to be more specific about the path
     // remotePatterns: [
