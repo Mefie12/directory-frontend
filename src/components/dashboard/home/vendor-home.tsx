@@ -60,6 +60,8 @@ interface ApiListing {
   ratings_count: number;
   views_count: number;
   bookmarks_count: number;
+  listing_verified?: boolean;
+  is_verified?: boolean;
 }
 
 interface ApiResponse {
@@ -78,6 +80,7 @@ interface ListingsTableItem {
   location: string;
   status: "published" | "pending" | "drafted";
   type: string;
+  verified: boolean;
   views: number;
   comments: number;
   bookmarks: number;
@@ -228,7 +231,8 @@ export default function VendorHome() {
             category: categoryText,
             location: location,
             status: status,
-            type: resolvedType || "business", // Use the resolved type
+            type: resolvedType || "business",
+            verified: !!(listing.listing_verified ?? listing.is_verified ?? false),
             views: listing.views_count || 0,
             comments: listing.ratings_count || 0,
             bookmarks: listing.bookmarks_count || 0,
