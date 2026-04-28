@@ -13,6 +13,13 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
+    const forwarded =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      request.headers.get("cf-connecting-ip");
+    const clientIp = forwarded ? forwarded.split(",")[0].trim() : null;
+    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
+
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Content-Type": "application/json",

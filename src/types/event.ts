@@ -15,6 +15,7 @@ export interface ProcessedEvent {
   country: string;
   createdAt: Date;
   startDate: string;
+  startDateRaw: string;
   endDate: string;
   date: string;
   price: string;
