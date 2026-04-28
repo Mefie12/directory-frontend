@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.API_URL || 'https://me-fie.co.uk/';
+const API_BASE_URL = process.env.API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('API_URL environment variable is not set');
+}
 
 export async function POST(request: NextRequest) {
   try {
