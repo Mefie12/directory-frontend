@@ -500,7 +500,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           if (hoursToDelete.length > 0) {
             await Promise.all(
               hoursToDelete.map((id) =>
-                fetch(`/api/opening_hours/${id}`, {
+                fetch(`/api/listing/${effectiveSlug}/opening_hours/${id}`, {
                   method: "DELETE",
                   headers: {
                     "Content-Type": "application/json",
@@ -519,7 +519,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               hoursResults = await Promise.all(
                 enabledHours.map((h) => {
                   if (h.id) {
-                    return fetch(`/api/opening_hours/${h.id}`, {
+                    return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.id}`, {
                       method: "PUT",
                       headers: {
                         "Content-Type": "application/json",

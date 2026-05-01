@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Loader2} from "lucide-react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { parseLaravel422Errors } from "@/lib/directory/utils";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -284,14 +285,11 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         };
 
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         try {
-          // UPDATED LOGIC HERE:
-          // If listingSlug exists, use the /update endpoint with PATCH
           const endpoint = listingSlug
-            ? `${API_URL}/api/listing/${listingSlug}/update`
-            : `${API_URL}/api/listing/profile`;
+            ? `/api/listing/${listingSlug}/update`
+            : `/api/listing/profile`;
 
           const method = listingSlug ? "PATCH" : "POST";
 
@@ -308,8 +306,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           const json = await res.json();
 
           if (!res.ok) {
-            console.error("API Error Response:", json);
-            throw new Error(json.message || "Submission failed");
+            if (res.status === 422 && json.errors) {
+              const fieldErrors = parseLaravel422Errors(json.errors);
+              Object.entries(fieldErrors).forEach(([field, message]) => {
+                form.setError(field as keyof BusinessFormValues, { message });
+              });
+              toast.error("Please correct the highlighted fields.");
+            } else {
+              toast.error(json.error || json.message || "Submission failed");
+            }
+            return false;
           }
 
           // Return result to parent to trigger setCurrentStep(currentStep + 1)
@@ -327,9 +333,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/show`,
+            `/api/listing/${listingSlug}/show`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

@@ -5,9 +5,12 @@ const API_BASE_URL = (process.env.API_URL || 'https://me-fie.co.uk').replace(/\/
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page');
+    const queryString = page ? `?page=${page}` : '';
 
     const response = await fetch(
-      `${API_BASE_URL}/api/listing/my_listings`,
+      `${API_BASE_URL}/api/listing/my_listings${queryString}`,
       {
         method: 'GET',
         headers: {

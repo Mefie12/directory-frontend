@@ -302,10 +302,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         if (!effectiveSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${effectiveSlug}/show`,
+            `/api/listing/${effectiveSlug}/show`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -400,7 +398,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         return false;
       }
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
@@ -451,11 +448,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         const detailsEndpoint =
           listingType === "event"
-            ? `${API_URL}/api/listing/${effectiveSlug}/eventDetails`
-            : `${API_URL}/api/listing/${effectiveSlug}/address`;
+            ? `/api/listing/${effectiveSlug}/eventDetails`
+            : `/api/listing/${effectiveSlug}/address`;
+
+        const detailsMethod = listingType === "event" ? "POST" : "PUT";
 
         const detailsReq = fetch(detailsEndpoint, {
-          method: "POST",
+          method: detailsMethod,
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -474,7 +473,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             hoursResults = await Promise.all(
               enabledHours.map((h: any) => {
                 if (h.id) {
-                  return fetch(`${API_URL}/api/opening_hours/${h.id}`, {
+                  return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.id}`, {
                     method: "PUT",
                     headers: {
                       "Content-Type": "application/json",
@@ -488,7 +487,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     }),
                   });
                 } else {
-                  return fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+                  return fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
@@ -506,7 +505,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             );
           } else {
             // POST all hours as a batch for initial creation
-            const res = await fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+            const res = await fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

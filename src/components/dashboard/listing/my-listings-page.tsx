@@ -62,9 +62,15 @@ interface ApiListing {
   is_verified?: boolean;
 }
 
+interface ApiMeta {
+  current_page: number;
+  last_page: number;
+  total: number;
+}
+
 interface ApiResponse {
   data: ApiListing[];
-  meta?: unknown;
+  meta?: ApiMeta;
 }
 
 interface ListingsTableItem {
@@ -99,18 +105,20 @@ export default function MyListingsPage() {
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchListings = useCallback(async () => {
+  const fetchListings = useCallback(async (page = 1) => {
     try {
       setLoading(true);
 
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const response = await fetch(`/api/listing/my_listings`, {
+      const response = await fetch(`/api/listing/my_listings?page=${page}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -127,12 +135,20 @@ export default function MyListingsPage() {
       const data: ApiResponse = await response.json();
       // Handle: { data: [...] }  OR  { data: { data: [...] } }  OR  { listings: [...] }
       let rawListings: ApiListing[] = [];
+      let meta: ApiMeta | undefined;
       if (Array.isArray(data?.data)) {
         rawListings = data.data;
+        meta = data.meta;
       } else if (Array.isArray((data as any)?.data?.data)) {
         rawListings = (data as any).data.data;
+        meta = (data as any)?.data?.meta;
       } else if (Array.isArray((data as any)?.listings)) {
         rawListings = (data as any).listings;
+      }
+
+      if (meta) {
+        setCurrentPage(meta.current_page);
+        setTotalPages(meta.last_page);
       }
 
       const transformedListings: ListingsTableItem[] = rawListings.map(
@@ -200,8 +216,8 @@ export default function MyListingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) fetchListings();
-  }, [user, authLoading, fetchListings]);
+    if (!authLoading && user) fetchListings(currentPage);
+  }, [user, authLoading, fetchListings, currentPage]);
 
   const handleDelete = async () => {
     if (!deleteListingId) return;
@@ -289,19 +305,44 @@ export default function MyListingsPage() {
       </div>
 
       {listings.length > 0 ? (
-        <ListingsTable
-          listings={listings}
-          showPagination={true}
-          itemsPerPage={6}
-          onViewClick={(listing) => router.push(listingDetail(listing.slug))}
-          onEditClick={(listing) =>
-            router.push(listingEdit(listing.type, listing.slug))
-          }
-          onDeleteClick={(id: string) => setDeleteListingId(id)}
-          onWhatWeDoClick={(listing) =>
-            router.push(`${listingDetail(listing.slug)}?tab=services`)
-          }
-        />
+        <>
+          <ListingsTable
+            listings={listings}
+            showPagination={false}
+            itemsPerPage={listings.length}
+            onViewClick={(listing) => router.push(listingDetail(listing.slug))}
+            onEditClick={(listing) =>
+              router.push(listingEdit(listing.type, listing.slug))
+            }
+            onDeleteClick={(id: string) => setDeleteListingId(id)}
+            onWhatWeDoClick={(listing) =>
+              router.push(`${listingDetail(listing.slug)}?tab=services`)
+            }
+          />
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-xl bg-gray-50">
           <p className="text-gray-500">No listings yet</p>
