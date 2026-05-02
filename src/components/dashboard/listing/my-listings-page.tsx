@@ -225,7 +225,6 @@ export default function MyListingsPage() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const listingToDelete = listings.find((l) => l.id === deleteListingId);
 
       if (!listingToDelete) {
@@ -235,7 +234,7 @@ export default function MyListingsPage() {
 
       const identifier = listingToDelete.slug || listingToDelete.id;
 
-      const res = await fetch(`${API_URL}/api/listing/${identifier}`, {
+      const res = await fetch(`/api/listing/${identifier}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

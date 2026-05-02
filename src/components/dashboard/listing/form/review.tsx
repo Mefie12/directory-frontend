@@ -99,8 +99,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
+          const res = await fetch(`/api/listing/${listingSlug}/show`, {
             method: "GET",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -127,8 +126,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-          const res = await fetch(`${API_URL}/api/listing/${listingSlug}/socials`, {
+          const res = await fetch(`/api/listing/${listingSlug}/socials`, {
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",

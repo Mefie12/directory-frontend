@@ -117,9 +117,8 @@ export default function EditListingContent() {
       try {
         setIsFetching(true);
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+        const response = await fetch(`/api/listing/${slug}/show`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
