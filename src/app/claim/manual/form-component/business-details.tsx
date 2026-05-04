@@ -192,10 +192,11 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onValidityChange?: (isValid: boolean) => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, onValidityChange }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
     const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -282,10 +283,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       control,
       reset,
-      formState: { errors },
+      formState: { errors, isValid },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+      onValidityChange?.(isValid);
+    }, [isValid, onValidityChange]);
+
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
@@ -469,11 +475,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           const hasExistingHours = enabledHours.some((h: any) => h.id);
 
           if (hasExistingHours) {
-            // PUT each hour individually to update existing opening hours
+            // Use day_of_week as the slug identifier (backend now slug-based, not ID-based)
             hoursResults = await Promise.all(
               enabledHours.map((h: any) => {
                 if (h.id) {
-                  return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.id}`, {
+                  return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.day_of_week}`, {
                     method: "PUT",
                     headers: {
                       "Content-Type": "application/json",

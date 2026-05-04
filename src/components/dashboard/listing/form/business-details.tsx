@@ -157,10 +157,11 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onValidityChange?: (isValid: boolean) => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, onValidityChange }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
     const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -249,9 +250,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       control,
       reset,
-      formState: { errors },
+      formState: { errors, isValid },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
+
+    useEffect(() => {
+      onValidityChange?.(isValid);
+    }, [isValid, onValidityChange]);
     const [isSaving, setIsSaving] = useState(false);
     // Tracks the backend event record slug so we can use the update endpoint on subsequent saves.
     const [eventSlug, setEventSlug] = useState<string | null>(null);
@@ -463,7 +468,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           listingType !== "event"
             ? data.businessHours
                 .filter((h: DaySchedule) => !h.enabled && !!h.id)
-                .map((h: DaySchedule) => h.id as number)
+                .map((h: DaySchedule) => h.day_of_week)
             : [];
 
         // For events: POST to create on first save, PATCH update endpoint on subsequent saves.
@@ -496,11 +501,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
         if (listingType !== "event") {
-          // DELETE hours for days the user has unchecked
+          // DELETE hours for days the user has unchecked (use day_of_week as slug identifier)
           if (hoursToDelete.length > 0) {
             await Promise.all(
-              hoursToDelete.map((id) =>
-                fetch(`/api/listing/${effectiveSlug}/opening_hours/${id}`, {
+              hoursToDelete.map((dayOfWeek) =>
+                fetch(`/api/listing/${effectiveSlug}/opening_hours/${dayOfWeek}`, {
                   method: "DELETE",
                   headers: {
                     "Content-Type": "application/json",
@@ -516,10 +521,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             const hasExistingHours = enabledHours.some((h) => !!h.id);
 
             if (hasExistingHours) {
+              // Use day_of_week as the slug identifier for PUT (backend now slug-based, not ID-based)
               hoursResults = await Promise.all(
                 enabledHours.map((h) => {
                   if (h.id) {
-                    return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.id}`, {
+                    return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.day_of_week}`, {
                       method: "PUT",
                       headers: {
                         "Content-Type": "application/json",

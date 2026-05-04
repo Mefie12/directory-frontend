@@ -50,6 +50,7 @@ function ListingContent() {
 
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [stepIsValid, setStepIsValid] = useState(true);
 
   // ONE Ref to control whichever child form is currently active
   const formRef = useRef<ListingFormHandle>(null);
@@ -140,8 +141,9 @@ function ListingContent() {
   };
 
   const handleBack = () => {
-    // Fixed: Pass value directly
-    setCurrentStep(Math.max(1, currentStep - 1));
+    const prev = Math.max(1, currentStep - 1);
+    if (prev > 2) setStepIsValid(true);
+    setCurrentStep(prev);
   };
 
   const renderStep = () => {
@@ -153,9 +155,19 @@ function ListingContent() {
 
     switch (currentStep) {
       case 1:
-        return <BasicInformationForm {...commonProps} />;
+        return (
+          <BasicInformationForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 2:
-        return <BusinessDetailsForm {...commonProps} />;
+        return (
+          <BusinessDetailsForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 3:
         return <MediaUploadStep {...commonProps} />;
       case 4:
@@ -212,8 +224,8 @@ function ListingContent() {
 
           <Button
             onClick={handleNext}
-            disabled={isSaving}
-            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
+            disabled={isSaving || (currentStep === 1 && !stepIsValid)}
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

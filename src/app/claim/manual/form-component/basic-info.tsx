@@ -43,7 +43,12 @@ export const businessFormSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters long"),
   type: z.enum(["business", "event", "community"]),
-  primary_phone: z.string().min(8, "Please enter a valid phone number"), // Adjusted slightly as formatting adds chars
+  primary_phone: z
+    .string()
+    .refine(
+      (val) => val.replace(/\D/g, "").length >= 9,
+      "Phone number is too short — please enter a complete number",
+    ),
   primary_country_code: z.string().min(1, "Required"),
   secondary_phone: z.string().optional(),
   secondary_country_code: z.string().optional(),
@@ -72,6 +77,7 @@ interface Category {
 interface Props {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onValidityChange?: (isValid: boolean) => void;
 }
 
 // Config for dynamic labels
@@ -100,7 +106,7 @@ const basicInfoConfig = {
 };
 
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, onValidityChange }, ref) => {
     // --- State ---
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
@@ -141,8 +147,12 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       control, // Required for Phone Input
       reset,
-      formState: { errors },
+      formState: { errors, isValid },
     } = form;
+
+    useEffect(() => {
+      onValidityChange?.(isValid);
+    }, [isValid, onValidityChange]);
 
     useEffect(() => {
       if (listingType) {
@@ -255,9 +265,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           if (!fullPhone) return "";
           const digits = fullPhone.replace(/\D/g, "");
           const codeDigits = dialCode.replace(/\D/g, "");
-          return digits.startsWith(codeDigits)
+          const local = digits.startsWith(codeDigits)
             ? digits.slice(codeDigits.length)
             : digits;
+          return local.replace(/^0+/, ""); // strip leading zeros (e.g. UK 020 → 20)
         };
 
         // 2. Map data to API structure

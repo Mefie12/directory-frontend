@@ -66,6 +66,7 @@ export default function EditListingContent() {
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [stepIsValid, setStepIsValid] = useState(true);
 
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
@@ -290,10 +291,13 @@ export default function EditListingContent() {
   };
 
   const handleBack = () => {
-    setCurrentStep(Math.max(1, currentStep - 1));
+    const prev = Math.max(1, currentStep - 1);
+    if (prev > 2) setStepIsValid(true);
+    setCurrentStep(prev);
   };
 
   const handleStepClick = (step: number) => {
+    if (step > 2) setStepIsValid(true);
     setCurrentStep(step);
   };
 
@@ -308,9 +312,19 @@ export default function EditListingContent() {
 
     switch (currentStep) {
       case 1:
-        return <BasicInformationForm {...commonProps} />;
+        return (
+          <BasicInformationForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 2:
-        return <BusinessDetailsForm {...commonProps} />;
+        return (
+          <BusinessDetailsForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 3:
         return <MediaUploadStep {...commonProps} />;
       case 4:
@@ -382,8 +396,8 @@ export default function EditListingContent() {
 
           <Button
             onClick={handleNext}
-            disabled={isSaving}
-            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
+            disabled={isSaving || (currentStep === 1 && !stepIsValid)}
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

@@ -19,7 +19,7 @@ export async function GET(
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        next: { revalidate: 60 },
+        cache: 'no-store',
       }
     );
 
@@ -36,7 +36,7 @@ export async function GET(
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

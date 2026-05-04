@@ -30,11 +30,17 @@ const gallerySchema = z
     message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.`,
   });
 
+const COVER_ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+
 const coverSchema = z
   .any()
   .refine((file) => !file || file.size <= MAX_FILE_SIZE_BYTES, {
-    message: `Cover media must be less than ${MAX_FILE_SIZE_MB}MB.`,
-  });
+    message: `Cover photo must be less than ${MAX_FILE_SIZE_MB}MB.`,
+  })
+  .refine(
+    (file) => !file || !(file instanceof File) || COVER_ALLOWED_TYPES.includes(file.type),
+    { message: "Cover photo must be a JPEG, WebP, or PNG image." },
+  );
 
 // Helper to check if we need compression (Images only)
 const shouldCompressImage = (file: File): boolean => {
@@ -323,31 +329,38 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         </div>
 
         <div className="space-y-8">
-          {/* Cover Media */}
+          {/* Cover Photo */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900">
-                Cover Media (1 photo)
+                Cover Photo (1 image)
               </h3>
               {media.coverPhoto && (
                 <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                  {media.coverPhoto.type.startsWith("video")
-                    ? "🎥 Video Selected"
-                    : "🖼️ Image Selected"}
+                  {"🖼️ Image Selected"}
                 </span>
               )}
             </div>
             <p className="text-sm text-gray-500 mb-3">
-              This is the main visual for your listing. Images work best for
-              thumbnails, but videos are supported.
+              This is the main visual for your listing. Accepted formats: JPEG, WebP, PNG.
             </p>
             <FileUploader
               label=""
               multiple={false}
               files={media.coverPhoto ? [media.coverPhoto] : []}
-              onChange={(files) => setMedia({ ...media, coverPhoto: files[0] })}
-              emptyText="Click to upload Cover (Image or Video)"
-              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime,video/webm"
+              onChange={(files) => {
+                const newItem = files[0] || null;
+                if (newItem instanceof File) {
+                  const result = coverSchema.safeParse(newItem);
+                  if (!result.success) {
+                    toast.error(result.error.issues[0].message);
+                    return;
+                  }
+                }
+                setMedia({ ...media, coverPhoto: newItem });
+              }}
+              emptyText="Click to upload Cover Photo (JPEG, WebP, or PNG)"
+              accept="image/jpeg,image/jpg,image/webp,image/png"
               maxSize={MAX_FILE_SIZE_BYTES}
             />
           </div>

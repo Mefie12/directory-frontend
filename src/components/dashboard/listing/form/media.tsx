@@ -28,11 +28,17 @@ const gallerySchema = z
     { message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.` },
   );
 
+const COVER_ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+
 const coverSchema = z
   .any()
   .refine((file) => !file || !file.size || file.size <= MAX_FILE_SIZE_BYTES, {
-    message: `Cover media must be less than ${MAX_FILE_SIZE_MB}MB.`,
-  });
+    message: `Cover photo must be less than ${MAX_FILE_SIZE_MB}MB.`,
+  })
+  .refine(
+    (file) => !file || !(file instanceof File) || COVER_ALLOWED_TYPES.includes(file.type),
+    { message: "Cover photo must be a JPEG, WebP, or PNG image." },
+  );
 
 const shouldCompressImage = (file: File): boolean => {
   if (!file || !(file instanceof File) || !file.type.startsWith("image/"))
@@ -328,29 +334,35 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Upload images or videos. The first file will be your cover. Max 4 files, 50 MB each.
+            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 50 MB each.
           </p>
         </div>
 
         <div className="space-y-8">
           <div>
-            <h3 className="font-medium text-gray-900 mb-2">Cover Media</h3>
+            <h3 className="font-medium text-gray-900 mb-2">Cover Photo</h3>
             <FileUploader
               label=""
               multiple={false}
               files={media.coverPhoto ? [media.coverPhoto] : []}
               onChange={(files) => {
                 const newItem = files[0] || null;
-                const previousId = getExistingId(media.coverPhoto);
-                if (newItem instanceof File && previousId) {
-                  replaceIdMap.current.set(newItem, previousId);
+                if (newItem instanceof File) {
+                  const result = coverSchema.safeParse(newItem);
+                  if (!result.success) {
+                    toast.error(result.error.issues[0].message);
+                    return;
+                  }
+                  const previousId = getExistingId(media.coverPhoto);
+                  if (previousId) replaceIdMap.current.set(newItem, previousId);
                 }
-                if (!newItem && previousId) {
-                  removedIdQueue.current.push(previousId);
+                if (!newItem) {
+                  const previousId = getExistingId(media.coverPhoto);
+                  if (previousId) removedIdQueue.current.push(previousId);
                 }
                 setMedia({ ...media, coverPhoto: newItem });
               }}
-              accept="image/jpeg,image/jpg,image/webp,video/mp4"
+              accept="image/jpeg,image/jpg,image/webp,image/png"
               maxSize={MAX_FILE_SIZE_BYTES}
             />
           </div>

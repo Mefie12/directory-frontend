@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.API_URL || 'https://me-fie.co.uk/';
+const API_BASE_URL = (process.env.API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
 export async function GET(
   request: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        next: { revalidate: 60 },
+        cache: 'no-store',
       }
     );
 
@@ -36,7 +36,7 @@ export async function GET(
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

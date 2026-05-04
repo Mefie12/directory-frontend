@@ -92,25 +92,43 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
     const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
+    const [openingHours, setOpeningHours] = useState<ApiListingData["opening_hours"] | null>(null);
     const router = useRouter();
 
-    // 1. Fetch real data from API to ensure accuracy before publishing
+    // Fetch listing data, opening hours, and socials in parallel
     useEffect(() => {
-      const loadReviewData = async () => {
-        if (!listingSlug) return;
-        try {
-          const token = localStorage.getItem("authToken");
-          const res = await fetch(`/api/listing/${listingSlug}/show`, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          });
+      if (!listingSlug) return;
 
-          if (res.ok) {
-            const json = await res.json();
-            setListingData(json.data);
+      const token = localStorage.getItem("authToken");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
+
+      const loadAll = async () => {
+        try {
+          const [showRes, hoursRes, socialsRes] = await Promise.allSettled([
+            fetch(`/api/listing/${listingSlug}/show`, { headers }),
+            fetch(`/api/listing/${listingSlug}/opening_hours`, { headers }),
+            fetch(`/api/listing/${listingSlug}/socials`, { headers }),
+          ]);
+
+          if (showRes.status === "fulfilled" && showRes.value.ok) {
+            const json = await showRes.value.json();
+            setListingData(json.data || json);
+          }
+
+          if (hoursRes.status === "fulfilled" && hoursRes.value.ok) {
+            const json = await hoursRes.value.json();
+            const raw = json.data || json;
+            if (Array.isArray(raw) && raw.length > 0) setOpeningHours(raw);
+          }
+
+          if (socialsRes.status === "fulfilled" && socialsRes.value.ok) {
+            const json = await socialsRes.value.json();
+            const raw = json.data || json;
+            const entry = Array.isArray(raw) ? raw[0] ?? null : raw;
+            if (entry && typeof entry === "object") setSocialLinks(entry);
           }
         } catch (error) {
           console.error("Failed to load review data", error);
@@ -119,30 +137,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         }
       };
 
-      loadReviewData();
-    }, [listingSlug]);
-
-    useEffect(() => {
-      const loadSocialLinks = async () => {
-        if (!listingSlug) return;
-        try {
-          const token = localStorage.getItem("authToken");
-          const res = await fetch(`/api/listing/${listingSlug}/socials`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          });
-          if (!res.ok) return;
-          const json = await res.json();
-          const raw = json.data || json;
-          const firstEntry = Array.isArray(raw) ? raw[0] || null : raw;
-          if (firstEntry) setSocialLinks(firstEntry);
-        } catch (error) {
-          console.error("Failed to load social links for review", error);
-        }
-      };
-      loadSocialLinks();
+      loadAll();
     }, [listingSlug]);
 
     // 2. Handle the final "Publish" action
@@ -176,7 +171,15 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     const displayWebsite = listingData?.website;
 
-    const socials = socialLinks || listingData?.social_media;
+    // Merge socials from both sources; treat empty strings as absent
+    const rawSocials = socialLinks || listingData?.social_media || {};
+    const socials = Object.fromEntries(
+      Object.entries(rawSocials).map(([k, v]) => [k, v && String(v).trim() ? v : null])
+    );
+    const hasAnySocial = Object.values(socials).some(Boolean);
+
+    // Opening hours: prefer dedicated endpoint, fallback to show response
+    const displayHours = openingHours ?? listingData?.opening_hours ?? [];
 
     // Prepare Display Data (Prefer API data, fallback to local upload state)
     const displayImage = resolveCoverSrc(
@@ -336,8 +339,8 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                       <Clock className="w-3 h-3" /> Business Hours
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {listingData?.opening_hours?.length ? (
-                        listingData.opening_hours.map((h, i) => (
+                      {displayHours.length ? (
+                        displayHours.map((h, i) => (
                           <div
                             key={i}
                             className="text-xs text-gray-600 bg-gray-50 p-2 rounded border"
@@ -374,66 +377,53 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         </Card>
 
         {/* Social Media Card */}
-        {socials &&
-          Object.values(socials).some(Boolean) && (
-            <Card>
-              <CardContent className="p-6 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Social Media
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {socials?.facebook && (
-                    <div className="flex items-center gap-3">
-                      <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.facebook}
-                      </p>
-                    </div>
-                  )}
-                  {socials?.instagram && (
-                    <div className="flex items-center gap-3">
-                      <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.instagram}
-                      </p>
-                    </div>
-                  )}
-                  {socials?.twitter && (
-                    <div className="flex items-center gap-3">
-                      <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.twitter}
-                      </p>
-                    </div>
-                  )}
-                  {socials?.linkedin && (
-                    <div className="flex items-center gap-3">
-                      <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.linkedin}
-                      </p>
-                    </div>
-                  )}
-                  {socials?.tiktok && (
-                    <div className="flex items-center gap-3">
-                      <Globe className="w-4 h-4 text-black shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.tiktok}
-                      </p>
-                    </div>
-                  )}
-                  {socials?.whatsapp && (
-                    <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-green-600 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">
-                        {socials.whatsapp}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-900">Social Media</h3>
+            {hasAnySocial ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {socials?.facebook && (
+                  <div className="flex items-center gap-3">
+                    <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.facebook}</p>
+                  </div>
+                )}
+                {socials?.instagram && (
+                  <div className="flex items-center gap-3">
+                    <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.instagram}</p>
+                  </div>
+                )}
+                {socials?.twitter && (
+                  <div className="flex items-center gap-3">
+                    <Twitter className="w-4 h-4 text-blue-400 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.twitter}</p>
+                  </div>
+                )}
+                {socials?.linkedin && (
+                  <div className="flex items-center gap-3">
+                    <Linkedin className="w-4 h-4 text-blue-700 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.linkedin}</p>
+                  </div>
+                )}
+                {socials?.tiktok && (
+                  <div className="flex items-center gap-3">
+                    <Globe className="w-4 h-4 text-black shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.tiktok}</p>
+                  </div>
+                )}
+                {socials?.whatsapp && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-green-600 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.whatsapp}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 italic">No social links added</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     );
   },
