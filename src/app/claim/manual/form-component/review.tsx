@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { useRouter } from "next/navigation";
 import { getImageUrl } from "@/lib/directory/image-utils";
+import { useAuth } from "@/context/auth-context";
 
 /**
  * Resolve the cover image src from either the API `primary_image` field or
@@ -94,6 +95,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
     const [openingHours, setOpeningHours] = useState<ApiListingData["opening_hours"] | null>(null);
     const router = useRouter();
+    const { refreshUser } = useAuth();
 
     // Fetch listing data, opening hours, and socials in parallel
     useEffect(() => {
@@ -144,12 +146,20 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
-          // Show success toast
+          const token = localStorage.getItem("authToken");
+
+          // Send new listing notification email (non-blocking)
+          fetch(`/api/listing/${listingSlug}/new_listing_mail`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }).catch((err) => console.error("Failed to send listing mail:", err));
+
           toast.success("Listing Submitted Successfully!");
-
-          // Route to dashboard
+          await refreshUser();
           router.push("/dashboard/my-listing");
-
           return true;
         } catch (error) {
           console.error(error);

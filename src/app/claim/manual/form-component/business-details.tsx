@@ -331,6 +331,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   ? {
                       ...defaultDay,
                       id: apiDay.id,
+                      slug: apiDay.slug,
                       startTime: convertToHHmm(apiDay.open_time),
                       endTime: convertToHHmm(apiDay.close_time),
                       enabled: true,
@@ -446,6 +447,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
                   id: h.id,
+                  slug: h.slug,
                   day_of_week: h.day_of_week,
                   open_time: h.startTime,
                   close_time: h.endTime,
@@ -472,14 +474,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
         if (listingType !== "event" && enabledHours.length > 0) {
-          const hasExistingHours = enabledHours.some((h: any) => h.id);
+          const hasExistingHours = enabledHours.some((h: any) => h.slug);
 
           if (hasExistingHours) {
-            // Use day_of_week as the slug identifier (backend now slug-based, not ID-based)
             hoursResults = await Promise.all(
               enabledHours.map((h: any) => {
-                if (h.id) {
-                  return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.day_of_week}`, {
+                if (h.slug) {
+                  return fetch(`/api/opening_hours/${h.slug}`, {
                     method: "PUT",
                     headers: {
                       "Content-Type": "application/json",

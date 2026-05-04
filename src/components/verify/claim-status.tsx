@@ -4,9 +4,11 @@
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 
 export default function ClaimStatus({ business }: any) {
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   return (
     <div className="animate-in zoom-in-95 duration-500 flex flex-col items-center text-center pt-10">
@@ -55,7 +57,10 @@ export default function ClaimStatus({ business }: any) {
 
       <div className="w-full space-y-3">
         <Button
-          onClick={() => router.push("/dashboard")}
+          onClick={async () => {
+            await refreshUser();
+            router.push("/dashboard");
+          }}
           className="w-full bg-[#93C01F] hover:bg-[#7ea919] text-white h-12 text-base font-medium rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-xs"
         >
           <LayoutDashboard className="w-5 h-5" /> Go to Dashboard

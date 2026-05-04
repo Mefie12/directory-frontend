@@ -158,10 +158,9 @@ function ManualLisitingForm() {
         return (
           <div className="max-w-md mx-auto py-12">
             <VerifyOtp
-              email={user?.email || "your email"}
-              onVerify={handleVerifyOtp}
-              onResend={handleResendOtp}
-              isLoading={isSaving}
+              business={{ slug: listingSlug }}
+              claimedEmail={user?.email || ""}
+              onNext={() => setCurrentStep(7)}
             />
           </div>
         );

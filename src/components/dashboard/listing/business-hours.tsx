@@ -8,6 +8,7 @@ import { useState } from "react";
 export interface DaySchedule {
   // day_of_week: any;
   id?: number | string;
+  slug?: string;
   day_of_week: string;
   startTime: string;
   endTime: string;

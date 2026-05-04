@@ -305,6 +305,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   ? {
                       ...defaultDay,
                       id: apiDay.id,
+                      slug: apiDay.slug,
                       startTime: convertToHHmm(apiDay.open_time),
                       endTime: convertToHHmm(apiDay.close_time),
                       enabled: true,
@@ -457,18 +458,19 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
                   id: h.id,
+                  slug: h.slug,
                   day_of_week: h.day_of_week,
                   open_time: h.startTime,
                   close_time: h.endTime,
                 }))
             : [];
 
-        // Days that were loaded from the server (have an ID) but user has since unchecked
+        // Days that were loaded from the server (have a slug) but user has since unchecked
         const hoursToDelete =
           listingType !== "event"
             ? data.businessHours
-                .filter((h: DaySchedule) => !h.enabled && !!h.id)
-                .map((h: DaySchedule) => h.day_of_week)
+                .filter((h: DaySchedule) => !h.enabled && !!h.slug)
+                .map((h: DaySchedule) => h.slug as string)
             : [];
 
         // For events: POST to create on first save, PATCH update endpoint on subsequent saves.
@@ -501,11 +503,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
         if (listingType !== "event") {
-          // DELETE hours for days the user has unchecked (use day_of_week as slug identifier)
+          // DELETE hours for days the user has unchecked (use slug per API)
           if (hoursToDelete.length > 0) {
             await Promise.all(
-              hoursToDelete.map((dayOfWeek) =>
-                fetch(`/api/listing/${effectiveSlug}/opening_hours/${dayOfWeek}`, {
+              hoursToDelete.map((slug) =>
+                fetch(`/api/opening_hours/${slug}`, {
                   method: "DELETE",
                   headers: {
                     "Content-Type": "application/json",
@@ -518,14 +520,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           }
 
           if (enabledHours.length > 0) {
-            const hasExistingHours = enabledHours.some((h) => !!h.id);
+            const hasExistingHours = enabledHours.some((h) => !!h.slug);
 
             if (hasExistingHours) {
-              // Use day_of_week as the slug identifier for PUT (backend now slug-based, not ID-based)
               hoursResults = await Promise.all(
                 enabledHours.map((h) => {
-                  if (h.id) {
-                    return fetch(`/api/listing/${effectiveSlug}/opening_hours/${h.day_of_week}`, {
+                  if (h.slug) {
+                    return fetch(`/api/opening_hours/${h.slug}`, {
                       method: "PUT",
                       headers: {
                         "Content-Type": "application/json",
