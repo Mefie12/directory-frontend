@@ -183,9 +183,8 @@ export default function ListingDetailPage({ params }: PageProps) {
     try {
       setLoading(true);
       const token = localStorage.getItem("authToken");
-      const API_URL = "https://me-fie.co.uk";
 
-      const res = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+      const res = await fetch(`/api/listing/${slug}/show`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -245,9 +244,8 @@ export default function ListingDetailPage({ params }: PageProps) {
   const fetchServices = useCallback(async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = "https://me-fie.co.uk";
 
-      const res = await fetch(`${API_URL}/api/listing/${slug}/services`, {
+      const res = await fetch(`/api/listing/${slug}/services`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -315,7 +313,6 @@ export default function ListingDetailPage({ params }: PageProps) {
     setIsSubmittingService(true);
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = "https://me-fie.co.uk";
 
       if (serviceImages.length > 0) {
         const formData = new FormData();
@@ -325,7 +322,7 @@ export default function ListingDetailPage({ params }: PageProps) {
           formData.append(`images[${i}]`, img),
         );
 
-        const res = await fetch(`${API_URL}/api/listing/${slug}/services`, {
+        const res = await fetch(`/api/listing/${slug}/services`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -335,7 +332,7 @@ export default function ListingDetailPage({ params }: PageProps) {
         });
         if (!res.ok) throw new Error("Failed to create service");
       } else {
-        const res = await fetch(`${API_URL}/api/listing/${slug}/services`, {
+        const res = await fetch(`/api/listing/${slug}/services`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -363,9 +360,8 @@ export default function ListingDetailPage({ params }: PageProps) {
     setIsDeleting(true);
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = "https://me-fie.co.uk";
 
-      const res = await fetch(`${API_URL}/api/listing/${slug}`, {
+      const res = await fetch(`/api/listing/${slug}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

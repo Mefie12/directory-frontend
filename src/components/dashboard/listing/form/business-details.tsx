@@ -157,10 +157,11 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onValidityChange?: (isValid: boolean) => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, onValidityChange }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
     const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -249,9 +250,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       control,
       reset,
-      formState: { errors },
+      formState: { errors, isValid },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
+
+    useEffect(() => {
+      onValidityChange?.(isValid);
+    }, [isValid, onValidityChange]);
     const [isSaving, setIsSaving] = useState(false);
     // Tracks the backend event record slug so we can use the update endpoint on subsequent saves.
     const [eventSlug, setEventSlug] = useState<string | null>(null);
@@ -300,6 +305,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   ? {
                       ...defaultDay,
                       id: apiDay.id,
+                      slug: apiDay.slug,
                       startTime: convertToHHmm(apiDay.open_time),
                       endTime: convertToHHmm(apiDay.close_time),
                       enabled: true,
@@ -325,24 +331,24 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
-              event_price: d.event_price || "",
-              event_currency: d.event_currency || "",
-              event_ticket_url: d.event_ticket_url || d.ticket_url || "",
-              event_online_url: d.event_online_url || d.online_url || "",
+              event_price: d.event?.event_price ?? d.event_price ?? "",
+              event_currency: d.event?.event_currency ?? d.event_currency ?? "",
+              event_ticket_url: d.event?.event_ticket_url ?? d.event_ticket_url ?? d.ticket_url ?? "",
+              event_online_url: d.event?.event_online_url ?? d.event_online_url ?? d.online_url ?? "",
               event_start_date: convertDateToInput(
-                d.event_start_date || d.start_date,
+                d.event?.event_start_date ?? d.event_start_date ?? d.start_date,
               ),
               event_end_date: convertDateToInput(
-                d.event_end_date || d.end_date || d.event_start_date || d.start_date,
+                d.event?.event_end_date ?? d.event_end_date ?? d.end_date ?? d.event_start_date ?? d.start_date,
               ),
               event_start_time: convertTimeToInput(
-                d.event_start_time || d.start_time,
+                d.event?.event_start_time ?? d.event_start_time ?? d.start_time,
               ),
-              event_end_time: convertTimeToInput(d.event_end_time || d.end_time),
+              event_end_time: convertTimeToInput(d.event?.event_end_time ?? d.event_end_time ?? d.end_time),
               // Resource returns event_location_type (renamed from the DB column event_location)
-              event_location: d.event_location_type || d.event?.event_location_type || "",
+              event_location: d.event?.event_location_type ?? d.event_location_type ?? "",
               // Duration type — only on the nested event object
-              event_type: d.event?.event_type || "",
+              event_type: d.event?.event_type ?? "",
             });
           }
         } catch (err) {
@@ -452,18 +458,19 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
                   id: h.id,
+                  slug: h.slug,
                   day_of_week: h.day_of_week,
                   open_time: h.startTime,
                   close_time: h.endTime,
                 }))
             : [];
 
-        // Days that were loaded from the server (have an ID) but user has since unchecked
+        // Days that were loaded from the server (have a slug) but user has since unchecked
         const hoursToDelete =
           listingType !== "event"
             ? data.businessHours
-                .filter((h: DaySchedule) => !h.enabled && !!h.id)
-                .map((h: DaySchedule) => h.id as number)
+                .filter((h: DaySchedule) => !h.enabled && !!h.slug)
+                .map((h: DaySchedule) => h.slug as string)
             : [];
 
         // For events: POST to create on first save, PATCH update endpoint on subsequent saves.
@@ -496,11 +503,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
         if (listingType !== "event") {
-          // DELETE hours for days the user has unchecked
+          // DELETE hours for days the user has unchecked (use slug per API)
           if (hoursToDelete.length > 0) {
             await Promise.all(
-              hoursToDelete.map((id) =>
-                fetch(`/api/opening_hours/${id}`, {
+              hoursToDelete.map((slug) =>
+                fetch(`/api/opening_hours/${slug}`, {
                   method: "DELETE",
                   headers: {
                     "Content-Type": "application/json",
@@ -513,13 +520,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           }
 
           if (enabledHours.length > 0) {
-            const hasExistingHours = enabledHours.some((h) => !!h.id);
+            const hasExistingHours = enabledHours.some((h) => !!h.slug);
 
             if (hasExistingHours) {
               hoursResults = await Promise.all(
                 enabledHours.map((h) => {
-                  if (h.id) {
-                    return fetch(`/api/opening_hours/${h.id}`, {
+                  if (h.slug) {
+                    return fetch(`/api/opening_hours/${h.slug}`, {
                       method: "PUT",
                       headers: {
                         "Content-Type": "application/json",

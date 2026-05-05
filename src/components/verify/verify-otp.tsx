@@ -6,7 +6,15 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export default function VerifyOtp({ business, onNext }: any) {
+export default function VerifyOtp({
+  business,
+  claimedEmail,
+  onNext,
+}: {
+  business: any;
+  claimedEmail: string;
+  onNext: () => void;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(165);
   const [otpValue, setOtpValue] = useState("");
@@ -65,7 +73,7 @@ export default function VerifyOtp({ business, onNext }: any) {
           },
           body: JSON.stringify({
             otp: otpValue,
-            email: business.email,
+            email: claimedEmail,
           }),
         },
       );
@@ -101,7 +109,7 @@ export default function VerifyOtp({ business, onNext }: any) {
             ...(token && { Authorization: `Bearer ${token}` }),
           },
           body: JSON.stringify({
-            email: business.email,
+            email: claimedEmail,
           }),
         },
       );
@@ -125,7 +133,7 @@ export default function VerifyOtp({ business, onNext }: any) {
         </h2>
         <p className="text-gray-500 text-lg">
           We&apos;ve sent a 6-digit verification code to{" "}
-          <span className="font-bold text-[#1F3A4C]">{business.email}</span>.
+          <span className="font-bold text-[#1F3A4C]">{claimedEmail}</span>.
           Please enter it below.
         </p>
       </div>

@@ -45,7 +45,13 @@ const getImageUrl = (imageEntry: any): string => {
   return `${API_URL}/${url.replace(/^\//, "")}`;
 };
 
-export default function ClaimSubmission({ business, onNext }: any) {
+export default function ClaimSubmission({
+  business,
+  onNext,
+}: {
+  business: any;
+  onNext: (email?: string) => void;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const [method, setMethod] = useState<"documents" | "email">("documents");
   const [file, setFile] = useState<string | null>(null);
@@ -122,7 +128,7 @@ export default function ClaimSubmission({ business, onNext }: any) {
 
         if (response.ok) {
           toast.success(data.message || "Verification code sent!");
-          onNext();
+          onNext(businessEmail);
         } else {
           throw new Error(
             data.message || "Failed to initiate email verification.",
@@ -153,7 +159,7 @@ export default function ClaimSubmission({ business, onNext }: any) {
 
         if (response.ok) {
           toast.success(data.message || "Evidence submitted for review.");
-          onNext();
+          onNext(); // no email — goes to success directly
         } else {
           throw new Error(data.message || "Failed to submit document claim.");
         }

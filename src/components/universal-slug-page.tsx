@@ -17,7 +17,7 @@ import {
   YoutubeLogo,
   SpinnerGap,
   Clock,
-  WarningCircle,
+  // WarningCircle,
   TiktokLogo,
   WhatsappLogo,
   CaretRight, // Added for link-style appearance
@@ -343,7 +343,7 @@ const SocialIcon = ({
 function ProviderHeader({
   provider,
   rating,
-  type,
+  // type,
 }: {
   provider: Provider;
   rating: number;
@@ -830,7 +830,7 @@ function SidebarInfo({
 
           {provider.claim_status && (
             <div className="mt-3 text-center">
-              <Link
+              {/*<Link
                 href={`/claim/${provider.slug}/verify`}
                 className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
               >
@@ -839,7 +839,7 @@ function SidebarInfo({
                 <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
                   Request ownership
                 </span>
-              </Link>
+              </Link>*/}
             </div>
           )}
         </div>
@@ -1149,7 +1149,7 @@ export default function UniversalSlugPage({
         <main className="lg:col-span-8 space-y-6">
           <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
             <div className="relative w-full">
-              <HeroCarousel items={template.gallery} alt={providerData.name} />
+              <HeroCarousel items={template.gallery.filter((i) => i.type === "image")} alt={providerData.name} />
               <div className="absolute top-4 right-6 flex gap-2 z-10">
                 <BookmarkButton slug={providerData.slug} />
               </div>

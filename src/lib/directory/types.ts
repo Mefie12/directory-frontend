@@ -36,6 +36,7 @@ export interface ApiListing {
   images: (ApiImage | string)[];
   cover_image?: string;
   image?: string;
+  primary_image?: string;
   categories: ApiCategory[];
   bio?: string;
   description?: string;
@@ -57,6 +58,8 @@ export interface ApiListing {
   event_price?: string | null;
   event_currency?: string | null;
   event_location_type?: string | null;
+  event_ticket_url?: string | null;
+  event_online_url?: string | null;
 }
 
 export interface ApiListingsResponse<T = ApiListing> {

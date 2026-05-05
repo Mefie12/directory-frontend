@@ -26,6 +26,7 @@ import { useBookmark, BookmarkItemType } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { InviteFriendModal } from "@/components/dashboard/invite-friend-modal";
 
 // --- Types ---
 interface ListingItem {
@@ -228,6 +229,7 @@ export default function Bookmarks() {
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
   const [isJoiningVendor] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -418,12 +420,17 @@ export default function Bookmarks() {
                 className="object-contain"
               />
             </div>
-            <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer"
+            >
               Invite a friend
             </button>
           </div>
         </div>
       </div>
+
+      <InviteFriendModal open={inviteOpen} onOpenChange={setInviteOpen} />
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

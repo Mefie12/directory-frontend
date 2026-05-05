@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { InviteFriendModal } from "@/components/dashboard/invite-friend-modal";
 
 // --- Types ---
 interface ListingItem {
@@ -212,6 +213,7 @@ export default function CustomerHome() {
   const [bookmarks, setBookmarks] = useState<ListingItem[]>([]);
   const [eventsNearMe, setEventsNearMe] = useState<ListingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -470,12 +472,17 @@ export default function CustomerHome() {
                 className="object-contain"
               />
             </div>
-            <Button className="bg-white text-gray-900 hover:bg-gray-100 w-fit mt-6 relative z-10">
+            <Button
+              className="bg-white text-gray-900 hover:bg-gray-100 w-fit mt-6 relative z-10"
+              onClick={() => setInviteOpen(true)}
+            >
               Invite a friend
             </Button>
           </div>
         </div>
       </div>
+
+      <InviteFriendModal open={inviteOpen} onOpenChange={setInviteOpen} />
 
       {/* Saved Bookmarks Section */}
       <div className="space-y-4">

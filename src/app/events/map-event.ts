@@ -19,7 +19,7 @@ export function createEventMapper(filterCountry?: string | null) {
       if (itemCountry !== target) return null;
     }
 
-    const images = processImages(item.images, [item.image, item.cover_image]);
+    const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
     const category = item.categories?.[0];
 
     const startDate = formatDateTime(item.event_start_date);
@@ -59,6 +59,7 @@ export function createEventMapper(filterCountry?: string | null) {
       rating: Number(item.rating) || 0,
       reviewCount: Number(item.ratings_count) || 0,
       type: "event",
+      ticketUrl: (item as ApiListing & { event?: { event_ticket_url?: string | null } }).event?.event_ticket_url || item.event_ticket_url || undefined,
     };
   };
 }

@@ -243,10 +243,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${listingSlug}/socials`,
+            `/api/listing/${listingSlug}/socials`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -304,11 +302,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         // If no social media links provided, we still proceed to next step
         if (Object.keys(socialData).length === 0) return true;
 
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-        // UPDATED: Use the /update endpoint with PATCH method
-        const endpoint = `${API_URL}/api/listing/${listingSlug}/socials`;
+        const endpoint = `/api/listing/${listingSlug}/socials`;
 
         const response = await fetch(endpoint, {
           method: "POST", // Changed from POST to PATCH

@@ -54,6 +54,7 @@ interface ApiListing {
   country?: string;
   status: string;
   images: (ApiImage | string)[];
+  primary_image?: string;
   cover_image?: string;
   categories: ApiCategory[];
   bio?: string;
@@ -165,6 +166,9 @@ export default function HomeContent() {
             });
 
           // Fallbacks
+          if (validImages.length === 0 && item.primary_image) {
+            validImages.push(getImageUrl(item.primary_image));
+          }
           if (validImages.length === 0 && item.cover_image) {
             validImages.push(getImageUrl(item.cover_image));
           }

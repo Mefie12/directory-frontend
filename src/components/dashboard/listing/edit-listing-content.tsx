@@ -66,6 +66,7 @@ export default function EditListingContent() {
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [stepIsValid, setStepIsValid] = useState(true);
 
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
@@ -117,9 +118,8 @@ export default function EditListingContent() {
       try {
         setIsFetching(true);
         const token = localStorage.getItem("authToken");
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/listing/${slug}/show`, {
+        const response = await fetch(`/api/listing/${slug}/show`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
@@ -186,16 +186,16 @@ export default function EditListingContent() {
         city: data.type === "event" ? (data.event_city || data.city || "") : data.city,
         google_plus_code: data.google_plus_code,
         businessHours: mapApiHoursToUi(data.opening_hours || []),
-        // Event-specific fields
-        event_price: data.event_price || "",
-        event_currency: data.event_currency || "",
-        event_ticket_url: data.event_ticket_url || "",
-        event_online_url: data.event_online_url || "",
-        event_start_date: data.event_start_date || "",
-        event_end_date: data.event_end_date || "",
-        event_start_time: data.event_start_time || "",
-        event_end_time: data.event_end_time || "",
-        event_location: data.event_location || "",
+        // Event-specific fields (some APIs nest these under data.event)
+        event_price: data.event?.event_price ?? data.event_price ?? "",
+        event_currency: data.event?.event_currency ?? data.event_currency ?? "",
+        event_ticket_url: data.event?.event_ticket_url ?? data.event_ticket_url ?? "",
+        event_online_url: data.event?.event_online_url ?? data.event_online_url ?? "",
+        event_start_date: data.event?.event_start_date ?? data.event_start_date ?? "",
+        event_end_date: data.event?.event_end_date ?? data.event_end_date ?? "",
+        event_start_time: data.event?.event_start_time ?? data.event_start_time ?? "",
+        event_end_time: data.event?.event_end_time ?? data.event_end_time ?? "",
+        event_location: data.event?.event_location_type ?? data.event_location_type ?? data.event_location ?? "",
       } as any);
 
         // 3. Social Media
@@ -291,10 +291,13 @@ export default function EditListingContent() {
   };
 
   const handleBack = () => {
-    setCurrentStep(Math.max(1, currentStep - 1));
+    const prev = Math.max(1, currentStep - 1);
+    if (prev > 2) setStepIsValid(true);
+    setCurrentStep(prev);
   };
 
   const handleStepClick = (step: number) => {
+    if (step > 2) setStepIsValid(true);
     setCurrentStep(step);
   };
 
@@ -309,9 +312,19 @@ export default function EditListingContent() {
 
     switch (currentStep) {
       case 1:
-        return <BasicInformationForm {...commonProps} />;
+        return (
+          <BasicInformationForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 2:
-        return <BusinessDetailsForm {...commonProps} />;
+        return (
+          <BusinessDetailsForm
+            {...commonProps}
+            onValidityChange={setStepIsValid}
+          />
+        );
       case 3:
         return <MediaUploadStep {...commonProps} />;
       case 4:
@@ -383,8 +396,8 @@ export default function EditListingContent() {
 
           <Button
             onClick={handleNext}
-            disabled={isSaving}
-            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px]"
+            disabled={isSaving || (currentStep === 1 && !stepIsValid)}
+            className="bg-[#93C01F] hover:bg-[#82ab1b] text-white min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>

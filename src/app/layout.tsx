@@ -33,7 +33,8 @@ export const metadata: Metadata = {
     default: "Me-fie Directory",
   },
   description:
-    "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+    "Mefie Directory | Discover Ghanaian Businesses, Events & Services Worldwide Discover trusted Ghanaian businesses, cultural events, communities, and services across the diaspora and beyond. Connect, promote, and grow with Mefie Directory.",
+
   keywords: [
     "Me-fie Directory",
     "African owned businesses",
@@ -67,7 +68,7 @@ export const metadata: Metadata = {
     siteName: "Me-fie Directory",
     title: "Me-fie Directory",
     description:
-      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+      "Mefie Directory | Discover Ghanaian Businesses, Events & Services Worldwide Discover trusted Ghanaian businesses, cultural events, communities, and services across the diaspora and beyond. Connect, promote, and grow with Mefie Directory.",
     images: [
       {
         url: "https://mefiedirectory.com/og-image.jpg",
@@ -81,7 +82,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Me-fie",
     description:
-      "Connect with African owned businesses, cultural events, and services across the diaspora and back home",
+      "Mefie Directory | Discover Ghanaian Businesses, Events & Services Worldwide Discover trusted Ghanaian businesses, cultural events, communities, and services across the diaspora and beyond. Connect, promote, and grow with Mefie Directory.",
     images: ["https://mefiedirectory.com/og-image.jpg"],
     creator: "@mefie",
   },

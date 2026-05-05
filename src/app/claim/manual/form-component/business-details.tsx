@@ -192,10 +192,11 @@ export type DetailsFormValues = z.infer<typeof DetailsFormSchema>;
 type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  onValidityChange?: (isValid: boolean) => void;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug }, ref) => {
+  ({ listingType, listingSlug, onValidityChange }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
     const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -282,10 +283,15 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       trigger,
       control,
       reset,
-      formState: { errors },
+      formState: { errors, isValid },
     } = form;
     const { businessDetails, setBusinessDetails } = useListing();
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+      onValidityChange?.(isValid);
+    }, [isValid, onValidityChange]);
+
     const currentHours =
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
@@ -302,10 +308,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         if (!effectiveSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
           const res = await fetch(
-            `${API_URL}/api/listing/${effectiveSlug}/show`,
+            `/api/listing/${effectiveSlug}/show`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -327,6 +331,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   ? {
                       ...defaultDay,
                       id: apiDay.id,
+                      slug: apiDay.slug,
                       startTime: convertToHHmm(apiDay.open_time),
                       endTime: convertToHHmm(apiDay.close_time),
                       enabled: true,
@@ -400,7 +405,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         return false;
       }
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       try {
         setIsSaving(true);
@@ -443,6 +447,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
                   id: h.id,
+                  slug: h.slug,
                   day_of_week: h.day_of_week,
                   open_time: h.startTime,
                   close_time: h.endTime,
@@ -451,11 +456,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         const detailsEndpoint =
           listingType === "event"
-            ? `${API_URL}/api/listing/${effectiveSlug}/eventDetails`
-            : `${API_URL}/api/listing/${effectiveSlug}/address`;
+            ? `/api/listing/${effectiveSlug}/eventDetails`
+            : `/api/listing/${effectiveSlug}/address`;
+
+        const detailsMethod = listingType === "event" ? "POST" : "PUT";
 
         const detailsReq = fetch(detailsEndpoint, {
-          method: "POST",
+          method: detailsMethod,
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -467,14 +474,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
         if (listingType !== "event" && enabledHours.length > 0) {
-          const hasExistingHours = enabledHours.some((h: any) => h.id);
+          const hasExistingHours = enabledHours.some((h: any) => h.slug);
 
           if (hasExistingHours) {
-            // PUT each hour individually to update existing opening hours
             hoursResults = await Promise.all(
               enabledHours.map((h: any) => {
-                if (h.id) {
-                  return fetch(`${API_URL}/api/opening_hours/${h.id}`, {
+                if (h.slug) {
+                  return fetch(`/api/opening_hours/${h.slug}`, {
                     method: "PUT",
                     headers: {
                       "Content-Type": "application/json",
@@ -488,7 +494,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     }),
                   });
                 } else {
-                  return fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+                  return fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
@@ -506,7 +512,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             );
           } else {
             // POST all hours as a batch for initial creation
-            const res = await fetch(`${API_URL}/api/listing/${effectiveSlug}/opening_hours`, {
+            const res = await fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
