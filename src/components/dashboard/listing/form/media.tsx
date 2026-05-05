@@ -234,6 +234,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           formData.append("_method", "PATCH");
           formData.append("media_id", id.toString());
           formData.append("media", optimized);
+          formData.append("sort_order", pos.toString());
 
           const response = await fetch(
             `/api/listing/${listingSlug}/media_update`,
@@ -266,6 +267,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           const optimized = await smartCompressImage(file);
           const formData = new FormData();
           formData.append("media[]", optimized);
+          formData.append("sort_order", pos.toString());
           formData.append("upload_strategy", "chunked");
           formData.append("chunk_index", (i + 1).toString());
           formData.append("total_chunks", trueCreate.length.toString());
