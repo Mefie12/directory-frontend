@@ -59,6 +59,7 @@ export function createEventMapper(filterCountry?: string | null) {
       rating: Number(item.rating) || 0,
       reviewCount: Number(item.ratings_count) || 0,
       type: "event",
+      ticketUrl: (item as ApiListing & { event?: { event_ticket_url?: string | null } }).event?.event_ticket_url || item.event_ticket_url || undefined,
     };
   };
 }

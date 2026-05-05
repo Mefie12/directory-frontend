@@ -36,13 +36,11 @@ import type { ProcessedEvent } from "@/types/event";
 // }
 
 interface EventSectionCarouselProps {
-  events: ProcessedEvent[]; // Changed from Event[] to ProcessedEvent[]
+  events: ProcessedEvent[];
   title?: string;
   showTitle?: boolean;
   showNavigation?: boolean;
   noPadding?: boolean;
-  onViewDetails?: (eventId: string) => void;
-  onGetTickets?: (eventId: string) => void;
 }
 
 export default function EventCarousel({
@@ -51,8 +49,6 @@ export default function EventCarousel({
   showTitle = true,
   showNavigation = true,
   noPadding = false,
-  onViewDetails,
-  onGetTickets,
 }: EventSectionCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: "center",
@@ -133,11 +129,7 @@ export default function EventCarousel({
               key={eventItem.id}
               className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_calc(50%-0.75rem)] lg:flex-[0_0_calc(50%-0.75rem)]"
             >
-              <EventCardScroll
-                event={eventItem as any}
-                onViewDetails={onViewDetails}
-                onGetTickets={onGetTickets}
-              />
+              <EventCardScroll event={eventItem} />
             </div>
           ))}
         </div>

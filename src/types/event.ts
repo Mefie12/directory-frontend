@@ -21,5 +21,6 @@ export interface ProcessedEvent {
   price: string;
   rating: number;
   reviewCount: number;
-  time?: string; // Optional time property
+  time?: string;
+  ticketUrl?: string;
 }

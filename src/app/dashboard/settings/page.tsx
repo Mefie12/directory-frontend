@@ -28,6 +28,7 @@ import { useAuth } from "@/context/auth-context";
 import { normalizeRole } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { InviteFriendModal } from "@/components/dashboard/invite-friend-modal";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -378,6 +379,7 @@ export default function Settings() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // --- Success Dialog State ---
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
@@ -841,10 +843,14 @@ export default function Settings() {
                         className="object-contain"
                       />
                     </div>
-                    <button className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer">
+                    <button
+                      onClick={() => setInviteOpen(true)}
+                      className="bg-white rounded-lg py-2 px-3 text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm cursor-pointer"
+                    >
                       Invite a friend
                     </button>
                   </div>
+                  <InviteFriendModal open={inviteOpen} onOpenChange={setInviteOpen} />
                 </div>
               )}
             </div>
