@@ -109,7 +109,7 @@ const smartCompressImage = async (file: File): Promise<File> => {
 
 export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
-    const { media, setMedia, currentStep } = useListing();
+    const { media, setMedia } = useListing();
     const [isUploading, setIsUploading] = useState(false);
     
     // Track if this is an existing listing (created in step 1, returned to media)
@@ -162,8 +162,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             toast.loading("Uploading files...");
 
             const formData = new FormData();
-            files.forEach((file) => {
+            files.forEach((file, index) => {
               formData.append("media[]", file);
+              formData.append("sort_order[]", index.toString());
             });
 
             formData.append("upload_strategy", "bulk");
@@ -221,6 +222,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               const formData = new FormData();
               chunk.forEach((file) => {
                 formData.append("media[]", file);
+                formData.append("sort_order[]", i.toString());
               });
 
               formData.append("upload_strategy", "chunked");
