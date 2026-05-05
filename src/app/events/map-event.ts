@@ -19,7 +19,7 @@ export function createEventMapper(filterCountry?: string | null) {
       if (itemCountry !== target) return null;
     }
 
-    const images = processImages(item.images, [item.image, item.cover_image]);
+    const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
     const category = item.categories?.[0];
 
     const startDate = formatDateTime(item.event_start_date);

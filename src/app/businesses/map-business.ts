@@ -21,7 +21,7 @@ export interface ProcessedBusiness {
 }
 
 export function mapBusiness(item: ApiListing): ProcessedBusiness {
-  const images = processImages(item.images, [item.image, item.cover_image]);
+  const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
   const categorySlugs =
     item.categories?.map((c) => c.slug || slugifyCategory(c.name)) || [
       "general",

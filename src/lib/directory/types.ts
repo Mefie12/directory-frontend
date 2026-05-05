@@ -36,6 +36,7 @@ export interface ApiListing {
   images: (ApiImage | string)[];
   cover_image?: string;
   image?: string;
+  primary_image?: string;
   categories: ApiCategory[];
   bio?: string;
   description?: string;

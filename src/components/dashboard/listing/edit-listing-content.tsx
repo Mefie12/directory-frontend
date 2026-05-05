@@ -186,16 +186,16 @@ export default function EditListingContent() {
         city: data.type === "event" ? (data.event_city || data.city || "") : data.city,
         google_plus_code: data.google_plus_code,
         businessHours: mapApiHoursToUi(data.opening_hours || []),
-        // Event-specific fields
-        event_price: data.event_price || "",
-        event_currency: data.event_currency || "",
-        event_ticket_url: data.event_ticket_url || "",
-        event_online_url: data.event_online_url || "",
-        event_start_date: data.event_start_date || "",
-        event_end_date: data.event_end_date || "",
-        event_start_time: data.event_start_time || "",
-        event_end_time: data.event_end_time || "",
-        event_location: data.event_location || "",
+        // Event-specific fields (some APIs nest these under data.event)
+        event_price: data.event?.event_price ?? data.event_price ?? "",
+        event_currency: data.event?.event_currency ?? data.event_currency ?? "",
+        event_ticket_url: data.event?.event_ticket_url ?? data.event_ticket_url ?? "",
+        event_online_url: data.event?.event_online_url ?? data.event_online_url ?? "",
+        event_start_date: data.event?.event_start_date ?? data.event_start_date ?? "",
+        event_end_date: data.event?.event_end_date ?? data.event_end_date ?? "",
+        event_start_time: data.event?.event_start_time ?? data.event_start_time ?? "",
+        event_end_time: data.event?.event_end_time ?? data.event_end_time ?? "",
+        event_location: data.event?.event_location_type ?? data.event_location_type ?? data.event_location ?? "",
       } as any);
 
         // 3. Social Media

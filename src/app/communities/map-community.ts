@@ -21,7 +21,7 @@ export interface ProcessedCommunity {
 }
 
 export function mapCommunity(item: ApiListing): ProcessedCommunity {
-  const images = processImages(item.images, [item.image, item.cover_image]);
+  const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
   const category = item.categories?.[0];
 
   return {

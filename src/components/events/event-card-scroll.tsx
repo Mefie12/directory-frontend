@@ -19,7 +19,7 @@ export const EventCardScroll = ({
       <div 
         className="relative rounded-2xl overflow-hidden shadow-lg"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url(${event.image})`,
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url("${event.image}")`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           minHeight: '280px'
