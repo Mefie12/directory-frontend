@@ -679,6 +679,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   onChange={(country: Country) =>
                     setValue("country", country.name, { shouldValidate: true })
                   }
+                  className="rounded-lg"
                 />
                 {errors.country && (
                   <p className="text-red-500 text-xs">{errors.country.message}</p>
@@ -701,6 +702,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 onChange={(country: Country) =>
                   setValue("country", country.name, { shouldValidate: true })
                 }
+                className="rounded-lg"
               />
             ) : (
               <div className="relative">
