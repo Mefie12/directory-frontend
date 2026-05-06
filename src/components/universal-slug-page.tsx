@@ -797,52 +797,35 @@ function SidebarInfo({
           )}
         </div>
 
-        <Divider />
+        {(provider.website || !provider.claim_status) && <Divider />}
 
         {provider.website && (
-          <div className="flex flex-col gap-1">
-            <h6 className="text-base font-medium text-gray-900">Website</h6>
-            <Link
-              href={provider.website}
-              target="_blank"
-              rel="noreferrer"
-              className="text-emerald-600 hover:underline text-sm truncate"
-            >
-              {provider.website}
-            </Link>
-          </div>
+          <>
+            <div className="flex flex-col gap-1">
+              <h6 className="text-base font-medium text-gray-900">Website</h6>
+              <Link
+                href={provider.website}
+                target="_blank"
+                rel="noreferrer"
+                className="text-emerald-600 hover:underline text-sm truncate"
+              >
+                {provider.website}
+              </Link>
+            </div>
+            {!provider.claim_status && <Divider />}
+          </>
         )}
 
-        <Divider />
-
-        <div className="mt-4">
-          <Button
-            onClick={handleClaimBusiness}
-            disabled={!!provider.claim_status}
-            className={`w-full ${
-              provider.claim_status
-                ? "hidden"
-                : "bg-[#93C01F] hover:bg-[#82ab1b] text-white"
-            }`}
-          >
-            {provider.claim_status ? "Claimed" : "Claim business"}
-          </Button>
-
-          {provider.claim_status && (
-            <div className="mt-3 text-center">
-              {/*<Link
-                href={`/claim/${provider.slug}/verify`}
-                className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
-              >
-                <WarningCircle className="h-3 w-3" />
-                Own this business?{" "}
-                <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
-                  Request ownership
-                </span>
-              </Link>*/}
-            </div>
-          )}
-        </div>
+        {!provider.claim_status && (
+          <div className="mt-4">
+            <Button
+              onClick={handleClaimBusiness}
+              className="w-full bg-[#93C01F] hover:bg-[#82ab1b] text-white"
+            >
+              Claim business
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
