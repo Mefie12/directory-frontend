@@ -33,6 +33,11 @@ export interface ScrollableCategoryTabsProps {
   categories?: CategoryTabItem[];
   mainCategorySlug?: string;
   context?: "discover" | "businesses" | "events" | "communities";
+  /**
+   * Active country filter (proper-cased, e.g. "Ghana").
+   * Empty string or omitted = the backend resolves geo from the forwarded client IP.
+   */
+  country?: string;
   value?: string;
   defaultValue?: string;
   className?: string;
@@ -48,6 +53,7 @@ export default function ScrollableCategoryTabs({
   categories = EMPTY_CATEGORIES,
   mainCategorySlug,
   context,
+  country,
   value: controlledValue,
   defaultValue = "all",
   className,
@@ -67,6 +73,7 @@ export default function ScrollableCategoryTabs({
 
   const prevMainCategorySlug = useRef<string | undefined>(undefined);
   const prevContext = useRef<string | undefined>(undefined);
+  const prevCountry = useRef<string>("");
   const prevCategoriesJson = useRef<string>("[]");
 
   useEffect(() => {
@@ -92,12 +99,16 @@ export default function ScrollableCategoryTabs({
     };
 
     if (context && endpointByContext[context]) {
-      if (context === prevContext.current) return;
+      const activeCountry = country ?? "";
+      if (context === prevContext.current && activeCountry === prevCountry.current) return;
 
       const fetchContextCategories = async () => {
         setIsLoading(true);
         try {
-          const response = await fetch(endpointByContext[context], {
+          const url = activeCountry
+            ? `${endpointByContext[context]}?country=${encodeURIComponent(activeCountry)}`
+            : endpointByContext[context];
+          const response = await fetch(url, {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
@@ -140,6 +151,7 @@ export default function ScrollableCategoryTabs({
 
           setDisplayCategories(tabs);
           prevContext.current = context;
+          prevCountry.current = activeCountry;
         } catch (error) {
           console.error("Fetch Failure:", error);
           setDisplayCategories([{ label: allLabelByContext[context], value: "all" }]);
@@ -242,7 +254,7 @@ export default function ScrollableCategoryTabs({
     };
 
     fetchSubCategories();
-  }, [mainCategorySlug, categories, context]);
+  }, [mainCategorySlug, categories, context, country]);
 
   const select = useCallback(
     (next: string) => {
