@@ -1,5 +1,5 @@
 import { slugifyCategory } from "@/components/scrollable-category-tabs";
-import { ApiListing } from "@/lib/directory/types";
+import { ApiListing, pickDisplayCategory } from "@/lib/directory/types";
 import { processImages, formatDateTime } from "@/lib/directory/image-utils";
 import type { ProcessedEvent } from "@/types/event";
 
@@ -20,7 +20,7 @@ export function createEventMapper(filterCountry?: string | null) {
     }
 
     const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
-    const category = item.categories?.[0];
+    const category = pickDisplayCategory(item.categories ?? []);
 
     const startDate = formatDateTime(item.event_start_date);
     const endDate = formatDateTime(

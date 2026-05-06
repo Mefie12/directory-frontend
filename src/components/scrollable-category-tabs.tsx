@@ -17,6 +17,8 @@ interface ApiCategory {
   slug?: string;
   children?: ApiCategory[];
   parent_id?: number | null;
+  parent_slug?: string | null;
+  type?: string;
 }
 
 /** Turn a category name into a URL-friendly slug */
@@ -115,12 +117,16 @@ export default function ScrollableCategoryTabs({
               ? json.data
               : [];
 
+          // Pills show only top-level (parent) categories.
+          // parent_slug is null for root categories, set for subcategories.
+          const parentCategories = list.filter((cat) => !cat.parent_slug);
+
           const seen = new Set<string>();
           const tabs: CategoryTabItem[] = [
             { label: allLabelByContext[context], value: "all" },
           ];
 
-          list.forEach((cat) => {
+          parentCategories.forEach((cat) => {
             const name = cat?.name?.toString().trim();
             if (!name) return;
             const value =
