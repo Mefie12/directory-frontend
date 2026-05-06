@@ -1,5 +1,5 @@
 import { slugifyCategory } from "@/components/scrollable-category-tabs";
-import { ApiListing } from "@/lib/directory/types";
+import { ApiListing, pickDisplayCategory } from "@/lib/directory/types";
 import { processImages } from "@/lib/directory/image-utils";
 
 export interface ProcessedCommunity {
@@ -22,7 +22,7 @@ export interface ProcessedCommunity {
 
 export function mapCommunity(item: ApiListing): ProcessedCommunity {
   const images = processImages(item.images, [item.primary_image, item.image, item.cover_image]);
-  const category = item.categories?.[0];
+  const category = pickDisplayCategory(item.categories ?? []);
 
   return {
     id: item.id.toString(),

@@ -1,5 +1,5 @@
 import { slugifyCategory } from "@/components/scrollable-category-tabs";
-import { ApiListing } from "@/lib/directory/types";
+import { ApiListing, pickDisplayCategory } from "@/lib/directory/types";
 import { processImages } from "@/lib/directory/image-utils";
 
 export interface ProcessedBusiness {
@@ -26,7 +26,8 @@ export function mapBusiness(item: ApiListing): ProcessedBusiness {
     item.categories?.map((c) => c.slug || slugifyCategory(c.name)) || [
       "general",
     ];
-  const categoryName = item.categories?.[0]?.name || "General";
+  const displayCategory = pickDisplayCategory(item.categories ?? []);
+  const categoryName = displayCategory?.name || "General";
 
   return {
     id: item.id.toString(),
