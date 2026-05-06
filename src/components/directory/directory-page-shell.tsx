@@ -92,10 +92,13 @@ export function DirectoryPageShell<T>({
   const [selectedCountry, setSelectedCountry] = useState<string>(
     () => filterCountry?.toLowerCase() || "",
   );
+  // Proper-cased country for API requests (category pills and backend geo filter).
+  const [activeCountry, setActiveCountry] = useState<string>(filterCountry ?? "");
 
-  // Sync selectedCountry state with URL when it changes (e.g., browser back/forward)
+  // Sync both country states with the URL (e.g., browser back/forward)
   useEffect(() => {
     setSelectedCountry(filterCountry?.toLowerCase() || "");
+    setActiveCountry(filterCountry ?? "");
   }, [filterCountry]);
 
   // Items fetched when a category pill (non-"all") is selected
@@ -199,6 +202,7 @@ export function DirectoryPageShell<T>({
   const handleCountryChange = useCallback((country: Country | null) => {
     const countryName = country?.name || "";
     setSelectedCountry(countryName.toLowerCase());
+    setActiveCountry(countryName);
     
     // Update URL params so useDirectoryListings re-fetches with the new country filter
     const params = new URLSearchParams(searchParams.toString());
@@ -269,6 +273,7 @@ export function DirectoryPageShell<T>({
       <ScrollableCategoryTabs
         mainCategorySlug={mainCategorySlug}
         context={context}
+        country={activeCountry}
         defaultValue="all"
         value={selectedCategory}
         onCategoryChange={handleCategoryTabChange}
