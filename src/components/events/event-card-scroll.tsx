@@ -38,14 +38,16 @@ export const EventCardScroll = ({ event }: EventCardScrollProps) => {
           style={{ minHeight: "280px" }}
         >
           {/* Header */}
-          <div className="flex justify-between items-start mb-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-white flex-1">
-              {event.name}
-            </h1>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="bg-white text-gray-800 text-xs font-medium px-3 py-1 rounded-full">
-                {event.category}
-              </span>
+          <div className="mb-4 space-y-2">
+            {/* Category tag above the name */}
+            <span className="inline-flex items-center bg-white text-gray-800 text-xs font-medium px-3 py-1 rounded-full">
+              {event.category}
+            </span>
+            {/* Name with verified badge */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                {event.name}
+              </h1>
               {event.verified && (
                 <Image
                   src="/images/icons/verify.svg"
