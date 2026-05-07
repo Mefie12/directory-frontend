@@ -72,7 +72,7 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
         collapsible="icon"
         className="bg-[#1C3C59] text-white h-screen"
       >
-        <SidebarHeader className="bg-[#1C3C59] px-2 py-1">
+        <SidebarHeader className="bg-[#1C3C59] px-2 py-1 -mt-10">
           <div className="flex items-center justify-between w-full">
             <div className="shrink-0 group-data-[collapsible=icon]:hidden">
               <Link href="/">
@@ -81,7 +81,7 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
                   alt="MeFie Logo"
                   width={200}
                   height={100}
-                  className="h-20 w-auto"
+                  className="h-40 w-auto"
                 />
               </Link>
             </div>
@@ -96,7 +96,7 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="bg-[#1C3C59]">
+        <SidebarContent className="bg-[#1C3C59] -mt-12">
           <SidebarGroup className="bg-[#1C3C59]">
             <SidebarGroupContent className="bg-[#1C3C59]">
               <SidebarMenu className="pt-4 space-y-2">

@@ -93,6 +93,11 @@ export function BusinessCard({ business }: BusinessCardProps) {
           }}
         />
 
+        {/* Category badge overlay (bottom-right) */}
+        <span className="absolute bottom-2 right-2 inline-flex items-center px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[#64748A] text-xs font-medium shadow-sm">
+          {business.category}
+        </span>
+
         {/* ... Bookmark button and other UI ... */}
         <button
           onClick={(e) => {
@@ -116,21 +121,19 @@ export function BusinessCard({ business }: BusinessCardProps) {
       {/* Content Section */}
       <div className="p-4 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#64748A14] text-[#64748A] text-xs font-medium">
-            {business.category}
-          </span>
+          <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+            {business.name}
+          </h3>
           {business.verified && (
             <Image
               src="/images/icons/verify.svg"
               alt="Verified"
               width={20}
               height={20}
+              className="shrink-0"
             />
           )}
         </div>
-        <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
-          {business.name}
-        </h3>
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <Star
