@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   MoreHorizontal,
@@ -62,6 +63,7 @@ import {
 
 interface Review {
   id: string;
+  slug: string;
   customer: {
     name: string;
     avatar: string;
@@ -70,21 +72,23 @@ interface Review {
   listing: {
     name: string;
     id: string;
+    slug: string;
   };
   vendor: string;
   review: string;
   rating: number;
   dateSubmitted: string;
-  status: "Published" | "Flagged" | "Pending";
+  status: "visible" | "hidden";
 }
 
 interface RawReview {
   id: number | string;
+  slug?: string;
   listing_id: number | string;
   user_id: number | string;
   rating: number;
   comment: string;
-  created_at?: string; // FIXED: This is the correct field name
+  created_at?: string;
   status?: string;
   user?: {
     id: number | string;
@@ -136,6 +140,7 @@ export default function ReviewsPage() {
   const { user: authUser, loading: authLoading } = useAuth();
   const isCustomer = authUser ? normalizeRole(authUser.role) === "customer" : false;
   const isVendor = authUser ? normalizeRole(authUser.role) === "vendor" : false;
+  const router = useRouter();
 
   // --- State ---
   const [data, setData] = useState<Review[]>([]);
@@ -151,7 +156,7 @@ export default function ReviewsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; slug: string } | null>(null);
   const [vendorListingSlug, setVendorListingSlug] = useState<string | null>(null);
 
   const itemsPerPage = 10;
@@ -290,11 +295,10 @@ export default function ReviewsPage() {
           userAvatar = authUser.avatar || authUser.profile_photo_url || authUser.image || "";
         }
 
-        let status: "Published" | "Flagged" | "Pending" = "Published";
+        let status: "visible" | "hidden" = "visible";
         if (item.status) {
           const s = item.status.toLowerCase();
-          if (s === "flagged") status = "Flagged";
-          else if (s === "pending") status = "Pending";
+          if (s === "hidden") status = "hidden";
         }
 
         // FIXED: Use created_at as per backend developer
@@ -311,6 +315,7 @@ export default function ReviewsPage() {
 
         return {
           id: item.id.toString(),
+          slug: item.slug || item.id.toString(),
           customer: {
             id: userId,
             name: userName,
@@ -319,6 +324,7 @@ export default function ReviewsPage() {
           listing: {
             id: listingId,
             name: listingName,
+            slug: item.listing?.slug || "",
           },
           vendor: "Vendor Name",
           review: item.comment || "No content provided",
@@ -348,12 +354,10 @@ export default function ReviewsPage() {
 
       try {
         const token = getAuthToken();
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         let listingSlug = vendorListingSlug;
         if (isVendor && !listingSlug) {
-          const listingsRes = await fetch(`${API_URL}/api/listing/my_listings`, {
+          const listingsRes = await fetch(`/api/listing/my_listings`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -411,7 +415,7 @@ export default function ReviewsPage() {
         }
 
         const response = await fetch(
-          `${API_URL}/api/${endpoint}?${queryParams}`,
+          `/api/${endpoint}?${queryParams}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -476,7 +480,7 @@ export default function ReviewsPage() {
     let filtered = [...data];
 
     if (statusFilter !== "All") {
-      filtered = filtered.filter((item) => item.status === statusFilter);
+      filtered = filtered.filter((item) => item.status === statusFilter.toLowerCase());
     }
 
     if (ratingFilter !== "All") {
@@ -500,15 +504,12 @@ export default function ReviewsPage() {
 
   // --- Handlers ---
   const handleStatusChange = useCallback(
-    async (reviewId: string, action: "approve" | "delete") => {
+    async (reviewId: string, reviewSlug: string, action: "hide" | "unhide" | "delete") => {
       try {
         const token = getAuthToken();
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const endpoint = `${API_URL}/api/ratings/${reviewId}`;
 
         if (action === "delete") {
-          const response = await fetch(endpoint, {
+          const response = await fetch(`/api/rating/${reviewSlug}`, {
             method: "DELETE",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -518,23 +519,38 @@ export default function ReviewsPage() {
           if (!response.ok) throw new Error("Failed to delete review");
           setData((prev) => prev.filter((r) => r.id !== reviewId));
           toast.success("Review deleted successfully");
-        } else {
-          const response = await fetch(endpoint, {
+        } else if (action === "hide") {
+          const response = await fetch(`/api/rating/${reviewSlug}/hide`, {
             method: "PATCH",
             headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
               Accept: "application/json",
+              "Content-Type": "application/json",
             },
-            body: JSON.stringify({ status: "Published" }),
           });
-          if (!response.ok) throw new Error("Failed to approve review");
+          if (!response.ok) throw new Error("Failed to hide review");
           setData((prev) =>
             prev.map((r) =>
-              r.id === reviewId ? { ...r, status: "Published" } : r,
+              r.id === reviewId ? { ...r, status: "hidden" as const } : r,
             ),
           );
-          toast.success("Review approved successfully");
+          toast.success("Review hidden successfully");
+        } else {
+          const response = await fetch(`/api/rating/${reviewSlug}/unhide`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          });
+          if (!response.ok) throw new Error("Failed to restore review");
+          setData((prev) =>
+            prev.map((r) =>
+              r.id === reviewId ? { ...r, status: "visible" as const } : r,
+            ),
+          );
+          toast.success("Review restored successfully");
         }
       } catch (error) {
         console.error(error);
@@ -579,23 +595,17 @@ export default function ReviewsPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    if (status === "Published") {
+    if (status === "visible") {
       return (
         <Badge className="bg-[#548235] hover:bg-[#548235]/90 text-white gap-1 pl-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-white block" /> Published
+          <span className="w-1.5 h-1.5 rounded-full bg-white block" /> Visible
         </Badge>
       );
     }
-    if (status === "Flagged") {
+    if (status === "hidden") {
       return (
-        <Badge
-          variant="destructive"
-          className="bg-[#EB5757] hover:bg-[#EB5757]/90 text-white gap-1 pl-1.5"
-        >
-          <span className="w-3 h-3 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-bold">
-            !
-          </span>{" "}
-          Flagged
+        <Badge className="bg-gray-400 hover:bg-gray-500 text-white gap-1 pl-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-white block" /> Hidden
         </Badge>
       );
     }
@@ -675,11 +685,11 @@ export default function ReviewsPage() {
                 <DropdownMenuItem onClick={() => setStatusFilter("All")}>
                   All
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("Published")}>
-                  Published
+                <DropdownMenuItem onClick={() => setStatusFilter("Visible")}>
+                  Visible
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("Flagged")}>
-                  Flagged
+                <DropdownMenuItem onClick={() => setStatusFilter("Hidden")}>
+                  Hidden
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -766,7 +776,7 @@ export default function ReviewsPage() {
               <TableHead>Listing Name</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead className="w-[300px]">Review</TableHead>
-              <TableHead>Date Submitted</TableHead>
+              <TableHead>Date Submitted </TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
@@ -841,21 +851,46 @@ export default function ReviewsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {!isCustomer && !isVendor && item.status !== "Published" && (
+                        {isVendor ? (
                           <DropdownMenuItem
                             onClick={() =>
-                              handleStatusChange(item.id, "approve")
+                              router.push(
+                                `/dashboard/my-listing/${item.listing.slug}?review=${item.slug}`,
+                              )
                             }
                           >
-                            Approve
+                            Reply to Review
                           </DropdownMenuItem>
+                        ) : (
+                          <>
+                            {item.status !== "hidden" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleStatusChange(item.id, item.slug, "hide")
+                                }
+                              >
+                                Hide
+                              </DropdownMenuItem>
+                            )}
+                            {item.status === "hidden" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleStatusChange(item.id, item.slug, "unhide")
+                                }
+                              >
+                                Unhide
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() =>
+                                setDeleteTarget({ id: item.id, slug: item.slug })
+                              }
+                            >
+                              Delete Review
+                            </DropdownMenuItem>
+                          </>
                         )}
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => setDeleteTarget(item.id)}
-                        >
-                          Delete Review
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -935,7 +970,7 @@ export default function ReviewsPage() {
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
                 if (deleteTarget) {
-                  handleStatusChange(deleteTarget, "delete");
+                  handleStatusChange(deleteTarget.id, deleteTarget.slug, "delete");
                   setDeleteTarget(null);
                 }
               }}
