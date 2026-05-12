@@ -47,9 +47,40 @@ export const metadata: Metadata = {
   creator: "Me-fie",
   publisher: "Me-fie",
   icons: {
-    icon: [{ url: "/images/logos/main-logo.PNG", type: "image/png" }],
-    shortcut: "/images/logos/main-logo.PNG",
-    apple: "/images/logos/main-logo.PNG",
+    icon: [
+      {
+        url: "/images/logos/logo-light.png",
+        type: "image/png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/images/logos/main-logo.PNG",
+        type: "image/png",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
+    shortcut: [
+      {
+        url: "/images/logos/logo-light.png",
+        type: "image/png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/images/logos/main-logo.PNG",
+        type: "image/png",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
+    apple: [
+      {
+        url: "/images/logos/logo-light.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/images/logos/main-logo.PNG",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
   },
   robots: {
     index: true,
