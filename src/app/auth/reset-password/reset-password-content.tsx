@@ -172,7 +172,7 @@ export default function ResetPassword() {
             <div className="flex items-center justify-between">
               <Link href="/">
                 <Image
-                  src="/images/logos/login-logo.png"
+                  src="/images/logos/main-logo.PNG"
                   alt="MeFie Logo"
                   width={110}
                   height={50}
