@@ -19,6 +19,19 @@ export interface ApiCategory {
   id?: number;
   name: string;
   slug?: string;
+  /** Null for top-level categories; the parent's slug for subcategories. */
+  parent_slug?: string | null;
+  type?: string;
+}
+
+/**
+ * Returns the most specific category for display on a listing card.
+ * Prefers a subcategory (parent_slug is set) over a top-level category,
+ * falling back to the first category when no subcategory is present.
+ */
+export function pickDisplayCategory(categories: ApiCategory[]): ApiCategory | undefined {
+  if (!categories || categories.length === 0) return undefined;
+  return categories.find((c) => !!c.parent_slug) ?? categories[0];
 }
 
 export interface ApiListing {

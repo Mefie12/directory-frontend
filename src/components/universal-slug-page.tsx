@@ -78,11 +78,14 @@ interface ApiReplyData {
 
 interface ApiRatingData {
   id: number;
+  slug?: string;
   listing_id: number;
   user_id: number;
   rating: number;
   comment: string;
   created_at?: string;
+  vendor_reply?: string | null;
+  vendor_reply_at?: string | null;
   user?: {
     name?: string;
     first_name?: string;
@@ -229,11 +232,14 @@ interface FAQItem {
 
 interface ReviewItem {
   id?: number | string;
+  slug?: string;
   author: string;
   rating: number;
   date: string;
   comment: string;
   avatar?: string;
+  vendor_reply?: string | null;
+  vendor_reply_at?: string | null;
   replies?: ReviewReply[];
 }
 
@@ -866,54 +872,16 @@ export default function UniversalSlugPage({
 
           let ratingsData: ApiRatingData[] = [];
 
-          if (listingData.id) {
-            const ratingsResponse = await fetch(`${API_URL}/api/ratings`, {
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-              },
-            });
+          if (listingData.slug || slug) {
+            const listingKey = listingData.slug || slug;
+            const ratingsResponse = await fetch(
+              `/api/listing/${listingKey}/ratings`,
+              { headers: { Accept: "application/json" } },
+            );
 
             if (ratingsResponse.ok) {
               const ratingsJson = await ratingsResponse.json();
-              const allRatings = ratingsJson.data || [];
-              const filteredRatings = allRatings.filter(
-                (r: ApiRatingData) => r.listing_id === listingData.id,
-              );
-
-              ratingsData = await Promise.all(
-                filteredRatings.map(async (rating: ApiRatingData) => {
-                  if (
-                    rating.user_id &&
-                    (!rating.user || Object.keys(rating.user).length === 0)
-                  ) {
-                    try {
-                      const userRes = await fetch(
-                        `${API_URL}/api/users/${rating.user_id}`,
-                      );
-                      if (userRes.ok) {
-                        const userJson = await userRes.json();
-                        const userData = userJson.data || userJson;
-                        return {
-                          ...rating,
-                          user: {
-                            name:
-                              userData.name ||
-                              `${userData.first_name || ""} ${
-                                userData.last_name || ""
-                              }`.trim(),
-                            avatar:
-                              userData.avatar || userData.profile_photo_url,
-                          },
-                        };
-                      }
-                    } catch (e) {
-                      console.error("User fetch failed", e);
-                    }
-                  }
-                  return rating;
-                }),
-              );
+              ratingsData = ratingsJson.data || [];
             }
           }
 
@@ -1029,6 +997,7 @@ export default function UniversalSlugPage({
 
           const mappedReviews: ReviewItem[] = ratingsData.map((rating) => ({
             id: rating.id,
+            slug: rating.slug,
             author: extractUserName(rating.user),
             rating: rating.rating,
             date: rating.created_at
@@ -1036,6 +1005,8 @@ export default function UniversalSlugPage({
               : "Recent",
             comment: rating.comment,
             avatar: rating.user?.avatar || "",
+            vendor_reply: rating.vendor_reply ?? null,
+            vendor_reply_at: rating.vendor_reply_at ?? null,
             replies:
               rating.replies?.map((r) => ({
                 id: r.id,

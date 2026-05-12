@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Star, Loader2 } from "lucide-react";
+import { Star, Loader2, Reply } from "lucide-react";
 import { useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
@@ -28,11 +28,14 @@ export type ReviewReply = {
 
 export type Review = {
   id?: number | string;
+  slug?: string;
   author: string;
   rating: number;
   date: string;
   comment: string;
   avatar?: string;
+  vendor_reply?: string | null;
+  vendor_reply_at?: string | null;
   replies?: ReviewReply[];
 };
 
@@ -43,17 +46,21 @@ const Divider = () => <div className="w-full h-px bg-gray-100 my-4" />;
 interface ReviewsSectionProps {
   reviews: Review[];
   listingSlug: string;
+  /** Pass true when the authenticated user owns the listing (vendor/creator). */
+  isOwner?: boolean;
 }
 
 function ReviewItem({
   review,
   onReply,
-  // listingSlug,
+  isOwner = false,
 }: {
   review: Review;
   onReply: (reviewId: string | number, comment: string) => void;
   listingSlug: string;
+  isOwner?: boolean;
 }) {
+  const alreadyReplied = !!(review.vendor_reply);
   const [isReplying, setIsReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
@@ -73,24 +80,21 @@ function ReviewItem({
         return;
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      const response = await fetch(
-        `${API_URL}/api/ratings/${review.id}/reply`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ comment: replyText }),
+      // Route through BFF using the rating slug (falls back to id)
+      const ratingKey = review.slug ?? review.id;
+      const response = await fetch(`/api/rating/${ratingKey}/reply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify({ vendor_reply: replyText }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Failed to submit reply");
+        throw new Error(errorData?.error || "Failed to submit reply");
       }
 
       onReply(review.id!, replyText);
@@ -99,7 +103,7 @@ function ReviewItem({
       setReplyText("");
     } catch (error) {
       console.error("Reply submission error:", error);
-      toast.error("Failed to post reply. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Failed to post reply. Please try again.");
     } finally {
       setIsSubmittingReply(false);
     }
@@ -154,14 +158,16 @@ function ReviewItem({
               </div>
             </div>
 
-            {/* Ghost styled Reply Action */}
-            {/*<button
-              onClick={() => setIsReplying(!isReplying)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-[#93C01F] hover:bg-[#93C01F]/5 rounded-lg transition-all active:scale-95"
-            >
-              <Reply className="w-3.5 h-3.5" />
-              Reply
-            </button>*/}
+            {/* Vendor reply button — only visible to listing owner */}
+            {isOwner && !alreadyReplied && (
+              <button
+                onClick={() => setIsReplying(!isReplying)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 hover:text-[#93C01F] hover:bg-[#93C01F]/5 rounded-lg transition-all active:scale-95"
+              >
+                <Reply className="w-3.5 h-3.5" />
+                Reply
+              </button>
+            )}
           </div>
 
           {/* Review Content */}
@@ -213,26 +219,22 @@ function ReviewItem({
             </>
           )}
 
-          {/* Threaded Replies Section with Divider */}
-          {review.replies && review.replies.length > 0 && (
+          {/* Vendor reply — persisted from backend */}
+          {review.vendor_reply && (
             <div className="mt-2">
               {!isReplying && <Divider />}
-              <div className="space-y-4 border-l-2 border-gray-50 pl-5">
-                {review.replies.map((reply, index) => (
-                  <div key={reply.id || index} className="group relative">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-900">
-                        {reply.author}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {reply.date}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-transparent group-hover:border-gray-100 transition-colors">
-                      {reply.comment}
-                    </p>
-                  </div>
-                ))}
+              <div className="border-l-2 border-[#9ACC23]/40 pl-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#9ACC23]">Business Owner</span>
+                  {review.vendor_reply_at && (
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(review.vendor_reply_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-sm text-gray-600 leading-relaxed bg-[#9ACC23]/5 p-2.5 rounded-lg">
+                  {review.vendor_reply}
+                </p>
               </div>
             </div>
           )}
@@ -242,7 +244,7 @@ function ReviewItem({
   );
 }
 
-export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
+export function ReviewsSection({ reviews, listingSlug, isOwner = false }: ReviewsSectionProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -261,7 +263,11 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
   };
 
   const handleSubmit = async () => {
-    if (rating === 0 || !text.trim()) return;
+    if (rating === 0) return;
+    if (text.trim().length < 20) {
+      toast.error("Your review must be at least 20 characters.");
+      return;
+    }
 
     const token = localStorage.getItem("authToken");
     if (!token) {
@@ -271,8 +277,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
 
     setIsSubmitting(true);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const response = await fetch(`${API_URL}/api/listing/${listingSlug}/rating`, {
+      const response = await fetch(`/api/listing/${listingSlug}/rating`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -284,7 +289,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Failed to submit review");
+        throw new Error(errorData?.error || errorData?.message || "Failed to submit review");
       }
 
       const data = await response.json();
@@ -385,7 +390,11 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
                   className="h-32 resize-none rounded-xl bg-gray-50 border-gray-200 focus-visible:bg-white focus-visible:ring-[#93C01F]"
                 />
                 <div className="flex items-center justify-between text-[11px] font-medium text-gray-400">
-                  <span>Modality: All reviews are moderated</span>
+                  <span>
+                    {text.trim().length < 20
+                      ? `${20 - text.trim().length} more characters required`
+                      : "All reviews are moderated"}
+                  </span>
                   <span>{text.length}/500</span>
                 </div>
               </div>
@@ -395,7 +404,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
               <Button
                 className="flex-1 bg-[#93C01F] hover:bg-[#84ad1b] font-bold"
                 onClick={handleSubmit}
-                disabled={isSubmitting || rating === 0 || !text.trim()}
+                disabled={isSubmitting || rating === 0 || text.trim().length < 20}
               >
                 {isSubmitting ? <Loader2 className="animate-spin" /> : "Submit Review"}
               </Button>
@@ -412,6 +421,7 @@ export function ReviewsSection({ reviews, listingSlug }: ReviewsSectionProps) {
               review={r}
               onReply={handleReply}
               listingSlug={listingSlug}
+              isOwner={isOwner}
             />
           ))
         ) : (

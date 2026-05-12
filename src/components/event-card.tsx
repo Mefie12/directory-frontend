@@ -65,10 +65,10 @@ export function EventCard({ event }: EventCardProps) {
   return (
     <Link
       href={getBusinessLink()}
-      className="group block rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full"
+      className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 h-full border border-[#E2E8F0]"
     >
-      {/* Image Container with Gradient Overlay */}
-      <div className="relative w-full h-[280px] overflow-hidden">
+      {/* Image Container */}
+      <div className="relative w-full h-[220px] overflow-hidden">
         <Image
           src={event.image}
           alt={event.name}
@@ -77,9 +77,6 @@ export function EventCard({ event }: EventCardProps) {
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
-
-        {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-b  from-transparent via-black/30 to-black/80" />
 
         {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
         <button
@@ -97,31 +94,30 @@ export function EventCard({ event }: EventCardProps) {
           />
         </button>
 
-        {/* Event Title and Category at Bottom */}
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-          <h3 className="font-bold text-xl text-white leading-tight">
-            {event.name}
-          </h3>
-
-          {/* Category Badge with Verification */}
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center px-4 py-1 rounded-full bg-white text-xs font-normal text-gray-700">
-              {event.category}
-            </span>
-            {event.verified && (
-              <Image
-                src="/images/icons/verify.svg"
-                alt="Verified"
-                width={20}
-                height={20}
-              />
-            )}
-          </div>
-        </div>
+        {/* Category badge overlay (bottom-right) */}
+        <span className="absolute bottom-2 right-2 inline-flex items-center px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[#64748A] text-xs font-medium shadow-sm">
+          {event.category}
+        </span>
       </div>
 
       {/* Card Content */}
       <div className="p-4 space-y-3">
+        {/* Name + Verified */}
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+            {event.name}
+          </h3>
+          {event.verified && (
+            <Image
+              src="/images/icons/verify.svg"
+              alt="Verified"
+              width={20}
+              height={20}
+              className="shrink-0"
+            />
+          )}
+        </div>
+
         {/* Description */}
         <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
           {event.description}

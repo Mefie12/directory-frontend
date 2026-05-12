@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extractClientIp } from "@/lib/bff/extract-client-ip";
 
 const API_BASE_URL = (
   process.env.API_URL || "https://me-fie.co.uk"
@@ -12,6 +13,10 @@ export async function GET(request: NextRequest) {
     searchParams.forEach((value, key) => {
       backendUrl.searchParams.set(key, value);
     });
+
+    // Forward real client IP so the backend can geo-detect when no ?country= is present.
+    const clientIp = extractClientIp(request);
+    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
 
     const authHeader = request.headers.get("Authorization");
 

@@ -89,49 +89,47 @@ export default function CommunityCard({ community }: CommunityCardProps) {
               }
             }}
           />
-          <div className="absolute inset-0 bg-linear-to-b from-transparent via-black/30 to-black/80" />
-        </div>
-
-        {/* Bookmark Icon */}
-        <button
-          onClick={handleBookmarkClick}
-          className="absolute top-2 right-2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
-          aria-label="Bookmark community"
-        >
-          <Bookmark
-            className={cn(
-              "w-5 h-5 transition-colors",
-              isActive
-                ? "fill-blue-500 text-blue-500"
-                : "text-[#93C01F] hover:text-blue-500"
-            )}
-          />
-        </button>
-
-        {/* Tag and Verified group */}
-        <div className="flex items-center gap-2 z-10 pt-4">
-          <Badge className="px-3 py-1.5 bg-[#64748A14] text-gray-500 hover:bg-gray-100 rounded-full border-0">
+          {/* Category/tag badge overlay (bottom-right) */}
+          <Badge className="absolute bottom-2 right-2 z-10 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-white/90 rounded-full border-0 shadow-sm">
             <span className="text-xs font-medium">
               {community.tag || "Community"}
             </span>
           </Badge>
 
+          {/* Bookmark Icon */}
+          <button
+            onClick={handleBookmarkClick}
+            className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors md:opacity-0 md:group-hover:opacity-100"
+            aria-label="Bookmark community"
+          >
+            <Bookmark
+              className={cn(
+                "w-5 h-5 transition-colors",
+                isActive
+                  ? "fill-blue-500 text-blue-500"
+                  : "text-[#93C01F] hover:text-blue-500"
+              )}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="px-6 pb-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
+            {community.name}
+          </h2>
           {community.verified && (
             <Image
               src="/images/icons/verify.svg"
               alt="Verified"
               width={20}
               height={20}
+              className="shrink-0"
             />
           )}
         </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="px-6 pb-4 space-y-2">
-        <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
-          {community.name}
-        </h2>
 
         <p className="text-sm font-normal text-gray-500 line-clamp-2">
           {community.description}

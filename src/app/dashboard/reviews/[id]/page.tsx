@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft,
-  Clock,
   Star,
   ArrowRight,
   ArrowLeft as ArrowLeftIcon,
   CheckCircle,
-  AlertTriangle,
   EyeOff,
   Trash2,
   ShieldAlert,
@@ -26,7 +24,7 @@ interface ReviewDetail {
   id: string;
   listingName: string;
   listingId: string;
-  status: "Pending" | "Published" | "Flagged" | "Hidden";
+  status: "visible" | "hidden";
   customer: string;
   date: string;
   rating: number;
@@ -36,15 +34,19 @@ interface ReviewDetail {
 // Raw API Response shape
 interface RawReviewDetail {
   id: number | string;
-  listing?: { id: string; name: string };
+  slug?: string;
+  listing?: { id: string; name: string; slug?: string };
   listing_name?: string;
-  user?: { name: string };
+  user?: { id?: number | string; first_name?: string; last_name?: string; name?: string };
   customer_name?: string;
   created_at?: string;
   rating?: number;
+  comment?: string;
   content?: string;
   review?: string;
   status?: string;
+  vendor_reply?: string | null;
+  moderation_reason?: string | null;
 }
 
 export default function ReviewDetailsPage({
@@ -75,11 +77,18 @@ export default function ReviewDetailsPage({
   };
 
   const mapApiDataToReview = (data: RawReviewDetail): ReviewDetail => {
+    const firstName = data.user?.first_name || "";
+    const lastName = data.user?.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim() || data.user?.name || data.customer_name || "Anonymous";
+
+    const rawStatus = data.status?.toLowerCase();
+    const status: ReviewDetail["status"] = rawStatus === "hidden" ? "hidden" : "visible";
+
     return {
       id: data.id.toString(),
       listingName: data.listing?.name || data.listing_name || "Unknown Listing",
       listingId: data.listing?.id?.toString() || "",
-      customer: data.user?.name || data.customer_name || "Anonymous",
+      customer: fullName,
       date: data.created_at
         ? new Date(data.created_at).toLocaleDateString("en-US", {
             year: "numeric",
@@ -88,8 +97,8 @@ export default function ReviewDetailsPage({
           })
         : "N/A",
       rating: data.rating || 0,
-      content: data.content || data.review || "",
-      status: (data.status as ReviewDetail["status"]) || "Pending",
+      content: data.comment || data.content || data.review || "",
+      status,
     };
   };
 
@@ -109,10 +118,8 @@ export default function ReviewDetailsPage({
 
       try {
         const token = getAuthToken();
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/reviews/${id}`, {
+        const response = await fetch(`/api/rating/${id}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -150,40 +157,36 @@ export default function ReviewDetailsPage({
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      // Determine endpoint/method based on your backend logic
-      // Scenario A: Separate endpoints
-      // const endpoint = `${API_URL}/api/reviews/${id}/${action}`;
-
-      // Scenario B: PATCH status (Common)
-      const endpoint = `${API_URL}/api/reviews/${id}`;
-      let body = {};
+      let url = `/api/rating/${id}`;
       let method = "PATCH";
+      let body: Record<string, unknown> | undefined;
 
       switch (action) {
-        case "approve":
-          body = { status: "Published" };
-          break;
         case "hide":
-          body = { status: "Hidden" };
+          url = `/api/rating/${id}/hide`;
+          break;
+        case "approve":
+          url = `/api/rating/${id}/unhide`;
           break;
         case "escalate":
-          body = { status: "Flagged" };
+          // Escalate re-hides with a moderation reason placeholder
+          url = `/api/rating/${id}/hide`;
+          body = { moderation_reason: "Escalated for review" };
           break;
         case "delete":
           method = "DELETE";
           break;
       }
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(url, {
         method: method,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: method !== "DELETE" ? JSON.stringify(body) : undefined,
+        body: method !== "DELETE" ? JSON.stringify(body ?? {}) : undefined,
       });
 
       if (!response.ok) throw new Error(`Failed to ${action} review`);
@@ -191,22 +194,17 @@ export default function ReviewDetailsPage({
       // Success Actions
       if (action === "delete") {
         toast.success("Review deleted successfully");
-        router.push("/dashboard/reviews"); // Go back to list
+        router.push("/dashboard/reviews");
       } else {
-        toast.success(`Review ${action}d successfully`);
-        // Refresh local state to show new status
+        const label = action === "approve" ? "restored" : action === "hide" ? "hidden" : "escalated";
+        toast.success(`Review ${label} successfully`);
         setReview((prev) =>
           prev
             ? {
                 ...prev,
-                status:
-                  action === "approve"
-                    ? "Published"
-                    : action === "escalate"
-                    ? "Flagged"
-                    : "Hidden",
+                status: action === "approve" ? "visible" : "hidden",
               }
-            : null
+            : null,
         );
       }
     } catch (error) {
@@ -236,25 +234,16 @@ export default function ReviewDetailsPage({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "Published":
+      case "visible":
         return (
           <Badge className="bg-[#E9F5D6] text-[#5F8B0A] hover:bg-[#E9F5D6] gap-1.5 px-3 py-1 text-xs font-normal">
-            <CheckCircle className="w-3.5 h-3.5" /> Approved
+            <CheckCircle className="w-3.5 h-3.5" /> Visible
           </Badge>
         );
-      case "Pending":
+      case "hidden":
         return (
-          <Badge className="bg-[#F2C94C] text-white hover:bg-[#F2C94C]/90 gap-1.5 px-3 py-1 text-xs font-normal">
-            <Clock className="w-3.5 h-3.5" /> Pending
-          </Badge>
-        );
-      case "Flagged":
-        return (
-          <Badge
-            variant="destructive"
-            className="gap-1.5 px-3 py-1 text-xs font-normal"
-          >
-            <AlertTriangle className="w-3.5 h-3.5" /> Flagged
+          <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 gap-1.5 px-3 py-1 text-xs font-normal">
+            <EyeOff className="w-3.5 h-3.5" /> Hidden
           </Badge>
         );
       default:
@@ -373,16 +362,16 @@ export default function ReviewDetailsPage({
       <div className="mt-8 flex gap-4 flex-wrap">
         <Button
           onClick={() => handleStatusChange("approve")}
-          disabled={isActionLoading || review.status === "Published"}
+          disabled={isActionLoading || review.status === "visible"}
           className="bg-[#93C01F] hover:bg-[#7da815] text-white px-8 py-6 text-base font-normal rounded-lg min-w-[130px]"
         >
-          {isActionLoading ? "..." : "Approve"}
+          {isActionLoading ? "..." : "Unhide"}
         </Button>
 
         <Button
           variant="secondary"
           onClick={() => handleStatusChange("hide")}
-          disabled={isActionLoading || review.status === "Hidden"}
+          disabled={isActionLoading || review.status === "hidden"}
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-6 text-base font-normal rounded-lg min-w-[130px]"
         >
           <EyeOff className="w-4 h-4 mr-2" /> Hide
@@ -400,7 +389,7 @@ export default function ReviewDetailsPage({
         <Button
           variant="secondary"
           onClick={() => handleStatusChange("escalate")}
-          disabled={isActionLoading || review.status === "Flagged"}
+          disabled={isActionLoading || review.status === "hidden"}
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-6 text-base font-normal rounded-lg min-w-[130px]"
         >
           <ShieldAlert className="w-4 h-4 mr-2" /> Escalate

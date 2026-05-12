@@ -37,10 +37,10 @@ export default function EventsContent() {
   const locationLabel = filterCountry
     ? `in ${filterCountry}`
     : detectedCountry
-    ? "near you"
+    ? "Near You"
     : null;
 
-  const heroTitle = "Events coming up";
+  const heroTitle = "Events Coming Up";
   const gridTitle = locationLabel
     ? `All Events ${locationLabel}`
     : "All Events";
@@ -131,13 +131,13 @@ export default function EventsContent() {
         <div className="py-12 px-4 lg:px-16">
           <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl h-[350px] overflow-hidden px-10">
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Ready to Grow Your Business?
+              Ready To Promote Your Event?
             </h2>
             <Button
               onClick={handleCtaClick}
               className="bg-[#93C01F] hover:bg-[#93C956]"
             >
-              List your business today
+              List your Event today
             </Button>
           </div>
         </div>

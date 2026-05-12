@@ -296,12 +296,15 @@ function DiscoverContent() {
 
         if (stale) return;
 
-        // Capture geo-detected country before firing event fetches
+        // Capture geo-detected country before firing event fetches.
+        // meta.detected_country is the full country name (e.g. "Ghana") returned by GeoService.
+        // Both the carousel title label and the event country filter use this same value.
         const detected = bizJson?.meta?.detected_country ?? null;
-        const detectedName = bizJson?.meta?.detected_country_name ?? null;
-        if (detected) setDetectedCountry(detected);
-        if (detectedName && !detectedCountryRef.current) {
-          detectedCountryRef.current = detectedName;
+        if (detected) {
+          setDetectedCountry(detected);
+          if (!detectedCountryRef.current) {
+            detectedCountryRef.current = detected;
+          }
         }
 
         // Phase 2 — events with country now known
