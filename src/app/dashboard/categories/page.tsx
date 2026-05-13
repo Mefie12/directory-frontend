@@ -69,15 +69,14 @@ const categoryApi = {
 
   createCategory: async (formData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const body = new FormData();
     body.append("name", formData.name);
     body.append("type", formData.type);
     body.append("description", formData.description || "");
-    if (!formData.is_main && formData.parent_slug) body.append("parent_id", formData.parent_slug);
+    if (!formData.is_main && formData.parent_slug) body.append("parent_slug", formData.parent_slug);
     if (formData.make_top_cat) body.append("is_top_category", "1");
     if (formData.imageFile) body.append("featured_image", formData.imageFile);
-    const response = await fetch(`${API_URL}/api/categories`, {
+    const response = await fetch(`/api/categories`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body,
@@ -91,15 +90,14 @@ const categoryApi = {
 
   updateCategory: async (slug: string, formData: CategoryFormData): Promise<Category> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
     const body = new FormData();
     body.append("name", formData.name);
     body.append("type", formData.type);
     body.append("description", formData.description || "");
-    body.append("parent_id", formData.is_main ? "" : (formData.parent_slug || ""));
+    if (!formData.is_main && formData.parent_slug) body.append("parent_slug", formData.parent_slug);
     body.append("is_top_category", formData.make_top_cat ? "1" : "0");
     if (formData.imageFile) body.append("featured_image", formData.imageFile);
-    const response = await fetch(`${API_URL}/api/categories/${slug}`, {
+    const response = await fetch(`/api/categories/${slug}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
       body,
@@ -113,8 +111,7 @@ const categoryApi = {
 
   deleteCategory: async (slug: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-    const response = await fetch(`${API_URL}/api/categories/${slug}`, {
+    const response = await fetch(`/api/categories/${slug}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -319,7 +316,7 @@ export default function CategoriesPage() {
                   >
                     <div className="flex items-center gap-2">
                       <span>{cat.name}</span>
-                      {cat.is_top_category && (
+                      {!!cat.is_top_category && (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#93C01F]/15 text-[#5F8B0A]">
                           Top Category
                         </span>
