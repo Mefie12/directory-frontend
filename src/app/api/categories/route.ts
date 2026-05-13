@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        next: { revalidate: 3600 }, // Cache categories longer as they're relatively static
+        cache: 'no-store', // Admin-only endpoint — always fetch fresh from Laravel
       }
     );
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {
@@ -51,32 +51,41 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
     const authHeader = request.headers.get('Authorization');
+    const contentType = request.headers.get('Content-Type') || '';
+
+    // Forward FormData as-is for file uploads; fall back to JSON for plain requests
+    let forwardBody: BodyInit;
+    const forwardHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      ...(authHeader && { Authorization: authHeader }),
+    };
+
+    if (contentType.includes('multipart/form-data')) {
+      forwardBody = await request.formData();
+      // Do NOT set Content-Type — fetch adds it with the correct boundary automatically
+    } else {
+      forwardBody = JSON.stringify(await request.json());
+      forwardHeaders['Content-Type'] = 'application/json';
+    }
 
     const response = await fetch(`${API_BASE_URL}/api/categories`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...(authHeader && { Authorization: authHeader }),
-      },
-      body: JSON.stringify(body),
+      headers: forwardHeaders,
+      body: forwardBody,
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.message || 'Failed to create category' },
+        { error: errorData.message || 'Failed to create category', ...errorData },
         { status: response.status }
       );
     }
 
     const data = await response.json();
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error creating category:', error);
     return NextResponse.json(
