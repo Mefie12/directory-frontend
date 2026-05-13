@@ -355,6 +355,8 @@ function ProviderHeader({
   rating: number;
   type?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4">
       <div>
@@ -393,9 +395,21 @@ function ProviderHeader({
             </span>
           )}
         </div>
-        <p className="mt-3 max-w-2xl text-base text-gray-600">
-          {provider.description}
-        </p>
+        <div className="mt-3 max-w-2xl">
+          <p className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}>
+            {provider.description}
+          </p>
+          {provider.description && provider.description.length > 200 && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-1 text-sm font-medium text-[#93C01F] hover:underline focus:outline-none"
+              >
+                {expanded ? "Read less" : "Read more"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

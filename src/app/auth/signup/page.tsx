@@ -269,7 +269,7 @@ function SignupForm() {
           <div className="flex items-center justify-between">
             <Link href="/">
               <Image
-                src="/images/logos/login-logo.png"
+                src="/images/logos/logo-light.png"
                 alt="Logo"
                 width={110}
                 height={50}

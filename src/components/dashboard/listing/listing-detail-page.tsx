@@ -842,6 +842,192 @@ export default function ListingDetailPage({ params }: PageProps) {
 
             {/* ── What We Do Tab ── */}
             <TabsContent value="services" className="space-y-5 mt-0">
+              {/* ── Reviews Card ── */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-gray-400" />
+                    <h3 className="font-semibold text-gray-900 text-sm">
+                      Customer Reviews
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    {reviews.length > 0 && (
+                      <>
+                        <span>
+                          <span className="font-semibold text-gray-900">
+                            {listing.rating.toFixed(1)}
+                          </span>{" "}
+                          avg
+                        </span>
+                        <span className="text-gray-200">|</span>
+                        <span>
+                          <span className="font-semibold text-gray-900">
+                            {reviews.length}
+                          </span>{" "}
+                          review{reviews.length !== 1 ? "s" : ""}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Body */}
+                {reviewsLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
+                    <Star className="w-9 h-9 text-gray-200 mb-3" />
+                    <p className="text-gray-600 text-sm font-medium">No reviews yet</p>
+                    <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+                      Reviews from customers will appear here once they start coming in.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((review) => {
+                      const reviewerName = review.user
+                        ? `${review.user.first_name} ${review.user.last_name}`.trim()
+                        : "Anonymous";
+                      const isReplying = replyingToSlug === review.slug;
+                      const alreadyReplied = !!review.vendor_reply;
+
+                      return (
+                        <div
+                          key={review.id}
+                          id={`review-${review.slug}`}
+                          className="border border-gray-100 rounded-xl p-4 space-y-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                <span className="text-xs font-semibold text-gray-500">
+                                  {reviewerName.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">
+                                  {reviewerName}
+                                </p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`w-3 h-3 ${
+                                        star <= Math.round(review.rating ?? 0)
+                                          ? "text-yellow-400"
+                                          : "text-gray-200"
+                                      }`}
+                                      weight="fill"
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[11px] text-gray-400 shrink-0">
+                              {review.created_at
+                                ? new Date(review.created_at).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : ""}
+                            </span>
+                          </div>
+
+                          {review.comment && (
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                              {review.comment}
+                            </p>
+                          )}
+
+                          {review.vendor_reply && (
+                            <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
+                              <p className="text-xs font-semibold text-gray-700 mb-1">
+                                Your reply
+                                {review.vendor_reply_at && (
+                                  <span className="font-normal text-gray-400 ml-2">
+                                    ·{" "}
+                                    {new Date(review.vendor_reply_at).toLocaleDateString("en-GB", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-sm text-gray-600 leading-relaxed">
+                                {review.vendor_reply}
+                              </p>
+                            </div>
+                          )}
+
+                          {!alreadyReplied && !isReplying && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingToSlug(review.slug);
+                                setReplyText("");
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
+                            >
+                              ↩ Reply
+                            </button>
+                          )}
+
+                          {isReplying && (
+                            <div className="space-y-2.5 pt-1">
+                              <Textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Write a reply to this review…"
+                                rows={3}
+                                maxLength={500}
+                                className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
+                              />
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-gray-400">
+                                  {replyText.length}/500
+                                </span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    disabled={isSubmittingReply}
+                                    onClick={() => {
+                                      setReplyingToSlug(null);
+                                      setReplyText("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
+                                    disabled={isSubmittingReply || !replyText.trim()}
+                                    onClick={() => handleReplySubmit(review.slug)}
+                                  >
+                                    {isSubmittingReply ? (
+                                      <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      "Post Reply"
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="bg-white rounded-xl border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1165,204 +1351,6 @@ export default function ListingDetailPage({ params }: PageProps) {
               </div>
             </TabsContent>
           </Tabs>
-
-                {/* ── Reviews Card ── */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 mt-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 text-gray-400" />
-            <h3 className="font-semibold text-gray-900 text-sm">
-              Customer Reviews
-            </h3>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            {reviews.length > 0 && (
-              <>
-                <span>
-                  <span className="font-semibold text-gray-900">
-                    {listing.rating.toFixed(1)}
-                  </span>{" "}
-                  avg
-                </span>
-                <span className="text-gray-200">|</span>
-                <span>
-                  <span className="font-semibold text-gray-900">
-                    {reviews.length}
-                  </span>{" "}
-                  review{reviews.length !== 1 ? "s" : ""}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Body */}
-        {reviewsLoading ? (
-          <div className="flex items-center justify-center py-10">
-            <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
-            <Star className="w-9 h-9 text-gray-200 mb-3" />
-            <p className="text-gray-600 text-sm font-medium">No reviews yet</p>
-            <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-              Reviews from customers will appear here once they start coming in.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reviews.map((review) => {
-              const reviewerName = review.user
-                ? `${review.user.first_name} ${review.user.last_name}`.trim()
-                : "Anonymous";
-              const isReplying = replyingToSlug === review.slug;
-              const alreadyReplied = !!review.vendor_reply;
-
-              return (
-                <div
-                  key={review.id}
-                  id={`review-${review.slug}`}
-                  className="border border-gray-100 rounded-xl p-4 space-y-3"
-                >
-                  {/* Reviewer row */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Avatar */}
-                      <div className="h-9 w-9 shrink-0 rounded-full bg-[#93C01F]/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#5F8B0A]">
-                          {reviewerName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 leading-none truncate">
-                          {reviewerName}
-                        </p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {new Date(review.created_at).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Stars + hidden badge */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            weight={i < review.rating ? "fill" : "regular"}
-                            className={`w-3.5 h-3.5 ${i < review.rating ? "text-yellow-400" : "text-gray-200"}`}
-                          />
-                        ))}
-                      </div>
-                      {review.status === "hidden" && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1.5 py-0 text-gray-400 border-gray-200"
-                        >
-                          Hidden
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Review text */}
-                  {review.comment && (
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      {review.comment}
-                    </p>
-                  )}
-
-                  {/* Existing vendor reply */}
-                  {alreadyReplied && (
-                    <div className="border-l-2 border-[#93C01F]/40 pl-4 space-y-0.5">
-                      <p className="text-[11px] font-semibold text-[#5F8B0A]">
-                        Your reply
-                        {review.vendor_reply_at && (
-                          <span className="font-normal text-gray-400 ml-2">
-                            ·{" "}
-                            {new Date(review.vendor_reply_at).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        {review.vendor_reply}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Reply action */}
-                  {!alreadyReplied && !isReplying && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplyingToSlug(review.slug);
-                        setReplyText("");
-                      }}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
-                    >
-                      ↩ Reply
-                    </button>
-                  )}
-
-                  {/* Inline reply form */}
-                  {isReplying && (
-                    <div className="space-y-2.5 pt-1">
-                      <Textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Write a reply to this review…"
-                        rows={3}
-                        maxLength={500}
-                        className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400">
-                          {replyText.length}/500
-                        </span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs"
-                            disabled={isSubmittingReply}
-                            onClick={() => {
-                              setReplyingToSlug(null);
-                              setReplyText("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5"
-                            disabled={isSubmittingReply || !replyText.trim()}
-                            onClick={() => handleReplySubmit(review.slug)}
-                          >
-                            {isSubmittingReply ? (
-                              <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              "Post Reply"
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
         </div>
 
         
