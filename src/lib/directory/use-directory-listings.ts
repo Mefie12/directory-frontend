@@ -122,15 +122,60 @@ export function useDirectoryListings<T>({
 
         if (cancelled) return;
 
-        if (json.meta?.detected_country) {
-          setDetectedCountry(json.meta.detected_country);
-        }
-
+        const geoDetectedCountry = json.meta?.detected_country ?? null;
         const raw = Array.isArray(json.data)
           ? json.data
           : Array.isArray(json.listings)
             ? json.listings
             : [];
+
+        // UK fallback: if geo-detection failed (no detected_country) or the
+        // detected country has zero listings, and the user has not explicitly
+        // chosen a country via the URL, re-fetch for United Kingdom.
+        const hasExplicitCountry = !!country;
+        if (!hasExplicitCountry && (!geoDetectedCountry || raw.length === 0)) {
+          const ukParams = new URLSearchParams(params);
+          ukParams.set("country", "United Kingdom");
+
+          // When a category filter is active we must use the country+category
+          // endpoint; otherwise the base endpoint forwards country correctly.
+          const ukEndpoint = hasCategoryFilter
+            ? "/api/all_listings_by_country_and_category"
+            : endpoint;
+
+          const ukRes = await fetch(`${ukEndpoint}?${ukParams.toString()}`, {
+            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            signal: controller.signal,
+          });
+
+          if (ukRes.ok) {
+            const ukJson = (await ukRes.json()) as ApiListingsResponse & {
+              listings?: ApiListing[];
+            };
+            if (cancelled) return;
+            const ukRaw = Array.isArray(ukJson.data)
+              ? ukJson.data
+              : Array.isArray(ukJson.listings)
+                ? ukJson.listings
+                : [];
+            const ukMapped: T[] = [];
+            for (const item of ukRaw) {
+              const out = mapItemRef.current(item);
+              if (out !== null && out !== undefined) ukMapped.push(out);
+            }
+            setItems(ukMapped);
+          } else {
+            setItems([]);
+          }
+
+          setDetectedCountry("United Kingdom");
+          return;
+        }
+
+        if (geoDetectedCountry) {
+          setDetectedCountry(geoDetectedCountry);
+        }
+
         const mapped: T[] = [];
         for (const item of raw) {
           const out = mapItemRef.current(item);
