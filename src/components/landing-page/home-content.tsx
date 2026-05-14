@@ -13,6 +13,8 @@ import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
+import { countries as allCountries } from "country-data-list";
 
 
 // Types
@@ -117,6 +119,9 @@ export default function HomeContent() {
   // const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [isTopCatsLoading, setIsTopCatsLoading] = useState(true);
+  const [detectedCountry, setDetectedCountry] = useState<string>("");
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(undefined);
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>([]);
@@ -131,6 +136,51 @@ export default function HomeContent() {
       router.push("/auth/login?redirect=/claim");
     }
   };
+
+  useEffect(() => {
+    fetch("/api/countries_dropdown", { headers: { Accept: "application/json" } })
+      .then((r) => r.json())
+      .then((json) => {
+        const list: unknown[] = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
+
+        const mapped: Country[] = list
+          .map((entry): Country | null => {
+            let name: string | undefined;
+            let alpha2: string | undefined;
+            let alpha3: string | undefined;
+
+            if (typeof entry === "string") {
+              name = entry;
+            } else if (entry && typeof entry === "object") {
+              const e = entry as Record<string, unknown>;
+              name = (e.name as string) || (e.country as string) || (e.label as string);
+              alpha2 = (e.alpha2 as string) || (e.code as string) || (e.iso2 as string) || (e.country_code as string);
+              alpha3 = (e.alpha3 as string) || (e.iso3 as string);
+            }
+
+            const match = (allCountries.all as Country[]).find(
+              (c) =>
+                (alpha2 && c.alpha2?.toLowerCase() === alpha2.toLowerCase()) ||
+                (alpha3 && c.alpha3?.toLowerCase() === alpha3.toLowerCase()) ||
+                (name && c.name?.toLowerCase() === name.toLowerCase()),
+            );
+
+            if (match) return match;
+            if (name && alpha2) {
+              return { alpha2, alpha3: alpha3 || "", countryCallingCodes: [], currencies: [], ioc: "", languages: [], name, status: "assigned" };
+            }
+            return null;
+          })
+          .filter((c): c is Country => c !== null);
+
+        if (mapped.length > 0) setCountryOptions(mapped);
+      })
+      .catch(() => setCountryOptions([]));
+  }, []);
 
   useEffect(() => {
     const fetchTopCategories = async () => {
@@ -152,16 +202,13 @@ export default function HomeContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        // FIX: Added '?per_page=100' query param.
-        // This requests 100 items instead of the default (usually 15).
-        // This ensures we get enough Events and Communities to fill the carousel.
-        const response = await fetch(`${API_URL}/api/approved_listings`, {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+        const endpoint = selectedCountry
+          ? `/api/all_listings_by_country_and_category?country=${encodeURIComponent(selectedCountry)}&per_page=12`
+          : `/api/listings_by_geolocation?per_page=12`;
+
+        const response = await fetch(endpoint, {
+          headers: { Accept: "application/json" },
         });
 
         if (!response.ok)
@@ -169,6 +216,9 @@ export default function HomeContent() {
 
         const json = await response.json();
         const data: ApiListing[] = json.data || json.listings || [];
+
+        const detected: string = json.meta?.detected_country ?? "";
+        if (detected && !selectedCountry) setDetectedCountry(detected);
 
         const businesses: Business[] = [];
         const events: Event[] = [];
@@ -264,7 +314,7 @@ export default function HomeContent() {
     };
 
     fetchData();
-  }, []);
+  }, [selectedCountry]);
 
     // const sortedCategories = useMemo(() => {
     //   const sorted = [...categories];
@@ -399,8 +449,21 @@ export default function HomeContent() {
         )}
       </div>
 
+      {/* Geo-context indicator — renders once a country is known */}
+      {(detectedCountry || selectedCountry) && (
+        <div className="px-4 lg:px-16 flex items-center gap-3 pt-6">
+          <span className="text-sm text-gray-500">Showing results in</span>
+          <CountryDropdown
+            defaultValue={selectedCountry || detectedCountry}
+            onChange={(country: Country) => setSelectedCountry(country.name)}
+            options={countryOptions}
+            slim
+          />
+        </div>
+      )}
+
       {/* Featured Businesses */}
-      <div className="py-12 px-4 lg:py-20 lg:px-16">
+      <div className="py-6 px-4 lg:py-16 lg:px-16">
         <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -426,7 +489,7 @@ export default function HomeContent() {
       </div>
 
       {/* Upcoming Events */}
-      <div className="py-12 px-4 lg:py-20 lg:px-16">
+      <div className="py-12 px-4 lg:py-12 lg:px-16">
         <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
@@ -457,7 +520,7 @@ export default function HomeContent() {
         <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-10">
           <div className="flex flex-col space-y-2">
             <h2 className="font-semibold text-xl md:text-4xl">
-              Community you can explore
+              Communities You Can Explore
             </h2>
             <p className="font-normal text-sm md:text-base">
               Join supportive network that celebrates african heritage

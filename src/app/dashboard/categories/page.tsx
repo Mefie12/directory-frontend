@@ -28,7 +28,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Loader2, UploadCloud, X as XIcon } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Loader2,
+  UploadCloud,
+  X as XIcon,
+} from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 
@@ -56,11 +63,16 @@ interface CategoryFormData {
 
 // --- API ---
 const categoryApi = {
-  getCategories: async (params?: Record<string, string>): Promise<Category[]> => {
+  getCategories: async (
+    params?: Record<string, string>,
+  ): Promise<Category[]> => {
     const token = localStorage.getItem("authToken");
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     const response = await fetch(`/api/categories${qs}`, {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     });
     if (!response.ok) throw new Error("Failed to fetch categories");
     const data = await response.json();
@@ -73,7 +85,8 @@ const categoryApi = {
     body.append("name", formData.name);
     body.append("type", formData.type);
     body.append("description", formData.description || "");
-    if (!formData.is_main && formData.parent_slug) body.append("parent_slug", formData.parent_slug);
+    if (!formData.is_main && formData.parent_slug)
+      body.append("parent_slug", formData.parent_slug);
     if (formData.make_top_cat) body.append("is_top_category", "1");
     if (formData.imageFile) body.append("featured_image", formData.imageFile);
     const response = await fetch(`/api/categories`, {
@@ -88,13 +101,17 @@ const categoryApi = {
     return (await response.json()).data;
   },
 
-  updateCategory: async (slug: string, formData: CategoryFormData): Promise<Category> => {
+  updateCategory: async (
+    slug: string,
+    formData: CategoryFormData,
+  ): Promise<Category> => {
     const token = localStorage.getItem("authToken");
     const body = new FormData();
     body.append("name", formData.name);
     body.append("type", formData.type);
     body.append("description", formData.description || "");
-    if (!formData.is_main && formData.parent_slug) body.append("parent_slug", formData.parent_slug);
+    if (!formData.is_main && formData.parent_slug)
+      body.append("parent_slug", formData.parent_slug);
     body.append("is_top_category", formData.make_top_cat ? "1" : "0");
     if (formData.imageFile) body.append("featured_image", formData.imageFile);
     const response = await fetch(`/api/categories/${slug}`, {
@@ -127,7 +144,9 @@ export default function CategoriesPage() {
   const { loading: authLoading } = useAuth();
 
   const [allCategories, setAllCategories] = useState<Category[]>([]);
-  const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
+  const [selectedMainCategory, setSelectedMainCategory] =
+    useState<Category | null>(null);
+  const [searchMainCategory, setSearchMainCategory] = useState("");
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
 
@@ -138,7 +157,9 @@ export default function CategoriesPage() {
   const [addingType, setAddingType] = useState<"main" | "sub" | null>(null);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
 
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null,
+  );
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   const [formData, setFormData] = useState<CategoryFormData>({
@@ -154,10 +175,15 @@ export default function CategoriesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mainCategories = allCategories.filter(
-    (cat) => cat.type === "mainCategory" || cat.parent_slug === null
+    (cat) => cat.type === "mainCategory" || cat.parent_slug === null,
+  );
+  const filteredMainCategories = mainCategories.filter((cat) =>
+    cat.name.toLowerCase().includes(searchMainCategory.toLowerCase()),
   );
   const subCategories = selectedMainCategory
-    ? allCategories.filter((cat) => cat.parent_slug === selectedMainCategory.slug)
+    ? allCategories.filter(
+        (cat) => cat.parent_slug === selectedMainCategory.slug,
+      )
     : [];
 
   const loadCategories = useCallback(async () => {
@@ -168,7 +194,11 @@ export default function CategoriesPage() {
       setAllCategories(categories);
       setSelectedMainCategory((prev) => {
         if (prev) return prev;
-        return categories.find((c) => c.type === "mainCategory" || c.parent_slug === null) || null;
+        return (
+          categories.find(
+            (c) => c.type === "mainCategory" || c.parent_slug === null,
+          ) || null
+        );
       });
     } catch {
       toast.error("Failed to load categories");
@@ -177,10 +207,20 @@ export default function CategoriesPage() {
     }
   }, [authLoading]);
 
-  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const resetForm = () => {
-    setFormData({ name: "", type: "subCategory", description: "", is_main: false, parent_slug: null, make_top_cat: false, imageFile: null });
+    setFormData({
+      name: "",
+      type: "subCategory",
+      description: "",
+      is_main: false,
+      parent_slug: null,
+      make_top_cat: false,
+      imageFile: null,
+    });
     setImagePreview(null);
   };
 
@@ -198,9 +238,10 @@ export default function CategoriesPage() {
       ...prev,
       is_main: type === "main",
       type: type === "main" ? "mainCategory" : "subCategory",
-      parent_slug: type === "sub"
-        ? (selectedMainCategory?.slug || mainCategories[0]?.slug || null)
-        : null,
+      parent_slug:
+        type === "sub"
+          ? selectedMainCategory?.slug || mainCategories[0]?.slug || null
+          : null,
     }));
     setTypeSelectOpen(false);
     setFormDialogOpen(true);
@@ -231,24 +272,37 @@ export default function CategoriesPage() {
   };
 
   const handleSaveCategory = async () => {
-    if (!formData.name.trim()) { toast.error("Category name is required"); return; }
-    if (!formData.is_main && !formData.parent_slug) {
-      toast.error("Please select a parent category"); return;
+    if (!formData.name.trim()) {
+      toast.error("Category name is required");
+      return;
     }
-    if (formData.is_main && formData.make_top_cat && !formData.imageFile && !imagePreview) {
-      toast.error("Please upload an image for the top category"); return;
+    if (!formData.is_main && !formData.parent_slug) {
+      toast.error("Please select a parent category");
+      return;
+    }
+    if (
+      formData.is_main &&
+      formData.make_top_cat &&
+      !formData.imageFile &&
+      !imagePreview
+    ) {
+      toast.error("Please upload an image for the top category");
+      return;
     }
 
     setIsSavingCategory(true);
     try {
       if (editingSlug) {
         const updated = await categoryApi.updateCategory(editingSlug, formData);
-        setAllCategories((prev) => prev.map((c) => (c.slug === editingSlug ? updated : c)));
+        setAllCategories((prev) =>
+          prev.map((c) => (c.slug === editingSlug ? updated : c)),
+        );
         toast.success("Category updated successfully");
       } else {
         const created = await categoryApi.createCategory(formData);
         setAllCategories((prev) => [...prev, created]);
-        if (formData.is_main && mainCategories.length === 0) setSelectedMainCategory(created);
+        if (formData.is_main && mainCategories.length === 0)
+          setSelectedMainCategory(created);
         toast.success("Category created successfully");
       }
       setFormDialogOpen(false);
@@ -265,8 +319,11 @@ export default function CategoriesPage() {
     setIsDeletingCategory(true);
     try {
       await categoryApi.deleteCategory(categoryToDelete.slug);
-      setAllCategories((prev) => prev.filter((c) => c.slug !== categoryToDelete.slug));
-      if (selectedMainCategory?.slug === categoryToDelete.slug) setSelectedMainCategory(null);
+      setAllCategories((prev) =>
+        prev.filter((c) => c.slug !== categoryToDelete.slug),
+      );
+      if (selectedMainCategory?.slug === categoryToDelete.slug)
+        setSelectedMainCategory(null);
       toast.success("Category deleted successfully");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unknown error");
@@ -277,13 +334,14 @@ export default function CategoriesPage() {
   };
 
   // Is the form showing a main-category context?
-  const isMainContext = addingType === "main" || (editingSlug !== null && formData.is_main);
+  const isMainContext =
+    addingType === "main" || (editingSlug !== null && formData.is_main);
 
   const dialogTitle = editingSlug
     ? "Edit category"
     : addingType === "main"
-    ? "Add Main Category"
-    : "Add Sub Category";
+      ? "Add Main Category"
+      : "Add Sub Category";
 
   return (
     <div className="p-2 lg:p-6 space-y-6">
@@ -291,7 +349,10 @@ export default function CategoriesPage() {
 
       <div className="space-y-6">
         <div className="flex justify-end">
-          <Button className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-2" onClick={handleAddCategoryClick}>
+          <Button
+            className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-2"
+            onClick={handleAddCategoryClick}
+          >
             <Plus className="w-4 h-4" /> Add category
           </Button>
         </div>
@@ -302,9 +363,18 @@ export default function CategoriesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Main Categories */}
             <div className="border border-gray-200 rounded-xl bg-white p-6 h-fit">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Main Category</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                Main Category
+              </h2>
+              <div className="mb-4">
+                <Input
+                  value={searchMainCategory}
+                  onChange={(e) => setSearchMainCategory(e.target.value)}
+                  placeholder="Search main category..."
+                />
+              </div>
               <div className="space-y-3">
-                {mainCategories.map((cat) => (
+                {filteredMainCategories.map((cat) => (
                   <div
                     key={cat.slug}
                     className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-colors border group ${
@@ -323,38 +393,73 @@ export default function CategoriesPage() {
                       )}
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1 text-gray-400 hover:text-gray-600" onClick={(e) => { e.stopPropagation(); handleEditCategoryClick(cat); }}>
+                      <button
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCategoryClick(cat);
+                        }}
+                      >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); setCategoryToDelete(cat); }}>
+                      <button
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCategoryToDelete(cat);
+                        }}
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 ))}
                 {mainCategories.length === 0 && (
-                  <div className="text-center text-gray-500 py-4">No main categories found</div>
+                  <div className="text-center text-gray-500 py-4">
+                    No main categories found
+                  </div>
                 )}
+                {mainCategories.length > 0 &&
+                  filteredMainCategories.length === 0 && (
+                    <div className="text-center text-gray-500 py-4">
+                      No matching main categories
+                    </div>
+                  )}
               </div>
             </div>
 
             {/* Sub Categories */}
             <div className="border border-gray-200 rounded-xl bg-white p-6 h-fit min-h-[500px]">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
-                {selectedMainCategory ? `${selectedMainCategory.name} — Sub Categories` : "Sub Categories"}
+                {selectedMainCategory
+                  ? `${selectedMainCategory.name} — Sub Categories`
+                  : "Sub Categories"}
               </h2>
-              <Button variant="secondary" onClick={handleAddCategoryClick} className="w-full bg-gray-50 text-gray-600 border border-gray-100 mb-6 gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleAddCategoryClick}
+                className="w-full bg-gray-50 text-gray-600 border border-gray-100 mb-6 gap-2"
+              >
                 <Plus className="w-4 h-4" /> Add sub category
               </Button>
               <div className="space-y-3">
                 {subCategories.map((sub) => (
-                  <div key={sub.slug} className="flex items-center justify-between group border-b border-gray-50 pb-3 last:border-0">
+                  <div
+                    key={sub.slug}
+                    className="flex items-center justify-between group border-b border-gray-50 pb-3 last:border-0"
+                  >
                     <span className="text-gray-700 text-sm">{sub.name}</span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1 text-gray-400 hover:text-gray-600" onClick={() => handleEditCategoryClick(sub)}>
+                      <button
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        onClick={() => handleEditCategoryClick(sub)}
+                      >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600" onClick={() => setCategoryToDelete(sub)}>
+                      <button
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        onClick={() => setCategoryToDelete(sub)}
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -362,7 +467,9 @@ export default function CategoriesPage() {
                 ))}
                 {subCategories.length === 0 && (
                   <div className="text-center text-gray-500 py-4">
-                    {selectedMainCategory ? `No sub categories for ${selectedMainCategory.name}` : "Select a main category"}
+                    {selectedMainCategory
+                      ? `No sub categories for ${selectedMainCategory.name}`
+                      : "Select a main category"}
                   </div>
                 )}
               </div>
@@ -375,9 +482,13 @@ export default function CategoriesPage() {
       <Dialog open={typeSelectOpen} onOpenChange={setTypeSelectOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Add a category</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              Add a category
+            </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-500 -mt-2">What type of category would you like to add?</p>
+          <p className="text-sm text-gray-500 -mt-2">
+            What type of category would you like to add?
+          </p>
           <div className="grid grid-cols-2 gap-4 py-4">
             <button
               onClick={() => handleTypeChosen("main")}
@@ -386,8 +497,12 @@ export default function CategoriesPage() {
               <div className="w-12 h-12 rounded-full bg-[#93C01F]/10 flex items-center justify-center group-hover:bg-[#93C01F]/20 transition-colors">
                 <Plus className="w-6 h-6 text-[#93C01F]" />
               </div>
-              <span className="font-semibold text-gray-900 text-sm">Main Category</span>
-              <span className="text-[11px] text-gray-400 text-center">Top-level category visible in navigation</span>
+              <span className="font-semibold text-gray-900 text-sm">
+                Main Category
+              </span>
+              <span className="text-[11px] text-gray-400 text-center">
+                Top-level category visible in navigation
+              </span>
             </button>
             <button
               onClick={() => handleTypeChosen("sub")}
@@ -396,38 +511,56 @@ export default function CategoriesPage() {
               <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-[#93C01F]/20 transition-colors">
                 <Plus className="w-6 h-6 text-gray-400 group-hover:text-[#93C01F]" />
               </div>
-              <span className="font-semibold text-gray-900 text-sm">Sub Category</span>
-              <span className="text-[11px] text-gray-400 text-center">Nested under an existing main category</span>
+              <span className="font-semibold text-gray-900 text-sm">
+                Sub Category
+              </span>
+              <span className="text-[11px] text-gray-400 text-center">
+                Nested under an existing main category
+              </span>
             </button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* ── STEP 2 / EDIT: Category Form ── */}
-      <Dialog open={formDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setFormDialogOpen(open); }}>
+      <Dialog
+        open={formDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+          setFormDialogOpen(open);
+        }}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">{dialogTitle}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              {dialogTitle}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-5 py-4">
             {/* Sub category: parent first */}
-            {(!isMainContext) && (
+            {!isMainContext && (
               <div className="space-y-2">
                 <Label className="text-gray-600">Parent Category</Label>
                 <Select
                   value={formData.parent_slug || ""}
-                  onValueChange={(v) => setFormData((p) => ({ ...p, parent_slug: v }))}
+                  onValueChange={(v) =>
+                    setFormData((p) => ({ ...p, parent_slug: v }))
+                  }
                 >
                   <SelectTrigger className="w-full text-gray-500">
                     <SelectValue placeholder="Select parent category" />
                   </SelectTrigger>
                   <SelectContent>
                     {mainCategories.map((cat) => (
-                      <SelectItem key={cat.slug} value={cat.slug}>{cat.name}</SelectItem>
+                      <SelectItem key={cat.slug} value={cat.slug}>
+                        {cat.name}
+                      </SelectItem>
                     ))}
                     {mainCategories.length === 0 && (
-                      <SelectItem value="none" disabled>No main categories available</SelectItem>
+                      <SelectItem value="none" disabled>
+                        No main categories available
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -439,7 +572,9 @@ export default function CategoriesPage() {
               <Label className="text-gray-600">Category name</Label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, name: e.target.value }))
+                }
                 placeholder="Category name"
               />
             </div>
@@ -449,7 +584,9 @@ export default function CategoriesPage() {
               <Label className="text-gray-600">Description</Label>
               <Input
                 value={formData.description}
-                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, description: e.target.value }))
+                }
                 placeholder="Description"
                 className="placeholder:text-gray-400"
               />
@@ -466,13 +603,20 @@ export default function CategoriesPage() {
                       ...p,
                       is_main: !!checked,
                       type: checked ? "mainCategory" : "subCategory",
-                      parent_slug: checked ? null : (selectedMainCategory?.slug || mainCategories[0]?.slug || null),
+                      parent_slug: checked
+                        ? null
+                        : selectedMainCategory?.slug ||
+                          mainCategories[0]?.slug ||
+                          null,
                       make_top_cat: checked ? p.make_top_cat : false,
                     }))
                   }
                   className="data-[state=checked]:bg-[#93C01F] data-[state=checked]:border-[#93C01F]"
                 />
-                <label htmlFor="edit_main_cat" className="text-sm font-medium leading-none">
+                <label
+                  htmlFor="edit_main_cat"
+                  className="text-sm font-medium leading-none"
+                >
                   Set as main category
                 </label>
               </div>
@@ -484,14 +628,18 @@ export default function CategoriesPage() {
                 <Label className="text-gray-600">Parent Category</Label>
                 <Select
                   value={formData.parent_slug || ""}
-                  onValueChange={(v) => setFormData((p) => ({ ...p, parent_slug: v }))}
+                  onValueChange={(v) =>
+                    setFormData((p) => ({ ...p, parent_slug: v }))
+                  }
                 >
                   <SelectTrigger className="w-full text-gray-500">
                     <SelectValue placeholder="Select parent category" />
                   </SelectTrigger>
                   <SelectContent>
                     {mainCategories.map((cat) => (
-                      <SelectItem key={cat.slug} value={cat.slug}>{cat.name}</SelectItem>
+                      <SelectItem key={cat.slug} value={cat.slug}>
+                        {cat.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -506,11 +654,18 @@ export default function CategoriesPage() {
                     id="make_top_cat"
                     checked={formData.make_top_cat}
                     onCheckedChange={(checked) =>
-                      setFormData((p) => ({ ...p, make_top_cat: !!checked, imageFile: checked ? p.imageFile : null }))
+                      setFormData((p) => ({
+                        ...p,
+                        make_top_cat: !!checked,
+                        imageFile: checked ? p.imageFile : null,
+                      }))
                     }
                     className="data-[state=checked]:bg-[#93C01F] data-[state=checked]:border-[#93C01F]"
                   />
-                  <label htmlFor="make_top_cat" className="text-sm font-medium leading-none">
+                  <label
+                    htmlFor="make_top_cat"
+                    className="text-sm font-medium leading-none"
+                  >
                     Make top category
                   </label>
                 </div>
@@ -529,10 +684,17 @@ export default function CategoriesPage() {
                     {imagePreview ? (
                       <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-200">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                        <img
+                          src={imagePreview}
+                          alt="preview"
+                          className="w-full h-full object-cover"
+                        />
                         <button
                           type="button"
-                          onClick={() => { setImagePreview(null); setFormData((p) => ({ ...p, imageFile: null })); }}
+                          onClick={() => {
+                            setImagePreview(null);
+                            setFormData((p) => ({ ...p, imageFile: null }));
+                          }}
                           className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80"
                         >
                           <XIcon className="w-3 h-3" />
@@ -545,8 +707,12 @@ export default function CategoriesPage() {
                         className="w-full flex flex-col items-center justify-center gap-2 p-8 border-2 border-dashed border-gray-200 rounded-xl hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all text-gray-400 hover:text-[#93C01F]"
                       >
                         <UploadCloud className="w-8 h-8" />
-                        <span className="text-sm font-medium">Click to upload image</span>
-                        <span className="text-xs">PNG, JPG, WebP up to 5MB</span>
+                        <span className="text-sm font-medium">
+                          Click to upload image
+                        </span>
+                        <span className="text-xs">
+                          PNG, JPG, WebP up to 5MB
+                        </span>
                       </button>
                     )}
                   </div>
@@ -556,34 +722,70 @@ export default function CategoriesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={() => { setFormDialogOpen(false); resetForm(); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setFormDialogOpen(false);
+                resetForm();
+              }}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700"
+            >
               Cancel
             </Button>
-            <Button className="bg-[#93C01F] hover:bg-[#7da815] text-white" onClick={handleSaveCategory} disabled={isSavingCategory}>
-              {isSavingCategory ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : editingSlug ? "Save Changes" : "Add category"}
+            <Button
+              className="bg-[#93C01F] hover:bg-[#7da815] text-white"
+              onClick={handleSaveCategory}
+              disabled={isSavingCategory}
+            >
+              {isSavingCategory ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : editingSlug ? (
+                "Save Changes"
+              ) : (
+                "Add category"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ── DELETE CONFIRMATION ── */}
-      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
+      <AlertDialog
+        open={!!categoryToDelete}
+        onOpenChange={(open) => !open && setCategoryToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the category{" "}
-              <strong>{categoryToDelete?.name}</strong> and potentially affect associated listings.
+              This action cannot be undone. This will permanently delete the
+              category <strong>{categoryToDelete?.name}</strong> and potentially
+              affect associated listings.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingCategory}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingCategory}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleDeleteCategoryConfirm(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteCategoryConfirm();
+              }}
               className="bg-red-600 hover:bg-red-700"
               disabled={isDeletingCategory}
             >
-              {isDeletingCategory ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Deleting...</> : "Delete Category"}
+              {isDeletingCategory ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Category"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -72,6 +72,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // UK fallback: if geo-detection failed (no detected_country) OR the
+    // detected country has no listings, transparently re-fetch for UK so the
+    // home page always has content to show.
+    const parsed = data as { data?: unknown[]; meta?: { detected_country?: string } };
+    const detectedCountry = parsed.meta?.detected_country;
+    const listingsData = Array.isArray(parsed.data) ? parsed.data : [];
+
+    if (!detectedCountry || listingsData.length === 0) {
+      const ukUrl = new URL(`${API_BASE_URL}/api/all_listings_by_country_and_category`);
+      ukUrl.searchParams.set("country", "United Kingdom");
+      // Forward non-IP params (per_page, type, etc.) from the original request
+      searchParams.forEach((value, key) => {
+        if (key !== "ip_address") ukUrl.searchParams.set(key, value);
+      });
+
+      const ukResponse = await fetch(ukUrl.toString(), {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      });
+
+      if (ukResponse.ok) {
+        const ukRaw = await ukResponse.text();
+        try {
+          const ukData = ukRaw ? (JSON.parse(ukRaw) as Record<string, unknown>) : {};
+          return NextResponse.json({
+            ...ukData,
+            meta: {
+              ...(typeof ukData.meta === "object" && ukData.meta !== null ? ukData.meta : {}),
+              detected_country: "United Kingdom",
+              fallback: true,
+            },
+          });
+        } catch {
+          // UK fetch returned non-JSON — fall through and return original response
+        }
+      }
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error("Geolocation listings error:", error);
