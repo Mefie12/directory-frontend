@@ -11,25 +11,37 @@ export async function PUT(
     const authHeader = request.headers.get('Authorization');
     const contentType = request.headers.get('Content-Type') || '';
 
-    // Forward FormData as-is for file uploads; fall back to JSON for plain requests
+    // Forward FormData as-is for file uploads; fall back to JSON for plain requests.
+    //
+    // IMPORTANT: PHP only populates $_POST and $_FILES for POST requests.
+    // Sending PUT + multipart/form-data means Laravel receives an empty body —
+    // $request->input() and $request->hasFile() both return nothing.
+    // Fix: send as POST with _method=PUT in the FormData so Laravel's method-
+    // spoofing middleware re-routes it as PUT while PHP correctly parses the body.
     let forwardBody: BodyInit;
+    let forwardMethod: string;
     const forwardHeaders: Record<string, string> = {
       Accept: 'application/json',
       ...(authHeader && { Authorization: authHeader }),
     };
 
     if (contentType.includes('multipart/form-data')) {
-      forwardBody = await request.formData();
-      // Do NOT set Content-Type — fetch adds it with the correct boundary automatically
+      const formData = await request.formData();
+      formData.append('_method', 'PUT'); // Laravel body-based method spoofing
+      forwardBody = formData;
+      forwardMethod = 'POST'; // Must be POST so PHP parses multipart correctly
+      forwardHeaders['X-HTTP-Method-Override'] = 'PUT'; // Symfony header-based override (checked first)
+      // Do NOT set Content-Type — fetch sets it with the correct boundary automatically
     } else {
       forwardBody = JSON.stringify(await request.json());
+      forwardMethod = 'PUT';
       forwardHeaders['Content-Type'] = 'application/json';
     }
 
     const response = await fetch(
       `${API_BASE_URL}/api/categories/${category_id}`,
       {
-        method: 'PUT',
+        method: forwardMethod,
         headers: forwardHeaders,
         body: forwardBody,
       }
