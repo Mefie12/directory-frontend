@@ -396,9 +396,14 @@ function ProviderHeader({
           )}
         </div>
         <div className="mt-3 max-w-2xl">
-          <p className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}>
-            {provider.description}
-          </p>
+          <div
+            className="overflow-hidden transition-all duration-500 ease-linear"
+            style={{ maxHeight: expanded ? "1000px" : "4.5rem" }}
+          >
+            <p className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}>
+              {provider.description}
+            </p>
+          </div>
           {provider.description && provider.description.length > 200 && (
             <div className="flex justify-end">
               <button
