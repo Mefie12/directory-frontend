@@ -7,12 +7,14 @@ import NavigationTab from "@/components/navigation-tab";
 import SearchHeader from "@/components/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
 import EventCardCarousel from "@/components/discover/event-card-carousel";
+import EditorialCarousel from "@/components/discover/editorial-carousel";
 import CommunityCarousel from "@/components/communities/community-carousel";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import type { CuratedCollection } from "@/types/curated-collections";
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
@@ -103,6 +105,7 @@ function DiscoverContent() {
   const [communities, setCommunities] = useState<any[]>([]);
   const [weekEvents, setWeekEvents] = useState<any[]>([]);
   const [soonEvents, setSoonEvents] = useState<any[]>([]);
+  const [collections, setCollections] = useState<CuratedCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
@@ -307,20 +310,26 @@ function DiscoverContent() {
           }
         }
 
-        // Phase 2 — events with country now known
-        // Priority: explicit URL filter > geo-detected name > no filter (global)
+        // Phase 2 + 3 — run in parallel after Phase 1 resolves the country
+        // Phase 2: events filtered by resolved country
+        // Phase 3: editorial curated collections filtered by resolved country
         const eventCountry = filterCountry || detectedCountryRef.current || null;
         const eventParams = new URLSearchParams({ per_page: "15" });
         if (eventCountry) eventParams.set("country", eventCountry);
 
-        const [weekRes, soonRes] = await Promise.all([
+        const collectionsParams = new URLSearchParams();
+        if (eventCountry) collectionsParams.set("country", eventCountry);
+
+        const [weekRes, soonRes, collectionsRes] = await Promise.all([
           fetch(`/api/discover_events?preset=this_week&${eventParams}`, { headers }),
           fetch(`/api/discover_events?preset=happening_soon&${eventParams}`, { headers }),
+          fetch(`/api/curated_collections?${collectionsParams}`, { headers }),
         ]);
 
-        const [weekJson, soonJson] = await Promise.all([
+        const [weekJson, soonJson, collectionsJson] = await Promise.all([
           weekRes.ok ? weekRes.json() : Promise.resolve({ data: [] }),
           soonRes.ok ? soonRes.json() : Promise.resolve({ data: [] }),
+          collectionsRes.ok ? collectionsRes.json() : Promise.resolve({ data: [] }),
         ]);
 
         if (stale) return;
@@ -334,6 +343,7 @@ function DiscoverContent() {
         setCommunities(mapListings(comData).communitiesList);
         setWeekEvents(mapListings(weekData).eventsList);
         setSoonEvents(mapListings(soonData).eventsList);
+        setCollections(Array.isArray(collectionsJson.data) ? collectionsJson.data : []);
       } catch (error) {
         if (!stale) console.error("Failed to fetch discover data", error);
       } finally {
@@ -376,13 +386,22 @@ function DiscoverContent() {
       </div>
 
       <div className="space-y-2">
-        {/* Top Carousels */}
+        {/* Editorial curated collections — renders above algorithmic when available */}
         {isLoading ? (
           <div className="px-4 lg:px-16 py-8 space-y-8">
             <SectionSkeleton />
             <SectionSkeleton />
           </div>
-        ) : (
+        ) : collections.length > 0 ? (
+          <div>
+            {collections.map((collection) => (
+              <EditorialCarousel key={collection.id} collection={collection} />
+            ))}
+          </div>
+        ) : null}
+
+        {/* Algorithmic carousels */}
+        {isLoading ? null : (
           <>
             <BusinessCardCarousel
               businesses={topBusinesses}
