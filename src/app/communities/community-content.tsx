@@ -35,7 +35,7 @@ export default function CommunityContent() {
       groupBy={(c) => c.tag}
       matchesCategory={(c, slug) => c.categorySlug === slug}
       heroSize={9}
-      visibleGroups={2}
+      visibleGroups={0}
       emptyMessage="No communities found in this category."
       gridTitle="All communities"
       renderHero={(heroItems) => (
