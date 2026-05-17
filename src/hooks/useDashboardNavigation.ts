@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type UserRole } from "@/lib/roles";
-import { Newspaper, Icon, SquaresFourIcon, Files } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple } from '@phosphor-icons/react';
 
 export type { UserRole };
 
@@ -64,6 +64,14 @@ const MENU_CONFIG: MenuItem[] = [
     title: "Categories",
     url: "/dashboard/categories",
     icon: SquaresFourIcon,
+    roles: ["admin"],
+  },
+
+  // ─── Curated Collections (Admin) ───
+  {
+    title: "Collections",
+    url: "/dashboard/collections",
+    icon: BookmarkSimple,
     roles: ["admin"],
   },
 
