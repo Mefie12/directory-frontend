@@ -463,118 +463,112 @@ export default function HomeContent() {
       )}
 
       {/* Featured Businesses */}
-      <div className="py-6 px-4 lg:py-16 lg:px-16">
-        <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
-          <div className="flex flex-col space-y-2">
-            <h2 className="font-semibold text-xl md:text-4xl">
-              Featured Businesses
-            </h2>
-            <p className="font-normal text-sm md:text-base">
-              Discover top-rated businesses near you
-            </p>
+      {(isLoading || featuredBusinesses.length > 0) && (
+        <div className="py-6 px-4 lg:py-16 lg:px-16">
+          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+            <div className="flex flex-col space-y-2">
+              <h2 className="font-semibold text-xl md:text-4xl">
+                Featured Businesses
+              </h2>
+              <p className="font-normal text-sm md:text-base">
+                Discover top-rated businesses near you
+              </p>
+            </div>
+            <Link href="/businesses" className="text-[#275782] font-medium">
+              Explore all
+            </Link>
           </div>
-          <Link href="/businesses" className="text-[#275782] font-medium">
-            Explore all
-          </Link>
+          {isLoading ? (
+            <CardSkeleton />
+          ) : (
+            <BusinessCarousel businesses={featuredBusinesses} />
+          )}
         </div>
-        {isLoading ? (
-          <CardSkeleton />
-        ) : featuredBusinesses.length > 0 ? (
-          <BusinessCarousel businesses={featuredBusinesses} />
-        ) : (
-          <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <p>No featured businesses found.</p>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Upcoming Events */}
-      <div className="py-12 px-4 lg:py-12 lg:px-16">
-        <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
-          <div className="flex flex-col space-y-2">
-            <h2 className="font-semibold text-xl md:text-4xl">
-              Upcoming Events
-            </h2>
-            <p className="font-normal text-sm md:text-base">
-              Don&apos;t miss these amazing cultural events
-            </p>
+      {(isLoading || upcomingEvents.length > 0) && (
+        <div className="py-12 px-4 lg:py-12 lg:px-16">
+          <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
+            <div className="flex flex-col space-y-2">
+              <h2 className="font-semibold text-xl md:text-4xl">
+                Upcoming Events
+              </h2>
+              <p className="font-normal text-sm md:text-base">
+                Don&apos;t miss these amazing cultural events
+              </p>
+            </div>
+            <Link href="/events" className="text-[#275782] font-medium">
+              Explore all
+            </Link>
           </div>
-          <Link href="/events" className="text-[#275782] font-medium">
-            Explore all
-          </Link>
+          {isLoading ? (
+            <CardSkeleton />
+          ) : (
+            <DirectoryEventCarousel events={upcomingEvents} />
+          )}
         </div>
-        {isLoading ? (
-          <CardSkeleton />
-        ) : upcomingEvents.length > 0 ? (
-          <DirectoryEventCarousel events={upcomingEvents} />
-        ) : (
-          <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <p>No upcoming events found.</p>
-          </div>
-        )}
-      </div>
+      )}
 
 
       {/* Community Section */}
-      <div className="py-12 px-4 lg:px-16">
-        <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-10">
-          <div className="flex flex-col space-y-2">
-            <h2 className="font-semibold text-xl md:text-4xl">
-              Communities You Can Explore
-            </h2>
-            <p className="font-normal text-sm md:text-base">
-              Join supportive network that celebrates african heritage
-            </p>
+      {(isLoading || featuredCommunities.length > 0) && (
+        <div className="py-12 px-4 lg:px-16">
+          <div className="flex flex-row justify-between items-center md:items-center gap-3 mb-10">
+            <div className="flex flex-col space-y-2">
+              <h2 className="font-semibold text-xl md:text-4xl">
+                Communities You Can Explore
+              </h2>
+              <p className="font-normal text-sm md:text-base">
+                Join supportive network that celebrates african heritage
+              </p>
+            </div>
           </div>
-        </div>
-        {isLoading ? (
-          <CommunitySkeleton />
-        ) : featuredCommunities.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-6">
-            {featuredCommunities.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-row bg-white rounded-3xl shadow-sm border overflow-hidden h-full min-h-[165px]"
-              >
-                <div className="relative w-32 sm:w-48 h-auto p-3 shrink-0">
-                  <div className="relative w-full h-full rounded-xl overflow-hidden bg-gray-100">
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      fill
-                      className="object-cover"
-                      unoptimized={true}
-                    />
+          {isLoading ? (
+            <CommunitySkeleton />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-6">
+              {featuredCommunities.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-row bg-white rounded-3xl shadow-sm border overflow-hidden h-full min-h-[165px]"
+                >
+                  <div className="relative w-32 sm:w-48 h-auto p-3 shrink-0">
+                    <div className="relative w-full h-full rounded-xl overflow-hidden bg-gray-100">
+                      <Image
+                        src={item.image}
+                        alt={item.title}
+                        fill
+                        className="object-cover"
+                        unoptimized={true}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-center mt-1.5 p-1 md:p-3 flex-1">
+                    <h4 className="text-lg md:text-2xl font-semibold text-gray-900 mb-2 md:mb-3 line-clamp-1">
+                      {item.title}
+                    </h4>
+                    <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal line-clamp-2">
+                      {item.description}
+                    </p>
+                    <Button onClick={()=>router.push(`/communities/${item.slug}`)} className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
+                      View Community
+                    </Button>
                   </div>
                 </div>
-                <div className="flex flex-col justify-center mt-1.5 p-1 md:p-3 flex-1">
-                  <h4 className="text-lg md:text-2xl font-semibold text-gray-900 mb-2 md:mb-3 line-clamp-1">
-                    {item.title}
-                  </h4>
-                  <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal line-clamp-2">
-                    {item.description}
-                  </p>
-                  <Button onClick={()=>router.push(`/communities/${item.slug}`)} className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
-                    View Community
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+          <div className="flex items-center justify-center mt-4">
+            <Button
+              onClick={() => router.push("/communities")}
+              className="bg-transparent border border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F] hover:text-white cursor-pointer"
+            >
+              Explore more communities
+            </Button>
           </div>
-        ) : (
-          <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <p>No communities found.</p>
-          </div>
-        )}
-        <div className="flex items-center justify-center mt-4">
-          <Button
-            onClick={() => router.push("/communities")}
-            className="bg-transparent border border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F] hover:text-white cursor-pointer"
-          >
-            Explore more communities
-          </Button>
         </div>
-      </div>
+      )}
 
             {/* Vendor Section */}
       <div className="py-12 px-4 lg:px-16">
