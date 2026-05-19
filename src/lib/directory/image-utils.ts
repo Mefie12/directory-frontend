@@ -15,7 +15,8 @@ export function getImageUrl(url: string | undefined | null): string {
 
 /**
  * Normalise a listing's images array into a non-empty list of absolute URLs.
- * Reads `img.original` (Spatie V2 shape). Falls back to the item's
+ * Prefers `img.webp` (smaller file, ~50% of JPEG original) when available,
+ * falling back to `img.original`. Falls back further to the item's
  * `image` / `cover_image` field, and finally to the generic placeholder.
  */
 export function processImages(
@@ -30,7 +31,7 @@ export function processImages(
       return !!(img && typeof img === "object" && img.original);
     })
     .map((img) =>
-      getImageUrl(typeof img === "string" ? img : img.original),
+      getImageUrl(typeof img === "string" ? img : (img.webp || img.original)),
     );
 
   if (valid.length > 0) return valid;
