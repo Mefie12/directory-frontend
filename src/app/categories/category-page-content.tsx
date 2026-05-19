@@ -189,25 +189,63 @@ function SectionGrid({
   );
 }
 
+function CardSkeleton() {
+  return (
+    <div className="w-[82vw] max-w-[340px] shrink-0 snap-start overflow-hidden rounded-2xl border border-gray-100 bg-white sm:w-auto sm:max-w-none sm:shrink">
+      <Skeleton className="h-48 w-full rounded-none" />
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-4 w-16 rounded-full" />
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    </div>
+  );
+}
+
+function ContentSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[0, 1, 2].map((i) => (
+        <section key={i} className="px-4 py-10 lg:px-16">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton className="h-9 w-32 rounded-full" />
+          </div>
+          <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-3 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((j) => (
+              <CardSkeleton key={j} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function PageSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 pt-24">
-      <div className="space-y-6 px-4 lg:px-16">
-        <Skeleton className="h-10 w-72" />
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((key) => (
-            <Skeleton key={key} className="h-10 w-28 rounded-full" />
-          ))}
+    <div className="min-h-screen bg-gray-50 pt-20">
+      <section className="px-4 pb-4 pt-8 lg:px-16">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-64 lg:h-12 lg:w-72" />
+            <Skeleton className="h-5 w-full max-w-lg" />
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl lg:w-[220px]" />
         </div>
-        <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-3 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((key) => (
-            <Skeleton
-              key={key}
-              className="h-80 w-[82vw] max-w-[340px] shrink-0 snap-start rounded-2xl sm:w-auto sm:max-w-none sm:shrink"
-            />
-          ))}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          <Skeleton className="h-9 w-28 shrink-0 rounded-full" />
+          <Skeleton className="h-9 w-24 shrink-0 rounded-full" />
+          <Skeleton className="h-9 w-32 shrink-0 rounded-full" />
+          <Skeleton className="h-9 w-24 shrink-0 rounded-full" />
+          <Skeleton className="h-9 w-28 shrink-0 rounded-full" />
         </div>
-      </div>
+      </section>
+      <ContentSkeleton />
     </div>
   );
 }
@@ -248,6 +286,7 @@ export default function CategoryPageContent() {
     const controller = new AbortController();
 
     async function fetchLanding() {
+      let aborted = false;
       try {
         setIsLoading(true);
         setError(null);
@@ -272,11 +311,14 @@ export default function CategoryPageContent() {
         const json = (await response.json()) as CategoryLandingResponse;
         setData(json);
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === "AbortError") {
+          aborted = true;
+          return;
+        }
         setError(err instanceof Error ? err.message : "Failed to load category listings");
         setData(null);
       } finally {
-        setIsLoading(false);
+        if (!aborted) setIsLoading(false);
       }
     }
 
@@ -414,9 +456,7 @@ export default function CategoryPageContent() {
           {error}
         </div>
       ) : isLoading ? (
-        <div className="px-4 py-8 lg:px-16">
-          <Skeleton className="h-80 rounded-2xl" />
-        </div>
+        <ContentSkeleton />
       ) : typeView ? (
         <section className="px-4 py-10 lg:px-16">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
