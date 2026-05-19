@@ -13,7 +13,7 @@ interface Props {
   listingSlug: string;
 }
 
-const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 3;
 
@@ -43,7 +43,7 @@ const coverSchema = z
 const shouldCompressImage = (file: File): boolean => {
   if (!file || !(file instanceof File) || !file.type.startsWith("image/"))
     return false;
-  return file.size > 5 * 1024 * 1024;
+  return file.size > MAX_FILE_SIZE_BYTES;
 };
 
 const smartCompressImage = async (file: File): Promise<File> => {
@@ -336,7 +336,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 50 MB each.
+            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 5 MB each.
           </p>
         </div>
 
