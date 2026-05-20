@@ -18,6 +18,7 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   error?: string;
   className?: string;
+  showOtherOnEmpty?: boolean;
 }
 
 export function SearchableSelect({
@@ -29,6 +30,7 @@ export function SearchableSelect({
   searchPlaceholder = "Search...",
   error,
   className,
+  showOtherOnEmpty = false,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -98,7 +100,28 @@ export function SearchableSelect({
           </div>
           <div className="max-h-60 overflow-auto p-1">
             {filteredOptions.length === 0 ? (
-              <p className="p-3 text-sm text-gray-500">No results found</p>
+              <>
+                <p className="px-3 pt-3 pb-1 text-sm text-gray-400">No results found</p>
+                {showOtherOnEmpty && search.trim() !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange("other");
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded px-3 py-2.5 text-sm transition-colors mt-1",
+                      "border border-dashed border-gray-300 hover:border-[#93C01F] hover:bg-[#93C01F]/5 hover:text-[#5F8B0A]",
+                      value === "other" && "border-[#93C01F] bg-[#93C01F]/5 text-[#5F8B0A] font-medium"
+                    )}
+                  >
+                    <span className="text-base leading-none">+</span>
+                    Other (not listed)
+                    {value === "other" && <Check className="h-4 w-4 ml-auto" />}
+                  </button>
+                )}
+              </>
             ) : (
               filteredOptions.map((option) => (
                 <button

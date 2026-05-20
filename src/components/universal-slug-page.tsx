@@ -198,6 +198,7 @@ interface Provider {
   id: number;
   name: string;
   slug: string;
+  listingType?: string;
   description: string;
   location?: string;
   country?: string;
@@ -950,6 +951,7 @@ export default function UniversalSlugPage({
             id: listingData.id,
             name: listingData.name,
             slug: listingData.slug,
+            listingType: listingData.type,
             description:
               listingData.bio ||
               listingData.description ||
@@ -1076,27 +1078,20 @@ export default function UniversalSlugPage({
 
   const rating = Number(providerData.rating) || 0;
 
-  let parentLink = "/";
-  let parentLabel = "Home";
+  const resolvedType = providerData.listingType || type;
+  const sectionLink =
+    resolvedType === "event" ? "/events" :
+    resolvedType === "community" ? "/communities" :
+    resolvedType === "business" ? "/businesses" :
+    "/discover";
+  const sectionLabel =
+    resolvedType === "event" ? "Events" :
+    resolvedType === "community" ? "Communities" :
+    resolvedType === "business" ? "Businesses" :
+    "Discover";
 
-  if (categorySlug) {
-    parentLink = `/categories/${categorySlug}`;
-    parentLabel =
-      categorySlug.charAt(0).toUpperCase() +
-      categorySlug.slice(1).replace(/-/g, " ");
-  } else if (type === "business") {
-    parentLink = "/businesses";
-    parentLabel = "Businesses";
-  } else if (type === "community") {
-    parentLink = "/communities";
-    parentLabel = "Communities";
-  } else if (type === "discover") {
-    parentLink = "/discover";
-    parentLabel = "Discover";
-  } else if (type === "event") {
-    parentLink = "/events";
-    parentLabel = "Events";
-  }
+  const formatCategoryLabel = (slug: string) =>
+    slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
   return (
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
@@ -1108,8 +1103,18 @@ export default function UniversalSlugPage({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={parentLink}>{parentLabel}</BreadcrumbLink>
+              <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>
             </BreadcrumbItem>
+            {categorySlug && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href={`/categories/${categorySlug}`}>
+                    {formatCategoryLabel(categorySlug)}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+              </>
+            )}
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbPage>{providerData.name}</BreadcrumbPage>

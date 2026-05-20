@@ -51,7 +51,7 @@ function SignupForm() {
     first_name: "",
     last_name: "",
     phone: "",
-    country_code: "+233",
+    country_code: "+44",
     email: verifyEmail,
     password: "",
   });
@@ -325,7 +325,7 @@ function SignupForm() {
               <div className="space-y-2">
                 <Label className="text-xs">Phone Number</Label>
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry="gb"
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}

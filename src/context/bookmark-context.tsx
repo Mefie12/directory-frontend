@@ -50,7 +50,10 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const json = await response.json();
         // Handle various response structures (array of strings vs array of objects)
-        const items = Array.isArray(json) ? json : json.data || [];
+        // API returns { bookmarks: { data: [...] } } — fall through all known shapes
+        const items = Array.isArray(json)
+          ? json
+          : json.bookmarks?.data || json.data || json.bookmarks || [];
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const slugs = items.map((item: any) => {
