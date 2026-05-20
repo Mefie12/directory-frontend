@@ -638,13 +638,12 @@ export default function Navbar() {
               <Link href="/about" onClick={() => setIsMobileMenuOpen(false)}>
                 About Us
               </Link>
-              <Link
-                href="/become-a-vendor"
-                onClick={() => setIsMobileMenuOpen(false)}
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); handleClickEvent(); }}
                 className="block w-full text-center px-4 py-3 text-base font-normal text-white bg-(--accent-primary) hover:bg-[#98BC3B] rounded-xl transition-colors mt-10"
               >
                 Become a vendor
-              </Link>
+              </button>
             </div>
           </div>
         </div>

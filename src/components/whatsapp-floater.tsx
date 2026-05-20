@@ -4,11 +4,15 @@ import { useState } from "react";
 import { WhatsappLogo, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
+import { usePathname } from "next/navigation";
 
 const STORAGE_KEY = "whatsapp_floater_open";
 
+const HIDDEN_PATHS = ["/dashboard", "/claim/manual"];
+
 export function WhatsAppFloater() {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
   // Read persisted state once; default open if nothing stored yet.
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -25,8 +29,9 @@ export function WhatsAppFloater() {
     setOpen(true);
   };
 
-  // Not yet hydrated, or not authenticated
+  // Not yet hydrated, not authenticated, or on a form page
   if (loading || !user) return null;
+  if (HIDDEN_PATHS.some((p) => pathname?.startsWith(p))) return null;
 
   if (!open) {
     return (

@@ -143,7 +143,7 @@ export default function EditListingContent() {
         };
 
         const getDialCode = (isoCode: string | null) => {
-          if (!isoCode) return "+233";
+          if (!isoCode) return "+44";
           return countryCodeToDialCode[isoCode] || `+${isoCode}`;
         };
 

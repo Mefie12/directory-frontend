@@ -332,7 +332,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     }));
 
     return (
-      <div className="p-6 space-y-6">
+      <div className="py-4 space-y-6">
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
@@ -342,7 +342,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
         <div className="space-y-8">
           <div>
-            <h3 className="font-medium text-gray-900 mb-2">Cover Photo</h3>
+            <h3 className="font-medium text-gray-900 mb-2">
+              Cover Photo{" "}
+              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+            </h3>
             <FileUploader
               label=""
               multiple={false}
@@ -370,7 +373,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-900 mb-2">Gallery Media</h3>
+            <h3 className="font-medium text-gray-900 mb-2">
+              Gallery Media{" "}
+              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+            </h3>
             <FileUploader
               label=""
               files={media.images}

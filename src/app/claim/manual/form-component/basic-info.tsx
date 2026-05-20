@@ -130,7 +130,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         description: "",
         type: listingType,
         primary_phone: "",
-        primary_country_code: "+233",
+        primary_country_code: "+44",
         secondary_phone: "",
         secondary_country_code: "",
         email: "",
@@ -292,7 +292,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 rawData.secondary_country_code || "",
               )
             : "",
-          category_ids: rawData.category_ids.map((id) => Number(id)),
+          category_ids: rawData.category_ids.filter((id) => id !== "other").map((id) => Number(id)),
         };
 
         const token = localStorage.getItem("authToken");
@@ -371,9 +371,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               email: d.email || "",
               website: d.website || "",
               primary_phone: fullPrimaryPhone,
-              primary_country_code: d.primary_country_code || "+233",
+              primary_country_code: d.primary_country_code || "+44",
               secondary_phone: fullSecondaryPhone,
-              secondary_country_code: d.secondary_country_code || "+233",
+              secondary_country_code: d.secondary_country_code || "+44",
               category_ids: d.categories?.map((c: any) => String(c.id)) || [],
               business_reg_num: d.business_reg_num || "",
               type: listingType,
@@ -469,7 +469,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone); // Update the full string
@@ -509,14 +509,15 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              Secondary Phone Number
+              Secondary Phone Number{" "}
+              <span className="text-gray-400 font-normal">(Optional)</span>
             </label>
             <Controller
               name="secondary_phone"
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                  defaultCountry="gh"
+                  defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
                     field.onChange(phone); // Update the full string
@@ -567,26 +568,34 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             ) : error ? (
               <div className="text-red-500 text-sm">{error}</div>
             ) : (
-              <SearchableSelect
-                options={mainCategories.map((category) => ({
-                  value: String(category.id),
-                  label: category.name,
-                }))}
-                value={selectedMainCategoryId}
-                onChange={handleMainCategoryChange}
-                placeholder={
-                  mainCategories.length === 0
-                    ? "No categories available"
-                    : `Select ${textConfig.label.toLowerCase()} main category`
-                }
-                searchPlaceholder="Search main category..."
-                disabled={loading || mainCategories.length === 0}
-                error={
-                  errors.category_ids
-                    ? "Main category is required"
-                    : undefined
-                }
-              />
+              <>
+                <SearchableSelect
+                  options={mainCategories.map((category) => ({
+                    value: String(category.id),
+                    label: category.name,
+                  }))}
+                  value={selectedMainCategoryId}
+                  onChange={handleMainCategoryChange}
+                  placeholder={
+                    mainCategories.length === 0
+                      ? "No categories available"
+                      : `Select ${textConfig.label.toLowerCase()} main category`
+                  }
+                  searchPlaceholder="Search main category..."
+                  disabled={loading || mainCategories.length === 0}
+                  showOtherOnEmpty
+                  error={
+                    errors.category_ids
+                      ? "Main category is required"
+                      : undefined
+                  }
+                />
+                {selectedMainCategoryId === "other" && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
+                    Our team will assign the most appropriate category for your listing after review.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -595,7 +604,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="font-medium text-sm">
-                  Select {textConfig.label} Subcategory (Optional)
+                  Select {textConfig.label} Subcategory{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
               </div>
 
@@ -663,7 +673,10 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         {/* Website & Reg */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <label className="font-medium text-sm">Website (Optional)</label>
+            <label className="font-medium text-sm">
+              Website{" "}
+              <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
             <Input
               {...register("website")}
               type="url"
@@ -683,7 +696,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           {listingType === "business" && (
             <div className="space-y-1">
               <label className="font-medium text-sm">
-                Business Registration Number (Optional)
+                Business Registration Number{" "}
+                <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
               <Input
                 {...register("business_reg_num")}

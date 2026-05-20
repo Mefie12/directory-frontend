@@ -714,7 +714,7 @@ export default function Settings() {
                     <div>
                       <Label>Phone Number</Label>
                       <PhoneInput
-                        defaultCountry="gh"
+                        defaultCountry="gb"
                         value={phoneNumber}
                         onChange={(phone) => setPhoneNumber(phone)}
                         inputClassName="w-full h-11 border border-gray-300 rounded-r-3xl px-4 focus:outline-none focus:ring-2 focus:ring-lime-500 font-sans text-sm text-gray-900"

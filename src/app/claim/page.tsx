@@ -259,85 +259,97 @@ export default function ClaimPage() {
                 ))}
               </div>
             ) : results.length > 0 ? (
-              results.map((business) => {
-                const isClaimed = !!business.claim_status || business.status === "claimed";
-                const displayImage =
-                  business.images && business.images.length > 0
-                    ? getImageUrl(business.images[0])
-                    : null;
+              <>
+                {results.map((business) => {
+                  const isClaimed = !!business.claim_status || business.status === "claimed";
+                  const displayImage =
+                    business.images && business.images.length > 0
+                      ? getImageUrl(business.images[0])
+                      : null;
 
-                return (
-                  <div
-                    key={business.id}
-                    onClick={() => handleViewListing(business)}
-                    className="flex items-center justify-between px-4 py-4 rounded-2xl border transition-all bg-white border-gray-200 shadow-sm hover:shadow-md cursor-pointer"
-                  >
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border">
-                        {displayImage ? (
-                          <div className="relative w-full h-full">
-                            <Image
-                              src={displayImage}
-                              alt={business.name}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          getBusinessIcon(business.type)
-                        )}
-                      </div>
-                      <div>
-                        <h3
-                          className="font-bold text-lg text-slate-900"
-                        >
-                          {business.name}
-                        </h3>
-                        <p className="text-gray-500 text-sm mt-0.5">
-                          {business.address}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge
-                            variant="outline"
-                            className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border-slate-200 text-slate-500 bg-slate-50"
-                          >
-                            {business.type}
-                          </Badge>
-                          {business.distance && (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-md font-semibold text-[10px] px-2 py-0.5"
-                            >
-                              {business.distance}
-                            </Badge>
+                  return (
+                    <div
+                      key={business.id}
+                      onClick={() => handleViewListing(business)}
+                      className="flex items-center justify-between px-4 py-4 rounded-2xl border transition-all bg-white border-gray-200 shadow-sm hover:shadow-md cursor-pointer"
+                    >
+                      <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border">
+                          {displayImage ? (
+                            <div className="relative w-full h-full">
+                              <Image
+                                src={displayImage}
+                                alt={business.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            getBusinessIcon(business.type)
                           )}
                         </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-slate-900">
+                            {business.name}
+                          </h3>
+                          <p className="text-gray-500 text-sm mt-0.5">
+                            {business.address}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge
+                              variant="outline"
+                              className="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border-slate-200 text-slate-500 bg-slate-50"
+                            >
+                              {business.type}
+                            </Badge>
+                            {business.distance && (
+                              <Badge
+                                variant="secondary"
+                                className="rounded-md font-semibold text-[10px] px-2 py-0.5"
+                              >
+                                {business.distance}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        {isClaimed ? (
+                          <Button
+                            disabled
+                            className="bg-gray-100 text-gray-400 px-6 py-2 h-auto rounded-lg font-medium min-w-[100px] cursor-not-allowed"
+                          >
+                            Claimed
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClaim(business);
+                            }}
+                            className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium min-w-[100px]"
+                          >
+                            Claim
+                          </Button>
+                        )}
                       </div>
                     </div>
+                  );
+                })}
 
-                    <div>
-                      {isClaimed ? (
-                        <Button
-                          disabled
-                          className="bg-gray-100 text-gray-400 px-6 py-2 h-auto rounded-lg font-medium min-w-[100px] cursor-not-allowed"
-                        >
-                          Claimed
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClaim(business);
-                          }}
-                          className="bg-[#93C01F] hover:bg-[#7ea919] text-white px-6 py-2 h-auto rounded-lg font-medium min-w-[100px]"
-                        >
-                          Claim
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+                {/* Not in the list? Add manually */}
+                <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+                  <p className="text-sm text-gray-500">Don&apos;t see your listing in the results?</p>
+                  <Button
+                    onClick={() => setIsDialogOpen(true)}
+                    variant="outline"
+                    className="w-full max-w-sm h-12 rounded-lg border-2 border-[#93C01F] text-[#93C01F] font-medium gap-2 hover:bg-[#93C01F] hover:text-white transition-all"
+                  >
+                    <Plus className="w-5 h-5" /> Add manually
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="text-center py-16">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100 shadow-none">
