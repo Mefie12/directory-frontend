@@ -32,7 +32,7 @@ function MobileDashboardBanner() {
     <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 text-sm">
       <Monitor className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
       <p className="flex-1 leading-snug">
-        <span className="font-semibold">Better on desktop.</span> For the best dashboard experience, we recommend opening this on a PC or laptop. You can still use it here.
+        <span className="font-semibold">Better on desktop.</span> For the best dashboard experience, we recommend opening this on a PC or laptop.
       </p>
       <button onClick={dismiss} className="shrink-0 text-amber-600 hover:text-amber-900 transition-colors" aria-label="Dismiss">
         <X className="w-4 h-4" />
@@ -94,7 +94,6 @@ export default function Layout({ children }: LayoutProps) {
     if (!loading && !user) {
       router.push(`/auth/login?redirect=${encodeURIComponent(pathnameRef.current)}`);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, router]);
 
   if (loading) {
