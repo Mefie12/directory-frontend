@@ -94,14 +94,9 @@ export function EventCard({ event }: EventCardProps) {
           />
         </button>
 
-        {/* Category badge overlay (bottom-right) */}
-        <span className="absolute bottom-2 right-2 inline-flex items-center px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-medium shadow-sm">
-          {event.category}
-        </span>
-
-        {/* Verified badge (bottom-left) */}
+        {/* Verified badge — bottom-right of image */}
         {event.verified && (
-          <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
             <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
             <span className="text-xs font-medium text-gray-700">Verified</span>
           </div>
@@ -110,7 +105,10 @@ export function EventCard({ event }: EventCardProps) {
 
       {/* Card Content */}
       <div className="p-4 space-y-3">
-        {/* Name + Verified */}
+        {/* Category tag */}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          {event.category}
+        </span>
         <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
           {event.name}
         </h3>

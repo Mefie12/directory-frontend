@@ -15,6 +15,8 @@ export interface CuratedCollectionListing {
   ratings_count: number;
   listing_verified: boolean;
   categories: { name: string }[];
+  bio?: string | null;
+  description?: string | null;
   event_start_date: string | null;
   event_venue: string | null;
   event_city: string | null;

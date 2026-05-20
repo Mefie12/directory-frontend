@@ -1,7 +1,7 @@
 // app/dashboard/layout.tsx
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/dashboard/header";
@@ -85,12 +85,17 @@ export default function Layout({ children }: LayoutProps) {
     };
   }, [user?.id, user?.email, refetchUser]);
 
-  // Redirect to login if not authenticated, preserving the intended route
+  // Redirect to login if not authenticated, preserving the intended route.
+  // pathname is intentionally excluded from deps — we only care whether user/loading
+  // change, not every client-side navigation within the dashboard.
+  const pathnameRef = React.useRef(pathname);
+  pathnameRef.current = pathname;
   useEffect(() => {
     if (!loading && !user) {
-      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathnameRef.current)}`);
     }
-  }, [user, loading, router, pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading, router]);
 
   if (loading) {
     return (

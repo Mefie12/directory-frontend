@@ -59,7 +59,7 @@ function toCommunityCard(listing: CuratedCollectionListing) {
     id: String(listing.id),
     name: listing.name,
     slug: listing.slug,
-    description: "",
+    description: listing.bio || listing.description || "",
     imageUrl:
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
@@ -127,7 +127,7 @@ export default function EditorialCarousel({
 
   return (
     <div className="py-8 px-4 lg:px-16">
-      {/* Header — title + optional subtitle + nav buttons */}
+      {/* Header — title + optional subtitle + desktop nav buttons */}
       <div className="flex flex-row justify-between items-start mb-5">
         <div className="flex-1 min-w-0 pr-4">
           <h2 className="font-semibold text-2xl md:text-3xl text-gray-900 leading-tight">
@@ -139,6 +139,7 @@ export default function EditorialCarousel({
             </p>
           )}
         </div>
+        {/* Desktop nav — top right */}
         <div className="hidden md:flex gap-2 shrink-0 mt-1">
           <Button
             variant="outline"
@@ -161,7 +162,7 @@ export default function EditorialCarousel({
         </div>
       </div>
 
-      {/* Carousel — same slot sizing as BusinessCardCarousel */}
+      {/* Carousel */}
       <div className="overflow-hidden pb-2" ref={emblaRef}>
         <div className="flex gap-4">
           {collection.items.map((item) => (
@@ -173,6 +174,28 @@ export default function EditorialCarousel({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Mobile nav — below carousel */}
+      <div className="flex md:hidden justify-center gap-3 mt-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={scrollPrev}
+          disabled={!canScrollPrev}
+          className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-30"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-700" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={scrollNext}
+          disabled={!canScrollNext}
+          className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-30"
+        >
+          <ChevronRight className="w-5 h-5 text-[#275782]" />
+        </Button>
       </div>
     </div>
   );

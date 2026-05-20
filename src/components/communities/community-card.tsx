@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { Bookmark } from "lucide-react";
 import Link from "next/link";
 import type { CommunityCard } from "@/lib/data";
@@ -89,20 +88,6 @@ export default function CommunityCard({ community }: CommunityCardProps) {
               }
             }}
           />
-          {/* Category/tag badge overlay (bottom-right) */}
-          <Badge className="absolute bottom-2 right-2 z-10 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-white rounded-full shadow-sm">
-            <span className="text-xs font-medium">
-              {community.tag || "Community"}
-            </span>
-          </Badge>
-
-          {/* Verified badge (bottom-left) */}
-          {community.verified && (
-            <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
-              <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
-              <span className="text-xs font-medium text-gray-700">Verified</span>
-            </div>
-          )}
 
           {/* Bookmark Icon */}
           <button
@@ -119,11 +104,23 @@ export default function CommunityCard({ community }: CommunityCardProps) {
               )}
             />
           </button>
+
+          {/* Verified badge — bottom-right of image */}
+          {community.verified && (
+            <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+              <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+              <span className="text-xs font-medium text-gray-700">Verified</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content Area */}
       <div className="px-6 pb-4 space-y-2">
+        {/* Category tag */}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          {community.tag || "Community"}
+        </span>
         <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
           {community.name}
         </h2>
