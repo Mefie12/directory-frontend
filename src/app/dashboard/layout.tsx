@@ -1,7 +1,7 @@
 // app/dashboard/layout.tsx
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/dashboard/header";
@@ -10,6 +10,36 @@ import { useRouter, usePathname } from "next/navigation";
 import { pusherService } from "@/lib/pusher";
 import { ROLE_CHANGED_EVENT } from "@/hooks/useRealtimeRole";
 import { normalizeRole } from "@/lib/roles";
+import { Monitor, X } from "lucide-react";
+
+function MobileDashboardBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    const dismissed = sessionStorage.getItem("dashboardMobileBannerDismissed");
+    if (isMobile && !dismissed) setVisible(true);
+  }, []);
+
+  const dismiss = () => {
+    sessionStorage.setItem("dashboardMobileBannerDismissed", "1");
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 text-sm">
+      <Monitor className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+      <p className="flex-1 leading-snug">
+        <span className="font-semibold">Better on desktop.</span> For the best dashboard experience, we recommend opening this on a PC or laptop.
+      </p>
+      <button onClick={dismiss} className="shrink-0 text-amber-600 hover:text-amber-900 transition-colors" aria-label="Dismiss">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
 
 interface LayoutProps {
   children: ReactNode;
@@ -55,12 +85,16 @@ export default function Layout({ children }: LayoutProps) {
     };
   }, [user?.id, user?.email, refetchUser]);
 
-  // Redirect to login if not authenticated, preserving the intended route
+  // Redirect to login if not authenticated, preserving the intended route.
+  // pathname is intentionally excluded from deps — we only care whether user/loading
+  // change, not every client-side navigation within the dashboard.
+  const pathnameRef = React.useRef(pathname);
+  pathnameRef.current = pathname;
   useEffect(() => {
     if (!loading && !user) {
-      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathnameRef.current)}`);
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -91,6 +125,7 @@ export default function Layout({ children }: LayoutProps) {
               <Header />
             </div>
             <div className="border-b border-gray-100 pt-2" />
+            <MobileDashboardBanner />
           </div>
           <div className="flex-1 px-2 pb-2">{children}</div>
         </main>

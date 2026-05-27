@@ -31,7 +31,7 @@ export function EventCard({ event }: EventCardProps) {
    // Determine the base path for navigation based on current page
   const getBasePath = () => {
     if (pathname?.includes("/dashboard/bookmarks")) {
-      return "/dashboard/bookmarks";
+      return "/events";
     } else if (pathname?.includes("/dashboard/my-listing")) {
       return "/dashboard/my-listing";
     } else if (pathname?.includes("/discover")) {
@@ -94,29 +94,24 @@ export function EventCard({ event }: EventCardProps) {
           />
         </button>
 
-        {/* Category badge overlay (bottom-right) */}
-        <span className="absolute bottom-2 right-2 inline-flex items-center px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[#64748A] text-xs font-medium shadow-sm">
-          {event.category}
-        </span>
+        {/* Verified badge — bottom-right of image */}
+        {event.verified && (
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+            <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+            <span className="text-xs font-medium text-gray-700">Verified</span>
+          </div>
+        )}
       </div>
 
       {/* Card Content */}
       <div className="p-4 space-y-3">
-        {/* Name + Verified */}
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
-            {event.name}
-          </h3>
-          {event.verified && (
-            <Image
-              src="/images/icons/verify.svg"
-              alt="Verified"
-              width={20}
-              height={20}
-              className="shrink-0"
-            />
-          )}
-        </div>
+        {/* Category tag */}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          {event.category}
+        </span>
+        <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+          {event.name}
+        </h3>
 
         {/* Description */}
         <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
@@ -124,28 +119,34 @@ export function EventCard({ event }: EventCardProps) {
         </p>
 
         {/* Location */}
-        <div className="flex items-center gap-2 text-gray-500">
-          <Image
-            src="/images/icons/location.svg"
-            alt="Location"
-            width={16}
-            height={16}
-          />
-          <span className="text-xs">{event.location}</span>
-        </div>
+        {event.location && (
+          <div className="flex items-center gap-2 text-gray-500">
+            <Image
+              src="/images/icons/location.svg"
+              alt="Location"
+              width={16}
+              height={16}
+            />
+            <span className="text-xs">{event.location}</span>
+          </div>
+        )}
 
         {/* Date Range */}
-        <div className="flex items-center gap-2 text-gray-500">
-          <Image
-            src="/images/icons/calendar.svg"
-            alt="Calendar"
-            width={16}
-            height={16}
-          />
-          <span className="text-xs">
-            {event.startDate} - {event.endDate}
-          </span>
-        </div>
+        {(event.startDate || event.endDate) && (
+          <div className="flex items-center gap-2 text-gray-500">
+            <Image
+              src="/images/icons/calendar.svg"
+              alt="Calendar"
+              width={16}
+              height={16}
+            />
+            <span className="text-xs">
+              {event.startDate}
+              {event.startDate && event.endDate ? " - " : ""}
+              {event.endDate}
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   );

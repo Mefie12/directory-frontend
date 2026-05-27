@@ -13,7 +13,7 @@ interface Props {
   listingSlug: string;
 }
 
-const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 3;
 
@@ -43,7 +43,7 @@ const coverSchema = z
 const shouldCompressImage = (file: File): boolean => {
   if (!file || !(file instanceof File) || !file.type.startsWith("image/"))
     return false;
-  return file.size > 5 * 1024 * 1024;
+  return file.size > MAX_FILE_SIZE_BYTES;
 };
 
 const smartCompressImage = async (file: File): Promise<File> => {
@@ -332,17 +332,20 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     }));
 
     return (
-      <div className="p-6 space-y-6">
+      <div className="py-4 space-y-6">
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 50 MB each.
+            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 5 MB each.
           </p>
         </div>
 
         <div className="space-y-8">
           <div>
-            <h3 className="font-medium text-gray-900 mb-2">Cover Photo</h3>
+            <h3 className="font-medium text-gray-900 mb-2">
+              Cover Photo{" "}
+              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+            </h3>
             <FileUploader
               label=""
               multiple={false}
@@ -370,7 +373,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           </div>
 
           <div>
-            <h3 className="font-medium text-gray-900 mb-2">Gallery Media</h3>
+            <h3 className="font-medium text-gray-900 mb-2">
+              Gallery Media{" "}
+              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+            </h3>
             <FileUploader
               label=""
               files={media.images}

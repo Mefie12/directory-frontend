@@ -141,9 +141,17 @@ export default function RootLayout({
             <WhatsAppFloater />
             <Toaster
               closeButton
-              visibleToasts={9}
-              duration={10000}
-              position="bottom-right"
+              visibleToasts={3}
+              duration={4000}
+              position="top-center"
+              toastOptions={{
+                classNames: {
+                  toast: "!rounded-xl !shadow-lg !text-sm !font-medium !gap-2",
+                  title: "!font-semibold",
+                  description: "!text-xs !opacity-80",
+                  closeButton: "!rounded-lg",
+                },
+              }}
             />
           </BookmarkProvider>
         </AuthProvider>

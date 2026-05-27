@@ -193,7 +193,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
       listingData?.categories?.map((c) => c.name).join(", ") || "Uncategorized";
 
     return (
-      <div className="space-y-6 px-4 py-6">
+      <div className="space-y-6 py-2">
         <div>
           <h2 className="text-xl font-semibold mb-1">Preview & Publish</h2>
           <p className="text-sm text-muted-foreground">

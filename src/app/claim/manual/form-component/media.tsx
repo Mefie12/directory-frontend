@@ -16,7 +16,7 @@ interface Props {
 }
 
 // --- Configuration ---
-const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 3;
 
@@ -45,7 +45,7 @@ const coverSchema = z
 // Helper to check if we need compression (Images only)
 const shouldCompressImage = (file: File): boolean => {
   if (!file.type.startsWith("image/")) return false;
-  return file.size > 5 * 1024 * 1024;
+  return file.size > MAX_FILE_SIZE_BYTES;
 };
 
 // Smart compression - only for large images, passes videos through untouched
@@ -323,8 +323,8 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 & Videos)
               </li>
               <li>
-                Large images are automatically optimized. Videos are uploaded
-                as-is.
+                Image thumbnails and WebP versions are generated after upload.
+                Videos are uploaded as-is.
               </li>
             </ul>
           </div>

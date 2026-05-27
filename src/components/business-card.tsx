@@ -32,7 +32,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
   // Determine the base path for navigation based on current page
   const getBasePath = () => {
     if (pathname?.includes("/dashboard/bookmarks")) {
-      return "/dashboard/bookmarks";
+      return "/businesses";
     } else if (pathname?.includes("/dashboard/my-listing")) {
       return "/dashboard/my-listing";
     } else if (pathname?.includes("/discover")) {
@@ -93,12 +93,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
           }}
         />
 
-        {/* Category badge overlay (bottom-right) */}
-        <span className="absolute bottom-2 right-2 inline-flex items-center px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[#64748A] text-xs font-medium shadow-sm">
-          {business.category}
-        </span>
 
-        {/* ... Bookmark button and other UI ... */}
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -116,24 +111,25 @@ export function BusinessCard({ business }: BusinessCardProps) {
             )}
           />
         </button>
+
+        {/* Verified badge — bottom-right of image */}
+        {business.verified && (
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+            <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+            <span className="text-xs font-medium text-gray-700">Verified</span>
+          </div>
+        )}
       </div>
 
       {/* Content Section */}
       <div className="p-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
-            {business.name}
-          </h3>
-          {business.verified && (
-            <Image
-              src="/images/icons/verify.svg"
-              alt="Verified"
-              width={20}
-              height={20}
-              className="shrink-0"
-            />
-          )}
-        </div>
+        {/* Category tag */}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          {business.category}
+        </span>
+        <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+          {business.name}
+        </h3>
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <Star

@@ -176,7 +176,7 @@ const socialPlatforms = [
     id: "whatsapp",
     name: "WhatsApp",
     icon: WhatsappLogo,
-    placeholder: "+233 50 123 4567",
+    placeholder: "+44 7700 900123",
     color: "text-green-600",
     type: "phone",
   },
@@ -367,12 +367,13 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                 <div key={platform.id} className="space-y-2">
                   <label className="flex items-center gap-2 font-medium text-sm">
                     <Icon className={cn("w-4 h-4", platform.color)} />
-                    {platform.name}
+                    {platform.name}{" "}
+                    <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
                   <div className="relative">
                     <Input
                       {...register(platform.id as keyof SocialMediaFormValues)}
-                      type={platform.type === "phone" ? "tel" : "text"}
+                      type={(platform as { type?: string }).type === "phone" ? "tel" : "text"}
                       placeholder={platform.placeholder}
                       className={cn(
                         "h-10 rounded-lg border-gray-300 px-4 text-gray-800 focus-visible:ring-2 focus-visible:ring-black",

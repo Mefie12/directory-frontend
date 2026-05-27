@@ -11,6 +11,7 @@ import {
   CircleDashed,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Pencil,
   Trash2,
   // Briefcase,
@@ -94,6 +95,137 @@ const getStatusConfig = (status: ListingStatus) => {
   }
 };
 
+// --- Mobile accordion row ---
+function MobileListingRow({
+  listing,
+  isExpanded,
+  onToggle,
+  onViewClick,
+  onEditClick,
+  onDeleteClick,
+}: {
+  listing: ListingsTableItem;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onViewClick?: (l: ListingsTableItem) => void;
+  onEditClick?: (l: ListingsTableItem) => void;
+  onDeleteClick?: (id: string) => void;
+}) {
+  const statusConfig = getStatusConfig(listing.status);
+
+  return (
+    <div className="border-b border-[#E3E8EF] last:border-b-0">
+      {/* Collapsed row */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          onClick={onToggle}
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[#E3E8EF] bg-white"
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        <button
+          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+          onClick={() => onViewClick?.(listing)}
+        >
+          <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-[#E3E8EF]">
+            <Image
+              src={listing.image}
+              alt={listing.name}
+              width={36}
+              height={36}
+              unoptimized
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-semibold text-[#1F3A4C] text-sm truncate">
+              {listing.name}
+            </span>
+            {listing.verified && (
+              <Image
+                src="/images/icons/verify.svg"
+                alt="Verified"
+                width={14}
+                height={14}
+                className="shrink-0"
+              />
+            )}
+          </div>
+        </button>
+
+        {/* Actions menu */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 hover:bg-gray-100"
+            onClick={(e) => { e.stopPropagation(); onEditClick?.(listing); }}
+          >
+            <Pencil className="h-4 w-4 text-[#425466]" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 hover:bg-red-50"
+            onClick={(e) => { e.stopPropagation(); onDeleteClick?.(listing.id); }}
+          >
+            <Trash2 className="h-4 w-4 text-red-600" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-3 bg-gray-50/60">
+          {/* Status + Type */}
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <div
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${statusConfig.className}`}
+            >
+              {statusConfig.icon}
+              <span>{statusConfig.label}</span>
+            </div>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium capitalize">
+              {listing.type}
+            </span>
+          </div>
+
+          {/* Category & Location */}
+          <div className="flex items-center gap-1.5 text-xs text-[#425466]">
+            <span className="font-medium">{listing.category}</span>
+            <span className="w-1 h-1 rounded-full bg-[#425466]" />
+            <span>{listing.location}</span>
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center gap-4 text-[#425466]">
+            <div className="flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" />
+              <span className="text-xs">{listing.views.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span className="text-xs">{listing.comments}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Bookmark className="w-3.5 h-3.5" />
+              <span className="text-xs">{listing.bookmarks}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Star className="w-3.5 h-3.5" />
+              <span className="text-xs">{listing.rating}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ListingsTable({
   listings,
   showPagination = false,
@@ -105,6 +237,10 @@ export function ListingsTable({
   // onWhatWeDoClick,
 }: ListingsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const toggleExpanded = (id: string) =>
+    setExpandedId((prev) => (prev === id ? null : id));
 
   // Calculate pagination
   const totalPages = Math.ceil(listings.length / itemsPerPage);
@@ -190,6 +326,23 @@ export function ListingsTable({
 
   return (
     <div className="w-full rounded-xl border">
+      {/* Mobile accordion — hidden on md+ */}
+      <div className="md:hidden divide-y-0">
+        {listingsToRender.map((listing) => (
+          <MobileListingRow
+            key={listing.id}
+            listing={listing}
+            isExpanded={expandedId === listing.id}
+            onToggle={() => toggleExpanded(listing.id)}
+            onViewClick={onViewClick}
+            onEditClick={onEditClick}
+            onDeleteClick={onDeleteClick}
+          />
+        ))}
+      </div>
+
+      {/* Desktop table — hidden on mobile */}
+      <div className="hidden md:block">
       <Table>
         <TableHeader className="rounded-2xl">
           <TableRow className="border-b border-[#E3E8EF] hover:bg-transparent bg-gray-100">
@@ -378,6 +531,7 @@ export function ListingsTable({
           </Button>
         </div>
       )}
+      </div>{/* end hidden md:block */}
     </div>
   );
 }

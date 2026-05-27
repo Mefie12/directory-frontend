@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { Bookmark } from "lucide-react";
 import Link from "next/link";
 import type { CommunityCard } from "@/lib/data";
@@ -22,7 +21,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
   // Determine the base path for navigation based on current page
   const getBasePath = () => {
     if (pathname?.includes("/dashboard/bookmarks")) {
-      return "/dashboard/bookmarks";
+      return "/communities";
     } else if (pathname?.includes("/dashboard/my-listing")) {
       return "/dashboard/my-listing";
     } else if (pathname?.includes("/discover")) {
@@ -89,12 +88,6 @@ export default function CommunityCard({ community }: CommunityCardProps) {
               }
             }}
           />
-          {/* Category/tag badge overlay (bottom-right) */}
-          <Badge className="absolute bottom-2 right-2 z-10 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-white/90 rounded-full border-0 shadow-sm">
-            <span className="text-xs font-medium">
-              {community.tag || "Community"}
-            </span>
-          </Badge>
 
           {/* Bookmark Icon */}
           <button
@@ -111,25 +104,26 @@ export default function CommunityCard({ community }: CommunityCardProps) {
               )}
             />
           </button>
+
+          {/* Verified badge — bottom-right of image */}
+          {community.verified && (
+            <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+              <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+              <span className="text-xs font-medium text-gray-700">Verified</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content Area */}
       <div className="px-6 pb-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
-            {community.name}
-          </h2>
-          {community.verified && (
-            <Image
-              src="/images/icons/verify.svg"
-              alt="Verified"
-              width={20}
-              height={20}
-              className="shrink-0"
-            />
-          )}
-        </div>
+        {/* Category tag */}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+          {community.tag || "Community"}
+        </span>
+        <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
+          {community.name}
+        </h2>
 
         <p className="text-sm font-normal text-gray-500 line-clamp-2">
           {community.description}

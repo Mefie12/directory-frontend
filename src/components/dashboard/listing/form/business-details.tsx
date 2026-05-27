@@ -657,7 +657,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div className="space-y-1">
             {listingType === "event" ? (
               <>
-                <label className="font-medium text-sm">{(text as typeof formTextConfig["event"]).venueLabel}</label>
+                <label className="font-medium text-sm">
+                  {(text as typeof formTextConfig["event"]).venueLabel}{" "}
+                  <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("event_venue")}
                   placeholder={(text as typeof formTextConfig["event"]).venuePlaceholder}
@@ -669,7 +672,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               </>
             ) : (
               <>
-                <label className="font-medium text-sm">{text.countryLabel}</label>
+                <label className="font-medium text-sm">
+                  {text.countryLabel} <span className="text-red-500">*</span>
+                </label>
                 <CountryDropdown
                   placeholder="Select your country"
                   defaultValue={
@@ -690,7 +695,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              {listingType === "event" ? text.countryLabel : text.addressLabel}
+              {listingType === "event" ? text.countryLabel : text.addressLabel}{" "}
+              <span className="text-red-500">*</span>
             </label>
             {listingType === "event" ? (
               <CountryDropdown
@@ -741,7 +747,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              {listingType === "event" ? text.addressLabel : text.cityLabel}
+              {listingType === "event" ? text.addressLabel : text.cityLabel}{" "}
+              <span className="text-red-500">*</span>
             </label>
             {listingType === "event" ? (
               <div className="relative">
@@ -795,7 +802,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div className="space-y-1">
             {listingType === "event" ? (
               <>
-                <label className="font-medium text-sm">{text.cityLabel}</label>
+                <label className="font-medium text-sm">
+                  {text.cityLabel} <span className="text-red-500">*</span>
+                </label>
                 <Input
                   {...register("city")}
                   autoComplete="shipping address-level2"
@@ -810,7 +819,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
                     <label className="font-medium text-sm">
-                      {text.googlePlusCodeLabel}
+                      {text.googlePlusCodeLabel}{" "}
+                      <span className="text-gray-400 font-normal">(Optional)</span>
                     </label>
                     <TooltipProvider>
                       <Tooltip>
@@ -859,7 +869,11 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         {listingType !== "event" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
+              <label className="font-medium text-sm mb-2 block">
+                Business Hours <span className="text-red-500">*</span>
+              </label>
               <BusinessHoursSelector
+                label=""
                 value={currentHours}
                 onChange={(val) => {
                   const formatted = val.map((d: DaySchedule) => ({
@@ -992,7 +1006,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
               <div className="space-y-1">
                 <label className="font-medium text-sm">
-                  Event Duration (Optional)
+                  Event Duration{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <Controller
                   name="event_type"
@@ -1020,7 +1035,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {(eventLocationType === "online" || eventLocationType === "hybrid") && (
               <div className="space-y-1">
                 <label className="font-medium text-sm">
-                  Event Online URL (Optional)
+                  Event Online URL{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <div className="relative">
                   <Input
@@ -1054,7 +1070,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {/* Event Price & Currency */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="font-medium text-sm">Ticket Price</label>
+                <label className="font-medium text-sm">
+                  Ticket Price{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
                 <div className="flex">
                   <Controller
                     name="event_currency"
@@ -1097,7 +1116,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               {/* Ticket URL */}
               <div className="space-y-1">
                 <label className="font-medium text-sm">
-                  Ticket Purchase URL (Optional)
+                  Ticket Purchase URL{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <Input
                   {...register("event_ticket_url")}
