@@ -11,14 +11,14 @@ export default function Footer() {
         {/* Main Footer Content */}
         <div className="flex flex-col lg:flex-row justify-between gap-12 lg:gap-8">
           {/* Left Section: Logo + Newsletter */}
-          <div className="flex-1 max-w-md space-y-4">
+          <div className="flex-1 max-w-md space-y-2 -translate-y-14">
             <Image
               src="/images/logos/main-logo.PNG"
               alt="Mefie Logo"
-              width={200}
-              height={100}
+              width={300}
+              height={150}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="w-auto h-36"
+              className="w-auto h-40"
             />
 
             <p className="text-sm text-gray-100 leading-relaxed -mt-10">

@@ -357,6 +357,19 @@ function ProviderHeader({
   type?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const checkClamp = () => {
+      const el = textRef.current;
+      if (!el) return;
+      setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    };
+    checkClamp();
+    window.addEventListener("resize", checkClamp);
+    return () => window.removeEventListener("resize", checkClamp);
+  }, [provider.description]);
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-4">
@@ -401,11 +414,14 @@ function ProviderHeader({
             className="overflow-hidden transition-all duration-500 ease-linear"
             style={{ maxHeight: expanded ? "1000px" : "4.5rem" }}
           >
-            <p className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}>
+            <p
+              ref={textRef}
+              className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}
+            >
               {provider.description}
             </p>
           </div>
-          {provider.description && provider.description.length > 200 && (
+          {(isClamped || expanded) && (
             <div className="flex justify-end">
               <button
                 onClick={() => setExpanded(!expanded)}

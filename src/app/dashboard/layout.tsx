@@ -1,7 +1,7 @@
 // app/dashboard/layout.tsx
 "use client";
 
-import React, { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Header from "@/components/dashboard/header";
@@ -13,13 +13,13 @@ import { normalizeRole } from "@/lib/roles";
 import { Monitor, X } from "lucide-react";
 
 function MobileDashboardBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const isMobile = window.innerWidth < 1024;
-    const dismissed = sessionStorage.getItem("dashboardMobileBannerDismissed");
-    if (isMobile && !dismissed) setVisible(true);
-  }, []);
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.innerWidth < 1024 &&
+      !sessionStorage.getItem("dashboardMobileBannerDismissed")
+    );
+  });
 
   const dismiss = () => {
     sessionStorage.setItem("dashboardMobileBannerDismissed", "1");
@@ -32,9 +32,14 @@ function MobileDashboardBanner() {
     <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 text-sm">
       <Monitor className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
       <p className="flex-1 leading-snug">
-        <span className="font-semibold">Better on desktop.</span> For the best dashboard experience, we recommend opening this on a PC or laptop.
+        <span className="font-semibold">Better on desktop.</span> For the best
+        dashboard experience, we recommend opening this on a PC or laptop.
       </p>
-      <button onClick={dismiss} className="shrink-0 text-amber-600 hover:text-amber-900 transition-colors" aria-label="Dismiss">
+      <button
+        onClick={dismiss}
+        className="shrink-0 text-amber-600 hover:text-amber-900 transition-colors"
+        aria-label="Dismiss"
+      >
         <X className="w-4 h-4" />
       </button>
     </div>
@@ -86,15 +91,11 @@ export default function Layout({ children }: LayoutProps) {
   }, [user?.id, user?.email, refetchUser]);
 
   // Redirect to login if not authenticated, preserving the intended route.
-  // pathname is intentionally excluded from deps — we only care whether user/loading
-  // change, not every client-side navigation within the dashboard.
-  const pathnameRef = React.useRef(pathname);
-  pathnameRef.current = pathname;
   useEffect(() => {
     if (!loading && !user) {
-      router.push(`/auth/login?redirect=${encodeURIComponent(pathnameRef.current)}`);
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   if (loading) {
     return (
