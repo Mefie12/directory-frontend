@@ -677,15 +677,16 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
         )}
 
         {/* Price */}
-        <div className="flex items-start gap-3">
-          {/* <span className="text-xl">🎟️</span> */}
-          <div>
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Tickets</p>
-            <p className="text-sm font-semibold text-gray-800">
-              {eventData.is_free ? "Free" : eventData.formatted_price || "See details"}
-            </p>
+        {eventData.formatted_price && eventData.formatted_price.toLowerCase() !== "free" && (
+          <div className="flex items-start gap-3">
+            <div>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Tickets</p>
+              <p className="text-sm font-semibold text-gray-800">
+                {eventData.formatted_price}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Online event join link */}
         {eventData.event_online_url && (locationType === "online" || locationType === "hybrid") && (

@@ -207,7 +207,7 @@ function DiscoverContent() {
         } else if (listingType === "event") {
           const priceLabel = item.event_price
             ? `${item.event_currency || ""} ${item.event_price}`.trim()
-            : "Free";
+            : "";
           eventsList.push({
             ...commonProps,
             category: categoryName,

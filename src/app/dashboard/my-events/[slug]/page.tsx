@@ -425,7 +425,7 @@ export default function EventSlugPage({ params }: PageProps) {
           venue: data.venue || data.address || "Venue TBD",
 
           price:
-            data.price_range || (data.price ? `GHS ${data.price}` : "Free"),
+            data.price_range || (data.price ? `GHS ${data.price}` : ""),
           ticketLink: data.ticket_link || "",
 
           organizer: data.organizer?.name || data.organizer || "Me-Fie Events",
