@@ -341,7 +341,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             reset({
               address: d.address || d.location?.address || "",
               city: d.city || d.location?.city || "",
-              country: d.country || d.location?.country || "Ghana",
+              country: d.country || d.location?.country || "United Kingdom",
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
