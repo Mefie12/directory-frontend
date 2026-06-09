@@ -24,6 +24,7 @@ import {
   NavigationArrow,
 } from "@phosphor-icons/react";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -874,6 +875,144 @@ function SidebarInfo({
   );
 }
 
+// --- Listing Gallery (mobile: slider, desktop: Airbnb-style bento) ---
+
+function ListingBentoGallery({
+  images,
+  alt,
+  slug,
+}: {
+  images: GalleryItem[];
+  alt: string;
+  slug: string;
+}) {
+  const items = images.filter((i) => i.type === "image");
+  if (!items.length) return null;
+
+  const [main, t1, t2, t3, t4] = items;
+  const extraCount = Math.max(0, items.length - 5);
+  const count = Math.min(items.length, 5);
+
+  // Helper: single thumbnail cell
+  const thumb = (img: GalleryItem, key: number, isLast = false, extraClass = "") => (
+    <div key={key} className={cn("relative overflow-hidden", extraClass)}>
+      <Image
+        src={img.src}
+        alt={alt}
+        fill
+        className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer"
+        unoptimized
+      />
+      {isLast && extraCount > 0 && (
+        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center cursor-pointer hover:bg-black/60 transition-colors">
+          <span className="text-white font-bold text-2xl">+{extraCount}</span>
+          <span className="text-white/80 text-xs mt-0.5">more photos</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // The tall main image that spans 2 rows
+  const mainCell = (
+    <div className="relative overflow-hidden row-span-2">
+      <Image
+        src={main.src}
+        alt={alt}
+        fill
+        className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer"
+        unoptimized
+        priority
+      />
+    </div>
+  );
+
+  const desktopGrid = () => {
+    // 1 image — full width hero
+    if (count === 1) {
+      return (
+        <div className="relative h-full overflow-hidden">
+          <Image src={main.src} alt={alt} fill className="object-cover" unoptimized priority />
+        </div>
+      );
+    }
+
+    // 2 images — side by side
+    // [ main ] [ t1 ]
+    if (count === 2) {
+      return (
+        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr" }}>
+          <div className="relative overflow-hidden">
+            <Image src={main.src} alt={alt} fill className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer" unoptimized priority />
+          </div>
+          {thumb(t1, 1)}
+        </div>
+      );
+    }
+
+    // 3 images — main tall left, 2 stacked right
+    // [ main ] [ t1 ]
+    // [ main ] [ t2 ]
+    if (count === 3) {
+      return (
+        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr", gridTemplateRows: "1fr 1fr" }}>
+          {mainCell}
+          {thumb(t1, 1)}
+          {thumb(t2, 2)}
+        </div>
+      );
+    }
+
+    // 4 images — main tall left, t1+t2 top row, t3 full bottom
+    // [ main ] [ t1 ] [ t2 ]
+    // [ main ] [    t3     ]
+    if (count === 4) {
+      return (
+        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+          {mainCell}
+          {thumb(t1, 1)}
+          {thumb(t2, 2)}
+          {thumb(t3, 3, false, "col-span-2")}
+        </div>
+      );
+    }
+
+    // 5+ images — main tall left, 2×2 right grid
+    // [ main ] [ t1 ] [ t2 ]
+    // [ main ] [ t3 ] [ t4 ]
+    return (
+      <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+        {mainCell}
+        {thumb(t1, 1)}
+        {thumb(t2, 2)}
+        {thumb(t3, 3)}
+        {thumb(t4, 4, true)}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* ── Mobile: carousel ── */}
+      <div className="relative md:hidden">
+        <HeroCarousel items={items} alt={alt} />
+        <div className="absolute top-3 right-3 z-20">
+          <BookmarkButton slug={slug} iconOnly />
+        </div>
+      </div>
+
+      {/* ── Desktop: bento ── */}
+      <div className="hidden md:block relative">
+        <div className="w-full h-[500px] bg-gray-200">
+          {desktopGrid()}
+        </div>
+        <div className="absolute top-4 right-4 z-20">
+          <BookmarkButton slug={slug} iconOnly />
+        </div>
+      </div>
+    </>
+  );
+}
+
 // --- Main Page Component ---
 
 export default function UniversalSlugPage({
@@ -1142,13 +1281,12 @@ export default function UniversalSlugPage({
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 lg:grid-cols-12 lg:px-0">
         <main className="lg:col-span-8 space-y-6">
-          <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
-            <div className="relative w-full">
-              <HeroCarousel items={template.gallery.filter((i) => i.type === "image")} alt={providerData.name} />
-              <div className="absolute top-4 right-6 flex gap-2 z-10">
-                <BookmarkButton slug={providerData.slug} />
-              </div>
-            </div>
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+            <ListingBentoGallery
+              images={template.gallery}
+              alt={providerData.name}
+              slug={providerData.slug}
+            />
 
             <ProviderHeader
               provider={providerData}
