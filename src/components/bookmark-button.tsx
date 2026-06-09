@@ -8,16 +8,15 @@ import { useState, useEffect } from "react";
 
 interface BookmarkButtonProps {
   slug: string;
+  iconOnly?: boolean;
 }
 
-export function BookmarkButton({ slug }: BookmarkButtonProps) {
+export function BookmarkButton({ slug, iconOnly = false }: BookmarkButtonProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
 
-  // 1. Initialize local state from context
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 2. Sync local state with context (handles initial load & updates from other components)
   useEffect(() => {
     setIsSaved(isBookmarked(slug));
   }, [isBookmarked, slug]);
@@ -28,8 +27,6 @@ export function BookmarkButton({ slug }: BookmarkButtonProps) {
 
     if (isLoading || !slug) return;
 
-    // 3. OPTIMISTIC UPDATE:
-    // Flip the state immediately so the user sees "Saved" instantly
     const newState = !isSaved;
     setIsSaved(newState);
     setIsLoading(true);
@@ -38,12 +35,37 @@ export function BookmarkButton({ slug }: BookmarkButtonProps) {
       await toggleBookmark(slug);
     } catch (error) {
       console.error("Bookmark toggle failed", error);
-      // 4. Revert ONLY if the API call throws an error
       setIsSaved(!newState);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (iconOnly) {
+    return (
+      <button
+        onClick={handleToggle}
+        className={cn(
+          "h-10 w-10 rounded-full flex items-center justify-center shadow-md border transition-all",
+          isSaved
+            ? "bg-[#93C01F]/10 border-[#93C01F]/30 hover:bg-[#93C01F]/20"
+            : "bg-white border-white/80 hover:bg-gray-50"
+        )}
+        aria-label={isSaved ? "Remove bookmark" : "Bookmark"}
+      >
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+        ) : (
+          <Bookmark
+            className={cn(
+              "h-4 w-4 transition-colors",
+              isSaved ? "fill-[#93C01F] text-[#93C01F]" : "text-gray-600"
+            )}
+          />
+        )}
+      </button>
+    );
+  }
 
   return (
     <Button
