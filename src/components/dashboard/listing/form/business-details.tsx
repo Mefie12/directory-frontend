@@ -326,8 +326,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 ? d.event_city || d.city || d.location?.city || ""
                 : d.city || d.location?.city || "",
               country: isEvent
-                ? d.event_country || d.country || d.location?.country || "Ghana"
-                : d.country || d.location?.country || "Ghana",
+                ? d.event_country || d.country || d.location?.country || "United Kingdom"
+                : d.country || d.location?.country || "United Kingdom",
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
