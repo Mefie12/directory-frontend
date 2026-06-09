@@ -45,14 +45,18 @@ export const businessFormSchema = z.object({
   type: z.enum(["business", "event", "community"]),
   primary_phone: z
     .string()
+    .optional()
     .refine(
-      (val) => val.replace(/\D/g, "").length >= 9,
+      (val) => !val || val.replace(/\D/g, "").length === 0 || val.replace(/\D/g, "").length >= 9,
       "Phone number is too short — please enter a complete number",
     ),
-  primary_country_code: z.string().min(1, "Required"),
+  primary_country_code: z.string().optional(),
   secondary_phone: z.string().optional(),
   secondary_country_code: z.string().optional(),
-  email: z.string().email("Invalid email address"),
+  email: z.string().optional().or(z.literal("")).refine(
+    (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+    "Invalid email address",
+  ),
   website: z.string()
     .optional()
     .or(z.literal(""))
@@ -281,10 +285,9 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           description: rawData.description,
           business_reg_num: rawData.business_reg_num,
           primary_country_code: rawData.primary_country_code,
-          primary_phone: cleanPhone(
-            rawData.primary_phone,
-            rawData.primary_country_code,
-          ),
+          primary_phone: rawData.primary_phone
+            ? cleanPhone(rawData.primary_phone, rawData.primary_country_code ?? "")
+            : "",
           secondary_country_code: rawData.secondary_country_code,
           secondary_phone: rawData.secondary_phone
             ? cleanPhone(
@@ -442,7 +445,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         {/* Email */}
         <div className="space-y-1">
           <label className="font-medium text-sm">
-            Email Address <span className="text-red-500">*</span>
+            Email Address <span className="text-gray-400 font-normal">(Optional)</span>
           </label>
           <Input
             {...register("email")}
@@ -462,7 +465,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
             <label className="font-medium text-sm">
-              Primary Phone Number <span className="text-red-500">*</span>
+              Primary Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
             </label>
             <Controller
               name="primary_phone"
