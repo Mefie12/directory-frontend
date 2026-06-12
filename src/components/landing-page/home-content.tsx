@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import HeroSlider from "@/components/landing-page/hero-slider";
 // import { Sort, SortOption } from "@/components/sort";
 import { BusinessCarousel } from "@/components/landing-page/business-carousel";
@@ -19,7 +19,7 @@ import { countries as allCountries } from "country-data-list";
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
-export type Event = (typeof EventCard)["prototype"]["props"]["event"];
+export type Event = (typeof EventCard)["prototype"]["props"]["event"] & { startDateRaw?: string };
 
 export interface Community {
   id: string;
@@ -277,6 +277,7 @@ export default function HomeContent() {
               startDate: item.event_start_date
                 ? new Date(item.event_start_date).toDateString()
                 : "TBA",
+              startDateRaw: item.event_start_date,
               endDate: item.event_end_date
                 ? new Date(item.event_end_date).toDateString()
                 : item.event_start_date
@@ -316,7 +317,18 @@ export default function HomeContent() {
     fetchData();
   }, [selectedCountry]);
 
-    // const sortedCategories = useMemo(() => {
+  // Sort upcoming events: verified first (for the selected/detected country), then by event date ascending (closest to today first)
+  const filteredAndSortedEvents = useMemo(() => {
+    return upcomingEvents
+      .sort((a, b) => {
+        // Verified events first
+        if (a.verified !== b.verified) return a.verified ? -1 : 1;
+        // Then by date ascending (events happening closest to current date appear first)
+        const ta = a.startDateRaw ? new Date(a.startDateRaw).getTime() : Infinity;
+        const tb = b.startDateRaw ? new Date(b.startDateRaw).getTime() : Infinity;
+        return ta - tb;
+      });
+  }, [upcomingEvents]);
     //   const sorted = [...categories];
     //   switch (sortBy) {
     //     case "name-asc":
@@ -487,7 +499,7 @@ export default function HomeContent() {
       )}
 
       {/* Upcoming Events */}
-      {(isLoading || upcomingEvents.length > 0) && (
+      {(isLoading || filteredAndSortedEvents.length > 0) && (
         <div className="py-12 px-4 lg:py-12 lg:px-16">
           <div className="flex flex-row justify-between items-end md:items-center gap-3 mb-8">
             <div className="flex flex-col space-y-2">
@@ -505,7 +517,7 @@ export default function HomeContent() {
           {isLoading ? (
             <CardSkeleton />
           ) : (
-            <DirectoryEventCarousel events={upcomingEvents} />
+            <DirectoryEventCarousel events={filteredAndSortedEvents} />
           )}
         </div>
       )}
