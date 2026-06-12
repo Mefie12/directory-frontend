@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractClientIp } from "@/lib/bff/extract-client-ip";
 
 const API_BASE_URL = (
-  process.env.API_URL || "https://me-fie.co.uk"
+  process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
 ).replace(/\/$/, "");
 
 export async function GET(request: NextRequest) {
