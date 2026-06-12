@@ -54,6 +54,13 @@ interface ListingsTableProps {
   showPagination?: boolean;
   button?: boolean;
   itemsPerPage?: number;
+  pagination?: {
+    currentPage: number;
+    totalPages?: number;
+    hasNextPage: boolean;
+    onPrevious: () => void;
+    onNext: () => void;
+  };
   onViewClick?: (listing: ListingsTableItem) => void;
   onEditClick?: (listing: ListingsTableItem) => void;
   onDeleteClick?: (id: string) => void;
@@ -231,6 +238,7 @@ export function ListingsTable({
   showPagination = false,
   button = true,
   itemsPerPage = 4,
+  pagination,
   onViewClick,
   onEditClick,
   onDeleteClick,
@@ -293,7 +301,31 @@ export function ListingsTable({
     }
   };
 
-  const listingsToRender = showPagination ? currentListings : listings;
+  const listingsToRender = showPagination && !pagination ? currentListings : listings;
+  const visibleTotalPages = pagination?.totalPages ?? totalPages;
+  const shouldShowPagination =
+    showPagination &&
+    (pagination
+      ? pagination.currentPage > 1 || pagination.hasNextPage
+      : totalPages > 1);
+
+  const handleVisiblePrevious = () => {
+    if (pagination) {
+      pagination.onPrevious();
+      return;
+    }
+
+    handlePrevious();
+  };
+
+  const handleVisibleNext = () => {
+    if (pagination) {
+      pagination.onNext();
+      return;
+    }
+
+    handleNext();
+  };
 
   if (listings.length === 0) {
     return (
@@ -490,42 +522,55 @@ export function ListingsTable({
           })}
         </TableBody>
       </Table>
-      {showPagination && totalPages > 1 && (
+      {shouldShowPagination && (
         <div className="flex items-center justify-end gap-2 px-4 py-4 border-t border-[#E3E8EF]">
           <Button
             variant="ghost"
             size="icon"
-            onClick={handlePrevious}
-            disabled={currentPage === 1}
+            onClick={handleVisiblePrevious}
+            disabled={(pagination?.currentPage ?? currentPage) === 1}
             className="h-8 w-8 hover:bg-gray-100 disabled:opacity-50 border rounded-full"
+            aria-label="Previous page"
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
 
-          <div className="border rounded-full">
-            {getPageNumbers().map((page) => (
-              <Button
-                key={page}
-                variant={currentPage === page ? "default" : "ghost"}
-                size="icon"
-                onClick={() => handlePageChange(page)}
-                className={`h-8 w-8 rounded-full ${
-                  currentPage === page
-                    ? "bg-[#93C01F] text-white hover:bg-[#93C01F]/90"
-                    : "hover:bg-gray-100 text-gray-700"
-                }`}
-              >
-                {page}
-              </Button>
-            ))}
-          </div>
+          {pagination ? (
+            <span className="px-3 text-sm text-[#425466]">
+              Page {pagination.currentPage}
+              {pagination.totalPages ? ` of ${pagination.totalPages}` : ""}
+            </span>
+          ) : (
+            <div className="border rounded-full">
+              {getPageNumbers().map((page) => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "ghost"}
+                  size="icon"
+                  onClick={() => handlePageChange(page)}
+                  className={`h-8 w-8 rounded-full ${
+                    currentPage === page
+                      ? "bg-[#93C01F] text-white hover:bg-[#93C01F]/90"
+                      : "hover:bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {page}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleNext}
-            disabled={currentPage === totalPages}
+            onClick={handleVisibleNext}
+            disabled={
+              pagination
+                ? !pagination.hasNextPage
+                : currentPage === visibleTotalPages
+            }
             className="h-8 w-8 hover:bg-gray-100 disabled:opacity-50 border rounded-full"
+            aria-label="Next page"
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
