@@ -45,11 +45,16 @@ export default function EventsContent() {
     ? `All Events ${locationLabel}`
     : "All Events";
 
-  // 4 months from today — the window for hero carousel events.
-  const fourMonthsFromNow = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 4);
-    return d;
+  // 14-day window for hero carousel: today through 14 days from today.
+  const [twoWeekWindowStart, twoWeekWindowEnd] = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 14);
+    end.setHours(23, 59, 59, 999);
+
+    return [start, end];
   }, []);
 
   // All events: verified-first, then soonest within each group.
@@ -83,16 +88,17 @@ export default function EventsContent() {
       emptyMessage="No events found in this category."
       gridTitle={gridTitle}
       renderHero={(heroItems) => {
-        // Hero shows only verified events starting within the next 4 months.
-        const upcomingVerified = heroItems.filter((e) => {
-          if (!e.verified) return false;
+        // Hero shows approved events within the next 14 days (both verified and unverified),
+        // sorted with verified events first, then by date ascending.
+        const nextTwoWeekEvents = heroItems.filter((e) => {
           if (!e.startDateRaw) return false;
           const start = new Date(e.startDateRaw);
-          return !isNaN(start.getTime()) && start <= fourMonthsFromNow;
+          if (isNaN(start.getTime())) return false;
+          return start >= twoWeekWindowStart && start <= twoWeekWindowEnd;
         });
         return (
           <EventCarousel
-            events={upcomingVerified}
+            events={nextTwoWeekEvents}
             title={heroTitle}
             showNavigation
           />
