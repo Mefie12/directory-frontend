@@ -156,12 +156,12 @@ function SectionGrid({
     <section className="px-4 py-10 lg:px-16">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
+          {/* <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
             {section.title}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          </h2> */}
+          {/* <p className="mt-1 text-sm text-gray-500">
             {section.total} {section.total === 1 ? "listing" : "listings"} found
-          </p>
+          </p> */}
         </div>
         {section.has_more && (
           <Button
@@ -461,12 +461,12 @@ export default function CategoryPageContent() {
         <section className="px-4 py-10 lg:px-16">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
+              {/* <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
                 {typeView.title}
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              </h2> */}
+              {/* <p className="mt-1 text-sm text-gray-500">
                 {typeView.total} {typeView.total === 1 ? "listing" : "listings"} found
-              </p>
+              </p> */}
             </div>
             <Button
               type="button"
