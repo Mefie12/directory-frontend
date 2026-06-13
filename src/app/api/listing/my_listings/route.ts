@@ -6,11 +6,15 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
     const { searchParams } = new URL(request.url);
-    const page = searchParams.get('page');
-    const queryString = page ? `?page=${page}` : '';
+    const upstreamParams = new URLSearchParams();
+    upstreamParams.set('page', searchParams.get('page') || '1');
+    upstreamParams.set('per_page', searchParams.get('per_page') || '10');
+    const cursor = searchParams.get('cursor');
+    if (cursor) upstreamParams.set('cursor', cursor);
+    const queryString = upstreamParams.toString();
 
     const response = await fetch(
-      `${API_BASE_URL}/api/listing/my_listings${queryString}`,
+      `${API_BASE_URL}/api/listing/my_listings?${queryString}`,
       {
         method: 'GET',
         headers: {
