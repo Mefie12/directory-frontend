@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { countries } from "country-data-list";
-import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Star } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Star,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
@@ -36,7 +42,11 @@ function canonicalHref(item: ApiListing): string {
 }
 
 function listingImage(item: ApiListing): string {
-  return processImages(item.images, [item.primary_image, item.image, item.cover_image])[0];
+  return processImages(item.images, [
+    item.primary_image,
+    item.image,
+    item.cover_image,
+  ])[0];
 }
 
 function listingCategory(item: ApiListing): string {
@@ -66,7 +76,9 @@ function typeLabel(type: CategoryLandingListingType): string {
 }
 
 function ListingCard({ item }: { item: ApiListing }) {
-  const type = (item.type || item.listing_type || "business") as CategoryLandingListingType;
+  const type = (item.type ||
+    item.listing_type ||
+    "business") as CategoryLandingListingType;
   const rating = Number(item.rating) || 0;
   const reviews = Number(item.ratings_count) || 0;
 
@@ -106,7 +118,9 @@ function ListingCard({ item }: { item: ApiListing }) {
         </div>
 
         <p className="line-clamp-2 text-sm text-gray-600">
-          {item.bio || item.description || "Explore this listing on Mefie Directory."}
+          {item.bio ||
+            item.description ||
+            "Explore this listing on Mefie Directory."}
         </p>
 
         {type !== "event" && (
@@ -159,6 +173,10 @@ function SectionGrid({
           {/* <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
             {section.title}
           </h2> */}
+          <h2 className="text-2xl font-semibold text-gray-900 lg:text-3xl">
+            Best {typeLabel(section.type)}
+          </h2>
+
           {/* <p className="mt-1 text-sm text-gray-500">
             {section.total} {section.total === 1 ? "listing" : "listings"} found
           </p> */}
@@ -265,7 +283,9 @@ export default function CategoryPageContent() {
   }, [pathname]);
 
   const selectedSubcategory = searchParams.get("subcategory") || "";
-  const selectedType = searchParams.get("type") as CategoryLandingListingType | null;
+  const selectedType = searchParams.get(
+    "type",
+  ) as CategoryLandingListingType | null;
   const selectedCountry = searchParams.get("country") || "";
   const currentPage = Number(searchParams.get("page") || "1");
 
@@ -294,18 +314,28 @@ export default function CategoryPageContent() {
         const params = new URLSearchParams({
           category_slug: categorySlug,
         });
-        if (selectedSubcategory) params.set("subcategory_slug", selectedSubcategory);
-        if (selectedType && TYPES.includes(selectedType)) params.set("type", selectedType);
+        if (selectedSubcategory)
+          params.set("subcategory_slug", selectedSubcategory);
+        if (selectedType && TYPES.includes(selectedType))
+          params.set("type", selectedType);
         if (selectedCountry) params.set("country", selectedCountry);
         if (selectedType) {
-          params.set("page", String(Number.isFinite(currentPage) && currentPage > 0 ? currentPage : 1));
+          params.set(
+            "page",
+            String(
+              Number.isFinite(currentPage) && currentPage > 0 ? currentPage : 1,
+            ),
+          );
           params.set("per_page", "12");
         }
 
-        const response = await fetch(`/api/category_landing?${params.toString()}`, {
-          headers: { Accept: "application/json" },
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/category_landing?${params.toString()}`,
+          {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
+        );
 
         if (!response.ok) throw new Error("Failed to load category listings");
         const json = (await response.json()) as CategoryLandingResponse;
@@ -315,7 +345,11 @@ export default function CategoryPageContent() {
           aborted = true;
           return;
         }
-        setError(err instanceof Error ? err.message : "Failed to load category listings");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load category listings",
+        );
         setData(null);
       } finally {
         if (!aborted) setIsLoading(false);
@@ -324,11 +358,18 @@ export default function CategoryPageContent() {
 
     fetchLanding();
     return () => controller.abort();
-  }, [categorySlug, currentPage, selectedCountry, selectedSubcategory, selectedType]);
+  }, [
+    categorySlug,
+    currentPage,
+    selectedCountry,
+    selectedSubcategory,
+    selectedType,
+  ]);
 
   const sections = data?.sections
     ? TYPES.map((type) => data.sections?.[type]).filter(
-        (section): section is CategoryLandingSection => !!section && section.total > 0,
+        (section): section is CategoryLandingSection =>
+          !!section && section.total > 0,
       )
     : [];
 
@@ -336,7 +377,9 @@ export default function CategoryPageContent() {
   // Use the API-supplied name when available. Fall back to slug-derived text only
   // as a loading/skeleton placeholder — it loses special chars like "&" so it is
   // never used as the final display value once data is loaded.
-  const readableCategory = data?.category?.name ?? (error ? "This category" : titleCaseSlug(categorySlug));
+  const readableCategory =
+    data?.category?.name ??
+    (error ? "This category" : titleCaseSlug(categorySlug));
   const availableCountryOptions = useMemo(() => {
     const allowedCountries = data?.available_countries ?? [];
     const allowedNames = new Set(allowedCountries);
@@ -357,7 +400,11 @@ export default function CategoryPageContent() {
       (subcategory) => subcategory.slug === selectedSubcategory,
     );
 
-    if (isReturnedSubcategory || data.active_subcategory?.slug === selectedSubcategory) return;
+    if (
+      isReturnedSubcategory ||
+      data.active_subcategory?.slug === selectedSubcategory
+    )
+      return;
 
     writeParams((params) => {
       params.delete("subcategory");
@@ -408,12 +455,15 @@ export default function CategoryPageContent() {
               {readableCategory}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-gray-600 lg:text-base">
-              Explore approved businesses, communities, and events connected to {readableCategory}.
+              Explore approved businesses, communities, and events connected to{" "}
+              {readableCategory}.
             </p>
           </div>
           <div className="min-w-[220px]">
             <CountryDropdown
-              defaultValue={selectedCountry || data?.meta?.detected_country || undefined}
+              defaultValue={
+                selectedCountry || data?.meta?.detected_country || undefined
+              }
               onChange={handleCountryChange}
               options={availableCountryOptions}
               placeholder="Select country"
@@ -438,7 +488,9 @@ export default function CategoryPageContent() {
             <button
               key={subcategory.slug || subcategory.id}
               type="button"
-              onClick={() => subcategory.slug && handleSubcategoryChange(subcategory.slug)}
+              onClick={() =>
+                subcategory.slug && handleSubcategoryChange(subcategory.slug)
+              }
               className={`shrink-0 rounded-full border px-5 py-2 text-sm font-medium transition ${
                 selectedSubcategory === subcategory.slug
                   ? "border-[#9ACC23] bg-[#9ACC23] text-white"
@@ -536,7 +588,9 @@ export default function CategoryPageContent() {
               No listings found for this category yet.
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-gray-500">
-              Try another subcategory or country filter. We will show matching businesses, communities, and events here as soon as they are approved.
+              Try another subcategory or country filter. We will show matching
+              businesses, communities, and events here as soon as they are
+              approved.
             </p>
           </div>
         </div>
