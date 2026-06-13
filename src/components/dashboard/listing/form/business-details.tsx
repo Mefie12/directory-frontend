@@ -170,8 +170,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     const { formRef, showConfirm } = useConfirmAddress({
       accessToken: MAPBOX_TOKEN,
     });
-    const [minimapFeature, setMinimapFeature] = useState<Feature<Point, GeoJsonProperties> | undefined>(undefined);
-    const [coordinates, setCoordinates] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+    const [minimapFeature, setMinimapFeature] = useState<
+      Feature<Point, GeoJsonProperties> | undefined
+    >(undefined);
+    const [coordinates, setCoordinates] = useState<{
+      lat: number | null;
+      lng: number | null;
+    }>({ lat: null, lng: null });
 
     useEffect(() => {
       setMounted(true);
@@ -264,7 +269,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       (watch("businessHours") as unknown as DaySchedule[]) || [];
     const text = formTextConfig[listingType];
 
-     const eventLocationType = watch("event_location");
+    const eventLocationType = watch("event_location");
     const selectedCountryName = watch("country");
     const startDateValue = watch("event_start_date");
 
@@ -276,15 +281,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         if (!effectiveSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(
-            `/api/listing/${effectiveSlug}/show`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`/api/listing/${effectiveSlug}/show`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
           if (res.ok) {
             const json = await res.json();
             const d = json.data || json;
@@ -313,40 +315,64 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   : { ...defaultDay, enabled: false };
               });
             if (d.latitude && d.longitude) {
-              setCoordinates({ lat: Number(d.latitude), lng: Number(d.longitude) });
+              setCoordinates({
+                lat: Number(d.latitude),
+                lng: Number(d.longitude),
+              });
             }
 
             reset({
               // Event listings use event_* keys from API; non-events use normal address keys.
               address: isEvent
-                ? d.event_venue_address || d.address || d.location?.address || ""
+                ? d.event_venue_address ||
+                  d.address ||
+                  d.location?.address ||
+                  ""
                 : d.address || d.location?.address || "",
               event_venue: isEvent ? d.event_venue || "" : "",
               city: isEvent
                 ? d.event_city || d.city || d.location?.city || ""
                 : d.city || d.location?.city || "",
               country: isEvent
-                ? d.event_country || d.country || d.location?.country || "United Kingdom"
+                ? d.event_country ||
+                  d.country ||
+                  d.location?.country ||
+                  "United Kingdom"
                 : d.country || d.location?.country || "United Kingdom",
               google_plus_code:
                 d.google_plus_code || d.location?.google_plus_code || "",
               businessHours: mappedHours,
               event_price: d.event?.event_price ?? d.event_price ?? "",
               event_currency: d.event?.event_currency ?? d.event_currency ?? "",
-              event_ticket_url: d.event?.event_ticket_url ?? d.event_ticket_url ?? d.ticket_url ?? "",
-              event_online_url: d.event?.event_online_url ?? d.event_online_url ?? d.online_url ?? "",
+              event_ticket_url:
+                d.event?.event_ticket_url ??
+                d.event_ticket_url ??
+                d.ticket_url ??
+                "",
+              event_online_url:
+                d.event?.event_online_url ??
+                d.event_online_url ??
+                d.online_url ??
+                "",
               event_start_date: convertDateToInput(
                 d.event?.event_start_date ?? d.event_start_date ?? d.start_date,
               ),
               event_end_date: convertDateToInput(
-                d.event?.event_end_date ?? d.event_end_date ?? d.end_date ?? d.event_start_date ?? d.start_date,
+                d.event?.event_end_date ??
+                  d.event_end_date ??
+                  d.end_date ??
+                  d.event_start_date ??
+                  d.start_date,
               ),
               event_start_time: convertTimeToInput(
                 d.event?.event_start_time ?? d.event_start_time ?? d.start_time,
               ),
-              event_end_time: convertTimeToInput(d.event?.event_end_time ?? d.event_end_time ?? d.end_time),
+              event_end_time: convertTimeToInput(
+                d.event?.event_end_time ?? d.event_end_time ?? d.end_time,
+              ),
               // Resource returns event_location_type (renamed from the DB column event_location)
-              event_location: d.event?.event_location_type ?? d.event_location_type ?? "",
+              event_location:
+                d.event?.event_location_type ?? d.event_location_type ?? "",
               // Duration type — only on the nested event object
               event_type: d.event?.event_type ?? "",
             });
@@ -430,9 +456,13 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsPayload.event_currency = data.event_currency || null;
           // URL fields — normalise non-empty values; send null when blank (backend: nullable|url)
           const rawTicketUrl = data.event_ticket_url?.trim();
-          detailsPayload.event_ticket_url = rawTicketUrl ? normalizeUrl(rawTicketUrl) : null;
+          detailsPayload.event_ticket_url = rawTicketUrl
+            ? normalizeUrl(rawTicketUrl)
+            : null;
           const rawOnlineUrl = data.event_online_url?.trim();
-          detailsPayload.event_online_url = rawOnlineUrl ? normalizeUrl(rawOnlineUrl) : null;
+          detailsPayload.event_online_url = rawOnlineUrl
+            ? normalizeUrl(rawOnlineUrl)
+            : null;
           detailsPayload.event_start_date = data.event_start_date;
           detailsPayload.event_end_date = data.event_end_date;
           detailsPayload.event_start_time = data.event_start_time;
@@ -540,33 +570,41 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                       }),
                     });
                   } else {
-                    return fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        Authorization: `Bearer ${token}`,
+                    return fetch(
+                      `/api/listing/${effectiveSlug}/opening_hours`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Accept: "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify([
+                          {
+                            day_of_week: h.day_of_week,
+                            open_time: h.open_time,
+                            close_time: h.close_time,
+                          },
+                        ]),
                       },
-                      body: JSON.stringify([{
-                        day_of_week: h.day_of_week,
-                        open_time: h.open_time,
-                        close_time: h.close_time,
-                      }]),
-                    });
+                    );
                   }
                 }),
               );
             } else {
               // POST all hours as a batch for initial creation
-              const res = await fetch(`/api/listing/${effectiveSlug}/opening_hours`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                  Authorization: `Bearer ${token}`,
+              const res = await fetch(
+                `/api/listing/${effectiveSlug}/opening_hours`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(enabledHours),
                 },
-                body: JSON.stringify(enabledHours),
-              });
+              );
               hoursResults = [res];
             }
           }
@@ -584,7 +622,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             };
             Object.entries(errJson.errors as Record<string, string[]>).forEach(
               ([field, messages]) => {
-                const formField = (fieldMap[field] ?? field) as keyof DetailsFormValues;
+                const formField = (fieldMap[field] ??
+                  field) as keyof DetailsFormValues;
                 form.setError(formField, { message: messages[0] });
               },
             );
@@ -615,7 +654,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         toast.success("Details saved!");
         return true;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Failed to save details";
+        const msg =
+          error instanceof Error ? error.message : "Failed to save details";
         toast.error(msg);
         return false;
       } finally {
@@ -629,7 +669,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       },
     }));
 
-    const handleRetrieve = (res: { features?: Feature<Point, GeoJsonProperties>[] }) => {
+    const handleRetrieve = (res: {
+      features?: Feature<Point, GeoJsonProperties>[];
+    }) => {
       const feature = res.features?.[0];
       if (!feature) return;
       setMinimapFeature(feature);
@@ -639,7 +681,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       }
       setValue("address", parsed.fullAddress, { shouldValidate: true });
       if (parsed.city) setValue("city", parsed.city, { shouldValidate: true });
-      if (parsed.country) setValue("country", parsed.country, { shouldValidate: true });
+      if (parsed.country)
+        setValue("country", parsed.country, { shouldValidate: true });
     };
 
     return (
@@ -658,16 +701,20 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {listingType === "event" ? (
               <>
                 <label className="font-medium text-sm">
-                  {(text as typeof formTextConfig["event"]).venueLabel}{" "}
+                  {(text as (typeof formTextConfig)["event"]).venueLabel}{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <Input
                   {...register("event_venue")}
-                  placeholder={(text as typeof formTextConfig["event"]).venuePlaceholder}
+                  placeholder={
+                    (text as (typeof formTextConfig)["event"]).venuePlaceholder
+                  }
                   className={cn(errors.event_venue && "border-red-500")}
                 />
                 {errors.event_venue && (
-                  <p className="text-red-500 text-xs">{errors.event_venue.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.event_venue.message}
+                  </p>
                 )}
               </>
             ) : (
@@ -687,7 +734,9 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   className="rounded-lg"
                 />
                 {errors.country && (
-                  <p className="text-red-500 text-xs">{errors.country.message}</p>
+                  <p className="text-red-500 text-xs">
+                    {errors.country.message}
+                  </p>
                 )}
               </>
             )}
@@ -738,7 +787,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             )}
             {errors[listingType === "event" ? "country" : "address"] && (
               <p className="text-red-500 text-xs">
-                {errors[listingType === "event" ? "country" : "address"]?.message}
+                {
+                  errors[listingType === "event" ? "country" : "address"]
+                    ?.message
+                }
               </p>
             )}
           </div>
@@ -788,15 +840,18 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 {errors[listingType === "event" ? "address" : "city"]?.message}
               </p>
             )}
-            {listingType === "event" && mounted && MAPBOX_TOKEN && minimapFeature && (
-              <div className="mt-2 rounded-xl overflow-hidden h-36 border border-gray-200">
-                <AddressMinimap
-                  show
-                  feature={minimapFeature}
-                  accessToken={MAPBOX_TOKEN}
-                />
-              </div>
-            )}
+            {listingType === "event" &&
+              mounted &&
+              MAPBOX_TOKEN &&
+              minimapFeature && (
+                <div className="mt-2 rounded-xl overflow-hidden h-36 border border-gray-200">
+                  <AddressMinimap
+                    show
+                    feature={minimapFeature}
+                    accessToken={MAPBOX_TOKEN}
+                  />
+                </div>
+              )}
           </div>
 
           <div className="space-y-1">
@@ -816,52 +871,54 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 )}
               </>
             ) : (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-medium text-sm">
-                      {text.googlePlusCodeLabel}{" "}
-                      <span className="text-gray-400 font-normal">(Optional)</span>
-                    </label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <Question size={14} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[280px] p-3">
-                          <div className="space-y-2 text-xs">
-                            <p className="font-semibold">What is a Plus Code?</p>
-                            <p>
-                              A simple digital address that works like a street
-                              address.
-                            </p>
-                            <p className="font-semibold">How to find it:</p>
-                            <ol className="list-decimal list-inside space-y-1">
-                              <li>Open Google Maps and tap your location.</li>
-                              <li>
-                                Look for the plus code icon (e.g., 849VCWC8+R9).
-                              </li>
-                            </ol>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    {...register("google_plus_code")}
-                    placeholder="e.g., 849VCWC8+R9"
-                    className={cn(errors.google_plus_code && "border-red-500")}
-                  />
-                  {errors.google_plus_code && (
-                    <p className="text-red-500 text-xs">
-                      {errors.google_plus_code.message}
-                    </p>
-                  )}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <label className="font-medium text-sm">
+                    {text.googlePlusCodeLabel}{" "}
+                    <span className="text-gray-400 font-normal">
+                      (Optional)
+                    </span>
+                  </label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <Question size={14} />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[280px] p-3">
+                        <div className="space-y-2 text-xs">
+                          <p className="font-semibold">What is a Plus Code?</p>
+                          <p>
+                            A simple digital address that works like a street
+                            address.
+                          </p>
+                          <p className="font-semibold">How to find it:</p>
+                          <ol className="list-decimal list-inside space-y-1">
+                            <li>Open Google Maps and tap your location.</li>
+                            <li>
+                              Look for the plus code icon (e.g., 849VCWC8+R9).
+                            </li>
+                          </ol>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
+                <Input
+                  {...register("google_plus_code")}
+                  placeholder="e.g., 849VCWC8+R9"
+                  className={cn(errors.google_plus_code && "border-red-500")}
+                />
+                {errors.google_plus_code && (
+                  <p className="text-red-500 text-xs">
+                    {errors.google_plus_code.message}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1032,7 +1089,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             </div>
 
             {/* Row 2: Online URL (only for online/hybrid) */}
-            {(eventLocationType === "online" || eventLocationType === "hybrid") && (
+            {(eventLocationType === "online" ||
+              eventLocationType === "hybrid") && (
               <div className="space-y-1">
                 <label className="font-medium text-sm">
                   Event Online URL{" "}
