@@ -26,6 +26,7 @@ import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { useRolePath } from "@/hooks/useRolePath";
 import { Input } from "@/components/ui/input";
+import { getImageUrl } from "@/lib/directory/image-utils";
 
 // --- Interfaces ---
 
@@ -40,6 +41,10 @@ interface ListingImage {
 interface Category {
   id: number;
   name: string;
+  slug?: string;
+  type?: "mainCategory" | "subCategory" | "tag";
+  parent_name?: string | null;
+  parent_slug?: string | null;
 }
 
 interface ApiListing {
@@ -50,6 +55,9 @@ interface ApiListing {
   address: string;
   country: string;
   city: string;
+  event_country?: string | null;
+  event_city?: string | null;
+  event_location_type?: string | null;
   status: string;
   type?: string;
   images: ListingImage[];
@@ -63,14 +71,21 @@ interface ApiListing {
 }
 
 interface ApiMeta {
-  current_page: number;
-  last_page: number;
-  total: number;
+  current_page?: number;
+  last_page?: number;
+  total?: number;
+  next_cursor?: string | null;
+  prev_cursor?: string | null;
+  per_page?: number;
 }
 
 interface ApiResponse {
   data: ApiListing[];
   meta?: ApiMeta;
+  links?: {
+    next?: string | null;
+    prev?: string | null;
+  };
 }
 
 interface ListingsTableItem {
@@ -91,12 +106,111 @@ interface ListingsTableItem {
   description?: string;
 }
 
-const getImageUrl = (url: string | undefined | null): string => {
-  if (!url) return "/images/no-image.jpg";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-  return `${API_URL}/${url.replace(/^\//, "")}`;
+interface NestedApiResponse {
+  data: ApiResponse;
+}
+
+interface LegacyListingsResponse {
+  listings: ApiListing[];
+}
+
+const isApiListingArray = (value: unknown): value is ApiListing[] =>
+  Array.isArray(value);
+
+const isApiResponse = (value: unknown): value is ApiResponse =>
+  typeof value === "object" &&
+  value !== null &&
+  "data" in value &&
+  isApiListingArray((value as ApiResponse).data);
+
+const isNestedApiResponse = (value: unknown): value is NestedApiResponse =>
+  typeof value === "object" &&
+  value !== null &&
+  "data" in value &&
+  isApiResponse((value as NestedApiResponse).data);
+
+const isLegacyListingsResponse = (
+  value: unknown,
+): value is LegacyListingsResponse =>
+  typeof value === "object" &&
+  value !== null &&
+  "listings" in value &&
+  isApiListingArray((value as LegacyListingsResponse).listings);
+
+const GENERIC_CATEGORY_SLUGS = new Set([
+  "business",
+  "businesses",
+  "event",
+  "events",
+  "community",
+  "communities",
+  "online",
+]);
+
+const isGenericTypeCategory = (category: Category): boolean => {
+  const name = category.name.trim().toLowerCase();
+  const slug = category.slug?.trim().toLowerCase();
+
+  return GENERIC_CATEGORY_SLUGS.has(name) || !!(slug && GENERIC_CATEGORY_SLUGS.has(slug));
 };
+
+const getTypeParentLabel = (listingType?: string): string | null => {
+  const type = listingType?.trim().toLowerCase();
+  if (type === "event") return "Events";
+  if (type === "business") return "Businesses";
+  if (type === "community") return "Communities";
+  return null;
+};
+
+const formatCategoryPath = (
+  categories: Category[] = [],
+  listingType?: string,
+): string => {
+  const usableCategories = categories.filter(
+    (category) => !isGenericTypeCategory(category),
+  );
+  const typeParent = getTypeParentLabel(listingType);
+
+  if (usableCategories.length === 0) {
+    return typeParent ? `${typeParent} / Uncategorized` : "Uncategorized";
+  }
+
+  const subCategory =
+    usableCategories.find((category) => category.type === "subCategory") ??
+    usableCategories.find((category) => !!category.parent_slug);
+
+  if (subCategory) {
+    const parent =
+      subCategory.parent_name ??
+      usableCategories.find(
+        (category) => category.slug === subCategory.parent_slug,
+      )?.name;
+
+    return parent || typeParent
+      ? `${parent ?? typeParent} / ${subCategory.name}`
+      : subCategory.name;
+  }
+
+  const mainCategory =
+    usableCategories.find((category) => category.type === "mainCategory") ??
+    usableCategories.find((category) => !category.parent_slug) ??
+    usableCategories[0];
+
+  return typeParent && mainCategory.name !== typeParent
+    ? `${typeParent} / ${mainCategory.name}`
+    : mainCategory.name;
+};
+
+const formatListingLocation = (listing: ApiListing): string =>
+  listing.country ||
+  listing.event_country ||
+  listing.city ||
+  listing.event_city ||
+  (listing.event_location_type &&
+  listing.event_location_type.toLowerCase() !== "online"
+    ? listing.event_location_type
+    : "") ||
+  "Country not set";
 
 export default function MyListingsPage() {
   const router = useRouter();
@@ -107,18 +221,30 @@ export default function MyListingsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const [pageCursors, setPageCursors] = useState<Record<number, string | null>>(
+    { 1: null },
+  );
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchListings = useCallback(async (page = 1) => {
+  const fetchListings = useCallback(async (page = 1, cursor?: string | null) => {
     try {
       setLoading(true);
 
       const token = localStorage.getItem("authToken");
       if (!token) throw new Error("Authentication required");
 
-      const response = await fetch(`/api/listing/my_listings?page=${page}`, {
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: "10",
+      });
+
+      if (cursor) params.set("cursor", cursor);
+
+      const response = await fetch(`/api/listing/my_listings?${params}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -132,24 +258,33 @@ export default function MyListingsPage() {
         throw new Error("Failed to fetch listings");
       }
 
-      const data: ApiResponse = await response.json();
+      const data: unknown = await response.json();
       // Handle: { data: [...] }  OR  { data: { data: [...] } }  OR  { listings: [...] }
       let rawListings: ApiListing[] = [];
       let meta: ApiMeta | undefined;
-      if (Array.isArray(data?.data)) {
+      let links: ApiResponse["links"];
+      if (isApiResponse(data)) {
         rawListings = data.data;
         meta = data.meta;
-      } else if (Array.isArray((data as any)?.data?.data)) {
-        rawListings = (data as any).data.data;
-        meta = (data as any)?.data?.meta;
-      } else if (Array.isArray((data as any)?.listings)) {
-        rawListings = (data as any).listings;
+        links = data.links;
+      } else if (isNestedApiResponse(data)) {
+        rawListings = data.data.data;
+        meta = data.data.meta;
+        links = data.data.links;
+      } else if (isLegacyListingsResponse(data)) {
+        rawListings = data.listings;
       }
 
       if (meta) {
-        setCurrentPage(meta.current_page);
-        setTotalPages(meta.last_page);
+        setCurrentPage(meta.current_page ?? page);
+        setTotalPages(meta.last_page ?? 1);
       }
+
+      const nextCursorFromUrl = links?.next
+        ? new URL(links.next).searchParams.get("cursor")
+        : null;
+
+      setNextCursor(meta?.next_cursor ?? nextCursorFromUrl);
 
       const transformedListings: ListingsTableItem[] = rawListings.map(
         (listing) => {
@@ -163,11 +298,11 @@ export default function MyListingsPage() {
               ? validImages[0]
               : getImageUrl("/images/no-image.jpg");
 
-          const categoryText =
-            listing.categories?.[0]?.name || "Uncategorized";
-          const location =
-            [listing.city, listing.country].filter(Boolean).join(", ") ||
-            "Online";
+          const categoryText = formatCategoryPath(
+            listing.categories,
+            listing.type,
+          );
+          const location = formatListingLocation(listing);
 
           let status: "published" | "pending" | "drafted" = "drafted";
           const backendStatus = (listing.status || "").toLowerCase();
@@ -216,8 +351,33 @@ export default function MyListingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) fetchListings(currentPage);
-  }, [user, authLoading, fetchListings, currentPage]);
+    if (!authLoading && user) fetchListings(currentPage, currentCursor);
+  }, [user, authLoading, fetchListings, currentPage, currentCursor]);
+
+  const hasNextPage = totalPages > currentPage || !!nextCursor;
+
+  const handlePreviousPage = () => {
+    setCurrentPage((page) => {
+      const previousPage = Math.max(1, page - 1);
+      setCurrentCursor(pageCursors[previousPage] ?? null);
+      return previousPage;
+    });
+  };
+
+  const handleNextPage = () => {
+    if (!hasNextPage) return;
+
+    setCurrentPage((page) => {
+      const nextPage = page + 1;
+      if (nextCursor) {
+        setPageCursors((prev) => ({ ...prev, [nextPage]: nextCursor }));
+        setCurrentCursor(nextCursor);
+      } else {
+        setCurrentCursor(pageCursors[nextPage] ?? null);
+      }
+      return nextPage;
+    });
+  };
 
   const handleDelete = async () => {
     if (!deleteListingId) return;
@@ -307,8 +467,15 @@ export default function MyListingsPage() {
         <>
           <ListingsTable
             listings={listings}
-            showPagination={false}
-            itemsPerPage={listings.length}
+            showPagination
+            itemsPerPage={10}
+            pagination={{
+              currentPage,
+              totalPages: totalPages > 1 ? totalPages : undefined,
+              hasNextPage,
+              onPrevious: handlePreviousPage,
+              onNext: handleNextPage,
+            }}
             onViewClick={(listing) => router.push(listingDetail(listing.slug))}
             onEditClick={(listing) =>
               router.push(listingEdit(listing.type, listing.slug))
@@ -318,29 +485,6 @@ export default function MyListingsPage() {
               router.push(`${listingDetail(listing.slug)}?tab=services`)
             }
           />
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
         </>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-xl bg-gray-50">

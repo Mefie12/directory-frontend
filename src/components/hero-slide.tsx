@@ -65,10 +65,9 @@ export function HeroCarousel({
                   alt={alt}
                   fill
                   sizes="100vw"
-                  className="object-contain bg-red-100"
+                  className="object-cover bg-red-100"
                   priority={i === 0}
                   unoptimized
-                  
                 />
               </div>
             </div>
