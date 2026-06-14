@@ -317,38 +317,24 @@ export default function HomeContent() {
     fetchData();
   }, [selectedCountry]);
 
-  // Sort upcoming events: verified first (for the selected/detected country), then by event date ascending (closest to today first)
   const filteredAndSortedEvents = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today);
+    cutoff.setDate(today.getDate() + 14);
+
     return upcomingEvents
+      .filter((e) => {
+        if (!e.startDateRaw) return false;
+        const d = new Date(e.startDateRaw);
+        return d >= today && d <= cutoff;
+      })
       .sort((a, b) => {
-        // Verified events first
-        if (a.verified !== b.verified) return a.verified ? -1 : 1;
-        // Then by date ascending (events happening closest to current date appear first)
-        const ta = a.startDateRaw ? new Date(a.startDateRaw).getTime() : Infinity;
-        const tb = b.startDateRaw ? new Date(b.startDateRaw).getTime() : Infinity;
+        const ta = new Date(a.startDateRaw!).getTime();
+        const tb = new Date(b.startDateRaw!).getTime();
         return ta - tb;
       });
   }, [upcomingEvents]);
-    //   const sorted = [...categories];
-    //   switch (sortBy) {
-    //     case "name-asc":
-    //       return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    //     case "name-desc":
-    //       return sorted.sort((a, b) => b.name.localeCompare(a.name));
-    //     case "newest":
-    //       return sorted.sort(
-    //         (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    //       );
-    //     case "oldest":
-    //       return sorted.sort(
-    //         (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
-    //       );
-    //     case "popular":
-    //       return sorted.sort((a, b) => b.popularity - a.popularity);
-    //     default:
-    //       return sorted;
-    //   }
-    // }, [sortBy]);
 
   // --- Skeletons (Implemented with ShadCN) ---
 
