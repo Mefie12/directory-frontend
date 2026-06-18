@@ -48,6 +48,8 @@ function ListingContent() {
     resetListing,
   } = useListing();
 
+  const initialName = searchParams.get("name") || "";
+
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [stepIsValid, setStepIsValid] = useState(true);
@@ -158,6 +160,7 @@ function ListingContent() {
         return (
           <BasicInformationForm
             {...commonProps}
+            initialName={initialName}
             onValidityChange={setStepIsValid}
           />
         );

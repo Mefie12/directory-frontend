@@ -173,7 +173,9 @@ export default function ClaimPage() {
   };
 
   const handleManualAdd = (type: string) => {
-    router.push(`/claim/manual?type=${type}`);
+    const params = new URLSearchParams({ type });
+    if (nameQuery.trim()) params.set("name", nameQuery.trim());
+    router.push(`/claim/manual?${params.toString()}`);
   };
 
   if (authLoading || !user) {
