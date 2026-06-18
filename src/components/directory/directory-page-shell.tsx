@@ -89,32 +89,29 @@ export function DirectoryPageShell<T>({
   const isCategorySelected = selectedCategory !== "all";
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<string>(
     () => filterCountry?.toLowerCase() || "",
   );
   // Proper-cased country for API requests (category pills and backend geo filter).
   const [activeCountry, setActiveCountry] = useState<string>(filterCountry ?? "");
 
-  // Sync both country states with the URL (e.g., browser back/forward)
-  useEffect(() => {
-    setSelectedCountry(filterCountry?.toLowerCase() || "");
-    setActiveCountry(filterCountry ?? "");
-  }, [filterCountry]);
-
-  // Items fetched when a category pill (non-"all") is selected
+  // Items fetched when a category pill (non-"all") is selected.
+  // Loading is derived from whether the current fetch key matches the last completed one —
+  // no synchronous setState needed, so no cascading-render lint violation.
+  const categoryFetchKey = isCategorySelected
+    ? `${categoryIdParam ?? ""}|${categorySlugParam ?? ""}|${selectedCountry}`
+    : "";
+  const [fetchedKey, setFetchedKey] = useState("");
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
   const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
-  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+  const isCategoryLoading = isCategorySelected && !!mapItem && categoryFetchKey !== fetchedKey;
 
   useEffect(() => {
-    if (!isCategorySelected || !mapItem) {
-      setTopCategoryItems([]);
-      setAllCategoryItems([]);
-      return;
-    }
+    if (!isCategorySelected || !mapItem) return;
 
     let cancelled = false;
-    setIsCategoryLoading(true);
 
     // Send both params — backend uses whichever it supports.
     const params = new URLSearchParams();
@@ -128,9 +125,7 @@ export function DirectoryPageShell<T>({
         hasCountry
           ? `/api/top_listings_by_country_and_category?${params}`
           : `/api/top_listings_by_category_and_geolocation?${params}`,
-        {
-        headers: { Accept: "application/json" },
-      },
+        { headers: { Accept: "application/json" } },
       ).then((r) => {
         if (!r.ok) throw new Error(`Top request failed (${r.status})`);
         return r.json();
@@ -139,9 +134,7 @@ export function DirectoryPageShell<T>({
         hasCountry
           ? `/api/all_listings_by_country_and_category?${params}`
           : `/api/all_listings_by_category_and_geolocation?${params}`,
-        {
-        headers: { Accept: "application/json" },
-      },
+        { headers: { Accept: "application/json" } },
       ).then((r) => {
         if (!r.ok) throw new Error(`All request failed (${r.status})`);
         return r.json();
@@ -174,12 +167,11 @@ export function DirectoryPageShell<T>({
         }
       })
       .finally(() => {
-        if (!cancelled) setIsCategoryLoading(false);
+        if (!cancelled) setFetchedKey(categoryFetchKey);
       });
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem]);
+  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategoryTabChange = useCallback(
     (slug: string, id: number | null) => {
@@ -238,13 +230,24 @@ export function DirectoryPageShell<T>({
         );
       if (!passesSearch) return false;
 
-      if (!targetCountry) return true;
+      if (targetCountry) {
+        const itemCountry = record.country?.toString().toLowerCase();
+        const itemLocation = record.location?.toString().toLowerCase();
+        if (itemCountry !== targetCountry && !itemLocation?.includes(targetCountry)) return false;
+      }
 
-      const itemCountry = record.country?.toString().toLowerCase();
-      const itemLocation = record.location?.toString().toLowerCase();
-      return itemCountry === targetCountry || !!itemLocation?.includes(targetCountry);
+      // Client-side date filter (v2 pattern): ISO string comparison
+      if (dateFrom || dateTo) {
+        const raw = record.startDateRaw as string | undefined;
+        if (raw) {
+          if (dateFrom && raw < dateFrom) return false;
+          if (dateTo && raw > dateTo) return false;
+        }
+      }
+
+      return true;
     });
-  }, [items, searchQuery, selectedCountry]);
+  }, [items, searchQuery, selectedCountry, dateFrom, dateTo]);
 
   const grouped = useMemo(() => {
     return headerFilteredItems.reduce<Record<string, T[]>>((acc, item) => {
@@ -286,6 +289,7 @@ export function DirectoryPageShell<T>({
           detectedCountry={detectedCountry}
           onCountryChange={handleCountryChange}
           onSearchChange={setSearchQuery}
+          onDateRangeChange={(start, end) => { setDateFrom(start); setDateTo(end); }}
         />
       </Suspense>
 

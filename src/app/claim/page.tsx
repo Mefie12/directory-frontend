@@ -160,10 +160,10 @@ export default function ClaimPage() {
     }
   };
 
-  // Navigate to listing detail page
+  // Navigate to listing detail page (universal slug page)
   const handleViewListing = (business: Business) => {
     const identifier = business.slug || business.id;
-    router.push(`/claim/${identifier}`);
+    router.push(`/businesses/${identifier}`);
   };
 
   // Navigate directly to verify/claim page

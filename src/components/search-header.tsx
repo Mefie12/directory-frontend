@@ -29,6 +29,7 @@ interface SearchHeaderProps {
   detectedCountry?: string | null;
   onCountryChange?: (country: Country | null) => void;
   onSearchChange?: (query: string) => void;
+  onDateRangeChange?: (start: string, end: string) => void;
 }
 
 const searchPlaceholders: Record<SearchContext, string> = {
@@ -106,6 +107,7 @@ export default function SearchHeader({
   detectedCountry,
   onCountryChange,
   onSearchChange,
+  onDateRangeChange,
 }: SearchHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -275,28 +277,27 @@ export default function SearchHeader({
     updateSearchParams("category_id", value === "all" ? "" : value);
   };
 
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+
   const handleDateRangeSelect = (range: DateRange | undefined) => {
+    setSelectedRange(range);
     const start = range?.from ? format(range.from, "yyyy-MM-dd") : "";
     const end = range?.to ? format(range.to, "yyyy-MM-dd") : "";
-    updateSearchParamsBatch({
-      event_start_date: start,
-      event_end_date: end,
-    });
+    updateSearchParamsBatch({ event_start_date: start, event_end_date: end });
+    onDateRangeChange?.(start, end);
+  };
+
+  const handleClearDates = () => {
+    setSelectedRange(undefined);
+    updateSearchParamsBatch({ event_start_date: "", event_end_date: "" });
+    onDateRangeChange?.("", "");
   };
 
   const showCountry = true;
   const showCategories = context !== "discover";
   const showDate = context === "discover" || context === "events";
-
-  const currentStart = searchParams.get("event_start_date");
-  const currentEnd = searchParams.get("event_end_date");
-  const currentRange: DateRange | undefined =
-    currentStart || currentEnd
-      ? {
-          from: currentStart ? new Date(currentStart) : undefined,
-          to: currentEnd ? new Date(currentEnd) : undefined,
-        }
-      : undefined;
 
   const currentCategory = searchParams.get("category_id") || "all";
   const currentCategoryLabel = useMemo(
@@ -344,25 +345,40 @@ export default function SearchHeader({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-9 w-full rounded-full border-[#E2E8F0] px-4 justify-start text-gray-600 font-normal hover:bg-gray-50"
+                    className={`h-9 w-full rounded-full px-4 justify-start font-normal ${
+                      selectedRange?.from
+                        ? "border-[#275782] bg-[#275782]/5 text-[#275782]"
+                        : "border-[#E2E8F0] text-gray-600 hover:bg-gray-50"
+                    }`}
                   >
-                    <Calendar className="h-5 w-5 mr-2 text-gray-600" />
-                    {currentRange?.from
-                      ? currentRange.to
-                        ? `${format(currentRange.from, "MMM dd, yyyy")} - ${format(currentRange.to, "MMM dd, yyyy")}`
-                        : `${format(currentRange.from, "MMM dd, yyyy")} - End date`
-                      : "Dates"}
-                    <ChevronDown className="h-4 w-4 text-gray-600 ml-auto" />
+                    <Calendar className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="whitespace-nowrap">
+                      {selectedRange?.from
+                        ? selectedRange.to
+                          ? `${format(selectedRange.from, "MMM d")} – ${format(selectedRange.to, "MMM d, yyyy")}`
+                          : `${format(selectedRange.from, "MMM d, yyyy")} – end`
+                        : "Dates"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 ml-auto" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
                   <CalendarComponent
                     mode="range"
                     numberOfMonths={2}
-                    selected={currentRange}
+                    selected={selectedRange}
                     onSelect={handleDateRangeSelect}
-                    initialFocus
                   />
+                  {selectedRange?.from && (
+                    <div className="border-t border-gray-100 px-3 pb-3">
+                      <button
+                        onClick={handleClearDates}
+                        className="mt-2 w-full rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
+                      >
+                        Clear dates
+                      </button>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
             </div>

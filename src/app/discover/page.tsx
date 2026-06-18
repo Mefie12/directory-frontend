@@ -143,9 +143,8 @@ function DiscoverContent() {
 
   const filterCountry = searchParams.get("country");
   const filterQuery = searchParams.get("q");
-  const filterStartDate = searchParams.get("event_start_date");
-  const filterEndDate = searchParams.get("event_end_date");
-  const hasApiFilters = !!(filterStartDate || filterEndDate);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     const mapListings = (data: ApiListing[]) => {
@@ -242,8 +241,6 @@ function DiscoverContent() {
         const makeUrl = (type: string) => {
           const params = new URLSearchParams({ type, per_page: "20" });
 
-          // G-05: Text search → search endpoint for full-dataset coverage.
-          // Carries geo/country context and any active date filters along.
           if (filterQuery) {
             params.set("q", filterQuery);
             if (filterCountry) {
@@ -251,29 +248,14 @@ function DiscoverContent() {
             } else if (detectedCountryRef.current) {
               params.set("country", detectedCountryRef.current);
             }
-            if (filterStartDate) params.set("event_start_date", filterStartDate);
-            if (filterEndDate) params.set("event_end_date", filterEndDate);
             return `/api/search?${params.toString()}`;
           }
 
-          // Manual country selection (no text search)
           if (filterCountry) {
             params.set("country", filterCountry);
             return `/api/all_listings_by_country_and_category?${params.toString()}`;
           }
 
-          // G-04: Date filters only — inject detected country so geo context is
-          // preserved even though the search endpoint has no IP detection of its own.
-          if (hasApiFilters) {
-            if (filterStartDate) params.set("event_start_date", filterStartDate);
-            if (filterEndDate) params.set("event_end_date", filterEndDate);
-            if (detectedCountryRef.current) {
-              params.set("country", detectedCountryRef.current);
-            }
-            return `/api/search?${params.toString()}`;
-          }
-
-          // Default — geo detection via BFF header IP extraction
           return `/api/listings_by_geolocation?${params.toString()}`;
         };
 
@@ -353,7 +335,7 @@ function DiscoverContent() {
 
     fetchData();
     return () => { stale = true; };
-  }, [filterCountry, filterEndDate, filterStartDate, hasApiFilters, filterQuery]);
+  }, [filterCountry, filterQuery]);
 
   // G-09 / G-14: Carousel titles reflect whether geo worked, a country was manually chosen, or we're in global fallback
   const locationLabel = filterCountry
@@ -364,6 +346,21 @@ function DiscoverContent() {
 
   const businessTitle = locationLabel ? `Top Businesses ${locationLabel}` : "Top Businesses";
   const communityTitle = locationLabel ? `Popular communities ${locationLabel}` : "Popular communities";
+
+  // Client-side date filter (v2 pattern): ISO string comparison on startDateRaw
+  const filterByDate = (events: any[]) => {
+    if (!dateFrom && !dateTo) return events;
+    return events.filter((e) => {
+      const raw: string | undefined = e.startDateRaw;
+      if (!raw) return true;
+      if (dateFrom && raw < dateFrom) return false;
+      if (dateTo && raw > dateTo) return false;
+      return true;
+    });
+  };
+
+  const visibleWeekEvents = filterByDate(weekEvents);
+  const visibleSoonEvents = filterByDate(soonEvents);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -381,6 +378,7 @@ function DiscoverContent() {
           <SearchHeader
             context="discover"
             detectedCountry={detectedCountry}
+            onDateRangeChange={(start, end) => { setDateFrom(start); setDateTo(end); }}
           />
         </Suspense>
       </div>
@@ -407,15 +405,15 @@ function DiscoverContent() {
               businesses={topBusinesses}
               title={businessTitle}
             />
-            {weekEvents.length > 0 && (
+            {visibleWeekEvents.length > 0 && (
               <EventCardCarousel
-                events={weekEvents}
+                events={visibleWeekEvents}
                 title="Happening this week"
               />
             )}
-            {soonEvents.length > 0 && (
+            {visibleSoonEvents.length > 0 && (
               <EventCardCarousel
-                events={soonEvents}
+                events={visibleSoonEvents}
                 title="Happening soon"
               />
             )}

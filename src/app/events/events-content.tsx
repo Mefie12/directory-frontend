@@ -18,8 +18,6 @@ export default function EventsContent() {
   const searchParams = useSearchParams();
 
   const filterCountry = searchParams.get("country");
-  const filterStartDate = searchParams.get("event_start_date");
-  const filterEndDate = searchParams.get("event_end_date");
 
   const eventMapper = useMemo(() => createEventMapper(), []);
 
@@ -28,10 +26,6 @@ export default function EventsContent() {
       endpoint: "/api/events",
       mapItem: eventMapper,
       forwardParams: ["category_id", "category_slug", "country"],
-      extraParams: {
-        event_start_date: filterStartDate ?? undefined,
-        event_end_date: filterEndDate ?? undefined,
-      },
     });
 
   const locationLabel = filterCountry
@@ -57,16 +51,24 @@ export default function EventsContent() {
     return [start, end];
   }, []);
 
-  // All events: verified-first, then soonest within each group.
+  // All events: remove ended events, then sort chronologically by start date.
   const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => {
-      if (a.verified !== b.verified) return a.verified ? -1 : 1;
-      const ta =
-        a.startDateRaw ? new Date(a.startDateRaw).getTime() : Infinity;
-      const tb =
-        b.startDateRaw ? new Date(b.startDateRaw).getTime() : Infinity;
-      return ta - tb;
-    });
+    const now = Date.now();
+    return [...items]
+      .filter((e) => {
+        // Use endDateRaw when available; fall back to startDateRaw.
+        const raw = e.endDateRaw || e.startDateRaw;
+        if (!raw) return true;
+        const end = new Date(raw);
+        // Include events whose end date is today or in the future.
+        end.setHours(23, 59, 59, 999);
+        return end.getTime() >= now;
+      })
+      .sort((a, b) => {
+        const ta = a.startDateRaw ? new Date(a.startDateRaw).getTime() : Infinity;
+        const tb = b.startDateRaw ? new Date(b.startDateRaw).getTime() : Infinity;
+        return ta - tb;
+      });
   }, [items]);
 
   const handleCtaClick = () => {

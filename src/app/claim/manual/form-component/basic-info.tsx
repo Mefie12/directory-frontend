@@ -472,6 +472,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
+                  disableDialCodePrefill={true}
                   defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
@@ -520,6 +521,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
+                  disableDialCodePrefill={true}
                   defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {

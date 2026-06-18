@@ -16,10 +16,11 @@ import { useAuth } from "@/context/auth-context";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries as allCountries } from "country-data-list";
 
-
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
-export type Event = (typeof EventCard)["prototype"]["props"]["event"] & { startDateRaw?: string };
+export type Event = (typeof EventCard)["prototype"]["props"]["event"] & {
+  startDateRaw?: string;
+};
 
 export interface Community {
   id: string;
@@ -91,7 +92,7 @@ const getImageUrl = (url: string | undefined | null): string => {
 
 // --- UPDATED: Aggressive Classifier Logic ---
 const classifyListing = (
-  item: ApiListing
+  item: ApiListing,
 ): "business" | "event" | "community" => {
   // Get the raw type from item.type or item.listing_type
   const rawType = (item.type || item.listing_type || "")
@@ -121,10 +122,14 @@ export default function HomeContent() {
   const [isTopCatsLoading, setIsTopCatsLoading] = useState(true);
   const [detectedCountry, setDetectedCountry] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
-  const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(undefined);
+  const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
+    undefined,
+  );
   const [featuredBusinesses, setFeaturedBusinesses] = useState<Business[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>([]);
+  const [featuredCommunities, setFeaturedCommunities] = useState<Community[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const handleClickEvent = () => {
@@ -138,7 +143,9 @@ export default function HomeContent() {
   };
 
   useEffect(() => {
-    fetch("/api/countries_dropdown", { headers: { Accept: "application/json" } })
+    fetch("/api/countries_dropdown", {
+      headers: { Accept: "application/json" },
+    })
       .then((r) => r.json())
       .then((json) => {
         const list: unknown[] = Array.isArray(json?.data)
@@ -157,8 +164,15 @@ export default function HomeContent() {
               name = entry;
             } else if (entry && typeof entry === "object") {
               const e = entry as Record<string, unknown>;
-              name = (e.name as string) || (e.country as string) || (e.label as string);
-              alpha2 = (e.alpha2 as string) || (e.code as string) || (e.iso2 as string) || (e.country_code as string);
+              name =
+                (e.name as string) ||
+                (e.country as string) ||
+                (e.label as string);
+              alpha2 =
+                (e.alpha2 as string) ||
+                (e.code as string) ||
+                (e.iso2 as string) ||
+                (e.country_code as string);
               alpha3 = (e.alpha3 as string) || (e.iso3 as string);
             }
 
@@ -171,7 +185,16 @@ export default function HomeContent() {
 
             if (match) return match;
             if (name && alpha2) {
-              return { alpha2, alpha3: alpha3 || "", countryCallingCodes: [], currencies: [], ioc: "", languages: [], name, status: "assigned" };
+              return {
+                alpha2,
+                alpha3: alpha3 || "",
+                countryCallingCodes: [],
+                currencies: [],
+                ioc: "",
+                languages: [],
+                name,
+                status: "assigned",
+              };
             }
             return null;
           })
@@ -251,9 +274,10 @@ export default function HomeContent() {
 
           const categoryName = item.categories?.[0]?.name || "General";
           const listingType = classifyListing(item);
-          const location = listingType === "event"
-            ? item.event_city || item.event_country || "Online"
-            : item.city || item.country || "Online";
+          const location =
+            listingType === "event"
+              ? item.event_city || item.event_country || "Online"
+              : item.city || item.country || "Online";
 
           // --- Distribute Data ---
           if (listingType === "community") {
@@ -508,7 +532,6 @@ export default function HomeContent() {
         </div>
       )}
 
-
       {/* Community Section */}
       {(isLoading || featuredCommunities.length > 0) && (
         <div className="py-12 px-4 lg:px-16">
@@ -549,7 +572,10 @@ export default function HomeContent() {
                     <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal line-clamp-2">
                       {item.description}
                     </p>
-                    <Button onClick={()=>router.push(`/communities/${item.slug}`)} className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2">
+                    <Button
+                      onClick={() => router.push(`/communities/${item.slug}`)}
+                      className="hidden md:block bg-[#152B40] hover:bg-[#253754] text-white font-medium w-full rounded-md px-5 py-2"
+                    >
                       View Community
                     </Button>
                   </div>
@@ -568,7 +594,7 @@ export default function HomeContent() {
         </div>
       )}
 
-            {/* Vendor Section */}
+      {/* Vendor Section */}
       <div className="py-12 px-4 lg:px-16">
         <div className="flex flex-col lg:flex-row overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="relative w-full lg:w-1/2 h-80 lg:h-auto">
@@ -587,7 +613,10 @@ export default function HomeContent() {
             <p className="text-base md:text-lg leading-relaxed">
               Join a network of vendors reaching new audiences.
             </p>
-            <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer">
+            <Button
+              onClick={handleClickEvent}
+              className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium w-fit px-4 py-3 rounded-md cursor-pointer"
+            >
               Join as a vendor
             </Button>
           </div>
@@ -646,7 +675,10 @@ export default function HomeContent() {
           </p>
 
           {/* CTA button */}
-          <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200">
+          <Button
+            onClick={handleClickEvent}
+            className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200"
+          >
             List your business today
           </Button>
         </div>
