@@ -54,6 +54,7 @@ export function createEventMapper(filterCountry?: string | null) {
       startDate,
       startDateRaw: item.event_start_date || "",
       endDate,
+      endDateRaw: item.event_end_date || item.event_start_date || "",
       date: startDate,
       price: priceLabel,
       rating: Number(item.rating) || 0,

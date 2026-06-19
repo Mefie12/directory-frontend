@@ -160,10 +160,10 @@ export default function ClaimPage() {
     }
   };
 
-  // Navigate to listing detail page
+  // Navigate to listing detail page (universal slug page)
   const handleViewListing = (business: Business) => {
     const identifier = business.slug || business.id;
-    router.push(`/claim/${identifier}`);
+    router.push(`/businesses/${identifier}`);
   };
 
   // Navigate directly to verify/claim page
@@ -173,7 +173,9 @@ export default function ClaimPage() {
   };
 
   const handleManualAdd = (type: string) => {
-    router.push(`/claim/manual?type=${type}`);
+    const params = new URLSearchParams({ type });
+    if (nameQuery.trim()) params.set("name", nameQuery.trim());
+    router.push(`/claim/manual?${params.toString()}`);
   };
 
   if (authLoading || !user) {
@@ -198,10 +200,10 @@ export default function ClaimPage() {
           </button>
         <div className="flex flex-col space-y-2">
           <h1 className="text-2xl font-bold text-gray-900">
-            Find Your Business/ Events/ Communities Listing
+            Claim Your Business/ Events/ Communities Listing
           </h1>
           <p className="text-sm text-gray-500">
-            A simple search to make sure your business is not already listed
+            Search to claim your listing
           </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ export interface ProcessedEvent {
   startDate: string;
   startDateRaw: string;
   endDate: string;
+  endDateRaw: string;
   date: string;
   price: string;
   rating: number;

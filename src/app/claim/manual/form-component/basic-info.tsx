@@ -81,6 +81,7 @@ interface Category {
 interface Props {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  initialName?: string;
   onValidityChange?: (isValid: boolean) => void;
 }
 
@@ -110,7 +111,7 @@ const basicInfoConfig = {
 };
 
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug, onValidityChange }, ref) => {
+  ({ listingType, listingSlug, initialName = "", onValidityChange }, ref) => {
     // --- State ---
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
@@ -129,7 +130,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       resolver: zodResolver(businessFormSchema),
       mode: "onChange",
       defaultValues: {
-        name: "",
+        name: initialName,
         category_ids: [],
         description: "",
         type: listingType,
@@ -472,6 +473,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
+                  disableDialCodePrefill={true}
                   defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
@@ -520,6 +522,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
+                  disableDialCodePrefill={true}
                   defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
