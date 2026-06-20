@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { BookmarkProvider } from "@/context/bookmark-context";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { WhatsAppFloater } from "@/components/whatsapp-floater";
+import MicrosoftClarity from "@/components/analytics/microsoft-clarity";
 
 const gilroy = localFont({
   src: [
@@ -136,6 +137,7 @@ export default function RootLayout({
         {/* <Navbar /> */}
         <AuthProvider>
           <BookmarkProvider>
+            <MicrosoftClarity />
             <LayoutWrapper>{children}</LayoutWrapper>
             <CookieConsent />
             <WhatsAppFloater />
