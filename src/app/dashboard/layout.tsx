@@ -63,8 +63,6 @@ export default function Layout({ children }: LayoutProps) {
       const userId = user.email; // or user.id if you have numeric ID
 
       pusherService.initialize(userId, (data) => {
-        console.log("📡 Role update received:", data);
-
         // Dispatch custom event for components to listen to
         window.dispatchEvent(
           new CustomEvent(ROLE_CHANGED_EVENT, {

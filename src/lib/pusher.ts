@@ -26,13 +26,11 @@ class PusherService {
 
     // Listen for role updates
     this.channel.bind('role.updated', (data: any) => {
-      console.log('📡 Pusher: Role updated event received', data);
       onRoleUpdate(data);
     });
 
-    // Handle connection events
     this.channel.bind('pusher:subscription_succeeded', () => {
-      console.log('✅ Pusher: Successfully subscribed to user channel');
+      // subscribed
     });
 
     this.channel.bind('pusher:subscription_error', (error: any) => {
@@ -53,7 +51,6 @@ class PusherService {
       this.pusher = null;
     }
     this.userId = null;
-    console.log('🔌 Pusher: Disconnected');
   }
 
   getUserId() {
