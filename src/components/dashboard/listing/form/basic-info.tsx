@@ -12,7 +12,11 @@ import { cn } from "@/lib/utils";
 import { SpinnerGap } from "@phosphor-icons/react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { isValidUrl, normalizeUrl, parseLaravel422Errors } from "@/lib/directory/utils";
+import {
+  isValidUrl,
+  normalizeUrl,
+  parseLaravel422Errors,
+} from "@/lib/directory/utils";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -30,16 +34,23 @@ export const businessFormSchema = z.object({
     .string()
     .optional()
     .refine(
-      (val) => !val || val.replace(/\D/g, "").length === 0 || val.replace(/\D/g, "").length >= 9,
+      (val) =>
+        !val ||
+        val.replace(/\D/g, "").length === 0 ||
+        val.replace(/\D/g, "").length >= 9,
       "Phone number is too short — please enter a complete number",
     ),
   primary_country_code: z.string().optional(),
   secondary_phone: z.string().optional(),
   secondary_country_code: z.string().optional(),
-  email: z.string().optional().or(z.literal("")).refine(
-    (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
-    "Invalid email address",
-  ),
+  email: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      "Invalid email address",
+    ),
   website: z
     .string()
     .optional()
@@ -243,26 +254,48 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           return local.replace(/^0+/, ""); // strip leading zeros (e.g. UK 020 → 20)
         };
 
+        const cleanedPrimaryPhone = rawData.primary_phone
+          ? cleanPhone(
+              rawData.primary_phone,
+              rawData.primary_country_code ?? "",
+            )
+          : "";
+        const cleanedSecondaryPhone = rawData.secondary_phone
+          ? cleanPhone(
+              rawData.secondary_phone,
+              rawData.secondary_country_code || "",
+            )
+          : "";
+
+        // Build payload — omit optional keys entirely when empty so the backend's
+        // `sometimes` rule doesn't fire and reject null/empty-string values.
         const submissionData: Record<string, unknown> = {
           name: rawData.name,
-          email: rawData.email,
-          website: normalizeUrl(rawData.website || ""),
           type: listingType,
           bio: rawData.description,
           description: rawData.description,
-          business_reg_num: rawData.business_reg_num,
-          primary_country_code: rawData.primary_country_code,
-          primary_phone: rawData.primary_phone
-            ? cleanPhone(rawData.primary_phone, rawData.primary_country_code ?? "")
-            : "",
-          secondary_country_code: rawData.secondary_country_code,
-          secondary_phone: rawData.secondary_phone
-            ? cleanPhone(
-                rawData.secondary_phone,
-                rawData.secondary_country_code || "",
-              )
-            : "",
-          category_ids: rawData.category_ids.filter((id) => id !== "other").map((id) => Number(id)),
+          category_ids: rawData.category_ids
+            .filter((id) => id !== "other")
+            .map((id) => Number(id)),
+          ...(rawData.email ? { email: rawData.email } : {}),
+          ...(normalizeUrl(rawData.website || "")
+            ? { website: normalizeUrl(rawData.website || "") }
+            : {}),
+          ...(rawData.business_reg_num
+            ? { business_reg_num: rawData.business_reg_num }
+            : {}),
+          ...(cleanedPrimaryPhone
+            ? {
+                primary_phone: cleanedPrimaryPhone,
+                primary_country_code: rawData.primary_country_code,
+              }
+            : {}),
+          ...(cleanedSecondaryPhone
+            ? {
+                secondary_phone: cleanedSecondaryPhone,
+                secondary_country_code: rawData.secondary_country_code,
+              }
+            : {}),
         };
 
         const token = localStorage.getItem("authToken");
@@ -313,15 +346,12 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(
-            `/api/listing/${listingSlug}/show`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`/api/listing/${listingSlug}/show`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
 
           if (res.ok) {
             const json = await res.json();
@@ -441,7 +471,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               control={control}
               render={({ field }) => (
                 <PhoneInput
-                disableDialCodePrefill={true}
+                  disableDialCodePrefill={true}
                   defaultCountry="gb"
                   value={field.value}
                   onChange={(phone, meta) => {
@@ -557,12 +587,15 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   disabled={loading || mainCategories.length === 0}
                   showOtherOnEmpty
                   error={
-                    errors.category_ids ? "Main category is required" : undefined
+                    errors.category_ids
+                      ? "Main category is required"
+                      : undefined
                   }
                 />
                 {selectedMainCategoryId === "other" && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1">
-                    Our team will assign the most appropriate category for your listing after review.
+                    Our team will assign the most appropriate category for your
+                    listing after review.
                   </p>
                 )}
               </>

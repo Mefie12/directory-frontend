@@ -170,7 +170,6 @@ export default function VendorHome() {
       }
 
       const data: ApiResponse = await response.json();
-      console.log("[vendor-home] raw response:", JSON.stringify(data).slice(0, 500));
 
       // Handle: { data: [...] }  OR  { data: { data: [...] } }  OR  { listings: [...] }
       let rawListings: ApiListing[] = [];

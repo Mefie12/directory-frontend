@@ -277,26 +277,24 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         };
 
         // 2. Map data to API structure
+        const cleanedPrimaryPhone = rawData.primary_phone
+          ? cleanPhone(rawData.primary_phone, rawData.primary_country_code ?? "")
+          : "";
+        const cleanedSecondaryPhone = rawData.secondary_phone
+          ? cleanPhone(rawData.secondary_phone, rawData.secondary_country_code || "")
+          : "";
+
         const submissionData: Record<string, unknown> = {
           name: rawData.name,
-          email: rawData.email,
-          website: normalizeUrl(rawData.website || ""),
           type: listingType,
           bio: rawData.description,
           description: rawData.description,
-          business_reg_num: rawData.business_reg_num,
-          primary_country_code: rawData.primary_country_code,
-          primary_phone: rawData.primary_phone
-            ? cleanPhone(rawData.primary_phone, rawData.primary_country_code ?? "")
-            : "",
-          secondary_country_code: rawData.secondary_country_code,
-          secondary_phone: rawData.secondary_phone
-            ? cleanPhone(
-                rawData.secondary_phone,
-                rawData.secondary_country_code || "",
-              )
-            : "",
           category_ids: rawData.category_ids.filter((id) => id !== "other").map((id) => Number(id)),
+          ...(rawData.email ? { email: rawData.email } : {}),
+          ...(normalizeUrl(rawData.website || "") ? { website: normalizeUrl(rawData.website || "") } : {}),
+          ...(rawData.business_reg_num ? { business_reg_num: rawData.business_reg_num } : {}),
+          ...(cleanedPrimaryPhone ? { primary_phone: cleanedPrimaryPhone, primary_country_code: rawData.primary_country_code } : {}),
+          ...(cleanedSecondaryPhone ? { secondary_phone: cleanedSecondaryPhone, secondary_country_code: rawData.secondary_country_code } : {}),
         };
 
         const token = localStorage.getItem("authToken");
