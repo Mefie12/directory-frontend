@@ -120,7 +120,7 @@ function GalleryThumb({
   );
 }
 
-function Lightbox({
+export function Lightbox({
   open,
   onClose,
   items,

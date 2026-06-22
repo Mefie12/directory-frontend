@@ -39,7 +39,7 @@ import {
 import { ReviewsSection } from "@/components/review-button";
 
 // Imported Components
-import { MediaGallery } from "@/components/media-gallery";
+import { MediaGallery, Lightbox } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { useAuth } from "@/context/auth-context";
@@ -886,25 +886,37 @@ function ListingBentoGallery({
   alt: string;
   slug: string;
 }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const items = images.filter((i) => i.type === "image");
   if (!items.length) return null;
+
+  const openAt = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const [main, t1, t2, t3, t4] = items;
   const extraCount = Math.max(0, items.length - 5);
   const count = Math.min(items.length, 5);
 
-  // Helper: single thumbnail cell
-  const thumb = (img: GalleryItem, key: number, isLast = false, extraClass = "") => (
-    <div key={key} className={cn("relative overflow-hidden", extraClass)}>
+  // Helper: single thumbnail cell — itemIndex is the position in `items` for lightbox
+  const thumb = (img: GalleryItem, itemIndex: number, key: number, isLast = false, extraClass = "") => (
+    <div
+      key={key}
+      className={cn("relative overflow-hidden cursor-pointer", extraClass)}
+      onClick={() => openAt(itemIndex)}
+    >
       <Image
         src={img.src}
         alt={alt}
         fill
-        className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer"
+        className="object-cover transition-transform duration-700 hover:scale-[1.02]"
         unoptimized
       />
       {isLast && extraCount > 0 && (
-        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center cursor-pointer hover:bg-black/60 transition-colors">
+        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center hover:bg-black/60 transition-colors">
           <span className="text-white font-bold text-2xl">+{extraCount}</span>
           <span className="text-white/80 text-xs mt-0.5">more photos</span>
         </div>
@@ -914,12 +926,15 @@ function ListingBentoGallery({
 
   // The tall main image that spans 2 rows
   const mainCell = (
-    <div className="relative overflow-hidden row-span-2">
+    <div
+      className="relative overflow-hidden row-span-2 cursor-pointer"
+      onClick={() => openAt(0)}
+    >
       <Image
         src={main.src}
         alt={alt}
         fill
-        className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer"
+        className="object-cover transition-transform duration-700 hover:scale-[1.02]"
         unoptimized
         priority
       />
@@ -930,62 +945,55 @@ function ListingBentoGallery({
     // 1 image — full width hero
     if (count === 1) {
       return (
-        <div className="relative h-full overflow-hidden">
+        <div className="relative h-full overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
           <Image src={main.src} alt={alt} fill className="object-cover" unoptimized priority />
         </div>
       );
     }
 
     // 2 images — side by side
-    // [ main ] [ t1 ]
     if (count === 2) {
       return (
         <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr" }}>
-          <div className="relative overflow-hidden">
-            <Image src={main.src} alt={alt} fill className="object-cover transition-transform duration-700 hover:scale-[1.02] cursor-pointer" unoptimized priority />
+          <div className="relative overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
+            <Image src={main.src} alt={alt} fill className="object-cover transition-transform duration-700 hover:scale-[1.02]" unoptimized priority />
           </div>
-          {thumb(t1, 1)}
+          {thumb(t1, 1, 1)}
         </div>
       );
     }
 
     // 3 images — main tall left, 2 stacked right
-    // [ main ] [ t1 ]
-    // [ main ] [ t2 ]
     if (count === 3) {
       return (
         <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr", gridTemplateRows: "1fr 1fr" }}>
           {mainCell}
-          {thumb(t1, 1)}
-          {thumb(t2, 2)}
+          {thumb(t1, 1, 1)}
+          {thumb(t2, 2, 2)}
         </div>
       );
     }
 
     // 4 images — main tall left, t1+t2 top row, t3 full bottom
-    // [ main ] [ t1 ] [ t2 ]
-    // [ main ] [    t3     ]
     if (count === 4) {
       return (
         <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
           {mainCell}
-          {thumb(t1, 1)}
-          {thumb(t2, 2)}
-          {thumb(t3, 3, false, "col-span-2")}
+          {thumb(t1, 1, 1)}
+          {thumb(t2, 2, 2)}
+          {thumb(t3, 3, 3, false, "col-span-2")}
         </div>
       );
     }
 
     // 5+ images — main tall left, 2×2 right grid
-    // [ main ] [ t1 ] [ t2 ]
-    // [ main ] [ t3 ] [ t4 ]
     return (
       <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
         {mainCell}
-        {thumb(t1, 1)}
-        {thumb(t2, 2)}
-        {thumb(t3, 3)}
-        {thumb(t4, 4, true)}
+        {thumb(t1, 1, 1)}
+        {thumb(t2, 2, 2)}
+        {thumb(t3, 3, 3)}
+        {thumb(t4, 4, 4, true)}
       </div>
     );
   };
@@ -1009,6 +1017,15 @@ function ListingBentoGallery({
           <BookmarkButton slug={slug} iconOnly />
         </div>
       </div>
+
+      {/* ── Lightbox ── */}
+      <Lightbox
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        items={items}
+        currentIndex={lightboxIndex}
+        onNavigate={setLightboxIndex}
+      />
     </>
   );
 }
