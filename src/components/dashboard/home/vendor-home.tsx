@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Bookmark,
   TrendingDown,
@@ -146,6 +147,7 @@ export default function VendorHome() {
 
   // --- Action States ---
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchListings = useCallback(async () => {
@@ -370,6 +372,7 @@ export default function VendorHome() {
     } finally {
       setIsDeleting(false);
       setDeleteListingId(null);
+      setDeleteConfirmName("");
     }
   };
   if (loading) {
@@ -520,21 +523,72 @@ export default function VendorHome() {
 
       <AlertDialog
         open={!!deleteListingId}
-        onOpenChange={(open) => !open && setDeleteListingId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteListingId(null);
+            setDeleteConfirmName("");
+          }
+        }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Listing?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
+            <AlertDialogTitle className="text-lg font-bold">
+              Delete listing
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-sm text-gray-500">
+                <p>
+                  This will permanently delete{" "}
+                  <span className="font-semibold text-gray-900">
+                    {listings.find((l) => l.id === deleteListingId)?.name}
+                  </span>
+                  . This action{" "}
+                  <span className="font-semibold text-gray-900">
+                    cannot be undone
+                  </span>
+                  .
+                </p>
+                <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-red-700 text-xs leading-relaxed">
+                  All associated data — images, services, reviews, and
+                  stats — will be permanently removed.
+                </div>
+                <div className="space-y-1.5">
+                  <p>
+                    To confirm, type{" "}
+                    <span className="font-semibold text-gray-900 font-mono">
+                      {listings.find((l) => l.id === deleteListingId)?.name}
+                    </span>{" "}
+                    below:
+                  </p>
+                  <Input
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    placeholder="Enter listing name"
+                    className="h-9 text-sm"
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        deleteConfirmName ===
+                          listings.find((l) => l.id === deleteListingId)?.name
+                      ) {
+                        handleDelete();
+                      }
+                    }}
+                  />
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              disabled={
+                isDeleting ||
+                deleteConfirmName !==
+                  listings.find((l) => l.id === deleteListingId)?.name
+              }
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-40"
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
