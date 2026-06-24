@@ -1,26 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Users,
   Tag,
   Mail,
-  AlertTriangle,
-  Flag,
   Banknote,
-  ChevronRight,
   TrendingUp,
   TrendingDown,
-  ChevronDown,
-  MoreHorizontal,
   Activity,
   BarChart3,
-  Eye,
-  MessageSquare,
-  Bookmark,
-  Star,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,16 +20,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StatCard from "@/components/dashboard/stat-cards";
 import RecentActivityCard from "@/components/dashboard/recent-activity";
 import {
@@ -81,41 +62,6 @@ interface RecentActivityItem {
   timestamp: string;
 }
 
-interface PendingListingItem {
-  id: number;
-  name: string;
-  action: string;
-  time: string;
-  initials: string;
-  color: string;
-}
-
-interface FlaggedContentItem {
-  id: number;
-  title: string;
-  reason: string;
-  time: string;
-}
-
-interface PaymentIssueItem {
-  id: number;
-  title: string;
-  desc: string;
-}
-
-interface ListingItem {
-  id: number;
-  name: string;
-  image: string;
-  category: string;
-  location: string;
-  status: "Published" | "Pending" | "Draft";
-  views: number;
-  comments: number;
-  bookmarks: number;
-  rating: number;
-}
-
 interface ChartDataPoint {
   name: string;
   value?: number;
@@ -123,119 +69,59 @@ interface ChartDataPoint {
   event?: number;
 }
 
-// --- API RESPONSE INTERFACES (Raw Data) ---
+// --- API RESPONSE INTERFACES ---
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
 
-interface ApiStats {
-  vendors_count: number;
-  listings_count: number;
-  inquiries_count: number;
-  total_revenue: number;
-  trends?: {
-    vendors: number;
-    listings: number;
-    inquiries: number;
-    revenue: number;
-  };
+interface ApiUserStats extends AnyRecord {
+  total_users?: number;
+  total?: number;
+  vendors?: number;
+  vendors_count?: number;
+  customers?: number;
+  customers_count?: number;
+  admins?: number;
 }
 
-interface ApiRecentActivity {
-  id: number | string;
-  user?: { initials?: string };
-  color?: string;
-  title: string;
-  description: string;
-  created_at_human?: string;
+interface ApiListingStats extends AnyRecord {
+  total?: number;
+  total_listings?: number;
+  business?: number;
+  businesses?: number;
+  event?: number;
+  events?: number;
+  community?: number;
+  communities?: number;
+  pending?: number;
+  pending_count?: number;
+  published?: number;
+  published_count?: number;
 }
 
-interface ApiPendingListing {
-  id: number;
-  vendor_name: string;
-  created_at_human: string;
-  vendor_initials?: string;
-}
-
-interface ApiFlaggedContent {
-  id: number;
-  subject: string;
-  reason: string;
-  created_at_human: string;
-}
-
-interface ApiPaymentIssue {
-  id: number;
-  type: string;
-  description: string;
-}
-
-interface ApiListing {
-  id: number;
-  name: string;
-  image?: string;
-  category: string;
-  location: string;
-  status: "Published" | "Pending" | "Draft";
-  rating?: number;
-  stats?: {
-    views?: number;
-    comments?: number;
-    bookmarks?: number;
-  };
-}
-
-interface ApiRevenueBreakdown {
-  label: string;
-  amount: number;
-  color?: string;
-}
-
-interface RawDashboardData {
-  stats: ApiStats;
-  recent_activity: ApiRecentActivity[];
-  pending_listings: ApiPendingListing[];
-  flagged_content: ApiFlaggedContent[];
-  payment_issues: ApiPaymentIssue[];
-  listings: ApiListing[];
-  revenue_breakdown: ApiRevenueBreakdown[];
-}
-
-interface ApiChartResponse {
-  data: ChartDataPoint[];
+interface ApiActivityItem extends AnyRecord {
+  type?: string;   // e.g. "listing_created", "user_signup"
+  message?: string;
+  timestamp?: string;
+  icon?: string;   // e.g. "store", "user-plus"
 }
 
 export default function AdminHome() {
-  const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
 
   // --- State ---
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>(
-    [],
-  );
-  const [pendingListings, setPendingListings] = useState<PendingListingItem[]>(
-    [],
-  );
-  const [flaggedContent, setFlaggedContent] = useState<FlaggedContentItem[]>(
-    [],
-  );
-  const [paymentIssues, setPaymentIssues] = useState<PaymentIssueItem[]>([]);
-  const [listings, setListings] = useState<ListingItem[]>([]);
-
-  // Charts State
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [revenuePieData, setRevenuePieData] = useState<any[]>([]);
-  const [vendorGrowthData, setVendorGrowthData] = useState<ChartDataPoint[]>(
-    [],
-  );
-  const [listingCreationData, setListingCreationData] = useState<
-    ChartDataPoint[]
-  >([]);
-
-  // Filter State
+  const [listingTypePieData, setListingTypePieData] = useState<any[]>([]);
+  const [vendorGrowthData, setVendorGrowthData] = useState<ChartDataPoint[]>([]);
+  const [listingCreationData, setListingCreationData] = useState<ChartDataPoint[]>([]);
   const [vendorGrowthFilter, setVendorGrowthFilter] = useState("This year");
-  const [listingActivityFilter, setListingActivityFilter] =
-    useState("This year");
-
+  const [listingActivityFilter, setListingActivityFilter] = useState("This year");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Maps UI label → backend period param (valid values confirmed: this_week, this_month, this_year)
+  const toPeriod = (filter: string) =>
+    filter.toLowerCase().replace(" ", "_");
 
   // --- Helper: Auth Token ---
   const getAuthToken = useCallback(() => {
@@ -243,115 +129,126 @@ export default function AdminHome() {
     return null;
   }, []);
 
-  // --- Helper: Mappers ---
-  const mapData = (data: RawDashboardData) => {
-    // Stats
-    setStats({
-      totalVendors: data.stats?.vendors_count || 0,
-      activeListings: data.stats?.listings_count || 0,
-      inquiries: data.stats?.inquiries_count || 0,
-      revenue: data.stats?.total_revenue || 0,
-      trends: {
-        vendors: data.stats?.trends?.vendors || 0,
-        listings: data.stats?.trends?.listings || 0,
-        inquiries: data.stats?.trends?.inquiries || 0,
-        revenue: data.stats?.trends?.revenue || 0,
-      },
-    });
+  // --- Helper: normalise a time-series array to { name, value } for recharts ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normaliseTimeSeries = (raw: any[]): ChartDataPoint[] =>
+    raw.map((item) => ({
+      name: item.month || item.label || item.name || item.period || "",
+      value: item.count ?? item.value ?? item.total ?? 0,
+      business: item.business ?? item.businesses ?? undefined,
+      event: item.event ?? item.events ?? undefined,
+    }));
 
-    // Recent Activity
-    setRecentActivity(
-      (data.recent_activity || []).map((item) => ({
-        id: item.id.toString(),
-        initials: item.user?.initials || "NA",
-        color: item.color || "bg-gray-500",
-        title: item.title,
-        description: item.description,
-        timestamp: item.created_at_human || "Just now",
-      })),
-    );
-
-    // Pending Listings
-    setPendingListings(
-      (data.pending_listings || []).map((item) => ({
-        id: item.id,
-        name: item.vendor_name,
-        action: "submitted a listing",
-        time: item.created_at_human,
-        initials: item.vendor_initials || "VN",
-        color: "bg-[#93C01F]",
-      })),
-    );
-
-    // Flagged Content
-    setFlaggedContent(
-      (data.flagged_content || []).map((item) => ({
-        id: item.id,
-        title: item.subject,
-        reason: item.reason,
-        time: item.created_at_human,
-      })),
-    );
-
-    // Payment Issues
-    setPaymentIssues(
-      (data.payment_issues || []).map((item) => ({
-        id: item.id,
-        title: item.type,
-        desc: item.description,
-      })),
-    );
-
-    // Listings Table
-    setListings(
-      (data.listings || []).map((item) => ({
-        id: item.id,
-        name: item.name,
-        image: item.image || "/images/no-image.jpg",
-        category: item.category,
-        location: item.location,
-        status: item.status,
-        views: item.stats?.views || 0,
-        comments: item.stats?.comments || 0,
-        bookmarks: item.stats?.bookmarks || 0,
-        rating: item.rating || 0,
-      })),
-    );
-
-    // Revenue Pie Chart
-    setRevenuePieData(
-      (data.revenue_breakdown || []).map((item) => ({
-        name: item.label,
-        value: item.amount,
-        color: item.color || "#9CA3AF",
-      })),
-    );
-  };
-
-  // --- API Fetch: Main Dashboard Data ---
+  // --- API Fetch: All Dashboard Data (parallel) ---
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (authLoading) return;
-      if (!authUser) return;
+    if (authLoading || !authUser) return;
 
+    const fetchAll = async () => {
       setIsLoading(true);
-      try {
-        const token = getAuthToken();
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      const token = getAuthToken();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
 
-        const response = await fetch(`${API_URL}/api/admin/dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
+      try {
+        const [
+          userStatsRes,
+          listingStatsRes,
+          activityRes,
+          vendorGrowthRes,
+          listingGrowthRes,
+        ] = await Promise.all([
+          fetch("/api/admin/user_stats", { headers }),
+          fetch("/api/admin/listing_stats", { headers }),
+          fetch("/api/admin/recent_activity", { headers }),
+          fetch(`/api/admin/vendor_growth?period=${toPeriod(vendorGrowthFilter)}`, { headers }),
+          fetch(`/api/admin/listing_growth?period=${toPeriod(listingActivityFilter)}`, { headers }),
+        ]);
+
+        const [
+          userStatsJson,
+          listingStatsJson,
+          activityJson,
+          vendorGrowthJson,
+          listingGrowthJson,
+        ]: AnyRecord[] = await Promise.all([
+          userStatsRes.ok ? userStatsRes.json() : ({} as AnyRecord),
+          listingStatsRes.ok ? listingStatsRes.json() : ({} as AnyRecord),
+          activityRes.ok ? activityRes.json() : ({} as AnyRecord),
+          vendorGrowthRes.ok ? vendorGrowthRes.json() : ({} as AnyRecord),
+          listingGrowthRes.ok ? listingGrowthRes.json() : ({} as AnyRecord),
+        ]);
+
+        // user_stats → stat cards
+        const us: ApiUserStats = userStatsJson?.data ?? userStatsJson ?? {};
+        const ls: ApiListingStats = listingStatsJson?.data ?? listingStatsJson ?? {};
+
+        setStats({
+          totalVendors: us.vendors ?? us.vendors_count ?? us.total_vendors ?? 0,
+          activeListings:
+            ls.total ?? ls.total_listings ?? ls.published ?? ls.published_count ?? 0,
+          inquiries: us.customers ?? us.customers_count ?? 0,
+          revenue: 0,
+          trends: { vendors: 0, listings: 0, inquiries: 0, revenue: 0 },
         });
 
-        if (!response.ok) throw new Error("Failed to fetch dashboard data");
+        // listing_stats → pie chart (business / event / community breakdown)
+        const pieSlices = [
+          { name: "Business", value: ls.business ?? ls.businesses ?? 0, color: "#93C01F" },
+          { name: "Event", value: ls.event ?? ls.events ?? 0, color: "#5D5FEF" },
+          { name: "Community", value: ls.community ?? ls.communities ?? 0, color: "#4FD1C5" },
+        ].filter((s) => s.value > 0);
+        setListingTypePieData(pieSlices);
 
-        const json = await response.json();
-        // Handle potential wrapper
-        const apiData = (json.data || json) as RawDashboardData;
-        mapData(apiData);
+        // recent_activity → activity feed
+        const rawActivity: ApiActivityItem[] = Array.isArray(activityJson)
+          ? activityJson
+          : (activityJson?.data ?? activityJson?.activities ?? []);
+
+        const typeInitials: Record<string, string> = {
+          listing_created: "LS",
+          user_signup: "US",
+          vendor_signup: "VS",
+          listing_updated: "LU",
+        };
+        const typeColor: Record<string, string> = {
+          listing_created: "bg-[#E9F5D6]",
+          user_signup: "bg-[#DBEAFE]",
+          vendor_signup: "bg-[#FEF9C3]",
+          listing_updated: "bg-[#E9F5D6]",
+        };
+
+        setRecentActivity(
+          rawActivity.map((item, index) => ({
+            id: String(index),
+            initials: typeInitials[item.type ?? ""] ?? (item.type ?? "AC").slice(0, 2).toUpperCase(),
+            color: typeColor[item.type ?? ""] ?? "bg-[#F3F4F6]",
+            title: item.message || "Activity",
+            description: "",
+            timestamp: item.timestamp
+              ? new Date(item.timestamp).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Just now",
+          })),
+        );
+
+        // vendor_growth → area chart
+        const vgRaw: AnyRecord[] = Array.isArray(vendorGrowthJson)
+          ? vendorGrowthJson
+          : (vendorGrowthJson?.data ?? []);
+        setVendorGrowthData(normaliseTimeSeries(vgRaw));
+
+        // listing_growth → stacked bar chart
+        const lgRaw: AnyRecord[] = Array.isArray(listingGrowthJson)
+          ? listingGrowthJson
+          : (listingGrowthJson?.data ?? []);
+        setListingCreationData(normaliseTimeSeries(lgRaw));
       } catch (error) {
         console.error(error);
         toast.error("Failed to load dashboard");
@@ -360,65 +257,41 @@ export default function AdminHome() {
       }
     };
 
-    fetchDashboardData();
-  }, [authUser, authLoading, getAuthToken]);
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, authLoading]);
 
-  // --- API Fetch: Dynamic Charts ---
-  const fetchChartData = useCallback(
-    async (type: "growth" | "creation", period: string) => {
-      try {
-        const token = getAuthToken();
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-        const timeParam = period.toLowerCase().replace("this ", "");
-
-        const endpoint =
-          type === "growth"
-            ? `${API_URL}/api/admin/charts/vendor-growth?period=${timeParam}`
-            : `${API_URL}/api/admin/charts/listing-creation?period=${timeParam}`;
-
-        const response = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) return [];
-
-        const json = await response.json();
-        const chartResponse = json as ApiChartResponse;
-        return chartResponse.data || [];
-      } catch (error) {
-        console.error(`Error fetching ${type} chart:`, error);
-        return [];
-      }
-    },
-    [getAuthToken],
-  );
-
-  // Vendor Growth Chart Effect
+  // Re-fetch vendor growth when period filter changes
   useEffect(() => {
-    if (!authUser) return;
-    fetchChartData("growth", vendorGrowthFilter).then(setVendorGrowthData);
-  }, [vendorGrowthFilter, fetchChartData, authUser]);
+    if (!authUser || isLoading) return;
+    const token = getAuthToken();
+    fetch(`/api/admin/vendor_growth?period=${toPeriod(vendorGrowthFilter)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : ({} as AnyRecord)))
+      .then((json: AnyRecord) => {
+        const raw: AnyRecord[] = Array.isArray(json) ? json : (json?.data ?? []);
+        setVendorGrowthData(normaliseTimeSeries(raw));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorGrowthFilter]);
 
-  // Listing Creation Chart Effect
+  // Re-fetch listing growth when period filter changes
   useEffect(() => {
-    if (!authUser) return;
-    fetchChartData("creation", listingActivityFilter).then(
-      setListingCreationData,
-    );
-  }, [listingActivityFilter, fetchChartData, authUser]);
-
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case "Published":
-        return "bg-green-100 text-green-700 hover:bg-green-100";
-      case "Pending":
-        return "bg-yellow-100 text-yellow-700 hover:bg-yellow-100";
-      default:
-        return "bg-gray-100 text-gray-700 hover:bg-gray-100";
-    }
-  };
+    if (!authUser || isLoading) return;
+    const token = getAuthToken();
+    fetch(`/api/admin/listing_growth?period=${toPeriod(listingActivityFilter)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : ({} as AnyRecord)))
+      .then((json: AnyRecord) => {
+        const raw: AnyRecord[] = Array.isArray(json) ? json : (json?.data ?? []);
+        setListingCreationData(normaliseTimeSeries(raw));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingActivityFilter]);
 
   if (authLoading || isLoading) {
     return (
@@ -462,7 +335,7 @@ export default function AdminHome() {
           trendIconDown={TrendingDown}
         />
         <StatCard
-          title="Inquiries"
+          title="Customers"
           icon={Mail}
           statValue={stats?.inquiries ?? null}
           trend={stats?.trends.inquiries || 0}
@@ -479,120 +352,7 @@ export default function AdminHome() {
         />
       </div>
 
-      {/* --- Row 2: Status Cards --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 1. Pending Listings */}
-        <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm flex flex-col h-auto min-h-[250px]">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">
-            Pending Listings
-          </h3>
-          {pendingListings.length > 0 ? (
-            <div className="space-y-4">
-              {pendingListings.map((item) => (
-                <div key={item.id} className="flex gap-3 items-start">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-medium ${item.color}`}
-                  >
-                    {item.initials}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-900">
-                      <span className="font-semibold text-[#93C01F]">
-                        {item.name}
-                      </span>{" "}
-                      {item.action}
-                    </p>
-                    <span className="text-[10px] text-gray-400">
-                      {item.time}
-                    </span>
-                  </div>
-                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="w-12 h-12 bg-[#E9F5D6] rounded-full flex items-center justify-center mb-3 border border-[#E9F5D6]">
-                <AlertTriangle className="w-6 h-6 text-[#93C01F]" />
-              </div>
-              <p className="text-sm font-medium text-gray-900">
-                No Pending Listings
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* 2. Flagged Content */}
-        <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm flex flex-col h-auto min-h-[250px]">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">
-            Flagged Content
-          </h3>
-          {flaggedContent.length > 0 ? (
-            <div className="space-y-4">
-              {flaggedContent.map((item) => (
-                <div key={item.id} className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-slate-500 flex items-center justify-center">
-                    <Flag className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-900">
-                      {item.title}{" "}
-                      <span className="text-gray-500">{item.reason}</span>
-                    </p>
-                    <span className="text-[10px] text-gray-400">
-                      {item.time}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="w-12 h-12 bg-[#F9F5E6] rounded-full flex items-center justify-center mb-3 border border-[#F9F5E6]">
-                <Flag className="w-6 h-6 text-[#93C01F]" />
-              </div>
-              <p className="text-sm font-medium text-gray-900">
-                No Flagged Content
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* 3. Payment Issues */}
-        <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm flex flex-col h-auto min-h-[250px]">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">
-            Payment Issues
-          </h3>
-          {paymentIssues.length > 0 ? (
-            <div className="space-y-4">
-              {paymentIssues.map((item) => (
-                <div key={item.id} className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-[#93C01F] flex items-center justify-center text-xs text-white font-medium">
-                    AM
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="w-12 h-12 bg-[#E9F5D6] rounded-full flex items-center justify-center mb-3 border border-[#E9F5D6]">
-                <Banknote className="w-6 h-6 text-[#93C01F]" />
-              </div>
-              <p className="text-sm font-medium text-gray-900">
-                No Payment Issues
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* --- Row 3: Activity & Revenue --- */}
+      {/* --- Row 2: Activity & Listing Type Breakdown --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Activity */}
         <div className="h-full">
@@ -604,32 +364,31 @@ export default function AdminHome() {
                 <h3 className="text-sm font-semibold text-gray-900">
                   Recent Activity
                 </h3>
-                <MoreHorizontal className="w-5 h-5 text-gray-400" />
               </div>
               <div className="flex flex-col items-center justify-center h-[300px]">
                 <div className="w-12 h-12 bg-white border border-gray-100 shadow-none rounded-full flex items-center justify-center mb-4">
                   <Activity className="w-5 h-5 text-[#93C01F]" />
                 </div>
                 <p className="text-xs text-gray-900 font-medium">
-                  No Recent yet
+                  No Recent Activity yet
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Revenue Breakdown */}
+        {/* Listing Type Breakdown */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm h-full min-h-[400px]">
           <h3 className="text-base font-semibold text-gray-900 mb-6">
-            Revenue Breakdown
+            Listing Type Breakdown
           </h3>
-          {revenuePieData.length > 0 ? (
+          {listingTypePieData.length > 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px]">
               <div className="h-[200px] w-full flex justify-center relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={revenuePieData}
+                      data={listingTypePieData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -638,7 +397,7 @@ export default function AdminHome() {
                       startAngle={90}
                       endAngle={-270}
                     >
-                      {revenuePieData.map((entry, index) => (
+                      {listingTypePieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -646,19 +405,19 @@ export default function AdminHome() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                  <p className="text-xs text-gray-500">Total Revenue</p>
+                  <p className="text-xs text-gray-500">Total</p>
                   <h4 className="text-2xl font-bold text-gray-900">
-                    {stats?.revenue || 0}
+                    {listingTypePieData.reduce((sum, d) => sum + d.value, 0)}
                   </h4>
                 </div>
               </div>
               <div className="flex gap-6 mt-4">
-                {revenuePieData.map((item) => (
+                {listingTypePieData.map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded"
                       style={{ backgroundColor: item.color }}
-                    ></div>
+                    />
                     <span className="text-xs text-gray-600">{item.name}</span>
                   </div>
                 ))}
@@ -670,14 +429,14 @@ export default function AdminHome() {
                 <BarChart3 className="w-5 h-5 text-[#93C01F]" />
               </div>
               <p className="text-xs text-gray-900 font-medium">
-                No Revenue yet
+                No listing data yet
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* --- Row 4: Charts --- */}
+      {/* --- Row 3: Growth Charts --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Vendor Growth */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm">
@@ -687,30 +446,14 @@ export default function AdminHome() {
             </h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs text-gray-500 h-8 gap-1 font-normal"
-                >
+                <Button variant="outline" size="sm" className="text-xs text-gray-500 h-8 gap-1 font-normal">
                   {vendorGrowthFilter} <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setVendorGrowthFilter("This week")}
-                >
-                  This week
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setVendorGrowthFilter("This month")}
-                >
-                  This month
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setVendorGrowthFilter("This year")}
-                >
-                  This year
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVendorGrowthFilter("This week")}>This week</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVendorGrowthFilter("This month")}>This month</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVendorGrowthFilter("This year")}>This year</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -722,16 +465,12 @@ export default function AdminHome() {
                   margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
                 >
                   <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorVendor" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#93C01F" stopOpacity={0.1} />
                       <stop offset="95%" stopColor="#93C01F" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f0f0f0"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
@@ -744,16 +483,14 @@ export default function AdminHome() {
                     tickLine={false}
                     tick={{ fontSize: 12, fill: "#9CA3AF" }}
                   />
-                  <Tooltip
-                    contentStyle={{ borderRadius: "8px", border: "none" }}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "none" }} />
                   <Area
                     type="monotone"
                     dataKey="value"
                     stroke="#93C01F"
                     strokeWidth={2}
                     fillOpacity={1}
-                    fill="url(#colorValue)"
+                    fill="url(#colorVendor)"
                     animationDuration={800}
                   />
                 </AreaChart>
@@ -768,7 +505,7 @@ export default function AdminHome() {
           </div>
         </div>
 
-        {/* Listings Creation */}
+        {/* Listings Creation Activity */}
         <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-semibold text-gray-900">
@@ -776,30 +513,14 @@ export default function AdminHome() {
             </h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs text-gray-500 h-8 gap-1 font-normal"
-                >
+                <Button variant="outline" size="sm" className="text-xs text-gray-500 h-8 gap-1 font-normal">
                   {listingActivityFilter} <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setListingActivityFilter("This week")}
-                >
-                  This week
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setListingActivityFilter("This month")}
-                >
-                  This month
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setListingActivityFilter("This year")}
-                >
-                  This year
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setListingActivityFilter("This week")}>This week</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setListingActivityFilter("This month")}>This month</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setListingActivityFilter("This year")}>This year</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -811,11 +532,7 @@ export default function AdminHome() {
                   margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
                   barSize={20}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f0f0f0"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
@@ -857,103 +574,6 @@ export default function AdminHome() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* --- Row 5: Listings Table --- */}
-      <div className="rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base font-semibold text-gray-900">Listings</h2>
-          <Button
-            variant="link"
-            onClick={() => router.push("/dashboard/listings")}
-            className="text-[#93C01F] cursor-pointer hover:no-underline text-xs"
-          >
-            View All <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-        {listings.length > 0 ? (
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
-              <TableHeader className="bg-gray-50">
-                <TableRow>
-                  <TableHead className="w-[300px]">Listing Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Stats Summary</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {listings.slice(0, 5).map((listing) => (
-                  <TableRow key={listing.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 relative rounded-full overflow-hidden bg-gray-100">
-                          <Avatar>
-                            <AvatarImage
-                              src={listing.image}
-                              className="object-cover"
-                            />
-                            <AvatarFallback>
-                              {listing.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <span className="font-medium text-sm text-gray-900">
-                          {listing.name}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-gray-500">
-                      {listing.category}
-                    </TableCell>
-                    <TableCell className="text-gray-500">
-                      {listing.location}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={getStatusStyles(listing.status)}
-                      >
-                        {listing.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" /> {listing.views}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageSquare className="w-3 h-3" />{" "}
-                          {listing.comments}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Bookmark className="w-3 h-3" /> {listing.bookmarks}
-                        </span>
-                        <span className="flex items-center gap-1 text-gray-900 font-medium">
-                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />{" "}
-                          {listing.rating}
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10">
-            <div className="w-12 h-12 bg-white border border-gray-100 shadow-none rounded-full flex items-center justify-center mb-4">
-              <Tag className="w-5 h-5 text-[#93C01F]" />
-            </div>
-            <h3 className="text-xs font-bold text-gray-900">
-              No Listings yet.
-            </h3>
-            <p className="text-xs text-gray-400 mt-1">
-              Listings by vendors will show here
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
