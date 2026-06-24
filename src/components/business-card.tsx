@@ -106,8 +106,8 @@ export function BusinessCard({ business }: BusinessCardProps) {
             className={cn(
               "w-5 h-5 transition-colors",
               isActive
-                ? "fill-blue-500 text-blue-500"
-                : "text-[#93C01F] hover:text-blue-500",
+                ? "fill-[#93C01F] text-[#93C01F]"
+                : "text-[#93C01F] hover:fill-[#93C01F]",
             )}
           />
         </button>
