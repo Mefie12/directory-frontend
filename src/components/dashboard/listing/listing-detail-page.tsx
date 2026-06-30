@@ -57,6 +57,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 
 // --- Types ---
 
@@ -675,9 +676,11 @@ export default function ListingDetailPage({ params }: PageProps) {
                 <h2 className="font-semibold text-gray-900 mb-3">
                   About this listing
                 </h2>
-                <p className="text-sm text-gray-600 leading-relaxed whitespace">
-                  {listing.bio || "No description provided."}
-                </p>
+                {listing.bio ? (
+                  <RichTextDisplay html={listing.bio} className="text-sm" />
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No description provided.</p>
+                )}
               </div>
 
               <div className="bg-white rounded-xl border border-gray-100 p-6">

@@ -669,15 +669,15 @@ export default function HomeContent() {
           <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
             Ready to Grow Your Business?
           </h2>
-          <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
+          {/* <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
             Join thousands of African businesses already listed on Mefie
             Directory
-          </p>
+          </p> */}
 
           {/* CTA button */}
           <Button
             onClick={handleClickEvent}
-            className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200"
+            className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200 mt-3"
           >
             List your business today
           </Button>

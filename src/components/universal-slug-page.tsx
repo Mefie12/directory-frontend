@@ -42,6 +42,7 @@ import { ReviewsSection } from "@/components/review-button";
 import { MediaGallery, Lightbox } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
 
 // --- API Interfaces ---
@@ -413,14 +414,14 @@ function ProviderHeader({
         <div className="mt-3 max-w-2xl">
           <div
             className="overflow-hidden transition-all duration-500 ease-linear"
-            style={{ maxHeight: expanded ? "1000px" : "4.5rem" }}
+            style={{ maxHeight: expanded ? "2000px" : "4.5rem" }}
           >
-            <p
+            <div
               ref={textRef}
-              className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}
+              className={expanded ? "" : "line-clamp-3"}
             >
-              {provider.description}
-            </p>
+              <RichTextDisplay html={provider.description} className="text-base" />
+            </div>
           </div>
           {(isClamped || expanded) && (
             <div className="flex justify-end">

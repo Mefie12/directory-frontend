@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 import { cn } from "@/lib/utils";
 import { SpinnerGap } from "@phosphor-icons/react";
@@ -715,12 +715,16 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             {textConfig.descriptionLabel}{" "}
             <span className="text-red-500">*</span>
           </label>
-          <Textarea
-            {...register("description")}
-            placeholder={textConfig.descriptionPlaceholder}
-            className={cn(
-              "min-h-[140px] rounded-lg border-gray-300 p-4 text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-black resize-none",
-              errors.description && "border-red-500 focus-visible:ring-red-500",
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <RichTextEditor
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                placeholder={textConfig.descriptionPlaceholder}
+                error={!!errors.description}
+              />
             )}
           />
           {errors.description && (
