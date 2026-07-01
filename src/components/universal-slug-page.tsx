@@ -85,6 +85,7 @@ interface ApiRatingData {
   user_id: number;
   rating: number;
   comment: string;
+  status?: string;
   created_at?: string;
   vendor_reply?: string | null;
   vendor_reply_at?: string | null;
@@ -1190,7 +1191,7 @@ export default function UniversalSlugPage({
             });
           }
 
-          const mappedReviews: ReviewItem[] = ratingsData.map((rating) => ({
+          const mappedReviews: ReviewItem[] = ratingsData.filter((r) => r.status !== "hidden").map((rating) => ({
             id: rating.id,
             slug: rating.slug,
             author: extractUserName(rating.user),
