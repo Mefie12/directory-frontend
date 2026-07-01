@@ -475,7 +475,12 @@ export default function ListingDetailPage({ params }: PageProps) {
   };
 
   const handleCopy = async () => {
-    const url = `https://me-fie.co.uk/listing/${listing?.slug}`;
+    const pathByType: Record<string, string> = {
+      event: "events",
+      community: "communities",
+    };
+    const segment = pathByType[listing?.type ?? ""] ?? "businesses";
+    const url = `${window.location.origin}/${segment}/${listing?.slug}`;
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(url);
@@ -566,7 +571,7 @@ export default function ListingDetailPage({ params }: PageProps) {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
+                className={`w-fit px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
               >
                 {getStatusLabel(listing.status)}
               </span>
@@ -691,7 +696,7 @@ export default function ListingDetailPage({ params }: PageProps) {
                   <ArrowsClockwise className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-500">Status</span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
+                    className={`w-fit justify-self-end px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
                   >
                     {getStatusLabel(listing.status)}
                   </span>
@@ -805,20 +810,6 @@ export default function ListingDetailPage({ params }: PageProps) {
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                             </div>
                           ))}
-                          {/* Add more tile */}
-                          <div
-                            className="aspect-square rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all group"
-                            onClick={() =>
-                              router.push(
-                                listingEdit(listing.type, listing.slug),
-                              )
-                            }
-                          >
-                            <Plus className="w-5 h-5 text-gray-300 group-hover:text-[#93C01F] transition-colors" />
-                            <span className="text-xs text-gray-400 group-hover:text-[#93C01F] transition-colors">
-                              Add more
-                            </span>
-                          </div>
                         </div>
                       </div>
                     )}

@@ -8,6 +8,7 @@ import {
   type Business as BusinessCardBusiness,
 } from "../business-card";
 import { Button } from "../ui/button";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 
 interface BusinessCardCarouselProps {
   businesses: ApiBusiness[];
@@ -158,6 +159,7 @@ export default function BusinessCardCarousel({
           ))}
         </div>
       </div>
+      <CarouselDots api={emblaApi} />
     </div>
   );
 }

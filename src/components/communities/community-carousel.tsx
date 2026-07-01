@@ -5,6 +5,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import type { CommunityCard as CommunityCardType } from "@/lib/data";
 import { Button } from "../ui/button";
 import CommunityCard from "./community-card";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 
 interface CommunitySectionCarouselProps {
   communities: CommunityCardType[];
@@ -105,6 +106,7 @@ export default function CommunityCarousel({
           ))}
         </div>
       </div>
+      <CarouselDots api={emblaApi} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EventCard, type Event } from "../event-card";
 import { Button } from "../ui/button";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 
 type EventCarouselProps = {
   events?: Event[];
@@ -63,6 +64,7 @@ export function DirectoryEventCarousel({ events = [] }: EventCarouselProps) {
           ))}
         </div>
       </div>
+      <CarouselDots api={emblaApi} />
 
       {/* Navigation Buttons */}
       {canScrollPrev && (
