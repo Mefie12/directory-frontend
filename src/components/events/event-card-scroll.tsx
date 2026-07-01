@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ProcessedEvent } from "@/types/event";
@@ -62,7 +63,7 @@ export const EventCardScroll = ({ event }: EventCardScrollProps) => {
 
           {/* Description */}
           <p className="text-white text-sm md:text-base leading-relaxed mb-4 opacity-90 line-clamp-3">
-            {event.description}
+            {stripHtml(event.description)}
           </p>
 
           {/* Date and Time */}

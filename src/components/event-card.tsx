@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
-import { cn } from "@/lib/utils";
+import { cn, stripHtml } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
 export type Event = {
@@ -115,7 +115,7 @@ export function EventCard({ event }: EventCardProps) {
 
         {/* Description */}
         <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
-          {event.description}
+          {stripHtml(event.description)}
         </p>
 
         {/* Location */}

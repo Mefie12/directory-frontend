@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { getCached, setCached } from "@/lib/server-cache";
+
+const TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_KEY = "countries_dropdown";
 
 const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
@@ -6,12 +10,21 @@ const API_BASE_URL = (
 
 export async function GET() {
   try {
+    const cached = getCached(CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(cached, {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=3600, stale-while-revalidate=300" },
+      });
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/countries_dropdown`, {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      cache: "no-store",
+      // Countries almost never change — cache for 1 hour
+      next: { revalidate: 3600 },
     });
 
     const rawText = await response.text();
@@ -32,7 +45,13 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(data, { status: 200 });
+    setCached(CACHE_KEY, data, TTL);
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=300",
+      },
+    });
   } catch (error) {
     console.error("countries_dropdown proxy error:", error);
     return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });

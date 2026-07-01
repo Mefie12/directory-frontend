@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries as allCountries } from "country-data-list";
+import { stripHtml } from "@/lib/utils";
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
@@ -570,7 +571,7 @@ export default function HomeContent() {
                       {item.title}
                     </h4>
                     <p className="text-sm md:text-base text-gray-500 mb-2 md:mb-5 font-normal line-clamp-2">
-                      {item.description}
+                      {stripHtml(item.description)}
                     </p>
                     <Button
                       onClick={() => router.push(`/communities/${item.slug}`)}
