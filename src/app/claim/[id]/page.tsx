@@ -25,6 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -351,8 +352,7 @@ export default function ClaimListingDetailPage() {
                   <TabsContent value="about" className="py-6">
                     <div className="prose prose-slate max-w-none">
                       <p className="text-gray-600 leading-relaxed whitespace-pre-line text-base">
-                        {listing.bio ||
-                          listing.description ||
+                        {stripHtml(listing.bio || listing.description) ||
                           "No description provided for this listing."}
                       </p>
                     </div>
