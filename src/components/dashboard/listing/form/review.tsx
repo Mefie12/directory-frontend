@@ -24,6 +24,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { getImageUrl } from "@/lib/directory/image-utils";
+import { stripHtml } from "@/lib/utils";
 
 /**
  * Resolve the cover image src from either the API `primary_image` field or
@@ -126,7 +127,8 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           if (socialsRes.status === "fulfilled" && socialsRes.value.ok) {
             const json = await socialsRes.value.json();
             const raw = json.data || json;
-            const entry = Array.isArray(raw) ? raw[0] ?? null : raw;
+            const list = Array.isArray(raw) ? raw : [raw];
+            const entry = list[list.length - 1] ?? null;
             if (entry && typeof entry === "object") setSocialLinks(entry);
           }
         } catch (error) {
@@ -366,7 +368,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Description
               </h4>
               <p className="text-sm text-gray-800 leading-relaxed">
-                {listingData?.bio || "No description provided"}
+                {stripHtml(listingData?.bio) || "No description provided"}
               </p>
             </div>
           </CardContent>

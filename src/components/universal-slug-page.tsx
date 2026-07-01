@@ -1082,7 +1082,8 @@ export default function UniversalSlugPage({
 
           let socialLinks: SocialLinks = {};
           if (listingData.socials && listingData.socials.length > 0) {
-            const socialData = listingData.socials[0];
+            // Use the last (most recent) embedded social record as a base
+            const socialData = listingData.socials[listingData.socials.length - 1];
             socialLinks = {
               facebook: socialData.facebook,
               instagram: socialData.instagram,
@@ -1106,19 +1107,17 @@ export default function UniversalSlugPage({
             if (socialsRes.ok) {
               const socialsJson = await socialsRes.json();
               const raw = socialsJson.data || socialsJson;
-              const s = Array.isArray(raw) ? raw[0] || {} : raw;
-              if (s.facebook && !socialLinks.facebook)
-                socialLinks.facebook = s.facebook;
-              if (s.instagram && !socialLinks.instagram)
-                socialLinks.instagram = s.instagram;
-              if (s.twitter && !socialLinks.twitter)
-                socialLinks.twitter = s.twitter;
-              if (s.youtube && !socialLinks.youtube)
-                socialLinks.youtube = s.youtube;
-              if (s.tiktok && !socialLinks.tiktok)
-                socialLinks.tiktok = s.tiktok;
-              if (s.whatsapp && !socialLinks.whatsapp)
-                socialLinks.whatsapp = s.whatsapp;
+              // Use last (most recent) record; dedicated endpoint always overrides embedded data
+              const list = Array.isArray(raw) ? raw : [raw];
+              const s = list[list.length - 1] || {};
+              socialLinks = {
+                facebook: s.facebook || undefined,
+                instagram: s.instagram || undefined,
+                twitter: s.twitter || undefined,
+                youtube: s.youtube || undefined,
+                tiktok: s.tiktok || undefined,
+                whatsapp: s.whatsapp || undefined,
+              };
             }
           } catch {}
 
