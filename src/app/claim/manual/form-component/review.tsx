@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/utils";
 import { useListing } from "@/context/listing-form-context";
 import { useRouter } from "next/navigation";
 import { getImageUrl } from "@/lib/directory/image-utils";
@@ -380,7 +381,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                 Description
               </h4>
               <p className="text-sm text-gray-800 leading-relaxed">
-                {listingData?.bio || "No description provided"}
+                {stripHtml(listingData?.bio) || "No description provided"}
               </p>
             </div>
           </CardContent>
