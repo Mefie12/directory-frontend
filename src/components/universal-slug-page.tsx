@@ -42,6 +42,7 @@ import { ReviewsSection } from "@/components/review-button";
 import { MediaGallery, Lightbox } from "@/components/media-gallery";
 import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
 
 // --- API Interfaces ---
@@ -84,6 +85,7 @@ interface ApiRatingData {
   user_id: number;
   rating: number;
   comment: string;
+  status?: string;
   created_at?: string;
   vendor_reply?: string | null;
   vendor_reply_at?: string | null;
@@ -413,14 +415,14 @@ function ProviderHeader({
         <div className="mt-3 max-w-2xl">
           <div
             className="overflow-hidden transition-all duration-500 ease-linear"
-            style={{ maxHeight: expanded ? "1000px" : "4.5rem" }}
+            style={{ maxHeight: expanded ? "2000px" : "4.5rem" }}
           >
-            <p
+            <div
               ref={textRef}
-              className={`text-base text-gray-600 ${expanded ? "" : "line-clamp-3"}`}
+              className={expanded ? "" : "line-clamp-3"}
             >
-              {provider.description}
-            </p>
+              <RichTextDisplay html={provider.description} className="text-base" />
+            </div>
           </div>
           {(isClamped || expanded) && (
             <div className="flex justify-end">
@@ -1080,7 +1082,8 @@ export default function UniversalSlugPage({
 
           let socialLinks: SocialLinks = {};
           if (listingData.socials && listingData.socials.length > 0) {
-            const socialData = listingData.socials[0];
+            // Use the last (most recent) embedded social record as a base
+            const socialData = listingData.socials[listingData.socials.length - 1];
             socialLinks = {
               facebook: socialData.facebook,
               instagram: socialData.instagram,
@@ -1104,19 +1107,17 @@ export default function UniversalSlugPage({
             if (socialsRes.ok) {
               const socialsJson = await socialsRes.json();
               const raw = socialsJson.data || socialsJson;
-              const s = Array.isArray(raw) ? raw[0] || {} : raw;
-              if (s.facebook && !socialLinks.facebook)
-                socialLinks.facebook = s.facebook;
-              if (s.instagram && !socialLinks.instagram)
-                socialLinks.instagram = s.instagram;
-              if (s.twitter && !socialLinks.twitter)
-                socialLinks.twitter = s.twitter;
-              if (s.youtube && !socialLinks.youtube)
-                socialLinks.youtube = s.youtube;
-              if (s.tiktok && !socialLinks.tiktok)
-                socialLinks.tiktok = s.tiktok;
-              if (s.whatsapp && !socialLinks.whatsapp)
-                socialLinks.whatsapp = s.whatsapp;
+              // Use last (most recent) record; dedicated endpoint always overrides embedded data
+              const list = Array.isArray(raw) ? raw : [raw];
+              const s = list[list.length - 1] || {};
+              socialLinks = {
+                facebook: s.facebook || undefined,
+                instagram: s.instagram || undefined,
+                twitter: s.twitter || undefined,
+                youtube: s.youtube || undefined,
+                tiktok: s.tiktok || undefined,
+                whatsapp: s.whatsapp || undefined,
+              };
             }
           } catch {}
 
@@ -1189,7 +1190,7 @@ export default function UniversalSlugPage({
             });
           }
 
-          const mappedReviews: ReviewItem[] = ratingsData.map((rating) => ({
+          const mappedReviews: ReviewItem[] = ratingsData.filter((r) => r.status !== "hidden").map((rating) => ({
             id: rating.id,
             slug: rating.slug,
             author: extractUserName(rating.user),

@@ -8,6 +8,7 @@ import useEmblaCarousel from "embla-carousel-react";
 // import type { Event } from "@/lib/data";
 import { Button } from "../ui/button";
 import { EventCardScroll } from "./event-card-scroll";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 
 import type { ProcessedEvent } from "@/types/event";
 
@@ -134,6 +135,7 @@ export default function EventCarousel({
           ))}
         </div>
       </div>
+      <CarouselDots api={emblaApi} />
     </div>
   );
 }

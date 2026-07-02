@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCached, setCached } from "@/lib/server-cache";
+
+const TTL = 30 * 1000; // 30 seconds
 
 const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
@@ -15,6 +18,14 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
+    const cacheKey = `all_listings_by_country:${searchParams.toString()}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=10" },
+      });
+    }
+
     const authHeader = request.headers.get("Authorization");
 
     const response = await fetch(backendUrl.toString(), {
@@ -24,7 +35,7 @@ export async function GET(request: NextRequest) {
         Accept: "application/json",
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
-      cache: "no-store",
+      next: { revalidate: 30 },
     });
 
     const rawText = await response.text();
@@ -54,7 +65,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data);
+    setCached(cacheKey, data, TTL);
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=10" },
+    });
   } catch (error) {
     console.error("all_listings_by_country_and_category proxy error:", error);
     return NextResponse.json(

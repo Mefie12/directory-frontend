@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useEffect } from "react";
+import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,18 +59,20 @@ const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
 
 const validatePlatform = (val: string | undefined, platform: string): boolean => {
   if (!val || !val.trim()) return true;
-  
-  // Special handling for WhatsApp - allow phone numbers
+  const trimmed = val.trim();
+
   if (platform === "whatsapp") {
-    // Check if it's a valid phone number format
     const phonePattern = /^\+?[\d\s\-()]{7,20}$/;
-    if (phonePattern.test(val.trim())) return true;
+    if (phonePattern.test(trimmed)) return true;
   }
-  
-  if (!isValidUrl(val)) return false;
+
+  // Plain handles/usernames (no dot, no protocol) are always accepted
+  if (!trimmed.includes(".") && !trimmed.startsWith("http")) return true;
+
+  if (!isValidUrl(trimmed)) return false;
   const config = platformPatterns[platform];
   if (!config) return true;
-  return isPlatformUrl(val, config.patterns);
+  return isPlatformUrl(trimmed, config.patterns);
 };
 
 // --- Helper function to validate phone number ---
@@ -191,6 +193,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
     ref,
   ) {
     const { socials: contextSocials } = useListing();
+    const hasLoaded = useRef(false);
+    const existingSocialSlug = useRef<string | null>(null);
     const {
       register,
       handleSubmit,
@@ -214,26 +218,29 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
     const watchedValues = watch();
 
-    // --- 1. Fetch existing socials on mount to show filled items ---
+    // --- 1. Fetch existing socials — runs once per slug, never re-runs on re-render ---
     useEffect(() => {
+      if (hasLoaded.current) return;
+      if (!listingSlug) return;
+      hasLoaded.current = true;
+
       const loadSocials = async () => {
-        if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(
-            `/api/listing/${listingSlug}/socials`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
 
           if (res.ok) {
             const json = await res.json();
             const raw = json.data || json || {};
-            const s = Array.isArray(raw) ? raw[0] || {} : raw;
+            // Take the last (most recent) record, not the first
+            const list = Array.isArray(raw) ? raw : [raw];
+            const s = list[list.length - 1] || {};
+            if (s.slug) existingSocialSlug.current = s.slug;
             reset({
               facebook: s.facebook || contextSocials.facebook || "",
               instagram: s.instagram || contextSocials.instagram || "",
@@ -242,25 +249,18 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               tiktok: s.tiktok || contextSocials.tiktok || "",
               whatsapp: s.whatsapp || contextSocials.whatsapp || "",
             });
-          } else {
-            // API failed — fall back to context data from listing show endpoint
-            if (Object.values(contextSocials).some((v) => v)) {
-              reset({
-                facebook: contextSocials.facebook || "",
-                instagram: contextSocials.instagram || "",
-                twitter: contextSocials.twitter || "",
-                linkedin: contextSocials.linkedin || "",
-                tiktok: contextSocials.tiktok || "",
-                whatsapp: contextSocials.whatsapp || "",
-              });
-            }
+          } else if (Object.values(contextSocials).some((v) => v)) {
+            reset({
+              facebook: contextSocials.facebook || "",
+              instagram: contextSocials.instagram || "",
+              twitter: contextSocials.twitter || "",
+              linkedin: contextSocials.linkedin || "",
+              tiktok: contextSocials.tiktok || "",
+              whatsapp: contextSocials.whatsapp || "",
+            });
           }
         } catch (err) {
-          console.error(
-            "Failed to load social links for back navigation:",
-            err,
-          );
-          // Fall back to context data
+          console.error("Failed to load social links:", err);
           if (Object.values(contextSocials).some((v) => v)) {
             reset({
               facebook: contextSocials.facebook || "",
@@ -273,8 +273,10 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           }
         }
       };
+
       loadSocials();
-    }, [listingSlug, reset, contextSocials]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [listingSlug]);
 
     // --- 2. Save logic using PATCH and /update ---
     const handleFormSubmit = async (data: SocialMediaFormValues) => {
@@ -284,27 +286,28 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Authentication required");
 
-        // Filter out empty values for the payload
-        // Also normalize URLs to add https:// if missing
-        const normalizedData = Object.fromEntries(
+        // Normalize URLs — send empty string explicitly so backend clears the field
+        const socialData = Object.fromEntries(
           Object.entries(data)
             .map(([key, value]) => [
               key,
-              key === "whatsapp"
-                ? normalizeWhatsApp(value || "")
-                : normalizeUrl(value || ""),
+              value?.trim()
+                ? key === "whatsapp"
+                  ? normalizeWhatsApp(value)
+                  : normalizeUrl(value)
+                : null,
             ])
-            .filter(([, value]) => value && value.trim() !== ""),
+            .filter(([, value]) => value !== null),
         );
 
-        const socialData = normalizedData;
-
-        if (Object.keys(socialData).length === 0) return true;
-
-        const endpoint = `/api/listing/${listingSlug}/socials`;
+        const existingSlug = existingSocialSlug.current;
+        const endpoint = existingSlug
+          ? `/api/listing/${listingSlug}/socials/${existingSlug}`
+          : `/api/listing/${listingSlug}/socials`;
+        const method = existingSlug ? "PUT" : "POST";
 
         const response = await fetch(endpoint, {
-          method: "POST",
+          method,
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -318,6 +321,13 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
           throw new Error(
             errorData.message || "Failed to save social media links",
           );
+        }
+
+        // After a first-time POST, store the new slug for subsequent edits
+        if (!existingSlug) {
+          const result = await response.json();
+          const newSlug = result?.data?.slug || result?.slug;
+          if (newSlug) existingSocialSlug.current = newSlug;
         }
 
         toast.success("Social media links updated successfully");

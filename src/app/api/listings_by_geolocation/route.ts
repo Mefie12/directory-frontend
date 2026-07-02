@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
     const response = await fetch(backendUrl.toString(), {
       method: "GET",
       headers,
-      // Don't cache — geolocation results must be fresh
-      cache: "no-store",
+      // 30-second cache per unique URL (IP + params) — prevents rapid re-fetches tripping rate limiter
+      next: { revalidate: 30 },
     });
 
     const rawText = await response.text();
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       const ukResponse = await fetch(ukUrl.toString(), {
         method: "GET",
         headers,
-        cache: "no-store",
+        next: { revalidate: 30 },
       });
 
       if (ukResponse.ok) {

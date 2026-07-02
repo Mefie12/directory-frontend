@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { Button } from "@/components/ui/button";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 import { BusinessCard } from "@/components/business-card";
 import { EventCard } from "@/components/event-card";
 import CommunityCard from "@/components/communities/community-card";
@@ -176,27 +177,7 @@ export default function EditorialCarousel({
         </div>
       </div>
 
-      {/* Mobile nav — below carousel */}
-      <div className="flex md:hidden justify-center gap-3 mt-4">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={scrollPrev}
-          disabled={!canScrollPrev}
-          className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-30"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={scrollNext}
-          disabled={!canScrollNext}
-          className="rounded-full bg-white hover:bg-[#E2E8F0] border-[#E2E8F0] disabled:opacity-30"
-        >
-          <ChevronRight className="w-5 h-5 text-[#275782]" />
-        </Button>
-      </div>
+      <CarouselDots api={emblaApi} className="md:hidden mt-4" />
     </div>
   );
 }

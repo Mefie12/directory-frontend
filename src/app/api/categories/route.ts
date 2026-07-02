@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCached, setCached } from "@/lib/server-cache";
+
+const TTL = 5 * 60 * 1000; // 5 minutes
 
 const API_BASE_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
@@ -11,6 +14,15 @@ export async function GET(request: NextRequest) {
     searchParams.forEach((value, key) => params.append(key, value));
     const queryString = params.toString();
 
+    const cacheKey = `categories:${queryString}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        status: 200,
+        headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+      });
+    }
+
     const response = await fetch(
       `${API_BASE_URL.replace(/\/$/, "")}/api/categories${queryString ? `?${queryString}` : ""}`,
       {
@@ -20,7 +32,7 @@ export async function GET(request: NextRequest) {
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
-        cache: 'no-store', // Admin-only endpoint — always fetch fresh from Laravel
+        next: { revalidate: 300 },
       }
     );
 
@@ -34,10 +46,11 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
+    setCached(cacheKey, data, TTL);
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
       },
     });
   } catch (error) {

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
 import { processImages, formatDateTime } from "@/lib/directory/image-utils";
+import { stripHtml } from "@/lib/utils";
 import { pickDisplayCategory, type ApiListing } from "@/lib/directory/types";
 import type {
   CategoryLandingListingType,
@@ -118,8 +119,7 @@ function ListingCard({ item }: { item: ApiListing }) {
         </div>
 
         <p className="line-clamp-2 text-sm text-gray-600">
-          {item.bio ||
-            item.description ||
+          {stripHtml(item.bio || item.description) ||
             "Explore this listing on Mefie Directory."}
         </p>
 

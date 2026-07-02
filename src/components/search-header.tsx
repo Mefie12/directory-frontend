@@ -14,6 +14,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -21,6 +29,7 @@ import SearchDropdown from "@/components/search-dropdown";
 import type { DateRange } from "react-day-picker";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries as allCountries } from "country-data-list";
+import { useIsMobile } from "@/lib/use-is-mobile";
 
 type SearchContext = "discover" | "businesses" | "events" | "communities";
 
@@ -277,6 +286,8 @@ export default function SearchHeader({
     updateSearchParams("category_id", value === "all" ? "" : value);
   };
 
+  const isMobile = useIsMobile();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(
     undefined,
   );
@@ -341,10 +352,12 @@ export default function SearchHeader({
           {/* Date Range Picker */}
           {showDate && (
             <div className="md:w-auto min-w-[140px]">
-              <Popover>
-                <PopoverTrigger asChild>
+              {/* Shared trigger button */}
+              {(() => {
+                const triggerBtn = (
                   <Button
                     variant="outline"
+                    onClick={isMobile ? () => setDatePickerOpen(true) : undefined}
                     className={`h-9 w-full rounded-full px-4 justify-start font-normal ${
                       selectedRange?.from
                         ? "border-[#275782] bg-[#275782]/5 text-[#275782]"
@@ -361,26 +374,69 @@ export default function SearchHeader({
                     </span>
                     <ChevronDown className="h-4 w-4 text-gray-400 ml-auto" />
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <CalendarComponent
-                    mode="range"
-                    numberOfMonths={2}
-                    selected={selectedRange}
-                    onSelect={handleDateRangeSelect}
-                  />
-                  {selectedRange?.from && (
-                    <div className="border-t border-gray-100 px-3 pb-3">
-                      <button
-                        onClick={handleClearDates}
-                        className="mt-2 w-full rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
-                      >
-                        Clear dates
-                      </button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                );
+
+                if (isMobile) {
+                  return (
+                    <>
+                      {triggerBtn}
+                      <Sheet open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                        <SheetContent side="bottom" className="rounded-t-2xl px-0 pb-6">
+                          <SheetHeader className="px-5 pb-2">
+                            <SheetTitle className="text-base font-semibold">Select Date Range</SheetTitle>
+                          </SheetHeader>
+                          <div className="flex justify-center overflow-x-auto px-4">
+                            <CalendarComponent
+                              mode="range"
+                              numberOfMonths={1}
+                              selected={selectedRange}
+                              onSelect={handleDateRangeSelect}
+                            />
+                          </div>
+                          <SheetFooter className="flex-row gap-2 px-5 pt-4">
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => { handleClearDates(); setDatePickerOpen(false); }}
+                            >
+                              Clear
+                            </Button>
+                            <SheetClose asChild>
+                              <Button className="flex-1 bg-[#93C01F] hover:bg-[#7ea319] text-white">
+                                Done
+                              </Button>
+                            </SheetClose>
+                          </SheetFooter>
+                        </SheetContent>
+                      </Sheet>
+                    </>
+                  );
+                }
+
+                return (
+                  <Popover>
+                    <PopoverTrigger asChild>{triggerBtn}</PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <CalendarComponent
+                        mode="range"
+                        numberOfMonths={2}
+                        selected={selectedRange}
+                        onSelect={handleDateRangeSelect}
+                      />
+                      {selectedRange?.from && (
+                        <div className="border-t border-gray-100 px-3 pb-3">
+                          <button
+                            onClick={handleClearDates}
+                            className="mt-2 w-full rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
+                          >
+                            Clear dates
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                );
+              })()}
             </div>
           )}
 

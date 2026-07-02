@@ -73,7 +73,11 @@ export default function ClaimStatus({ business }: any) {
         {slug && (
           <Button
             variant="outline"
-            onClick={() => router.push(`/businesses/${slug}`)}
+            onClick={() => {
+              const pathByType: Record<string, string> = { event: "events", community: "communities" };
+              const segment = pathByType[business?.type] ?? "businesses";
+              router.push(`/${segment}/${slug}`);
+            }}
             className="w-full h-12 text-sm font-bold rounded-xl border-gray-200 text-[#1F3A4C] hover:bg-gray-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             <ExternalLink className="w-4 h-4" />

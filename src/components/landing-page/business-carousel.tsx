@@ -4,6 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BusinessCard, type Business } from "../business-card";
 import { Button } from "../ui/button";
+import { CarouselDots } from "@/components/ui/carousel-dots";
 
 type BusinessCarouselProps = {
   businesses: Business[];
@@ -63,6 +64,7 @@ export function BusinessCarousel({ businesses }: BusinessCarouselProps) {
           ))}
         </div>
       </div>
+      <CarouselDots api={emblaApi} />
 
       {/* Navigation Buttons */}
       {canScrollPrev && (

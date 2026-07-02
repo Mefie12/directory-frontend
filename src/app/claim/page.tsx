@@ -163,7 +163,9 @@ export default function ClaimPage() {
   // Navigate to listing detail page (universal slug page)
   const handleViewListing = (business: Business) => {
     const identifier = business.slug || business.id;
-    router.push(`/businesses/${identifier}`);
+    const pathByType: Record<string, string> = { event: "events", community: "communities" };
+    const segment = pathByType[business.type] ?? "businesses";
+    router.push(`/${segment}/${identifier}`);
   };
 
   // Navigate directly to verify/claim page

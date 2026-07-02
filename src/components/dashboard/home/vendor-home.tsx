@@ -275,9 +275,8 @@ export default function VendorHome() {
 
   const fetchListingViews = async (apiListings: ApiListing[], token: string) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const viewsPromises = apiListings.map((listing) =>
-        fetch(`${API_URL}/api/listing/${listing.slug}/views`, {
+        fetch(`/api/listing/${listing.slug}/views`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

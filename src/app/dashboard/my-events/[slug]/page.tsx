@@ -16,6 +16,7 @@ import {
   Youtube,
   Loader2,
 } from "lucide-react";
+import { stripHtml } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,7 +185,7 @@ function EventTabs({ event }: { event: EventItem }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
-                {event.description}
+                {stripHtml(event.description)}
               </p>
 
               {event.tags && event.tags.length > 0 && (

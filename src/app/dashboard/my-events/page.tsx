@@ -13,6 +13,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { stripHtml } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -489,7 +490,7 @@ function EventCard({ event, isPast }: { event: EventItem; isPast?: boolean }) {
 
       <div className="p-5 space-y-4">
         <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
-          {event.description}
+          {stripHtml(event.description)}
         </p>
 
         <div className="space-y-2">

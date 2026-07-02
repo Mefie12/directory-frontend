@@ -6,7 +6,7 @@ import { Bookmark } from "lucide-react";
 import Link from "next/link";
 import type { CommunityCard } from "@/lib/data";
 import { useBookmark } from "@/context/bookmark-context";
-import { cn } from "@/lib/utils";
+import { cn, stripHtml } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
 interface CommunityCardProps {
@@ -126,7 +126,7 @@ export default function CommunityCard({ community }: CommunityCardProps) {
         </h2>
 
         <p className="text-sm font-normal text-gray-500 line-clamp-2">
-          {community.description}
+          {stripHtml(community.description)}
         </p>
 
         <div className="flex items-center gap-1 text-sm text-gray-500">

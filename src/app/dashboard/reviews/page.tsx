@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
-  Calendar as CalendarIcon,
   ChevronDown,
   Star,
 } from "lucide-react";
@@ -33,15 +32,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 // import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole } from "@/lib/roles";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Tooltip,
@@ -453,7 +447,7 @@ export default function ReviewsPage() {
         // }
 
         const reviews = await extractReviewsFromResponse(json);
-        setData(reviews);
+        setData(isCustomer ? reviews.filter((r) => r.status !== "hidden") : reviews);
 
         const pageData = json as ApiResponse;
         const total = pageData.data?.meta?.last_page || pageData.last_page || pageData.totalPages || 1;
@@ -503,6 +497,28 @@ export default function ReviewsPage() {
   }, [data, statusFilter, ratingFilter, search]);
 
   // --- Handlers ---
+  const handleCustomerDelete = useCallback(
+    async (reviewId: string, reviewSlug: string) => {
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`/api/rating/${reviewSlug}/hide`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        });
+        if (!response.ok) throw new Error("Failed to delete review");
+        setData((prev) => prev.filter((r) => r.id !== reviewId));
+        toast.success("Review deleted successfully");
+      } catch {
+        toast.error("Failed to delete review");
+      }
+    },
+    [getAuthToken],
+  );
+
   const handleStatusChange = useCallback(
     async (reviewId: string, reviewSlug: string, action: "hide" | "unhide" | "delete") => {
       try {
@@ -727,42 +743,13 @@ export default function ReviewsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Date Range Picker (Shadcn) */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "justify-start text-left font-normal min-w-60",
-                    !date && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date?.from ? (
-                    date.to ? (
-                      <>
-                        {format(date.from, "LLL dd, y")} -{" "}
-                        {format(date.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(date.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={date?.from}
-                  selected={date}
-                  onSelect={setDate}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
+            {/* Date Range Picker */}
+            <DateRangePicker
+              value={date}
+              onChange={setDate}
+              placeholder="Pick a date range"
+              align="end"
+            />
           </div>
         </div>
       )}
@@ -860,6 +847,15 @@ export default function ReviewsPage() {
                             }
                           >
                             Reply to Review
+                          </DropdownMenuItem>
+                        ) : isCustomer ? (
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() =>
+                              setDeleteTarget({ id: item.id, slug: item.slug })
+                            }
+                          >
+                            Delete Review
                           </DropdownMenuItem>
                         ) : (
                           <>
@@ -960,8 +956,9 @@ export default function ReviewsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Review</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this review? This action cannot be
-              undone.
+              {isCustomer
+                ? "Are you sure you want to delete this review? It will be removed from public view. Any reply attached to it will also be hidden."
+                : "Are you sure you want to delete this review? This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -970,7 +967,11 @@ export default function ReviewsPage() {
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
                 if (deleteTarget) {
-                  handleStatusChange(deleteTarget.id, deleteTarget.slug, "delete");
+                  if (isCustomer) {
+                    handleCustomerDelete(deleteTarget.id, deleteTarget.slug);
+                  } else {
+                    handleStatusChange(deleteTarget.id, deleteTarget.slug, "delete");
+                  }
                   setDeleteTarget(null);
                 }
               }}

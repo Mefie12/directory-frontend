@@ -12,6 +12,8 @@ import { useAuth } from "@/context/auth-context";
 import type { ProcessedEvent } from "@/types/event";
 import { createEventMapper } from "./map-event";
 
+const PAGE_LOAD_TIME = Date.now();
+
 export default function EventsContent() {
   const router = useRouter();
   const { user } = useAuth();
@@ -53,7 +55,7 @@ export default function EventsContent() {
 
   // All events: remove ended events, then sort chronologically by start date.
   const sortedItems = useMemo(() => {
-    const now = Date.now();
+    const now = PAGE_LOAD_TIME;
     return [...items]
       .filter((e) => {
         // Use endDateRaw when available; fall back to startDateRaw.
@@ -98,6 +100,7 @@ export default function EventsContent() {
           if (isNaN(start.getTime())) return false;
           return start >= twoWeekWindowStart && start <= twoWeekWindowEnd;
         });
+        if (nextTwoWeekEvents.length === 0) return null;
         return (
           <EventCarousel
             events={nextTwoWeekEvents}

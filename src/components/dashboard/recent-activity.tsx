@@ -24,7 +24,7 @@ export default function RecentActivityCard({ items }: RecentActivityProps) {
         Recent Activity
       </h2>
 
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="w-20 h-20 rounded-full bg-[#F0F4FF] flex items-center justify-center">
@@ -42,8 +42,8 @@ export default function RecentActivityCard({ items }: RecentActivityProps) {
             <div key={item.id}>
               <div className="flex items-start gap-4">
                 {/* Avatar */}
-                <Avatar className={`h-10 w-10 rounded-full ${item.color}`}>
-                  <AvatarFallback className="text-black font-semibold text-sm">
+                <Avatar className="h-10 w-10 rounded-full">
+                  <AvatarFallback className={`${item.color} text-gray-700 font-semibold text-sm`}>
                     {item.initials}
                   </AvatarFallback>
                 </Avatar>

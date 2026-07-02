@@ -71,7 +71,7 @@ export default function Analytics() {
 
       // 2. Fetch detailed views per listing for charts
       const viewsPromises = listings.map((listing) =>
-        fetch(`${API_URL}/api/listing/${listing.slug}/views`, {
+        fetch(`/api/listing/${listing.slug}/views`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
