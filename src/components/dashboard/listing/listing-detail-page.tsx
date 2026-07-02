@@ -96,17 +96,12 @@ interface ApiListing {
   bookmarks_count: number;
 }
 
-interface ServiceImage {
-  id?: number;
-  url?: string;
-  media?: string;
-}
-
 interface Service {
   id: number | string;
+  slug?: string;
   name: string;
   description: string;
-  images: ServiceImage[];
+  image?: string | null;
 }
 
 interface ListingDetail {
@@ -201,6 +196,9 @@ export default function ListingDetailPage({ params }: PageProps) {
     [],
   );
   const [isSubmittingService, setIsSubmittingService] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [deletingServiceSlug, setDeletingServiceSlug] = useState<string | null>(null);
+  const [isDeletingService, setIsDeletingService] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchListing = useCallback(async () => {
@@ -395,6 +393,38 @@ export default function ListingDetailPage({ params }: PageProps) {
     setServiceImages([]);
     setServiceImagePreviews([]);
     setShowServiceForm(false);
+    setEditingService(null);
+  };
+
+  const handleEditService = (service: Service) => {
+    setEditingService(service);
+    setServiceFormData({ name: service.name, description: service.description || "" });
+    setServiceImages([]);
+    setServiceImagePreviews([]);
+    setShowServiceForm(true);
+  };
+
+  const handleDeleteService = async (serviceSlug: string) => {
+    setDeletingServiceSlug(serviceSlug);
+    setIsDeletingService(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/service/${serviceSlug}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      if (!res.ok) throw new Error("Failed to delete service");
+      toast.success("Service deleted");
+      fetchServices();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete service");
+    } finally {
+      setIsDeletingService(false);
+      setDeletingServiceSlug(null);
+    }
   };
 
   const handleServiceSubmit = async () => {
@@ -406,44 +436,42 @@ export default function ListingDetailPage({ params }: PageProps) {
     setIsSubmittingService(true);
     try {
       const token = localStorage.getItem("authToken");
+      const isEdit = !!editingService?.slug;
+      const endpoint = isEdit
+        ? `/api/service/${editingService!.slug}`
+        : `/api/listing/${slug}/services`;
+      const method = isEdit ? "PUT" : "POST";
 
       if (serviceImages.length > 0) {
         const formData = new FormData();
         formData.append("name", serviceFormData.name);
         formData.append("description", serviceFormData.description);
-        serviceImages.forEach((img, i) =>
-          formData.append(`images[${i}]`, img),
-        );
-
-        const res = await fetch(`/api/listing/${slug}/services`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
+        // Both POST and PUT use the field name `image` (singular)
+        formData.append("image", serviceImages[0]);
+        const res = await fetch(endpoint, {
+          method,
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
           body: formData,
         });
-        if (!res.ok) throw new Error("Failed to create service");
+        if (!res.ok) throw new Error(`Failed to ${isEdit ? "update" : "create"} service`);
       } else {
-        const res = await fetch(`/api/listing/${slug}/services`, {
-          method: "POST",
+        const res = await fetch(endpoint, {
+          method,
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify(serviceFormData),
+          body: JSON.stringify({ name: serviceFormData.name, description: serviceFormData.description }),
         });
-        if (!res.ok) throw new Error("Failed to create service");
+        if (!res.ok) throw new Error(`Failed to ${isEdit ? "update" : "create"} service`);
       }
 
-      toast.success("Service added successfully");
+      toast.success(isEdit ? "Service updated successfully" : "Service added successfully");
       resetServiceForm();
       fetchServices();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to add service",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to save service");
     } finally {
       setIsSubmittingService(false);
     }
@@ -870,10 +898,14 @@ export default function ListingDetailPage({ params }: PageProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-[#93C01F] flex items-center justify-center">
-                          <Plus className="w-3.5 h-3.5 text-white" />
+                          {editingService ? (
+                            <PencilSimple className="w-3.5 h-3.5 text-white" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5 text-white" />
+                          )}
                         </div>
                         <h3 className="font-semibold text-gray-900 text-sm">
-                          New Service
+                          {editingService ? "Edit Service" : "New Service"}
                         </h3>
                       </div>
                       <Button
@@ -1053,7 +1085,7 @@ export default function ListingDetailPage({ params }: PageProps) {
                         {isSubmittingService ? (
                           <SpinnerGap className="w-4 h-4 animate-spin" />
                         ) : (
-                          "Save Service"
+                          editingService ? "Update Service" : "Save Service"
                         )}
                       </Button>
                     </div>
@@ -1064,18 +1096,15 @@ export default function ListingDetailPage({ params }: PageProps) {
                 {services.length > 0 ? (
                   <div className="space-y-3">
                     {services.map((service) => {
-                      const thumb =
-                        service.images?.[0]?.url ||
-                        service.images?.[0]?.media;
                       return (
                         <div
                           key={service.id}
                           className="flex items-start gap-4 p-4 border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all"
                         >
-                          {thumb ? (
+                          {service.image ? (
                             <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-100">
                               <Image
-                                src={getImageUrl(thumb)}
+                                src={getImageUrl(service.image)}
                                 alt={service.name}
                                 fill
                                 className="object-cover"
@@ -1088,40 +1117,39 @@ export default function ListingDetailPage({ params }: PageProps) {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 text-sm">
-                              {service.name}
-                            </h3>
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-gray-900 text-sm">
+                                {service.name}
+                              </h3>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-gray-400 hover:text-[#93C01F]"
+                                  onClick={() => handleEditService(service)}
+                                  disabled={showServiceForm}
+                                >
+                                  <PencilSimple className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-gray-400 hover:text-red-500"
+                                  onClick={() => service.slug && handleDeleteService(service.slug)}
+                                  disabled={isDeletingService && deletingServiceSlug === service.slug}
+                                >
+                                  {isDeletingService && deletingServiceSlug === service.slug ? (
+                                    <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
                             {service.description && (
                               <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
                                 {service.description}
                               </p>
-                            )}
-                            {service.images?.length > 1 && (
-                              <div className="flex items-center gap-1.5 mt-2">
-                                {service.images
-                                  .slice(1, 5)
-                                  .map((img, i) => (
-                                    <div
-                                      key={i}
-                                      className="relative w-8 h-8 rounded-md overflow-hidden"
-                                    >
-                                      <Image
-                                        src={getImageUrl(
-                                          img?.url || img?.media,
-                                        )}
-                                        alt=""
-                                        fill
-                                        className="object-cover"
-                                        unoptimized
-                                      />
-                                    </div>
-                                  ))}
-                                {service.images.length > 5 && (
-                                  <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center text-[10px] text-gray-500 font-medium">
-                                    +{service.images.length - 5}
-                                  </div>
-                                )}
-                              </div>
                             )}
                           </div>
                         </div>
