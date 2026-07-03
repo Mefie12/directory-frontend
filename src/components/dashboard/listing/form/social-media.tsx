@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
 import { isValidUrl, normalizeUrl, normalizeWhatsApp } from "@/lib/directory/utils";
+import { validatePhoneInternational } from "@/lib/phone";
 
 // --- Platform-specific URL validators ---
 const isPlatformUrl = (url: string, patterns: RegExp[]): boolean => {
@@ -51,9 +52,8 @@ const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
     patterns: [
       /^wa\.me\//,
       /^https?:\/\/(www\.)?wa\.me\//,
-      /^\+?[\d\s\-()]{7,20}$/,
     ],
-    hint: "Must be a WhatsApp URL (e.g. wa.me/233501234567) or phone number (e.g. +233 50 123 4567)",
+    hint: "Must be a WhatsApp URL (e.g. wa.me/447700900123) or a valid international phone number (e.g. +44 7700 900123)",
   },
 };
 
@@ -62,8 +62,12 @@ const validatePlatform = (val: string | undefined, platform: string): boolean =>
   const trimmed = val.trim();
 
   if (platform === "whatsapp") {
-    const phonePattern = /^\+?[\d\s\-()]{7,20}$/;
-    if (phonePattern.test(trimmed)) return true;
+    // Accept wa.me URLs
+    if (trimmed.includes("wa.me/")) return true;
+    // Accept valid international phone numbers (with or without leading +)
+    const withPlus = trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+    if (validatePhoneInternational(withPlus)) return true;
+    return false;
   }
 
   // Plain handles/usernames (no dot, no protocol) are always accepted
@@ -75,11 +79,6 @@ const validatePlatform = (val: string | undefined, platform: string): boolean =>
   return isPlatformUrl(trimmed, config.patterns);
 };
 
-// --- Helper function to validate phone number ---
-const isValidPhone = (phone: string): boolean => {
-  if (!phone) return true;
-  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
-};
 
 /* ---------------------------------------------------
    SCHEMA

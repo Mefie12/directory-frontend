@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { forwardRef, useImperativeHandle, useEffect } from "react";
+import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
+import { normalizeUrl, normalizeWhatsApp } from "@/lib/directory/utils";
+import { validatePhoneInternational } from "@/lib/phone";
 
 // --- Helper function to validate URL (allows without protocol) ---
 const isValidUrl = (url: string): boolean => {
@@ -56,52 +57,29 @@ const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
     patterns: [
       /^wa\.me\//,
       /^https?:\/\/(www\.)?wa\.me\//,
-      /^\+?[\d\s\-()]{7,20}$/,
     ],
-    hint: "Must be a WhatsApp URL (e.g. wa.me/233501234567) or phone number (e.g. +233 50 123 4567)",
+    hint: "Must be a WhatsApp URL (e.g. wa.me/447700900123) or a valid international phone number (e.g. +44 7700 900123)",
   },
 };
 
 const validatePlatform = (val: string | undefined, platform: string): boolean => {
   if (!val || !val.trim()) return true;
-  
-  // Special handling for WhatsApp - allow phone numbers
+  const trimmed = val.trim();
+
   if (platform === "whatsapp") {
-    // Check if it's a valid phone number format
-    const phonePattern = /^\+?[\d\s\-()]{7,20}$/;
-    if (phonePattern.test(val.trim())) return true;
+    if (trimmed.includes("wa.me/")) return true;
+    const withPlus = trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+    if (validatePhoneInternational(withPlus)) return true;
+    return false;
   }
-  
-  if (!isValidUrl(val)) return false;
+
+  // Plain handles/usernames (no dot, no protocol) are always accepted
+  if (!trimmed.includes(".") && !trimmed.startsWith("http")) return true;
+
+  if (!isValidUrl(trimmed)) return false;
   const config = platformPatterns[platform];
   if (!config) return true;
-  return isPlatformUrl(val, config.patterns);
-};
-
-// --- Helper function to validate phone number ---
-const isValidPhone = (phone: string): boolean => {
-  if (!phone) return true;
-  return /^[\d\s\+\-\(\)]{7,20}$/.test(phone);
-};
-
-// --- Helper function to normalize URL (add https:// if missing) ---
-const normalizeUrl = (url: string): string => {
-  if (!url) return "";
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return `https://${url}`;
-  }
-  return url;
-};
-
-const normalizeWhatsApp = (value: string): string => {
-  if (!value) return "";
-  // If already a URL, return as-is
-  if (value.startsWith("http://") || value.startsWith("https://")) return value;
-  // If it's a wa.me link without protocol
-  if (value.startsWith("wa.me/")) return `https://${value}`;
-  // Strip spaces, dashes, parentheses, and leading + for phone numbers
-  const digits = value.replace(/[\s\-\(\)\+]/g, "");
-  return `https://wa.me/${digits}`;
+  return isPlatformUrl(trimmed, config.patterns);
 };
 /* ---------------------------------------------------
    SCHEMA
@@ -200,7 +178,7 @@ const socialPlatforms = [
     id: "whatsapp",
     name: "WhatsApp",
     icon: Phone,
-    placeholder: "+233 50 123 4567",
+    placeholder: "+44 7700 900123",
     color: "text-green-600",
     type: "phone",
   },
@@ -214,6 +192,8 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
     { listingSlug, listingType, onSuccess },
     ref,
   ) {
+    const existingSocialSlug = useRef<string | null>(null);
+    const hasLoaded = useRef(false);
     const {
       register,
       handleSubmit,
@@ -237,26 +217,28 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
     const watchedValues = watch();
 
-    // --- 1. Fetch existing socials on mount to show filled items ---
+    // --- 1. Fetch existing socials on mount ---
     useEffect(() => {
+      if (hasLoaded.current) return;
+      if (!listingSlug) return;
+      hasLoaded.current = true;
+
       const loadSocials = async () => {
-        if (!listingSlug) return;
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(
-            `/api/listing/${listingSlug}/socials`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
+          const res = await fetch(`/api/listing/${listingSlug}/socials`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
-          );
+          });
 
           if (res.ok) {
             const json = await res.json();
             const raw = json.data || json || {};
-            const s = Array.isArray(raw) ? raw[0] || {} : raw;
+            const list = Array.isArray(raw) ? raw : [raw];
+            const s = list[list.length - 1] || {};
+            if (s.slug) existingSocialSlug.current = s.slug;
             reset({
               facebook: s.facebook || "",
               instagram: s.instagram || "",
@@ -267,16 +249,14 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
             });
           }
         } catch (err) {
-          console.error(
-            "Failed to load social links for back navigation:",
-            err,
-          );
+          console.error("Failed to load social links:", err);
         }
       };
       loadSocials();
-    }, [listingSlug, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [listingSlug]);
 
-    // --- 2. Save logic using PATCH and /update ---
+    // --- 2. Save logic using PUT (update) or POST (create) ---
     const handleFormSubmit = async (data: SocialMediaFormValues) => {
       try {
         if (!listingSlug) throw new Error("Listing ID is missing.");
@@ -284,28 +264,29 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         const token = localStorage.getItem("authToken");
         if (!token) throw new Error("Authentication required");
 
-        // Filter out empty values for the payload
-        // Also normalize URLs to add https:// if missing
-        const normalizedData = Object.fromEntries(
+        const socialData = Object.fromEntries(
           Object.entries(data)
             .map(([key, value]) => [
               key,
-              key === "whatsapp"
-                ? normalizeWhatsApp(value || "")
-                : normalizeUrl(value || ""),
+              value?.trim()
+                ? key === "whatsapp"
+                  ? normalizeWhatsApp(value)
+                  : normalizeUrl(value)
+                : null,
             ])
-            .filter(([, value]) => value && value.trim() !== ""),
+            .filter(([, value]) => value !== null),
         );
 
-        const socialData = normalizedData;
-
-        // If no social media links provided, we still proceed to next step
         if (Object.keys(socialData).length === 0) return true;
 
-        const endpoint = `/api/listing/${listingSlug}/socials`;
+        const existingSlug = existingSocialSlug.current;
+        const endpoint = existingSlug
+          ? `/api/listing/${listingSlug}/socials/${existingSlug}`
+          : `/api/listing/${listingSlug}/socials`;
+        const method = existingSlug ? "PUT" : "POST";
 
         const response = await fetch(endpoint, {
-          method: "POST", // Changed from POST to PATCH
+          method,
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -316,9 +297,13 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(
-            errorData.message || "Failed to save social media links",
-          );
+          throw new Error(errorData.message || "Failed to save social media links");
+        }
+
+        if (!existingSlug) {
+          const result = await response.json();
+          const newSlug = result?.data?.slug || result?.slug;
+          if (newSlug) existingSocialSlug.current = newSlug;
         }
 
         toast.success("Social media links updated successfully");
@@ -328,9 +313,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       } catch (error) {
         console.error("Social media save error:", error);
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update social media",
+          error instanceof Error ? error.message : "Failed to update social media",
         );
         return false;
       }
