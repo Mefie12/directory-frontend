@@ -437,34 +437,66 @@ export default function ListingDetailPage({ params }: PageProps) {
     try {
       const token = localStorage.getItem("authToken");
       const isEdit = !!editingService?.slug;
-      const endpoint = isEdit
-        ? `/api/service/${editingService!.slug}`
-        : `/api/listing/${slug}/services`;
-      const method = isEdit ? "PUT" : "POST";
+      let imageKey: string | null = null;
 
+      // Step 1 + 2: presign → direct S3 upload (only when a new image is selected)
       if (serviceImages.length > 0) {
-        const formData = new FormData();
-        formData.append("name", serviceFormData.name);
-        formData.append("description", serviceFormData.description);
-        // Both POST and PUT use the field name `image` (singular)
-        formData.append("image", serviceImages[0]);
-        const res = await fetch(endpoint, {
-          method,
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-          body: formData,
-        });
-        if (!res.ok) throw new Error(`Failed to ${isEdit ? "update" : "create"} service`);
-      } else {
-        const res = await fetch(endpoint, {
-          method,
+        const file = serviceImages[0];
+
+        const presignRes = await fetch(`/api/listing/${slug}/services/presign`, {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ name: serviceFormData.name, description: serviceFormData.description }),
+          body: JSON.stringify({ filename: file.name, mime_type: file.type, size: file.size }),
         });
-        if (!res.ok) throw new Error(`Failed to ${isEdit ? "update" : "create"} service`);
+
+        if (!presignRes.ok) throw new Error("Could not get upload URL");
+        const { upload_url, key } = await presignRes.json();
+
+        // Upload directly to S3 — bypasses our server entirely
+        const s3Res = await fetch(upload_url, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!s3Res.ok) throw new Error("Image upload to storage failed");
+        imageKey = key;
+      }
+
+      // Step 3: create or update the service record with the S3 key (or null)
+      const endpoint = isEdit
+        ? `/api/service/${editingService!.slug}`
+        : `/api/listing/${slug}/services`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const payload: Record<string, unknown> = {
+        name: serviceFormData.name,
+        description: serviceFormData.description,
+      };
+      // On create always send image_key (null = no image).
+      // On edit only send image_key when the user picked a new image,
+      // so the backend keeps the existing image when none is chosen.
+      if (!isEdit || serviceImages.length > 0) {
+        payload.image_key = imageKey;
+      }
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || `Failed to ${isEdit ? "update" : "create"} service`);
       }
 
       toast.success(isEdit ? "Service updated successfully" : "Service added successfully");
@@ -960,15 +992,8 @@ export default function ListingDetailPage({ params }: PageProps) {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-medium text-gray-700">
-                          Images
-                          <span className="text-gray-400 font-normal ml-1">
-                            ({serviceImages.length} selected)
-                          </span>
-                          {serviceImages.length < 3 && (
-                            <span className="text-[#93C01F] font-normal ml-1 text-[10px]">
-                              — add 3 or more for best results
-                            </span>
-                          )}
+                          Image{" "}
+                          <span className="text-gray-400 font-normal">(Optional)</span>
                         </label>
                         {serviceImages.length > 0 && (
                           <button
@@ -979,87 +1004,68 @@ export default function ListingDetailPage({ params }: PageProps) {
                               setServiceImagePreviews([]);
                             }}
                           >
-                            Clear all
+                            Remove
                           </button>
                         )}
                       </div>
 
-                      {/* Drop zone */}
-                      <div
-                        className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          handleImageFiles(e.dataTransfer.files);
-                        }}
-                      >
-                        <UploadSimple className="w-7 h-7 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-2 transition-colors" />
-                        <p className="text-sm text-gray-500">
-                          <span className="text-[#93C01F] font-medium">
-                            Click to upload
-                          </span>{" "}
-                          or drag &amp; drop
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          PNG, JPG, WEBP · up to 10 MB each · unlimited
-                          files
-                        </p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={(e) =>
-                            handleImageFiles(e.target.files)
-                          }
-                        />
-                      </div>
-
-                      {/* Preview grid */}
-                      {serviceImagePreviews.length > 0 && (
-                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 mt-1">
-                          {serviceImagePreviews.map((preview, i) => (
-                            <div
-                              key={i}
-                              className="relative aspect-square rounded-lg overflow-hidden group"
-                            >
-                              <Image
-                                src={preview}
-                                alt={`Preview ${i + 1}`}
-                                fill
-                                className="object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeServiceImage(i);
-                                }}
-                                className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                              {i === 0 && (
-                                <div className="absolute bottom-0 inset-x-0 bg-[#93C01F]/90 text-white text-[9px] text-center py-0.5 font-medium">
-                                  Cover
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {/* Add more trigger */}
-                          <div
-                            className="aspect-square rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all group"
-                            onClick={() => fileInputRef.current?.click()}
+                      {/* Show preview when image selected, drop zone otherwise */}
+                      {serviceImagePreviews.length > 0 ? (
+                        <div className="relative w-full aspect-video rounded-xl overflow-hidden group border border-gray-200">
+                          <Image
+                            src={serviceImagePreviews[0]}
+                            alt="Service image preview"
+                            fill
+                            className="object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setServiceImages([]);
+                              setServiceImagePreviews([]);
+                            }}
+                            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <Plus className="w-4 h-4 text-gray-300 group-hover:text-[#93C01F] transition-colors" />
-                            <span className="text-[10px] text-gray-400 group-hover:text-[#93C01F]">
-                              More
-                            </span>
-                          </div>
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute bottom-2 right-2 text-[10px] bg-black/50 text-white px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            handleImageFiles(e.dataTransfer.files);
+                          }}
+                        >
+                          <UploadSimple className="w-7 h-7 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-2 transition-colors" />
+                          <p className="text-sm text-gray-500">
+                            <span className="text-[#93C01F] font-medium">
+                              Click to upload
+                            </span>{" "}
+                            or drag &amp; drop
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            PNG, JPG, WEBP · up to 10 MB
+                          </p>
                         </div>
                       )}
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageFiles(e.target.files)}
+                      />
                     </div>
 
                     {/* Form Actions */}
