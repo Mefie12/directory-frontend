@@ -256,11 +256,17 @@ function SignupForm() {
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
       country_iso2: iso2,
     }));
+    // Only validate inline when the user has typed subscriber digits beyond the dial code.
+    // react-international-phone fires onChange on mount with just the dial code (e.g. "+44"),
+    // so we must not treat that as a touched/invalid state.
+    const rawDigits = phone.replace(/\D/g, "");
+    const codeDigits = dialCode.replace(/\D/g, "");
+    const subscriberDigits = rawDigits.startsWith(codeDigits)
+      ? rawDigits.slice(codeDigits.length)
+      : rawDigits;
+    if (subscriberDigits.length === 0) return; // user hasn't typed yet — show no error
     setTouched((prev) => ({ ...prev, phone: true }));
-    // Validate inline using libphonenumber-js
-    const isValid = phone && phone.replace(/\D/g, "").length > 0
-      ? validatePhone(phone, iso2)
-      : false;
+    const isValid = validatePhone(phone, iso2);
     setErrors((prev) => ({
       ...prev,
       phone: isValid ? "" : "Please enter a valid phone number for the selected country",

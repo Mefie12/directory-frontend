@@ -184,7 +184,15 @@ export default function BecomeVendor() {
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
       country_iso2: iso2,
     }));
-    if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+    // Clear any existing error only once the user has typed subscriber digits.
+    const rawDigits = phone.replace(/\D/g, "");
+    const codeDigits = dialCode.replace(/\D/g, "");
+    const subscriberDigits = rawDigits.startsWith(codeDigits)
+      ? rawDigits.slice(codeDigits.length)
+      : rawDigits;
+    if (subscriberDigits.length > 0 && errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
+    }
   };
 
   const handleRoleChange = (value: string) => {
