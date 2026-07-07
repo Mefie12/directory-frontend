@@ -142,8 +142,8 @@ interface ApiReview {
 const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const API_URL = "https://me-fie.co.uk";
-  return `${API_URL}/${url.replace(/^\//, "")}`;
+  // Backend returns bare S3 keys e.g. "staging/services/uuid.jpeg"
+  return `https://mefie-bucket.s3.eu-north-1.amazonaws.com/${url.replace(/^\//, "")}`;
 };
 
 const getStatusColor = (status: string) => {

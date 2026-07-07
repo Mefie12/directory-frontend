@@ -312,9 +312,8 @@ export default function BecomeVendor() {
                 preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                 value={formData.phone}
                 onChange={handlePhoneChange}
-                inputClassName={`w-full text-sm h-10 border rounded-r-md px-4 ${
-                  errors.phone ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`w-full${errors.phone ? " phone-input-error" : ""}`}
+                inputClassName="w-full"
               />
               {errors.phone && (
                 <p className="text-red-500 text-xs">{errors.phone}</p>

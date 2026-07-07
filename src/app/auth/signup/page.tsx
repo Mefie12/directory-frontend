@@ -18,6 +18,7 @@ import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { z } from "zod";
 import { validatePhone } from "@/lib/phone";
+import { cn } from "@/lib/utils";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -338,12 +339,12 @@ function SignupForm() {
                 <Label className="text-xs">Phone Number</Label>
                 <PhoneInput
                   defaultCountry="gb"
+                  preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}
-                  inputClassName={`w-full h-11 border rounded-r-3xl px-4 ${
-                    errors.phone ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={cn("w-full", errors.phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
                 {errors.phone && (
                   <p className="text-red-500 text-xs mt-1">{errors.phone}</p>

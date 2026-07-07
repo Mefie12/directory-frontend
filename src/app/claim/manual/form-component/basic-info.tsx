@@ -498,21 +498,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                       shouldValidate: true,
                     });
                   }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
+                  className={cn("w-full", errors.primary_phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
               )}
             />
@@ -548,21 +535,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                       shouldValidate: true,
                     });
                   }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
+                  className={cn("w-full", errors.secondary_phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
               )}
             />
