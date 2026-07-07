@@ -154,7 +154,6 @@ export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; slug: string } | null>(null);
-  const [vendorListingSlug, setVendorListingSlug] = useState<string | null>(null);
 
   const itemsPerPage = 10;
 
@@ -357,31 +356,6 @@ export default function ReviewsPage() {
       try {
         const token = getAuthToken();
 
-        let listingSlug = vendorListingSlug;
-        if (isVendor && !listingSlug) {
-          const listingsRes = await fetch(`/api/listing/my_listings`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-          });
-          if (listingsRes.ok) {
-            const listingsJson = await listingsRes.json();
-            const listings: { slug?: string }[] = listingsJson.data || [];
-            if (listings.length > 0 && listings[0].slug) {
-              listingSlug = listings[0].slug;
-              setVendorListingSlug(listingSlug);
-            }
-          }
-        }
-
-        if (isVendor && !listingSlug) {
-          setIsLoading(false);
-          setData([]);
-          return;
-        }
-
         let apiStatus = "";
         if (statusFilter !== "All") {
           apiStatus = statusFilter.toLowerCase();
@@ -411,10 +385,6 @@ export default function ReviewsPage() {
         // console.log(`Fetching from: ${API_URL}/api/ratings?${queryParams}`);
 
         const endpoint = isCustomer ? "my_ratings" : isVendor ? "vendor_ratings" : "ratings";
-
-        if (isVendor && listingSlug) {
-          queryParams.append("listing_slug", listingSlug);
-        }
 
         const response = await fetch(
           `/api/${endpoint}?${queryParams}`,
@@ -475,7 +445,7 @@ export default function ReviewsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [authUser, authLoading, isCustomer, currentPage, search, statusFilter, ratingFilter, date, getAuthToken, extractReviewsFromResponse, isVendor, vendorListingSlug]);
+  }, [authUser, authLoading, isCustomer, currentPage, search, statusFilter, ratingFilter, date, getAuthToken, extractReviewsFromResponse, isVendor]);
 
   // --- Client-Side Safety Filter ---
   useEffect(() => {

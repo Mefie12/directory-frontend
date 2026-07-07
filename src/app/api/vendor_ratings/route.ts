@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('Authorization');
 
     // Forward all query params (page, limit, search, listing_slug, etc.)
-    const backendUrl = new URL(`${API_BASE_URL}/api/vendor_ratings`);
+    const backendUrl = new URL(`${API_BASE_URL}/api/vendor/reviews`);
     searchParams.forEach((value, key) => backendUrl.searchParams.set(key, value));
 
     const response = await fetch(
