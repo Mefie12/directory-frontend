@@ -73,6 +73,7 @@ interface Review {
   rating: number;
   dateSubmitted: string;
   status: "visible" | "hidden";
+  isDeleted: boolean;
 }
 
 interface RawReview {
@@ -84,6 +85,8 @@ interface RawReview {
   comment: string;
   created_at?: string;
   status?: string;
+  deleted_at?: string | null;
+  is_hidden?: boolean;
   user?: {
     id: number | string;
     first_name: string;
@@ -290,10 +293,14 @@ export default function ReviewsPage() {
         }
 
         let status: "visible" | "hidden" = "visible";
-        if (item.status) {
+        if (item.is_hidden) {
+          status = "hidden";
+        } else if (item.status) {
           const s = item.status.toLowerCase();
           if (s === "hidden") status = "hidden";
         }
+
+        const isDeleted = !!item.deleted_at;
 
         // FIXED: Use created_at as per backend developer
         const rawDateString = item.created_at;
@@ -324,7 +331,8 @@ export default function ReviewsPage() {
           review: item.comment || "No content provided",
           rating: item.rating || 0,
           dateSubmitted: formatDateString(rawDateString),
-          status: status,
+          status,
+          isDeleted,
         };
       });
 
@@ -473,7 +481,9 @@ export default function ReviewsPage() {
   useEffect(() => {
     let filtered = [...data];
 
-    if (statusFilter !== "All") {
+    if (statusFilter === "Deleted") {
+      filtered = filtered.filter((item) => item.isDeleted);
+    } else if (statusFilter !== "All") {
       filtered = filtered.filter((item) => item.status === statusFilter.toLowerCase());
     }
 
@@ -501,15 +511,15 @@ export default function ReviewsPage() {
     async (reviewId: string, reviewSlug: string) => {
       try {
         const token = getAuthToken();
-        const response = await fetch(`/api/rating/${reviewSlug}/hide`, {
-          method: "PATCH",
+        const response = await fetch(`/api/rating/${reviewSlug}`, {
+          method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
-            "Content-Type": "application/json",
           },
         });
         if (!response.ok) throw new Error("Failed to delete review");
+        // Soft delete — remove from customer's view immediately
         setData((prev) => prev.filter((r) => r.id !== reviewId));
         toast.success("Review deleted successfully");
       } catch {
@@ -632,6 +642,12 @@ export default function ReviewsPage() {
     );
   };
 
+  const getDeletedBadge = () => (
+    <Badge className="bg-red-100 hover:bg-red-100 text-red-700 border border-red-200 gap-1 pl-1.5">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-500 block" /> Deleted by user
+    </Badge>
+  );
+
   // const getInitials = (name: string) => {
   //   return name
   //     .split(" ")
@@ -706,6 +722,9 @@ export default function ReviewsPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("Hidden")}>
                   Hidden
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("Deleted")}>
+                  Deleted by user
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -825,7 +844,12 @@ export default function ReviewsPage() {
                   <TableCell className="text-gray-600">
                     {item.dateSubmitted}
                   </TableCell>
-                  <TableCell>{getStatusBadge(item.status)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {item.isDeleted && getDeletedBadge()}
+                      {getStatusBadge(item.status)}
+                    </div>
+                  </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
