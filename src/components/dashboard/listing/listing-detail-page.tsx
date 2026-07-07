@@ -372,7 +372,14 @@ export default function ListingDetailPage({ params }: PageProps) {
 
   const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
-    const newFiles = Array.from(files);
+    const newFiles = Array.from(files).filter((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds the 5 MB limit and was not added.`);
+        return false;
+      }
+      return true;
+    });
+    if (newFiles.length === 0) return;
     setServiceImages((prev) => [...prev, ...newFiles]);
     newFiles.forEach((file) => {
       const reader = new FileReader();
@@ -409,7 +416,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     setIsDeletingService(true);
     try {
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`/api/service/${serviceSlug}`, {
+      const res = await fetch(`/api/services/${serviceSlug}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -469,7 +476,7 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       // Step 3: create or update the service record with the S3 key (or null)
       const endpoint = isEdit
-        ? `/api/service/${editingService!.slug}`
+        ? `/api/services/${editingService!.slug}`
         : `/api/listings/${slug}/services`;
       const method = isEdit ? "PUT" : "POST";
 

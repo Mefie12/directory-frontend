@@ -27,7 +27,7 @@ export async function PUT(
     }
 
     const response = await fetch(
-      `${API_BASE_URL}/api/service/${service_id}`,
+      `${API_BASE_URL}/api/services/${service_id}`,
       {
         method: 'PUT',
         headers: upstreamHeaders,
@@ -63,7 +63,7 @@ export async function DELETE(
     const authHeader = request.headers.get('Authorization');
 
     const response = await fetch(
-      `${API_BASE_URL}/api/service/${service_id}`,
+      `${API_BASE_URL}/api/services/${service_id}`,
       {
         method: 'DELETE',
         headers: {
@@ -82,11 +82,12 @@ export async function DELETE(
       );
     }
 
-    const data = await response.json().catch(() => ({}));
+    if (response.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting service:', error);
     return NextResponse.json(
