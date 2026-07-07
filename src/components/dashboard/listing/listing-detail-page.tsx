@@ -322,7 +322,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     try {
       const token = localStorage.getItem("authToken");
 
-      const res = await fetch(`/api/listing/${slug}/services`, {
+      const res = await fetch(`/api/listings/${slug}/services`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -443,7 +443,7 @@ export default function ListingDetailPage({ params }: PageProps) {
       if (serviceImages.length > 0) {
         const file = serviceImages[0];
 
-        const presignRes = await fetch(`/api/listing/${slug}/services/presign`, {
+        const presignRes = await fetch(`/api/listings/${slug}/services/presign`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -470,7 +470,7 @@ export default function ListingDetailPage({ params }: PageProps) {
       // Step 3: create or update the service record with the S3 key (or null)
       const endpoint = isEdit
         ? `/api/service/${editingService!.slug}`
-        : `/api/listing/${slug}/services`;
+        : `/api/listings/${slug}/services`;
       const method = isEdit ? "PUT" : "POST";
 
       const payload: Record<string, unknown> = {
