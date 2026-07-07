@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { z } from "zod";
+import { validatePhone } from "@/lib/phone";
+import { cn } from "@/lib/utils";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -52,6 +54,7 @@ function SignupForm() {
     last_name: "",
     phone: "",
     country_code: "+44",
+    country_iso2: "gb",
     email: verifyEmail,
     password: "",
   });
@@ -92,19 +95,19 @@ function SignupForm() {
 
   const validateForm = () => {
     const result = signupSchema.safeParse(formData);
-    if (result.success) {
-      setErrors({ first_name: "", last_name: "", phone: "", email: "", password: "" });
-      return true;
-    }
-    const fieldErrors = result.error.flatten().fieldErrors;
-    setErrors({
-      first_name: fieldErrors.first_name?.[0] || "",
-      last_name: fieldErrors.last_name?.[0] || "",
-      phone: fieldErrors.phone?.[0] || "",
-      email: fieldErrors.email?.[0] || "",
-      password: fieldErrors.password?.[0] || "",
-    });
-    return false;
+    const schemaErrors = result.success ? {} : result.error.flatten().fieldErrors;
+    const phoneError = !validatePhone(formData.phone, formData.country_iso2)
+      ? "Please enter a valid phone number for the selected country"
+      : "";
+    const newErrors = {
+      first_name: schemaErrors.first_name?.[0] || "",
+      last_name: schemaErrors.last_name?.[0] || "",
+      phone: phoneError || schemaErrors.phone?.[0] || "",
+      email: schemaErrors.email?.[0] || "",
+      password: schemaErrors.password?.[0] || "",
+    };
+    setErrors(newErrors);
+    return result.success && !phoneError;
   };
 
   // Handle verify mode from login redirect
@@ -247,17 +250,27 @@ function SignupForm() {
 
   const handlePhoneChange = (phone: string, meta: any) => {
     const dialCode = meta.country?.dialCode || "";
+    const iso2 = meta.country?.iso2 || "gb";
     setFormData((prev) => ({
       ...prev,
-      phone: phone,
+      phone,
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
+      country_iso2: iso2,
     }));
+    // Only validate inline when the user has typed subscriber digits beyond the dial code.
+    // react-international-phone fires onChange on mount with just the dial code (e.g. "+44"),
+    // so we must not treat that as a touched/invalid state.
+    const rawDigits = phone.replace(/\D/g, "");
+    const codeDigits = dialCode.replace(/\D/g, "");
+    const subscriberDigits = rawDigits.startsWith(codeDigits)
+      ? rawDigits.slice(codeDigits.length)
+      : rawDigits;
+    if (subscriberDigits.length === 0) return; // user hasn't typed yet — show no error
     setTouched((prev) => ({ ...prev, phone: true }));
-    // Validate inline
-    const result = signupSchema.shape.phone.safeParse(phone);
+    const isValid = validatePhone(phone, iso2);
     setErrors((prev) => ({
       ...prev,
-      phone: result.success ? "" : result.error.flatten().formErrors[0] || "",
+      phone: isValid ? "" : "Please enter a valid phone number for the selected country",
     }));
   };
 
@@ -326,12 +339,12 @@ function SignupForm() {
                 <Label className="text-xs">Phone Number</Label>
                 <PhoneInput
                   defaultCountry="gb"
+                  preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(phone, meta) => handlePhoneChange(phone, meta)}
-                  inputClassName={`w-full h-11 border rounded-r-3xl px-4 ${
-                    errors.phone ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={cn("w-full", errors.phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
                 {errors.phone && (
                   <p className="text-red-500 text-xs mt-1">{errors.phone}</p>

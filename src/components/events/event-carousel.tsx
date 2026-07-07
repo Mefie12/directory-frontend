@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // event-carousel.tsx
 "use client";
 import { useCallback, useEffect, useState } from "react";

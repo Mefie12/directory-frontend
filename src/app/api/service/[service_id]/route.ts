@@ -8,19 +8,30 @@ export async function PUT(
 ) {
   try {
     const { service_id } = await params;
-    const body = await request.json();
     const authHeader = request.headers.get('Authorization');
+    const contentType = request.headers.get('content-type') || '';
+
+    let upstreamBody: BodyInit;
+    const upstreamHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      ...(authHeader && { Authorization: authHeader }),
+    };
+
+    if (contentType.includes('multipart/form-data')) {
+      // Forward FormData as-is (browser sets correct boundary)
+      upstreamBody = await request.formData();
+    } else {
+      const json = await request.json();
+      upstreamBody = JSON.stringify(json);
+      upstreamHeaders['Content-Type'] = 'application/json';
+    }
 
     const response = await fetch(
-      `${API_BASE_URL}/api/service/${service_id}`,
+      `${API_BASE_URL}/api/services/${service_id}`,
       {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(authHeader && { Authorization: authHeader }),
-        },
-        body: JSON.stringify(body),
+        headers: upstreamHeaders,
+        body: upstreamBody,
       }
     );
 
@@ -33,10 +44,7 @@ export async function PUT(
     }
 
     const data = await response.json();
-
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error updating service:', error);
     return NextResponse.json(
@@ -55,7 +63,7 @@ export async function DELETE(
     const authHeader = request.headers.get('Authorization');
 
     const response = await fetch(
-      `${API_BASE_URL}/api/service/${service_id}`,
+      `${API_BASE_URL}/api/services/${service_id}`,
       {
         method: 'DELETE',
         headers: {
@@ -74,11 +82,12 @@ export async function DELETE(
       );
     }
 
-    const data = await response.json().catch(() => ({}));
+    if (response.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
 
-    return NextResponse.json(data, {
-      status: response.status,
-    });
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting service:', error);
     return NextResponse.json(

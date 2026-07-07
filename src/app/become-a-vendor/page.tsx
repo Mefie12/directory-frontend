@@ -18,6 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/context/auth-context";
+import { PhoneInput } from "react-international-phone";
+import "react-international-phone/style.css";
+import { validatePhone, cleanPhone } from "@/lib/phone";
 
 export default function BecomeVendor() {
   const { login } = useAuth();
@@ -27,9 +30,11 @@ export default function BecomeVendor() {
     first_name: "",
     last_name: "",
     phone: "",
+    country_code: "+44",
+    country_iso2: "gb",
     email: "",
     password: "",
-    role: "", // Explicit role selection
+    role: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,6 +66,13 @@ export default function BecomeVendor() {
 
     if (!formData.last_name.trim()) {
       newErrors.last_name = "Last name is required";
+      isValid = false;
+    }
+
+    if (!formData.phone.trim() || !validatePhone(formData.phone, formData.country_iso2)) {
+      newErrors.phone = formData.phone.trim()
+        ? "Please enter a valid phone number for the selected country"
+        : "Phone number is required";
       isValid = false;
     }
 
@@ -111,13 +123,18 @@ export default function BecomeVendor() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
+      const { country_iso2, ...rest } = formData;
+      void country_iso2;
+      const cleanedPhone = cleanPhone(formData.phone, formData.country_code);
+      const payload = { ...rest, phone: cleanedPhone };
+
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -154,6 +171,27 @@ export default function BecomeVendor() {
 
     if (errors[id as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [id]: "" }));
+    }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlePhoneChange = (phone: string, meta: any) => {
+    const dialCode = meta.country?.dialCode || "";
+    const iso2 = meta.country?.iso2 || "gb";
+    setFormData((prev) => ({
+      ...prev,
+      phone,
+      country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
+      country_iso2: iso2,
+    }));
+    // Clear any existing error only once the user has typed subscriber digits.
+    const rawDigits = phone.replace(/\D/g, "");
+    const codeDigits = dialCode.replace(/\D/g, "");
+    const subscriberDigits = rawDigits.startsWith(codeDigits)
+      ? rawDigits.slice(codeDigits.length)
+      : rawDigits;
+    if (subscriberDigits.length > 0 && errors.phone) {
+      setErrors((prev) => ({ ...prev, phone: "" }));
     }
   };
 
@@ -266,17 +304,16 @@ export default function BecomeVendor() {
 
             {/* Contact Info */}
             <div className="space-y-1">
-              <Label htmlFor="phone" className="text-xs font-medium">
+              <Label className="text-xs font-medium">
                 Phone Number <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your Phone Number"
-                className="w-full text-sm"
+              <PhoneInput
+                defaultCountry="gb"
+                preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                 value={formData.phone}
-                onChange={handleInputChange}
-                required
+                onChange={handlePhoneChange}
+                className={`w-full${errors.phone ? " phone-input-error" : ""}`}
+                inputClassName="w-full"
               />
               {errors.phone && (
                 <p className="text-red-500 text-xs">{errors.phone}</p>

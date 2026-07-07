@@ -14,6 +14,7 @@ import { Loader2} from "lucide-react";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { parseLaravel422Errors } from "@/lib/directory/utils";
+import { validatePhone, cleanPhone } from "@/lib/phone";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -124,6 +125,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [primaryIso2, setPrimaryIso2] = useState("gb");
+    const [secondaryIso2, setSecondaryIso2] = useState("gb");
 
     // --- Form ---
     const form = useForm<BusinessFormValues>({
@@ -265,16 +268,25 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
         const rawData = form.getValues();
 
-        // Helper to extract the local phone digits
-        const cleanPhone = (fullPhone: string, dialCode: string) => {
-          if (!fullPhone) return "";
-          const digits = fullPhone.replace(/\D/g, "");
-          const codeDigits = dialCode.replace(/\D/g, "");
-          const local = digits.startsWith(codeDigits)
-            ? digits.slice(codeDigits.length)
-            : digits;
-          return local.replace(/^0+/, ""); // strip leading zeros (e.g. UK 020 → 20)
-        };
+        // Validate phones with libphonenumber-js before submitting
+        if (rawData.primary_phone && rawData.primary_phone.replace(/\D/g, "").length > 0) {
+          if (!validatePhone(rawData.primary_phone, primaryIso2)) {
+            form.setError("primary_phone", {
+              message: "Please enter a valid phone number for the selected country",
+            });
+            toast.error("Please correct the highlighted fields.");
+            return false;
+          }
+        }
+        if (rawData.secondary_phone && rawData.secondary_phone.replace(/\D/g, "").length > 0) {
+          if (!validatePhone(rawData.secondary_phone, secondaryIso2)) {
+            form.setError("secondary_phone", {
+              message: "Please enter a valid phone number for the selected country",
+            });
+            toast.error("Please correct the highlighted fields.");
+            return false;
+          }
+        }
 
         // 2. Map data to API structure
         const cleanedPrimaryPhone = rawData.primary_phone
@@ -473,33 +485,21 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 <PhoneInput
                   disableDialCodePrefill={true}
                   defaultCountry="gb"
+                  preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
+                    field.onChange(phone);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode
                       : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
+                    setPrimaryIso2(meta.country.iso2 || "gb");
                     setValue("primary_country_code", formattedCode, {
                       shouldValidate: true,
                     });
                   }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
+                  className={cn("w-full", errors.primary_phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
               )}
             />
@@ -522,33 +522,21 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 <PhoneInput
                   disableDialCodePrefill={true}
                   defaultCountry="gb"
+                  preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone); // Update the full string
+                    field.onChange(phone);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode
                       : `+${dialCode}`;
-                    // Force the country code field to update based on the component's detection
+                    setSecondaryIso2(meta.country.iso2 || "gb");
                     setValue("secondary_country_code", formattedCode, {
                       shouldValidate: true,
                     });
                   }}
-                  inputClassName={cn(
-                    "w-full h-10 rounded-r-lg border-gray-300 px-4",
-                    errors.primary_phone && "border-red-500",
-                  )}
-                  className="w-full"
-                  countrySelectorStyleProps={{
-                    buttonStyle: {
-                      paddingLeft: "12px",
-                      paddingRight: "8px",
-                      height: "36px", // Matches h-10
-                      borderTopLeftRadius: "0.5rem",
-                      borderBottomLeftRadius: "0.5rem",
-                      borderColor: "#d1d5db",
-                    },
-                  }}
+                  className={cn("w-full", errors.secondary_phone && "phone-input-error")}
+                  inputClassName="w-full"
                 />
               )}
             />
