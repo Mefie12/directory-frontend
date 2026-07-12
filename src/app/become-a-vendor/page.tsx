@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
-import { validatePhone, cleanPhone } from "@/lib/phone";
+import { cleanPhone, getPhoneValidationError, normalizePhoneInput } from "@/lib/phone";
 
 export default function BecomeVendor() {
   const { login } = useAuth();
@@ -69,10 +69,9 @@ export default function BecomeVendor() {
       isValid = false;
     }
 
-    if (!formData.phone.trim() || !validatePhone(formData.phone, formData.country_iso2)) {
-      newErrors.phone = formData.phone.trim()
-        ? "Please enter a valid phone number for the selected country"
-        : "Phone number is required";
+    const phoneError = getPhoneValidationError(formData.phone, formData.country_iso2);
+    if (phoneError) {
+      newErrors.phone = phoneError;
       isValid = false;
     }
 
@@ -178,19 +177,16 @@ export default function BecomeVendor() {
   const handlePhoneChange = (phone: string, meta: any) => {
     const dialCode = meta.country?.dialCode || "";
     const iso2 = meta.country?.iso2 || "gb";
+    const normalizedInput = normalizePhoneInput(phone, iso2);
     setFormData((prev) => ({
       ...prev,
-      phone,
+      phone: normalizedInput,
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
       country_iso2: iso2,
     }));
-    // Clear any existing error only once the user has typed subscriber digits.
-    const rawDigits = phone.replace(/\D/g, "");
-    const codeDigits = dialCode.replace(/\D/g, "");
-    const subscriberDigits = rawDigits.startsWith(codeDigits)
-      ? rawDigits.slice(codeDigits.length)
-      : rawDigits;
-    if (subscriberDigits.length > 0 && errors.phone) {
+    // Clear any existing error once the user has typed digits.
+    const hasSubscriberDigits = normalizedInput.replace(/\D/g, "") !== dialCode.replace(/\D/g, "");
+    if (hasSubscriberDigits && errors.phone) {
       setErrors((prev) => ({ ...prev, phone: "" }));
     }
   };

@@ -17,7 +17,7 @@ import {
   normalizeUrl,
   parseLaravel422Errors,
 } from "@/lib/directory/utils";
-import { validatePhone, cleanPhone } from "@/lib/phone";
+import { cleanPhone, normalizePhoneInput, validatePhone } from "@/lib/phone";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -483,7 +483,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone);
+                    const normalizedInput = normalizePhoneInput(phone, meta.country.iso2 || "gb");
+                    field.onChange(normalizedInput);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode
@@ -520,7 +521,8 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                   preferredCountries={["gb", "gh", "ng", "ke", "za"]}
                   value={field.value}
                   onChange={(phone, meta) => {
-                    field.onChange(phone);
+                    const normalizedInput = normalizePhoneInput(phone, meta.country.iso2 || "gb");
+                    field.onChange(normalizedInput);
                     const dialCode = meta.country.dialCode;
                     const formattedCode = dialCode.startsWith("+")
                       ? dialCode

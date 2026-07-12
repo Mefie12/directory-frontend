@@ -1,15 +1,96 @@
-import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js/min";
+import { CountryCode, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js/min";
+
+export type NormalizedPhone = {
+  countryCode: string;
+  e164: string;
+  nationalNumber: string;
+};
+
+function getCountry(iso2: string): CountryCode | null {
+  if (!iso2 || !/^[a-z]{2}$/i.test(iso2)) return null;
+  return iso2.toUpperCase() as CountryCode;
+}
 
 /**
- * Validates a phone number string against a specific country.
- * Accepts both local format (e.g. "020 1234 5678" for GB) and
- * international format (e.g. "+44 20 1234 5678").
+ * Parses a number entered for a selected country into one canonical shape.
+ * The phone input may provide either national input ("020 7123 4567") or an
+ * international value containing the national trunk prefix ("+44 020 ...").
+ */
+export function normalizePhone(phone: string, iso2: string): NormalizedPhone | null {
+  const country = getCountry(iso2);
+  if (!phone?.trim() || !country) return null;
+
+  try {
+    const parsed = parsePhoneNumberFromString(phone, country);
+    if (!parsed?.isValid() || parsed.country !== country) return null;
+
+    return {
+      countryCode: `+${getCountryCallingCode(country)}`,
+      e164: parsed.number,
+      nationalNumber: parsed.nationalNumber,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Removes a national trunk prefix when the phone input has already included
+ * the selected country's international calling code. For example, UK users
+ * entering "+44 0200..." see "+44 200..." instead. Countries whose leading
+ * zero is significant in international format (such as Italy) are preserved.
+ */
+export function normalizePhoneInput(phone: string, iso2: string): string {
+  const country = getCountry(iso2);
+  if (!phone?.startsWith("+") || !country) return phone;
+
+  try {
+    const callingCode = getCountryCallingCode(country);
+    const enteredDigits = phone.replace(/\D/g, "");
+    const expectedPrefix = `${callingCode}0`;
+    const parsed = parsePhoneNumberFromString(phone, country);
+
+    if (
+      enteredDigits.startsWith(expectedPrefix) &&
+      parsed?.number?.startsWith(`+${callingCode}`) &&
+      parsed.number.replace(/\D/g, "") !== enteredDigits
+    ) {
+      return parsed.number;
+    }
+  } catch {
+    // Keep the typed value when it cannot yet be parsed.
+  }
+
+  return phone;
+}
+
+/**
+ * Validates a phone number against a specific country.
+ *
+ * Accepts a complete national or international number for the selected country.
  */
 export function validatePhone(phone: string, iso2: string): boolean {
-  if (!phone || !iso2) return false;
-  const country = iso2.toUpperCase() as CountryCode;
-  const parsed = parsePhoneNumberFromString(phone, country);
-  return parsed?.isValid() ?? false;
+  return normalizePhone(phone, iso2) !== null;
+}
+
+/** Returns a user-facing validation message, or null when the phone is valid. */
+export function getPhoneValidationError(phone: string, iso2: string): string | null {
+  if (!phone?.trim()) return "Phone number is required";
+  if (normalizePhone(phone, iso2)) return null;
+
+  const country = getCountry(iso2);
+  if (country) {
+    try {
+      const enteredDigits = phone.replace(/\D/g, "");
+      if (enteredDigits === getCountryCallingCode(country)) {
+        return `Enter the rest of the phone number after +${enteredDigits}`;
+      }
+    } catch {
+      // The generic validation message below covers unsupported country codes.
+    }
+  }
+
+  return "Please enter a complete valid phone number for the selected country";
 }
 
 /**
@@ -29,6 +110,9 @@ export function validatePhoneInternational(phone: string): boolean {
  */
 export function cleanPhone(fullPhone: string, dialCode: string): string {
   if (!fullPhone) return "";
+  const parsed = parsePhoneNumberFromString(fullPhone);
+  if (parsed?.isValid()) return parsed.nationalNumber;
+
   const digits = fullPhone.replace(/\D/g, "");
   const codeDigits = dialCode.replace(/\D/g, "");
   const local = digits.startsWith(codeDigits) ? digits.slice(codeDigits.length) : digits;
