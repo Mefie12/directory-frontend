@@ -22,7 +22,13 @@ export function normalizePhone(phone: string, iso2: string): NormalizedPhone | n
 
   try {
     const parsed = parsePhoneNumberFromString(phone, country);
-    if (!parsed?.isValid() || parsed.country !== country) return null;
+    // Compare calling codes, not ISO country codes. The +1 NANP zone (US, CA,
+    // BM, JM, …) shares one calling code but resolves to different countries by
+    // area code, so a strict country match falsely rejects valid siblings
+    // (e.g. a +1 441 Bermuda number entered under the US flag).
+    if (!parsed?.isValid() || parsed.countryCallingCode !== getCountryCallingCode(country)) {
+      return null;
+    }
 
     return {
       countryCode: `+${getCountryCallingCode(country)}`,

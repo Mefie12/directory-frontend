@@ -3,15 +3,17 @@
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type UserRole } from "@/lib/roles";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon } from '@phosphor-icons/react';
 
 export type { UserRole };
 
 export interface MenuItem {
   title: string;
-  url: string;
+  // Parent (dropdown) items have no url of their own — only their children navigate.
+  url?: string;
   icon: string | Icon;
   roles: UserRole[];
+  children?: MenuItem[];
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -83,12 +85,19 @@ const MENU_CONFIG: MenuItem[] = [
     roles: ["admin"],
   },
 
-  // ─── FAQs (Admin) ───
+  // ─── Support (Admin) ───
   {
-    title: "FAQs",
-    url: "/dashboard/faqs",
-    icon: QuestionMarkIcon,
+    title: "Support",
+    icon: LifebuoyIcon,
     roles: ["admin"],
+    children: [
+      {
+        title: "FAQs",
+        url: "/dashboard/faqs",
+        icon: QuestionMarkIcon,
+        roles: ["admin"],
+      },
+    ],
   },
 
   // ─── Inquiries ───
@@ -153,10 +162,21 @@ export default function useDashboardNavigation() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path?: string) => !!path && pathname === path;
 
-  // Filter items by current role — URLs are already absolute
-  const items = MENU_CONFIG.filter((item) => item.roles.includes(role));
+  // Filter items by current role, then filter each dropdown's children by role
+  // too, dropping any parent left with no reachable children. URLs are absolute.
+  const items = MENU_CONFIG.filter((item) => item.roles.includes(role))
+    .map((item) => {
+      if (!item.children) return item;
+      const children = item.children.filter((child) =>
+        child.roles.includes(role),
+      );
+      return { ...item, children };
+    })
+    .filter(
+      (item) => item.url || (item.children && item.children.length > 0),
+    );
 
   const handleCloseSidebar = () => {
     const sidebarTrigger = document.querySelector('[data-sidebar="trigger"]');

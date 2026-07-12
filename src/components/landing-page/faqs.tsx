@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { faqs as staticFaqs } from "@/lib/data";
 
 interface FAQ {
@@ -75,8 +76,11 @@ export function Faqs() {
                 <AccordionTrigger className="py-5 text-left font-semibold text-base text-gray-900 hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="pb-5 text-gray-600 text-sm leading-relaxed">
-                  {faq.answer}
+                <AccordionContent className="pb-5">
+                  <RichTextDisplay
+                    html={faq.answer}
+                    className="text-gray-600 text-sm leading-relaxed"
+                  />
                 </AccordionContent>
               </AccordionItem>
             ))}
