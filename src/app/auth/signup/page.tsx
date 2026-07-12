@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { z } from "zod";
-import { validatePhone } from "@/lib/phone";
+import { getPhoneValidationError, normalizePhone, normalizePhoneInput } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 const signupSchema = z.object({
@@ -96,9 +96,7 @@ function SignupForm() {
   const validateForm = () => {
     const result = signupSchema.safeParse(formData);
     const schemaErrors = result.success ? {} : result.error.flatten().fieldErrors;
-    const phoneError = !validatePhone(formData.phone, formData.country_iso2)
-      ? "Please enter a valid phone number for the selected country"
-      : "";
+    const phoneError = getPhoneValidationError(formData.phone, formData.country_iso2) || "";
     const newErrors = {
       first_name: schemaErrors.first_name?.[0] || "",
       last_name: schemaErrors.last_name?.[0] || "",
@@ -130,13 +128,17 @@ function SignupForm() {
       return;
     }
 
-    const rawPhone = formData.phone.replace(/\D/g, "");
-    const dialCodeDigits = formData.country_code.replace(/\D/g, "");
-    const apiPhone = rawPhone.startsWith(dialCodeDigits)
-      ? rawPhone.slice(dialCodeDigits.length)
-      : rawPhone;
+    const normalizedPhone = normalizePhone(formData.phone, formData.country_iso2);
+    if (!normalizedPhone) {
+      setIsLoading(false);
+      return;
+    }
 
-    const payload = { ...formData, phone: apiPhone };
+    const payload = {
+      ...formData,
+      country_code: normalizedPhone.countryCode,
+      phone: normalizedPhone.nationalNumber,
+    };
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
@@ -251,26 +253,20 @@ function SignupForm() {
   const handlePhoneChange = (phone: string, meta: any) => {
     const dialCode = meta.country?.dialCode || "";
     const iso2 = meta.country?.iso2 || "gb";
+    const normalizedInput = normalizePhoneInput(phone, iso2);
     setFormData((prev) => ({
       ...prev,
-      phone,
+      phone: normalizedInput,
       country_code: dialCode.startsWith("+") ? dialCode : `+${dialCode}`,
       country_iso2: iso2,
     }));
-    // Only validate inline when the user has typed subscriber digits beyond the dial code.
-    // react-international-phone fires onChange on mount with just the dial code (e.g. "+44"),
-    // so we must not treat that as a touched/invalid state.
-    const rawDigits = phone.replace(/\D/g, "");
-    const codeDigits = dialCode.replace(/\D/g, "");
-    const subscriberDigits = rawDigits.startsWith(codeDigits)
-      ? rawDigits.slice(codeDigits.length)
-      : rawDigits;
-    if (subscriberDigits.length === 0) return; // user hasn't typed yet — show no error
+    // Don't validate until the user has actually typed digits (component fires onChange on mount).
+    if (normalizedInput.replace(/\D/g, "") === dialCode.replace(/\D/g, "")) return;
     setTouched((prev) => ({ ...prev, phone: true }));
-    const isValid = validatePhone(phone, iso2);
+    const phoneError = getPhoneValidationError(normalizedInput, iso2);
     setErrors((prev) => ({
       ...prev,
-      phone: isValid ? "" : "Please enter a valid phone number for the selected country",
+      phone: phoneError || "",
     }));
   };
 
