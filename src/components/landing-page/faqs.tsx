@@ -15,6 +15,8 @@ interface FAQ {
   slug?: string;
   question: string;
   answer: string;
+  status?: string; // "visible" | "hidden"
+  sort_order?: number;
 }
 
 export function Faqs() {
@@ -29,7 +31,14 @@ export function Faqs() {
       })
       .then((data) => {
         const list: FAQ[] = data.data || data.faqs || data || [];
-        setFaqs(list.length > 0 ? list : staticFaqs);
+        // Respect the admin's visibility + ordering. These fields apply as soon
+        // as the public /api/faqs endpoint exposes them; until then the list is
+        // rendered as returned (all visible, API order).
+        const visible = list.filter((f) => f.status == null || f.status === "visible");
+        const ordered = [...visible].sort(
+          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        );
+        setFaqs(ordered.length > 0 ? ordered : staticFaqs);
       })
       .catch(() => {
         setFaqs(staticFaqs);

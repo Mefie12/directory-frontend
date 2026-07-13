@@ -35,6 +35,7 @@ import {
   EyeOff,
   ArrowUp,
   ArrowDown,
+  GripVertical,
   X as XIcon,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
@@ -55,6 +56,13 @@ interface FAQFormData {
   answer: string;
 }
 
+// A create/edit row carries an editable order number alongside the content.
+interface FAQRow {
+  question: string;
+  answer: string;
+  order: string; // free-text so the input can be cleared; parsed on submit
+}
+
 // Admin payload always includes slug; the numeric id is a safety fallback.
 const faqKey = (faq: FAQ) => faq.slug ?? String(faq.id);
 
@@ -64,7 +72,7 @@ const isHidden = (faq: FAQ) => faq.status != null && faq.status !== "visible";
 // Strip tags to check whether a rich-text value has any real content.
 const isBlank = (html: string) => !html.replace(/<[^>]*>/g, "").trim();
 
-const EMPTY_ROW: FAQFormData = { question: "", answer: "" };
+const EMPTY_ROW: FAQRow = { question: "", answer: "", order: "" };
 
 // ── API ──
 const faqApi = {
@@ -81,7 +89,9 @@ const faqApi = {
     return data.data || data.faqs || data || [];
   },
 
-  createFaq: async (body: FAQFormData): Promise<FAQ> => {
+  createFaq: async (
+    body: FAQFormData & { sort_order?: number },
+  ): Promise<FAQ> => {
     const token = localStorage.getItem("authToken");
     const response = await fetch("/api/admin/faqs", {
       method: "POST",
@@ -165,18 +175,23 @@ export default function FaqsPage() {
 
   // Create (dynamic multi-row) dialog
   const [createOpen, setCreateOpen] = useState(false);
-  const [rows, setRows] = useState<FAQFormData[]>([{ ...EMPTY_ROW }]);
+  const [rows, setRows] = useState<FAQRow[]>([{ ...EMPTY_ROW }]);
   const [isCreating, setIsCreating] = useState(false);
 
   // Edit (single) dialog
   const [editOpen, setEditOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editData, setEditData] = useState<FAQFormData>({ ...EMPTY_ROW });
+  const [editData, setEditData] = useState<FAQRow>({ ...EMPTY_ROW });
   const [isSaving, setIsSaving] = useState(false);
 
   // Delete
   const [faqToDelete, setFaqToDelete] = useState<FAQ | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Drag-and-drop reorder
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragEnabled, setDragEnabled] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const loadFaqs = useCallback(async () => {
     if (authLoading) return;
@@ -208,14 +223,20 @@ export default function FaqsPage() {
   const isSearching = search.trim().length > 0;
 
   // ── Create (dynamic rows) ──
+  // Default order continues from the current list so new FAQs land at the end.
+  const nextOrder = (offset: number) => String(faqs.length + offset + 1);
   const openCreate = () => {
-    setRows([{ ...EMPTY_ROW }]);
+    setRows([{ ...EMPTY_ROW, order: nextOrder(0) }]);
     setCreateOpen(true);
   };
-  const addRow = () => setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+  const addRow = () =>
+    setRows((prev) => [
+      ...prev,
+      { ...EMPTY_ROW, order: nextOrder(prev.length) },
+    ]);
   const removeRow = (index: number) =>
     setRows((prev) => prev.filter((_, i) => i !== index));
-  const updateRow = (index: number, field: keyof FAQFormData, value: string) =>
+  const updateRow = (index: number, field: keyof FAQRow, value: string) =>
     setRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
     );
@@ -235,10 +256,12 @@ export default function FaqsPage() {
     setIsCreating(true);
     try {
       // No batch endpoint on the backend — create each FAQ sequentially.
-      for (const row of valid) {
+      for (const [i, row] of valid.entries()) {
+        const parsed = parseInt(row.order, 10);
         await faqApi.createFaq({
           question: row.question.trim(),
           answer: row.answer,
+          sort_order: Number.isFinite(parsed) ? parsed : faqs.length + i + 1,
         });
       }
       toast.success(
@@ -259,7 +282,11 @@ export default function FaqsPage() {
   // ── Edit ──
   const openEdit = (faq: FAQ) => {
     setEditingKey(faqKey(faq));
-    setEditData({ question: faq.question, answer: faq.answer });
+    setEditData({
+      question: faq.question,
+      answer: faq.answer,
+      order: faq.sort_order != null ? String(faq.sort_order) : "",
+    });
     setEditOpen(true);
   };
 
@@ -276,10 +303,11 @@ export default function FaqsPage() {
     setIsSaving(true);
     try {
       const current = faqs.find((f) => faqKey(f) === editingKey);
+      const parsed = parseInt(editData.order, 10);
       const updated = await faqApi.updateFaq(editingKey, {
         question: editData.question.trim(),
         answer: editData.answer,
-        sort_order: current?.sort_order,
+        sort_order: Number.isFinite(parsed) ? parsed : current?.sort_order,
       });
       setFaqs((prev) =>
         prev.map((f) =>
@@ -315,29 +343,26 @@ export default function FaqsPage() {
     }
   };
 
-  // ── Reorder (optimistic; persists once backend has an order column) ──
-  const handleMove = async (index: number, direction: "up" | "down") => {
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (target < 0 || target >= faqs.length) return;
-
-    const reordered = [...faqs];
-    [reordered[index], reordered[target]] = [
-      reordered[target],
-      reordered[index],
-    ];
-    // Assign fresh sequential sort_order values so persistence is unambiguous.
-    const withOrder = reordered.map((f, i) => ({ ...f, sort_order: i }));
+  // ── Reorder (optimistic; persists sort_order for every row that moved) ──
+  const persistReorder = async (reordered: FAQ[]) => {
     const previous = faqs;
+    // Assign fresh sequential sort_order (1-based) so ordering is unambiguous.
+    const withOrder = reordered.map((f, i) => ({ ...f, sort_order: i + 1 }));
     setFaqs(withOrder);
 
+    const changed = withOrder.filter((f) => {
+      const before = previous.find((p) => faqKey(p) === faqKey(f));
+      return before && before.sort_order !== f.sort_order;
+    });
+    if (changed.length === 0) return;
+
     try {
-      // Persist only the two rows whose position changed.
       await Promise.all(
-        [index, target].map((i) =>
-          faqApi.updateFaq(faqKey(withOrder[i]), {
-            question: withOrder[i].question,
-            answer: withOrder[i].answer,
-            sort_order: withOrder[i].sort_order,
+        changed.map((f) =>
+          faqApi.updateFaq(faqKey(f), {
+            question: f.question,
+            answer: f.answer,
+            sort_order: f.sort_order,
           }),
         ),
       );
@@ -345,6 +370,33 @@ export default function FaqsPage() {
       setFaqs(previous);
       toast.error("Could not save the new order");
     }
+  };
+
+  const handleMove = (index: number, direction: "up" | "down") => {
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= faqs.length) return;
+    const reordered = [...faqs];
+    [reordered[index], reordered[target]] = [
+      reordered[target],
+      reordered[index],
+    ];
+    persistReorder(reordered);
+  };
+
+  // Native drag-and-drop (no external dep). Dragging is armed only by the grip
+  // handle so text selection and buttons inside a row keep working.
+  const handleDrop = (to: number) => {
+    if (dragIndex === null || dragIndex === to) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...faqs];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(to, 0, moved);
+    persistReorder(reordered);
+    setDragIndex(null);
+    setDragOverIndex(null);
   };
 
   // ── Delete ──
@@ -416,14 +468,40 @@ export default function FaqsPage() {
           {filtered.map((faq, idx) => (
             <div
               key={faqKey(faq)}
+              draggable={dragEnabled && !isSearching}
+              onDragStart={() => setDragIndex(idx)}
+              onDragOver={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                setDragOverIndex(idx);
+              }}
+              onDrop={() => handleDrop(idx)}
+              onDragEnd={() => {
+                setDragEnabled(false);
+                setDragIndex(null);
+                setDragOverIndex(null);
+              }}
               className={`group flex items-start gap-4 p-5 border rounded-xl bg-white transition-colors ${
-                isHidden(faq)
-                  ? "border-gray-200 opacity-60"
-                  : "border-gray-200 hover:border-[#93C01F]/40 hover:bg-[#F4F9E8]/30"
-              }`}
+                dragOverIndex === idx && dragIndex !== null && dragIndex !== idx
+                  ? "border-[#93C01F] ring-2 ring-[#93C01F]/30"
+                  : isHidden(faq)
+                    ? "border-gray-200 opacity-60"
+                    : "border-gray-200 hover:border-[#93C01F]/40 hover:bg-[#F4F9E8]/30"
+              } ${dragIndex === idx ? "opacity-50" : ""}`}
             >
               {/* Reorder controls */}
               <div className="flex flex-col items-center gap-1 pt-0.5">
+                {/* Drag handle — arms native dragging while held */}
+                <button
+                  className="p-1 text-gray-300 hover:text-gray-600 cursor-grab active:cursor-grabbing disabled:opacity-30 disabled:cursor-not-allowed"
+                  onMouseDown={() => setDragEnabled(true)}
+                  onMouseUp={() => setDragEnabled(false)}
+                  disabled={isSearching}
+                  title="Drag to reorder"
+                  aria-label="Drag to reorder"
+                >
+                  <GripVertical className="w-4 h-4" />
+                </button>
                 <button
                   className="p-1 text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
                   onClick={() => handleMove(idx, "up")}
@@ -530,15 +608,27 @@ export default function FaqsPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-600">Question</Label>
-                  <Input
-                    value={row.question}
-                    onChange={(e) =>
-                      updateRow(index, "question", e.target.value)
-                    }
-                    placeholder="Enter the question"
-                  />
+                <div className="flex gap-3">
+                  <div className="space-y-2 flex-1">
+                    <Label className="text-gray-600">Question</Label>
+                    <Input
+                      value={row.question}
+                      onChange={(e) =>
+                        updateRow(index, "question", e.target.value)
+                      }
+                      placeholder="Enter the question"
+                    />
+                  </div>
+                  <div className="space-y-2 w-24 shrink-0">
+                    <Label className="text-gray-600">Order</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={row.order}
+                      onChange={(e) => updateRow(index, "order", e.target.value)}
+                      placeholder="#"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -596,15 +686,29 @@ export default function FaqsPage() {
           </DialogHeader>
 
           <div className="space-y-5 py-2">
-            <div className="space-y-2">
-              <Label className="text-gray-600">Question</Label>
-              <Input
-                value={editData.question}
-                onChange={(e) =>
-                  setEditData((p) => ({ ...p, question: e.target.value }))
-                }
-                placeholder="Enter the question"
-              />
+            <div className="flex gap-3">
+              <div className="space-y-2 flex-1">
+                <Label className="text-gray-600">Question</Label>
+                <Input
+                  value={editData.question}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, question: e.target.value }))
+                  }
+                  placeholder="Enter the question"
+                />
+              </div>
+              <div className="space-y-2 w-24 shrink-0">
+                <Label className="text-gray-600">Order</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editData.order}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, order: e.target.value }))
+                  }
+                  placeholder="#"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-gray-600">Response</Label>

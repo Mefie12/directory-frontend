@@ -2,6 +2,7 @@
 import { useState } from "react";
 import {
   Eye,
+  Camera,
   MessageSquare,
   Bookmark,
   Star,
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   Pencil,
   Trash2,
+  MoreHorizontal,
   // Briefcase,
 } from "lucide-react";
 import Image from "next/image";
@@ -26,6 +28,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -165,23 +174,39 @@ function MobileListingRow({
         </button>
 
         {/* Actions menu */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 hover:bg-gray-100"
-            onClick={(e) => { e.stopPropagation(); onEditClick?.(listing); }}
-          >
-            <Pencil className="h-4 w-4 text-[#425466]" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 hover:bg-red-50"
-            onClick={(e) => { e.stopPropagation(); onDeleteClick?.(listing.id); }}
-          >
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
+        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-gray-100"
+              >
+                <MoreHorizontal className="h-4 w-4 text-[#425466]" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => onViewClick?.(listing)}
+                className="cursor-pointer"
+              >
+                <Eye className="mr-2 h-4 w-4" /> View
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onEditClick?.(listing)}
+                className="cursor-pointer"
+              >
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onDeleteClick?.(listing.id)}
+                className="cursor-pointer text-red-600 focus:text-red-700"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -211,7 +236,7 @@ function MobileListingRow({
           {/* Stats */}
           <div className="flex items-center gap-4 text-[#425466]">
             <div className="flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5" />
+              <Camera className="w-3.5 h-3.5" />
               <span className="text-xs">{listing.views.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1">
@@ -393,7 +418,9 @@ export function ListingsTable({
             <TableHead className="text-[#425466] font-medium text-sm">
               Stats Summary
             </TableHead>
-            <TableHead className="w-12 rounded-tr-xl"></TableHead>
+            <TableHead className="text-[#425466] font-medium text-sm text-right rounded-tr-xl">
+              Actions
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -460,7 +487,7 @@ export function ListingsTable({
                 <TableCell className="py-4">
                   <div className="flex items-center gap-4 text-[#425466]">
                     <div className="flex items-center gap-1.5">
-                      <Eye className="w-4 h-4" />
+                      <Camera className="w-4 h-4" />
                       <span className="text-sm">
                         {listing.views.toLocaleString()}
                       </span>
@@ -479,42 +506,40 @@ export function ListingsTable({
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-4">
-                  <div className="flex items-center gap-1">
-                    {/* <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-[#93C01F]/10 hover:text-[#5F8B0A]"
-                      title="What We Do"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onWhatWeDoClick?.(listing);
-                      }}
-                    >
-                      <Briefcase className="h-4 w-4 text-[#425466]" />
-                    </Button> */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-gray-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditClick?.(listing);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4 text-[#425466]" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteClick?.(listing.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
+                <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-gray-100"
+                        >
+                          <MoreHorizontal className="h-4 w-4 text-[#425466]" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => onViewClick?.(listing)}
+                          className="cursor-pointer"
+                        >
+                          <Eye className="mr-2 h-4 w-4" /> View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onEditClick?.(listing)}
+                          className="cursor-pointer"
+                        >
+                          <Pencil className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => onDeleteClick?.(listing.id)}
+                          className="cursor-pointer text-red-600 focus:text-red-700"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
