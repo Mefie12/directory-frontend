@@ -1,22 +1,16 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { countries } from "country-data-list";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  MapPin,
-  Star,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
+import { BusinessCard } from "@/components/business-card";
+import { EventCard } from "@/components/event-card";
+import CommunityCard from "@/components/communities/community-card";
 import { processImages, formatDateTime } from "@/lib/directory/image-utils";
-import { stripHtml } from "@/lib/utils";
 import { pickDisplayCategory, type ApiListing } from "@/lib/directory/types";
 import type {
   CategoryLandingListingType,
@@ -62,98 +56,82 @@ function listingLocation(item: ApiListing): string {
   return item.city || item.country || "Online";
 }
 
-function listingDate(item: ApiListing): string {
-  const start = formatDateTime(item.event_start_date);
-  const end = formatDateTime(item.event_end_date || item.event_start_date);
-
-  if (start === "TBA") return "Date TBA";
-  return start === end ? start : `${start} - ${end}`;
-}
-
 function typeLabel(type: CategoryLandingListingType): string {
   if (type === "business") return "Businesses";
   if (type === "community") return "Communities";
   return "Events";
 }
 
+// Renders the matching shared card per listing type so category listings look
+// identical to the rest of the site. `href` is passed explicitly because this
+// page routes by listing type.
 function ListingCard({ item }: { item: ApiListing }) {
   const type = (item.type ||
     item.listing_type ||
     "business") as CategoryLandingListingType;
-  const rating = Number(item.rating) || 0;
-  const reviews = Number(item.ratings_count) || 0;
+  const href = canonicalHref(item);
+  const verified = !!(item.listing_verified ?? item.is_verified);
+  const description = item.bio || item.description || "";
+
+  if (type === "event") {
+    return (
+      <EventCard
+        href={href}
+        event={{
+          id: String(item.id),
+          name: item.name,
+          category: listingCategory(item),
+          image: listingImage(item),
+          location: listingLocation(item),
+          description,
+          slug: item.slug,
+          startDate: item.event_start_date
+            ? formatDateTime(item.event_start_date)
+            : "",
+          endDate: item.event_end_date
+            ? formatDateTime(item.event_end_date)
+            : "",
+          verified,
+        }}
+      />
+    );
+  }
+
+  if (type === "community") {
+    return (
+      <CommunityCard
+        href={href}
+        community={{
+          id: String(item.id),
+          slug: item.slug,
+          name: item.name,
+          description,
+          imageUrl: listingImage(item),
+          image: listingImage(item),
+          tag: listingCategory(item),
+          verified,
+          type: "community",
+          location: listingLocation(item),
+        }}
+      />
+    );
+  }
 
   return (
-    <Link
-      href={canonicalHref(item)}
-      className="group block overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-all duration-300 hover:shadow-sm"
-    >
-      <div className="relative aspect-4/3 w-full overflow-hidden bg-gray-100">
-        <Image
-          src={listingImage(item)}
-          alt={item.name}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          unoptimized
-        />
-        <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#64748A] shadow-sm backdrop-blur-sm">
-          {listingCategory(item)}
-        </span>
-      </div>
-
-      <div className="space-y-2 p-4">
-        <div className="flex items-start gap-2">
-          <h3 className="line-clamp-2 text-base font-semibold text-gray-900 transition-colors group-hover:text-[#275782]">
-            {item.name}
-          </h3>
-          {(item.listing_verified ?? item.is_verified) && (
-            <Image
-              src="/images/icons/verify.svg"
-              alt="Verified"
-              width={20}
-              height={20}
-              className="mt-0.5 shrink-0"
-            />
-          )}
-        </div>
-
-        <p className="line-clamp-2 text-sm text-gray-600">
-          {stripHtml(item.bio || item.description) ||
-            "Explore this listing on Mefie Directory."}
-        </p>
-
-        {type !== "event" && (
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, index) => (
-              <Star
-                key={index}
-                className={`h-4 w-4 ${
-                  index < Math.floor(rating)
-                    ? "fill-yellow-400 text-yellow-400"
-                    : "fill-gray-200 text-gray-200"
-                }`}
-              />
-            ))}
-            <span className="ml-1 text-sm text-gray-600">
-              {reviews} {reviews === 1 ? "review" : "reviews"}
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-          <MapPin className="h-4 w-4 shrink-0" />
-          <span className="line-clamp-1">{listingLocation(item)}</span>
-        </div>
-
-        {type === "event" && (
-          <div className="flex items-center gap-1.5 text-sm text-gray-500">
-            <CalendarDays className="h-4 w-4 shrink-0" />
-            <span className="line-clamp-1">{listingDate(item)}</span>
-          </div>
-        )}
-      </div>
-    </Link>
+    <BusinessCard
+      href={href}
+      business={{
+        id: String(item.id),
+        name: item.name,
+        category: listingCategory(item),
+        images: [listingImage(item)],
+        rating: Number(item.rating) || 0,
+        reviewCount: Number(item.ratings_count) || 0,
+        location: listingLocation(item),
+        verified,
+        slug: item.slug,
+      }}
+    />
   );
 }
 

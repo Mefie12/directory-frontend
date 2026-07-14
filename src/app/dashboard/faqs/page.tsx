@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   RichTextEditor,
   RichTextDisplay,
 } from "@/components/ui/rich-text-editor";
@@ -542,31 +547,45 @@ export default function FaqsPage() {
 
               {/* Actions */}
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
-                <button
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
-                  onClick={() => handleToggleHide(faq)}
-                  title={isHidden(faq) ? "Show" : "Hide"}
-                >
-                  {isHidden(faq) ? (
-                    <Eye className="w-4 h-4" />
-                  ) : (
-                    <EyeOff className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
-                  onClick={() => openEdit(faq)}
-                  title="Edit"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
-                  onClick={() => setFaqToDelete(faq)}
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
+                      onClick={() => handleToggleHide(faq)}
+                    >
+                      {isHidden(faq) ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <EyeOff className="w-4 h-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isHidden(faq) ? "Show on site" : "Hide from site"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
+                      onClick={() => openEdit(faq)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                      onClick={() => setFaqToDelete(faq)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           ))}

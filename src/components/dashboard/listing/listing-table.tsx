@@ -35,6 +35,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -235,22 +240,44 @@ function MobileListingRow({
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-[#425466]">
-            <div className="flex items-center gap-1">
-              <Camera className="w-3.5 h-3.5" />
-              <span className="text-xs">{listing.views.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span className="text-xs">{listing.comments}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Bookmark className="w-3.5 h-3.5" />
-              <span className="text-xs">{listing.bookmarks}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Star className="w-3.5 h-3.5" />
-              <span className="text-xs">{listing.rating}</span>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span className="text-xs">
+                    {listing.views.toLocaleString()}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Views</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span className="text-xs">{listing.comments}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Comments</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default">
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span className="text-xs">{listing.bookmarks}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Bookmarks</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default">
+                  <Star className="w-3.5 h-3.5" />
+                  <span className="text-xs">{listing.rating}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Rating</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       )}
@@ -486,24 +513,44 @@ export function ListingsTable({
                 </TableCell>
                 <TableCell className="py-4">
                   <div className="flex items-center gap-4 text-[#425466]">
-                    <div className="flex items-center gap-1.5">
-                      <Camera className="w-4 h-4" />
-                      <span className="text-sm">
-                        {listing.views.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="w-4 h-4" />
-                      <span className="text-sm">{listing.comments}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Bookmark className="w-4 h-4" />
-                      <span className="text-sm">{listing.bookmarks}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-4 h-4" />
-                      <span className="text-sm">{listing.rating}</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-default">
+                          <Camera className="w-4 h-4" />
+                          <span className="text-sm">
+                            {listing.views.toLocaleString()}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Views</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-default">
+                          <MessageSquare className="w-4 h-4" />
+                          <span className="text-sm">{listing.comments}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Comments</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-default">
+                          <Bookmark className="w-4 h-4" />
+                          <span className="text-sm">{listing.bookmarks}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Bookmarks</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 cursor-default">
+                          <Star className="w-4 h-4" />
+                          <span className="text-sm">{listing.rating}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Rating</TooltipContent>
+                    </Tooltip>
                   </div>
                 </TableCell>
                 <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>

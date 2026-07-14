@@ -20,9 +20,11 @@ export type Event = {
 
 type EventCardProps = {
   event: Event;
+  /** Optional explicit link. When omitted, the link is derived from the current path. */
+  href?: string;
 };
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, href }: EventCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(event.slug);
   const pathname = usePathname(); // Get current path
@@ -50,8 +52,10 @@ export function EventCard({ event }: EventCardProps) {
     return "/discover";
   };
 
-  // Construct the dynamic link based on current page
+  // Construct the dynamic link based on current page, unless an explicit href
+  // was provided (e.g. the category page routes by listing type).
   const getBusinessLink = () => {
+    if (href) return href;
     const basePath = getBasePath();
     return `${basePath}/${event.slug}`;
   };
