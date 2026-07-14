@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
+import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,11 +23,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChevronLeft,
-  RefreshCcw,
   User,
   MapPin,
   Tag,
-  Gem,
   Phone,
   Mail,
   Globe,
@@ -299,6 +298,29 @@ function SocialLink({
   );
 }
 
+// Compact key/value row used inside the Address & Details cards.
+function InfoRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: any;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-gray-50 last:border-0 text-sm">
+      <span className="flex items-center gap-2 text-gray-500 shrink-0">
+        <Icon className="w-4 h-4 text-gray-400" />
+        {label}
+      </span>
+      <span className="font-medium text-gray-900 text-right truncate">
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export default function ListingDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -480,8 +502,35 @@ export default function ListingDetailsPage() {
       ev.location_type)
   );
 
+  const statTiles = [
+    {
+      icon: Eye,
+      label: "Views",
+      value: listing.stats.views.toLocaleString(),
+      tint: "bg-[#F4F9E8] text-[#5F8B0A]",
+    },
+    {
+      icon: User,
+      label: "Unique visitors",
+      value: listing.stats.uniqueVisitors.toLocaleString(),
+      tint: "bg-blue-50 text-blue-600",
+    },
+    {
+      icon: Bookmark,
+      label: "Bookmarks",
+      value: listing.stats.bookmarks.toLocaleString(),
+      tint: "bg-amber-50 text-amber-600",
+    },
+    {
+      icon: Star,
+      label: `Rating (${listing.stats.ratingsCount})`,
+      value: String(listing.stats.rating),
+      tint: "bg-purple-50 text-purple-600",
+    },
+  ];
+
   return (
-    <div className="p-2 lg:p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-2 lg:p-6 max-w-6xl mx-auto space-y-8">
       {/* Back */}
       <button
         onClick={() => router.push("/dashboard/listings")}
@@ -490,281 +539,220 @@ export default function ListingDetailsPage() {
         <ChevronLeft className="w-4 h-4" /> Back to Listings
       </button>
 
-      {/* Hero header */}
-      <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-[#1C3C59]">
-        {/* Cover / gradient backdrop */}
-        <div className="absolute inset-0">
-          {listing.image && listing.image !== "/images/no-image.jpg" && (
-            <Image
-              src={listing.image}
-              alt=""
-              fill
-              className="object-cover opacity-25"
-              sizes="100vw"
-              unoptimized
-            />
-          )}
-          <div className="absolute inset-0 bg-linear-to-r from-[#1C3C59]/95 via-[#1C3C59]/85 to-[#93C01F]/40" />
-        </div>
+      {/* Hero: image gallery (left) + info column (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        {/* Left: carousel + action card */}
+        <div className="lg:col-span-3 space-y-5">
+          <ListingImageGallery
+            images={listing.images}
+            alt={listing.name}
+            verified={isVerified}
+          />
 
-        <div className="relative p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 ring-2 ring-white/30">
-              <AvatarImage src={listing.image} className="object-cover" />
-              <AvatarFallback className="bg-white/10 text-white">
-                {getInitials(listing.name)}
-              </AvatarFallback>
-            </Avatar>
+          {/* Sidebar slot: moderation actions + verify toggle */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 space-y-5">
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-1.5">
-                {listing.name}
-                {isVerified && (
-                  <Image
-                    src="/images/icons/verify.svg"
-                    alt="Verified"
-                    width={20}
-                    height={20}
-                  />
-                )}
-              </h1>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span
-                  className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
-                    listing.approval,
-                  )}`}
+              <h3 className="font-semibold text-gray-900 text-sm mb-3">
+                Manage Listing
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => handleStatusUpdate("approved")}
+                  disabled={isUpdatingStatus}
+                  className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-1.5"
                 >
-                  {listing.approval}
-                </span>
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white capitalize">
-                  {listing.type}
-                </span>
+                  <CheckCircle2 className="w-4 h-4" /> Approve
+                </Button>
+                <Button
+                  onClick={() => handleStatusUpdate("suspended")}
+                  disabled={isUpdatingStatus}
+                  variant="outline"
+                  className="border-orange-300 text-orange-600 hover:bg-orange-50 gap-1.5"
+                >
+                  <AlertTriangle className="w-4 h-4" /> Suspend
+                </Button>
+                <Button
+                  onClick={() => handleStatusUpdate("rejected")}
+                  disabled={isUpdatingStatus}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
+                >
+                  <XCircle className="w-4 h-4" /> Reject
+                </Button>
+                <Button
+                  onClick={() => setShowDelete(true)}
+                  disabled={isUpdatingStatus}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Status Actions */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          onClick={() => handleStatusUpdate("approved")}
-          disabled={isUpdatingStatus}
-          className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-1.5"
-        >
-          <CheckCircle2 className="w-4 h-4" /> Approve
-        </Button>
-        <Button
-          onClick={() => handleStatusUpdate("suspended")}
-          disabled={isUpdatingStatus}
-          variant="outline"
-          className="border-orange-300 text-orange-600 hover:bg-orange-50 gap-1.5"
-        >
-          <AlertTriangle className="w-4 h-4" /> Suspend
-        </Button>
-        <Button
-          onClick={() => handleStatusUpdate("rejected")}
-          disabled={isUpdatingStatus}
-          variant="outline"
-          className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
-        >
-          <XCircle className="w-4 h-4" /> Reject
-        </Button>
-        <Button
-          onClick={() => setShowDelete(true)}
-          disabled={isUpdatingStatus}
-          variant="outline"
-          className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
-        >
-          <Trash2 className="w-4 h-4" /> Delete
-        </Button>
-      </div>
-
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          {
-            icon: Eye,
-            label: "Views",
-            value: listing.stats.views.toLocaleString(),
-            tint: "bg-[#F4F9E8] text-[#5F8B0A]",
-          },
-          {
-            icon: User,
-            label: "Unique visitors",
-            value: listing.stats.uniqueVisitors.toLocaleString(),
-            tint: "bg-blue-50 text-blue-600",
-          },
-          {
-            icon: Bookmark,
-            label: "Bookmarks",
-            value: listing.stats.bookmarks.toLocaleString(),
-            tint: "bg-amber-50 text-amber-600",
-          },
-          {
-            icon: Star,
-            label: `Rating (${listing.stats.ratingsCount})`,
-            value: String(listing.stats.rating),
-            tint: "bg-purple-50 text-purple-600",
-          },
-        ].map((tile) => (
-          <div
-            key={tile.label}
-            className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 bg-white"
-          >
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${tile.tint}`}
-            >
-              <tile.icon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-bold text-gray-900 leading-none">
-                {tile.value}
-              </p>
-              <p className="text-xs text-gray-500 truncate mt-1">{tile.label}</p>
+            <div className="border-t border-gray-100 pt-4 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium text-gray-900">
+                  Verify Listing
+                </Label>
+                <p className="text-xs text-gray-500">
+                  Show a verified badge on this listing
+                </p>
+              </div>
+              <Switch
+                checked={pendingVerify !== null ? pendingVerify : isVerified}
+                onCheckedChange={(checked) => setPendingVerify(checked)}
+                disabled={isVerifying}
+                className="data-[state=checked]:bg-[#93C01F]"
+              />
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Info Grid */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-6">
-        <h3 className="font-semibold text-gray-900 mb-5 flex items-center gap-2">
-          <span className="w-1 h-4 rounded-full bg-[#93C01F]" /> Overview
-        </h3>
-        <div className="grid grid-cols-[24px_1fr_auto] gap-y-5 gap-x-3 items-center text-sm">
-        <RefreshCcw className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-500">Status</span>
-        <div className="justify-self-end">
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-              listing.approval,
-            )}`}
-          >
-            {listing.approval}
-          </span>
         </div>
 
-        <User className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-500">Vendor</span>
-        <div className="justify-self-end flex items-center gap-2">
-          <Avatar className="h-5 w-5">
-            <AvatarImage src={listing.vendorAvatar} className="object-cover" />
-            <AvatarFallback className="text-[10px]">
-              {getInitials(listing.vendor)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="font-medium text-gray-900">{listing.vendor}</span>
-        </div>
+        {/* Right: title, stats, description, address & details */}
+        <div className="lg:col-span-2 space-y-5">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5">
+              {listing.name}
+              {isVerified && (
+                <Image
+                  src="/images/icons/verify.svg"
+                  alt="Verified"
+                  width={20}
+                  height={20}
+                />
+              )}
+            </h1>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
+                  listing.approval,
+                )}`}
+              >
+                {listing.approval}
+              </span>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                {listing.type}
+              </span>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </div>
+          </div>
 
-        {listing.userInfo && (
-          <>
-            <User className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Owner</span>
-            <div className="justify-self-end font-medium text-gray-900 text-right">
-              {listing.userInfo.name}
-              {listing.userInfo.email && (
-                <div className="text-xs text-gray-500">
-                  {listing.userInfo.email}
+          {/* Stat tiles */}
+          <div className="grid grid-cols-2 gap-3">
+            {statTiles.map((tile) => (
+              <div
+                key={tile.label}
+                className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white"
+              >
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tile.tint}`}
+                >
+                  <tile.icon className="w-4.5 h-4.5" />
                 </div>
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-gray-900 leading-none">
+                    {tile.value}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate mt-1">
+                    {tile.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-gray-900 text-sm">
+              Description
+            </h3>
+            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+              {listing.description ? (
+                <RichTextDisplay html={listing.description} />
+              ) : (
+                <span className="text-gray-400">No description provided.</span>
               )}
             </div>
-          </>
-        )}
+          </div>
 
-        <Tag className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-500">Category</span>
-        <div className="justify-self-end font-medium text-gray-900 text-right">
-          {listing.category}
-        </div>
+          {/* Address */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-1">
+              Address
+            </h3>
+            <InfoRow icon={MapPin} label="Location">
+              {listing.location || "—"}
+            </InfoRow>
+            <InfoRow icon={Tag} label="Category">
+              {listing.category}
+            </InfoRow>
+          </div>
 
-        {listing.location && (
-          <>
-            <MapPin className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Location</span>
-            <div className="justify-self-end font-medium text-gray-900 text-right">
-              {listing.location}
-            </div>
-          </>
-        )}
-
-        <Tag className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-500">Type</span>
-        <div className="justify-self-end font-medium text-gray-900 capitalize">
-          {listing.type}
-        </div>
-
-        <Gem className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-500">Plan</span>
-        <div className="justify-self-end">
-          <span className="bg-[#548235] text-white px-2.5 py-0.5 rounded-full text-xs font-medium">
-            {listing.plan || "Basic"}
-          </span>
-        </div>
-
-        {listing.contactInfo.phone && (
-          <>
-            <Phone className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Phone</span>
-            <div className="justify-self-end font-medium text-gray-900">
-              {listing.contactInfo.phone}
-            </div>
-          </>
-        )}
-
-        {listing.contactInfo.secondaryPhone && (
-          <>
-            <Phone className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Secondary phone</span>
-            <div className="justify-self-end font-medium text-gray-900">
-              {listing.contactInfo.secondaryPhone}
-            </div>
-          </>
-        )}
-
-        {listing.contactInfo.email && (
-          <>
-            <Mail className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Email</span>
-            <div className="justify-self-end font-medium text-gray-900">
-              {listing.contactInfo.email}
-            </div>
-          </>
-        )}
-
-        {website && (
-          <>
-            <Globe className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Website</span>
-            <a
-              href={website.startsWith("http") ? website : `https://${website}`}
-              target="_blank"
-              rel="noreferrer"
-              className="justify-self-end font-medium text-blue-600 hover:underline truncate max-w-60"
-            >
-              {websiteLabel}
-            </a>
-          </>
-        )}
-
-        {listing.businessRegNum && (
-          <>
-            <Briefcase className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Business reg. no.</span>
-            <div className="justify-self-end font-medium text-gray-900">
-              {listing.businessRegNum}
-            </div>
-          </>
-        )}
-
-        {listing.claimStatus && (
-          <>
-            <CheckCircle2 className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Claim status</span>
-            <div className="justify-self-end font-medium text-gray-900 capitalize">
-              {listing.claimStatus}
-            </div>
-          </>
-        )}
+          {/* Details */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-1">
+              Details
+            </h3>
+            <InfoRow icon={User} label="Vendor">
+              <span className="inline-flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage
+                    src={listing.vendorAvatar}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="text-[10px]">
+                    {getInitials(listing.vendor)}
+                  </AvatarFallback>
+                </Avatar>
+                {listing.vendor}
+              </span>
+            </InfoRow>
+            {listing.userInfo && (
+              <InfoRow icon={User} label="Owner">
+                {listing.userInfo.name}
+              </InfoRow>
+            )}
+            {listing.contactInfo.phone && (
+              <InfoRow icon={Phone} label="Phone">
+                {listing.contactInfo.phone}
+              </InfoRow>
+            )}
+            {listing.contactInfo.secondaryPhone && (
+              <InfoRow icon={Phone} label="Secondary phone">
+                {listing.contactInfo.secondaryPhone}
+              </InfoRow>
+            )}
+            {listing.contactInfo.email && (
+              <InfoRow icon={Mail} label="Email">
+                {listing.contactInfo.email}
+              </InfoRow>
+            )}
+            {website && (
+              <InfoRow icon={Globe} label="Website">
+                <a
+                  href={website.startsWith("http") ? website : `https://${website}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {websiteLabel}
+                </a>
+              </InfoRow>
+            )}
+            {listing.businessRegNum && (
+              <InfoRow icon={Briefcase} label="Business reg. no.">
+                {listing.businessRegNum}
+              </InfoRow>
+            )}
+            {listing.claimStatus && (
+              <InfoRow icon={CheckCircle2} label="Claim status">
+                <span className="capitalize">{listing.claimStatus}</span>
+              </InfoRow>
+            )}
+          </div>
         </div>
       </div>
 
@@ -822,18 +810,6 @@ export default function ListingDetailsPage() {
           </div>
         </div>
       )}
-
-      {/* Description */}
-      <div className="space-y-2">
-        <h3 className="font-semibold text-gray-900">Listing Description</h3>
-        <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100 whitespace-pre-line">
-          {listing.description ? (
-            <RichTextDisplay html={listing.description} />
-          ) : (
-            <span className="text-gray-400">No description provided.</span>
-          )}
-        </div>
-      </div>
 
       {/* Services */}
       {listing.services.length > 0 && (
@@ -899,34 +875,6 @@ export default function ListingDetailsPage() {
         </div>
       )}
 
-      {/* Media */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-gray-900">Media</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {listing.images.length > 0 ? (
-            listing.images.map((img, index) => (
-              <div
-                key={index}
-                className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
-              >
-                <Image
-                  src={img}
-                  alt={`Media ${index + 1}`}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  unoptimized
-                />
-              </div>
-            ))
-          ) : (
-            <div className="col-span-2 md:col-span-4 text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-              <p className="text-gray-400 text-sm">No media uploaded</p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Socials — only when at least one exists */}
       {hasSocials && (
         <div className="space-y-3">
@@ -941,24 +889,6 @@ export default function ListingDetailsPage() {
           </div>
         </div>
       )}
-
-      {/* Verify */}
-      <div className="border-t border-gray-100 pt-6">
-        <div className="flex items-center justify-between max-w-xl">
-          <div className="space-y-0.5">
-            <Label className="text-base font-medium text-gray-900">
-              Verify Listing
-            </Label>
-            <p className="text-sm text-gray-500">Mark this listing as verified</p>
-          </div>
-          <Switch
-            checked={pendingVerify !== null ? pendingVerify : isVerified}
-            onCheckedChange={(checked) => setPendingVerify(checked)}
-            disabled={isVerifying}
-            className="data-[state=checked]:bg-[#93C01F]"
-          />
-        </div>
-      </div>
 
       {/* Delete confirmation */}
       <AlertDialog open={showDelete} onOpenChange={(o) => !o && setShowDelete(false)}>
