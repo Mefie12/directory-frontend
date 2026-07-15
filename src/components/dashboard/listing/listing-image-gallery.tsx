@@ -134,7 +134,7 @@ export function ListingImageGallery({
 
       {/* Thumbnails */}
       {hasMultiple && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="flex items-center gap-2">
           {visibleThumbs.map((src, i) => {
             const isLastVisible = i === THUMB_LIMIT - 1;
             const showOverlay = isLastVisible && extraCount > 0;
@@ -146,7 +146,7 @@ export function ListingImageGallery({
                   showOverlay ? setLightboxOpen(true) : scrollTo(i)
                 }
                 className={cn(
-                  "relative aspect-square rounded-lg overflow-hidden ring-2 transition-all",
+                  "relative w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-lg overflow-hidden ring-2 transition-all",
                   i === selectedIndex
                     ? "ring-[#93C01F]"
                     : "ring-transparent hover:ring-gray-200",
@@ -156,12 +156,12 @@ export function ListingImageGallery({
                   src={src}
                   alt={`${alt} thumbnail ${i + 1}`}
                   fill
-                  sizes="120px"
+                  sizes="64px"
                   className="object-cover"
                   unoptimized
                 />
                 {showOverlay && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-semibold">
                     +{extraCount}
                   </div>
                 )}

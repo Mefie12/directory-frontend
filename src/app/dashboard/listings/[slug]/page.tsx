@@ -275,6 +275,14 @@ const getStatusColor = (status: string) => {
   return "bg-red-100 text-red-800";
 };
 
+// "in_person" -> "In Person"
+const formatSnakeCase = (value: string) =>
+  value
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
 function SocialLink({
   href,
   icon: Icon,
@@ -556,34 +564,53 @@ export default function ListingDetailsPage() {
                 Manage Listing
               </h3>
               <div className="flex flex-wrap items-center gap-2">
+                {/* Status actions — neutral by default, filled with its
+                    semantic color only when it matches the current status */}
                 <Button
                   onClick={() => handleStatusUpdate("approved")}
                   disabled={isUpdatingStatus}
-                  className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-1.5"
+                  variant={listing.approval === "Approved" ? "default" : "outline"}
+                  className={
+                    listing.approval === "Approved"
+                      ? "bg-[#93C01F] hover:bg-[#7ea919] text-white border-[#93C01F] gap-1.5"
+                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
+                  }
                 >
                   <CheckCircle2 className="w-4 h-4" /> Approve
                 </Button>
                 <Button
                   onClick={() => handleStatusUpdate("suspended")}
                   disabled={isUpdatingStatus}
-                  variant="outline"
-                  className="border-orange-300 text-orange-600 hover:bg-orange-50 gap-1.5"
+                  variant={listing.approval === "Suspended" ? "default" : "outline"}
+                  className={
+                    listing.approval === "Suspended"
+                      ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 gap-1.5"
+                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
+                  }
                 >
                   <AlertTriangle className="w-4 h-4" /> Suspend
                 </Button>
                 <Button
                   onClick={() => handleStatusUpdate("rejected")}
                   disabled={isUpdatingStatus}
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
+                  variant={listing.approval === "Rejected" ? "default" : "outline"}
+                  className={
+                    listing.approval === "Rejected"
+                      ? "bg-red-600 hover:bg-red-700 text-white border-red-600 gap-1.5"
+                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
+                  }
                 >
                   <XCircle className="w-4 h-4" /> Reject
                 </Button>
+
+                <div className="w-px h-6 bg-gray-200 mx-1" />
+
+                {/* Delete — always a distinct, separated destructive action */}
                 <Button
                   onClick={() => setShowDelete(true)}
                   disabled={isUpdatingStatus}
                   variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5"
+                  className="text-gray-500 border-gray-200 hover:text-red-600 hover:border-red-300 hover:bg-red-50 gap-1.5"
                 >
                   <Trash2 className="w-4 h-4" /> Delete
                 </Button>
@@ -753,63 +780,88 @@ export default function ListingDetailsPage() {
               </InfoRow>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Event / Ticketing (events only) */}
-      {listing.type === "event" && hasEventInfo && ev && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <Ticket className="w-4 h-4 text-[#93C01F]" /> Event & Ticketing
-          </h3>
-          <div className="grid sm:grid-cols-2 gap-3 bg-[#F4F9E8]/40 p-4 rounded-lg border border-[#93C01F]/20">
-            {(ev.start_date || ev.end_date) && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">
+          {/* Event & Ticketing — same card pattern as Address/Details so the
+              right column stays visually consistent regardless of which
+              optional sections are present. */}
+          {listing.type === "event" && hasEventInfo && ev && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-[#93C01F]" /> Event & Ticketing
+              </h3>
+              {(ev.start_date || ev.end_date) && (
+                <InfoRow icon={Calendar} label="Date">
                   {ev.start_date}
                   {ev.end_date ? ` – ${ev.end_date}` : ""}
-                </span>
-              </div>
-            )}
-            {(ev.start_time || ev.end_time) && (
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">
+                </InfoRow>
+              )}
+              {(ev.start_time || ev.end_time) && (
+                <InfoRow icon={Clock} label="Time">
                   {ev.start_time}
                   {ev.end_time ? ` – ${ev.end_time}` : ""}
-                </span>
-              </div>
-            )}
-            {(ev.venue || ev.venue_address || ev.city || ev.country) && (
-              <div className="flex items-center gap-2 text-sm sm:col-span-2">
-                <MapPin className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700">
+                </InfoRow>
+              )}
+              {(ev.venue || ev.venue_address || ev.city || ev.country) && (
+                <InfoRow icon={MapPin} label="Venue">
                   {[ev.venue, ev.venue_address, ev.city, ev.country]
                     .filter(Boolean)
                     .join(", ")}
-                </span>
-              </div>
-            )}
-            {ev.location_type && (
-              <div className="flex items-center gap-2 text-sm">
-                <Globe className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-700 capitalize">
-                  {ev.location_type}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-sm">
-              <Ticket className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-700">
-                {ev.price != null && ev.price !== ""
-                  ? `${ev.currency ? `${ev.currency} ` : ""}${ev.price}`
-                  : "Free / not specified"}
-              </span>
+                </InfoRow>
+              )}
+              {ev.location_type && (
+                <InfoRow icon={Globe} label="Format">
+                  {formatSnakeCase(ev.location_type)}
+                </InfoRow>
+              )}
+              {ev.price != null && ev.price !== "" && (
+                <InfoRow icon={Ticket} label="Price">
+                  {ev.currency ? `${ev.currency} ` : ""}
+                  {ev.price}
+                </InfoRow>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Social Links */}
+          {hasSocials && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3">
+                Social Links
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <SocialLink href={s.facebook} icon={Facebook} label="Facebook" />
+                <SocialLink href={s.instagram} icon={Instagram} label="Instagram" />
+                <SocialLink href={s.twitter} icon={Twitter} label="Twitter" />
+                <SocialLink href={s.tiktok} icon={Music2} label="TikTok" />
+                <SocialLink href={s.youtube} icon={Youtube} label="YouTube" />
+                <SocialLink href={s.whatsapp} icon={MessageCircle} label="WhatsApp" />
+              </div>
+            </div>
+          )}
+
+          {/* Opening Hours */}
+          {listing.openingHours.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#93C01F]" /> Opening Hours
+              </h3>
+              <div className="divide-y divide-gray-50">
+                {listing.openingHours.map((h) => (
+                  <div
+                    key={h.day_of_week}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
+                    <span className="text-gray-500">{h.day_of_week}</span>
+                    <span className="font-medium text-gray-900">
+                      {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Services */}
       {listing.services.length > 0 && (
@@ -849,43 +901,6 @@ export default function ListingDetailsPage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Opening Hours */}
-      {listing.openingHours.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#93C01F]" /> Opening Hours
-          </h3>
-          <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg max-w-md">
-            {listing.openingHours.map((h) => (
-              <div
-                key={h.day_of_week}
-                className="flex items-center justify-between px-4 py-2.5 text-sm"
-              >
-                <span className="text-gray-700">{h.day_of_week}</span>
-                <span className="text-gray-500">
-                  {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Socials — only when at least one exists */}
-      {hasSocials && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900">Social Links</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-xl">
-            <SocialLink href={s.facebook} icon={Facebook} label="Facebook" />
-            <SocialLink href={s.instagram} icon={Instagram} label="Instagram" />
-            <SocialLink href={s.twitter} icon={Twitter} label="Twitter" />
-            <SocialLink href={s.tiktok} icon={Music2} label="TikTok" />
-            <SocialLink href={s.youtube} icon={Youtube} label="YouTube" />
-            <SocialLink href={s.whatsapp} icon={MessageCircle} label="WhatsApp" />
           </div>
         </div>
       )}
