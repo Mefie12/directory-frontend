@@ -83,6 +83,7 @@ interface ListingDetail {
   vendor: string;
   vendorAvatar?: string;
   category: string;
+  subcategory?: string;
   location: string;
   type: string;
   approval: "Approved" | "Pending" | "Rejected" | "Suspended";
@@ -164,22 +165,43 @@ const mapListing = (item: any): ListingDetail => {
     "/images/no-image.jpg";
 
   let category = "General";
+  let subcategory = "";
   if (Array.isArray(item.categories) && item.categories.length > 0) {
     const mains = item.categories.filter(
       (c: any) => c.parent_slug == null || c.type === "mainCategory",
     );
+    const subs = item.categories.filter(
+      (c: any) => c.parent_slug != null && c.type !== "mainCategory",
+    );
     category = (mains.length > 0 ? mains : item.categories)
       .map((c: any) => c.name)
       .join(", ");
+    subcategory = subs.map((c: any) => c.name).join(", ");
   } else if (item.category) {
     category = item.category;
   }
 
+  // Events carry their location under event_* fields; businesses/communities
+  // use the top-level address/city/country instead.
   let location = "";
-  if (item.city && item.country) location = `${item.city}, ${item.country}`;
-  else if (item.address) location = item.address;
-  else if (item.country) location = item.country;
-  else if (item.location) location = item.location;
+  if (item.type === "event") {
+    location = [
+      item.event_venue,
+      item.event_venue_address,
+      item.event_city,
+      item.event_country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  } else if (item.city && item.country) {
+    location = `${item.city}, ${item.country}`;
+  } else if (item.address) {
+    location = item.address;
+  } else if (item.country) {
+    location = item.country;
+  } else if (item.location) {
+    location = item.location;
+  }
 
   const rawStatus = (item.status || "pending").toLowerCase();
   let approval: ListingDetail["approval"] = "Pending";
@@ -233,6 +255,7 @@ const mapListing = (item: any): ListingDetail => {
     vendor: vendorName,
     vendorAvatar: item.vendorAvatar || item.vendor_image || "",
     category,
+    subcategory: subcategory || undefined,
     location,
     type: item.type || "business",
     approval,
@@ -517,18 +540,6 @@ export default function ListingDetailsPage() {
     ? website.replace(/^https?:\/\//, "").replace(/\/$/, "")
     : "";
   const ev = listing.event;
-  const hasEventInfo = !!(
-    ev &&
-    (ev.start_date ||
-      ev.end_date ||
-      ev.start_time ||
-      ev.venue ||
-      ev.venue_address ||
-      ev.city ||
-      ev.country ||
-      ev.price != null ||
-      ev.location_type)
-  );
 
   const TypeIcon =
     listing.type === "event"
@@ -782,25 +793,12 @@ export default function ListingDetailsPage() {
             </div>
           </div>
 
-          {/* Address */}
+          {/* Vendor Details */}
           <div className="rounded-xl border border-gray-100 bg-white p-4">
             <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Address
+              Vendor Details
             </h3>
-            <InfoRow icon={MapPin} label="Location">
-              {listing.location || "—"}
-            </InfoRow>
-            <InfoRow icon={Tag} label="Category">
-              {listing.category}
-            </InfoRow>
-          </div>
-
-          {/* Details */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Details
-            </h3>
-            <InfoRow icon={User} label="Vendor">
+            <InfoRow icon={User} label="Name">
               <span className="inline-flex items-center gap-2">
                 <Avatar className="h-5 w-5">
                   <AvatarImage
@@ -819,11 +817,11 @@ export default function ListingDetailsPage() {
                 {listing.userInfo.name}
               </InfoRow>
             )}
-            <InfoRow icon={Gem} label="Subscription">
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-                {listing.plan || "Basic"} plan
-              </span>
-            </InfoRow>
+            {listing.contactInfo.email && (
+              <InfoRow icon={Mail} label="Email">
+                {listing.contactInfo.email}
+              </InfoRow>
+            )}
             {listing.contactInfo.phone && (
               <InfoRow icon={Phone} label="Phone">
                 {listing.contactInfo.phone}
@@ -832,11 +830,6 @@ export default function ListingDetailsPage() {
             {listing.contactInfo.secondaryPhone && (
               <InfoRow icon={Phone} label="Secondary phone">
                 {listing.contactInfo.secondaryPhone}
-              </InfoRow>
-            )}
-            {listing.contactInfo.email && (
-              <InfoRow icon={Mail} label="Email">
-                {listing.contactInfo.email}
               </InfoRow>
             )}
             {website && (
@@ -853,6 +846,67 @@ export default function ListingDetailsPage() {
                 </a>
               </InfoRow>
             )}
+          </div>
+
+          {/* Listing Details */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-1">
+              Listing Details
+            </h3>
+            <InfoRow icon={Gem} label="Subscription">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </InfoRow>
+
+            {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
+              <InfoRow icon={Calendar} label="Date">
+                {ev.start_date}
+                {ev.end_date ? ` – ${ev.end_date}` : ""}
+              </InfoRow>
+            )}
+            {listing.type === "event" && ev && (ev.start_time || ev.end_time) && (
+              <InfoRow icon={Clock} label="Time">
+                {ev.start_time}
+                {ev.end_time ? ` – ${ev.end_time}` : ""}
+              </InfoRow>
+            )}
+
+            {/* Venue (events) or Location (business/community) — a single
+                row so the address never appears twice. `listing.location`
+                is already derived from the right source fields per type. */}
+            <InfoRow
+              icon={MapPin}
+              label={listing.type === "event" ? "Venue" : "Location"}
+            >
+              {listing.location || "—"}
+            </InfoRow>
+
+            {listing.type === "event" && ev?.location_type && (
+              <InfoRow icon={Globe} label="Format">
+                {formatSnakeCase(ev.location_type)}
+              </InfoRow>
+            )}
+
+            <InfoRow icon={Tag} label="Category">
+              {listing.category}
+            </InfoRow>
+            {listing.subcategory && (
+              <InfoRow icon={Tag} label="Sub category">
+                {listing.subcategory}
+              </InfoRow>
+            )}
+
+            {listing.type === "event" &&
+              ev &&
+              ev.price != null &&
+              ev.price !== "" && (
+                <InfoRow icon={Ticket} label="Price">
+                  {ev.currency ? `${ev.currency} ` : ""}
+                  {ev.price}
+                </InfoRow>
+              )}
+
             {listing.businessRegNum && (
               <InfoRow icon={Briefcase} label="Business reg. no.">
                 {listing.businessRegNum}
@@ -864,48 +918,6 @@ export default function ListingDetailsPage() {
               </InfoRow>
             )}
           </div>
-
-          {/* Event & Ticketing — same card pattern as Address/Details so the
-              right column stays visually consistent regardless of which
-              optional sections are present. */}
-          {listing.type === "event" && hasEventInfo && ev && (
-            <div className="rounded-xl border border-gray-100 bg-white p-4">
-              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
-                {/* <Ticket className="w-4 h-4 text-[#93C01F]" /> Date, Venue &amp; Ticketing */}
-                Date, Venue &amp; Ticketing
-              </h3>
-              {(ev.start_date || ev.end_date) && (
-                <InfoRow icon={Calendar} label="Date">
-                  {ev.start_date}
-                  {ev.end_date ? ` – ${ev.end_date}` : ""}
-                </InfoRow>
-              )}
-              {(ev.start_time || ev.end_time) && (
-                <InfoRow icon={Clock} label="Time">
-                  {ev.start_time}
-                  {ev.end_time ? ` – ${ev.end_time}` : ""}
-                </InfoRow>
-              )}
-              {(ev.venue || ev.venue_address || ev.city || ev.country) && (
-                <InfoRow icon={MapPin} label="Venue">
-                  {[ev.venue, ev.venue_address, ev.city, ev.country]
-                    .filter(Boolean)
-                    .join(", ")}
-                </InfoRow>
-              )}
-              {ev.location_type && (
-                <InfoRow icon={Globe} label="Format">
-                  {formatSnakeCase(ev.location_type)}
-                </InfoRow>
-              )}
-              {ev.price != null && ev.price !== "" && (
-                <InfoRow icon={Ticket} label="Price">
-                  {ev.currency ? `${ev.currency} ` : ""}
-                  {ev.price}
-                </InfoRow>
-              )}
-            </div>
-          )}
 
           {/* Social Links */}
           {hasSocials && (
