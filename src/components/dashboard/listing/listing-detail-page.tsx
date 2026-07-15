@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
+  ArrowBendUpLeft,
   PencilSimple,
   MapPin,
   Tag,
-  User,
+  Users,
   Check,
   Copy,
   X,
@@ -20,12 +21,23 @@ import {
   UploadSimple,
   Briefcase,
   Eye,
+  Globe,
+  Calendar,
+  Clock,
+  Ticket,
+  Diamond,
+  CheckCircle,
+  FacebookLogo,
+  InstagramLogo,
+  XLogo,
+  TiktokLogo,
+  YoutubeLogo,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/context/auth-context";
 import { useRolePath } from "@/hooks/useRolePath";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -73,6 +85,37 @@ interface ListingImage {
 interface Category {
   id: number;
   name: string;
+  parent_slug?: string | null;
+  type?: string;
+}
+
+interface EventInfo {
+  start_date?: string | null;
+  end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  venue?: string | null;
+  venue_address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  price?: string | number | null;
+  currency?: string | null;
+  location_type?: string | null;
+}
+
+interface ApiOpeningHour {
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
+}
+
+interface ApiSocials {
+  facebook?: string | null;
+  instagram?: string | null;
+  twitter?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+  whatsapp?: string | null;
 }
 
 interface ApiListing {
@@ -85,12 +128,37 @@ interface ApiListing {
   city: string;
   status: string;
   type?: string;
+  plan?: string;
+  business_reg_num?: string | null;
+  claim_status?: string | null;
+  primary_phone?: string;
+  secondary_phone?: string;
+  email?: string;
+  website?: string;
   images: ListingImage[];
   categories: Category[];
+  opening_hours?: ApiOpeningHour[];
+  socials?: ApiSocials[] | ApiSocials;
   rating: number;
   ratings_count: number;
   views_count: number;
   bookmarks_count: number;
+  user?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  event_start_date?: string | null;
+  event_end_date?: string | null;
+  event_start_time?: string | null;
+  event_end_time?: string | null;
+  event_venue?: string | null;
+  event_venue_address?: string | null;
+  event_city?: string | null;
+  event_country?: string | null;
+  event_price?: string | number | null;
+  event_currency?: string | null;
+  event_location_type?: string | null;
 }
 
 interface Service {
@@ -126,6 +194,16 @@ interface ListingDetail {
   status: "published" | "pending" | "drafted";
   type: string;
   category: string;
+  subcategory?: string;
+  plan: string;
+  businessRegNum?: string | null;
+  claimStatus?: string | null;
+  contactInfo: {
+    website?: string;
+  };
+  openingHours: ApiOpeningHour[];
+  socials: ApiSocials;
+  event?: EventInfo;
   coverImage: string;
   allImages: string[];
   views: number;
@@ -170,7 +248,15 @@ const getStatusLabel = (status: string) => {
   return "Draft";
 };
 
-// Compact key/value row used inside the Address & Details cards.
+// "in_person" -> "In Person"
+const formatSnakeCase = (value: string) =>
+  value
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+// Compact key/value row used inside the Listing Details card.
 function InfoRow({
   icon: Icon,
   label,
@@ -194,13 +280,37 @@ function InfoRow({
   );
 }
 
+function SocialLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any;
+  label: string;
+}) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#93C01F] transition-colors p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+    >
+      <Icon className="w-4 h-4" />
+      <span className="truncate max-w-[150px]">{label}</span>
+    </a>
+  );
+}
+
 // --- Main Component ---
 
 export default function ListingDetailPage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { myListings, listingEdit } = useRolePath();
 
   const highlightReviewSlug = searchParams.get("review");
@@ -219,29 +329,26 @@ export default function ListingDetailPage({ params }: PageProps) {
   const [replyText, setReplyText] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
-  // "Add Services" multi-row form (sidebar slot, under the image gallery)
+  // "Add Services" multi-row form, now opened from a button as a modal
+  const [addServicesOpen, setAddServicesOpen] = useState(false);
   const [serviceRows, setServiceRows] = useState<ServiceRow[]>([
     { ...EMPTY_SERVICE_ROW },
   ]);
   const [isSubmittingServices, setIsSubmittingServices] = useState(false);
-  const rowFileInputRefs = useRef<Record<number, HTMLInputElement | null>>(
-    {},
-  );
+  const rowFileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   // Single-service edit dialog (triggered from the Services list below)
   const [editOpen, setEditOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editData, setEditData] = useState({ name: "", description: "" });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(
-    null,
-  );
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
-  const [deletingServiceSlug, setDeletingServiceSlug] = useState<
-    string | null
-  >(null);
+  const [deletingServiceSlug, setDeletingServiceSlug] = useState<string | null>(
+    null,
+  );
   const [isDeletingService, setIsDeletingService] = useState(false);
 
   const fetchListing = useCallback(async () => {
@@ -278,6 +385,69 @@ export default function ListingDetailPage({ params }: PageProps) {
         const catName = data.categories[0].name.toLowerCase();
         if (["community", "event"].includes(catName)) resolvedType = catName;
       }
+      resolvedType = resolvedType || "business";
+
+      // Category / sub-category split (mirrors the admin listing page).
+      let category = "Uncategorized";
+      let subcategory = "";
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
+        const mains = data.categories.filter(
+          (c) => c.parent_slug == null || c.type === "mainCategory",
+        );
+        const subs = data.categories.filter(
+          (c) => c.parent_slug != null && c.type !== "mainCategory",
+        );
+        category = (mains.length > 0 ? mains : data.categories)
+          .map((c) => c.name)
+          .join(", ");
+        subcategory = subs.map((c) => c.name).join(", ");
+      }
+
+      // Events carry their location under event_* fields; businesses/
+      // communities use the top-level address/city/country instead.
+      let location = "";
+      if (resolvedType === "event") {
+        location = [
+          data.event_venue,
+          data.event_venue_address,
+          data.event_city,
+          data.event_country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+      } else if (data.city && data.country) {
+        location = `${data.city}, ${data.country}`;
+      } else if (data.address) {
+        location = data.address;
+      } else if (data.country) {
+        location = data.country;
+      }
+      location = location || "Online";
+
+      const event: EventInfo | undefined =
+        resolvedType === "event"
+          ? {
+              start_date: data.event_start_date,
+              end_date: data.event_end_date,
+              start_time: data.event_start_time,
+              end_time: data.event_end_time,
+              venue: data.event_venue,
+              venue_address: data.event_venue_address,
+              city: data.event_city,
+              country: data.event_country,
+              price: data.event_price,
+              currency: data.event_currency,
+              location_type: data.event_location_type,
+            }
+          : undefined;
+
+      const openingHours: ApiOpeningHour[] = Array.isArray(data.opening_hours)
+        ? data.opening_hours
+        : [];
+
+      const socials: ApiSocials = Array.isArray(data.socials)
+        ? data.socials[0] || {}
+        : data.socials || {};
 
       setListing({
         id: data.id.toString(),
@@ -285,11 +455,20 @@ export default function ListingDetailPage({ params }: PageProps) {
         name: data.name,
         bio: data.bio || "",
         address: data.address || "",
-        location:
-          [data.city, data.country].filter(Boolean).join(", ") || "Online",
+        location,
         status,
-        type: resolvedType || "business",
-        category: data.categories?.[0]?.name || "Uncategorized",
+        type: resolvedType,
+        category,
+        subcategory: subcategory || undefined,
+        plan: data.plan || "Basic",
+        businessRegNum: data.business_reg_num,
+        claimStatus: data.claim_status,
+        contactInfo: {
+          website: data.website,
+        },
+        openingHours,
+        socials,
+        event,
         coverImage: validImages[0] || "/images/no-image.jpg",
         allImages: validImages,
         views: data.views_count || 0,
@@ -415,22 +594,19 @@ export default function ListingDetailPage({ params }: PageProps) {
   const uploadServiceImage = useCallback(
     async (file: File): Promise<string | null> => {
       const token = localStorage.getItem("authToken");
-      const presignRes = await fetch(
-        `/api/listings/${slug}/services/presign`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            filename: file.name,
-            mime_type: file.type,
-            size: file.size,
-          }),
+      const presignRes = await fetch(`/api/listings/${slug}/services/presign`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-      );
+        body: JSON.stringify({
+          filename: file.name,
+          mime_type: file.type,
+          size: file.size,
+        }),
+      });
       if (!presignRes.ok) throw new Error("Could not get upload URL");
       const { upload_url, key } = await presignRes.json();
 
@@ -445,7 +621,12 @@ export default function ListingDetailPage({ params }: PageProps) {
     [slug],
   );
 
-  // --- Multi-row "Add Services" form ---
+  // --- Multi-row "Add Services" form (inside the modal) ---
+
+  const openAddServices = () => {
+    setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+    setAddServicesOpen(true);
+  };
 
   const addServiceRow = () =>
     setServiceRows((prev) => [...prev, { ...EMPTY_SERVICE_ROW }]);
@@ -505,9 +686,7 @@ export default function ListingDetailPage({ params }: PageProps) {
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(
-            err.message || err.error || "Failed to add service",
-          );
+          throw new Error(err.message || err.error || "Failed to add service");
         }
       }
 
@@ -517,9 +696,12 @@ export default function ListingDetailPage({ params }: PageProps) {
           : "Service added successfully",
       );
       setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+      setAddServicesOpen(false);
       fetchServices();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add services");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add services",
+      );
     } finally {
       setIsSubmittingServices(false);
     }
@@ -566,9 +748,7 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(
-          err.message || err.error || "Failed to update service",
-        );
+        throw new Error(err.message || err.error || "Failed to update service");
       }
 
       toast.success("Service updated successfully");
@@ -599,7 +779,9 @@ export default function ListingDetailPage({ params }: PageProps) {
       toast.success("Service deleted");
       fetchServices();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete service");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete service",
+      );
     } finally {
       setIsDeletingService(false);
       setDeletingServiceSlug(null);
@@ -660,14 +842,6 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
   };
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-
   // --- Loading ---
   if (loading || authLoading) {
     return (
@@ -691,6 +865,129 @@ export default function ListingDetailPage({ params }: PageProps) {
   }
 
   const validRowCount = serviceRows.filter((r) => r.name.trim()).length;
+  const ev = listing.event;
+  const TypeIcon =
+    listing.type === "event"
+      ? Ticket
+      : listing.type === "community"
+        ? Users
+        : Briefcase;
+  const hasSocials = !!(
+    listing.socials.facebook ||
+    listing.socials.instagram ||
+    listing.socials.twitter ||
+    listing.socials.tiktok ||
+    listing.socials.youtube ||
+    listing.socials.whatsapp
+  );
+
+  const addServicesForm = (
+    <div className="space-y-4">
+      <div className="space-y-3 max-h-[520px] overflow-y-auto pr-0.5">
+        {serviceRows.map((row, index) => (
+          <div
+            key={index}
+            className="relative rounded-xl border border-gray-100 p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-[#5F8B0A] uppercase tracking-wide">
+                Service {index + 1}
+              </span>
+              {serviceRows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeServiceRow(index)}
+                  className="p-1 text-gray-400 hover:text-red-600 rounded"
+                  title="Remove this service"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <Input
+              placeholder="e.g. Wedding Photography, Logo Design…"
+              value={row.name}
+              onChange={(e) =>
+                updateServiceRow(index, { name: e.target.value })
+              }
+              className="bg-white h-10"
+            />
+
+            <Textarea
+              placeholder="Describe what this service includes, pricing, turnaround time… (optional)"
+              rows={2}
+              value={row.description}
+              onChange={(e) =>
+                updateServiceRow(index, { description: e.target.value })
+              }
+              className="bg-white resize-none text-sm"
+            />
+
+            {row.imagePreview ? (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden group border border-gray-200">
+                <Image
+                  src={row.imagePreview}
+                  alt="Service image preview"
+                  fill
+                  className="object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateServiceRow(index, {
+                      imageFile: null,
+                      imagePreview: null,
+                    })
+                  }
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="relative border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
+                onClick={() => rowFileInputRefs.current[index]?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleRowImageFile(index, e.dataTransfer.files);
+                }}
+              >
+                <UploadSimple className="w-5 h-5 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-1.5 transition-colors" />
+                <p className="text-xs text-gray-500">
+                  <span className="text-[#93C01F] font-medium">
+                    Click to upload
+                  </span>{" "}
+                  or drag &amp; drop{" "}
+                  <span className="text-gray-400">(optional)</span>
+                </p>
+              </div>
+            )}
+            <input
+              ref={(el) => {
+                rowFileInputRefs.current[index] = el;
+              }}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleRowImageFile(index, e.target.files)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addServiceRow}
+        className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-[#93C01F] hover:text-[#93C01F] hover:bg-[#93C01F]/5 transition-all"
+      >
+        <Plus className="w-4 h-4" />
+        Add another service
+      </button>
+    </div>
+  );
 
   return (
     <div className="px-1 lg:px-8 py-4 space-y-8 max-w-6xl mx-auto">
@@ -715,147 +1012,314 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       {/* Hero: image gallery (left) + info column (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Left: carousel + Add Services form */}
+        {/* Left: gallery, description, services, reviews */}
         <div className="lg:col-span-3 space-y-5">
           <ListingImageGallery images={listing.allImages} alt={listing.name} />
 
-          {/* Sidebar slot: Add Services (multi-row, publish together) */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 space-y-4">
-            <div>
-              <h3 className="font-semibold text-gray-900 text-sm">
-                Add Services
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Showcase what you offer — add as many as you like, then
-                publish them together.
-              </p>
-            </div>
-
-            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-0.5">
-              {serviceRows.map((row, index) => (
-                <div
-                  key={index}
-                  className="relative rounded-xl border border-gray-100 p-4 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#5F8B0A] uppercase tracking-wide">
-                      Service {index + 1}
-                    </span>
-                    {serviceRows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeServiceRow(index)}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded"
-                        title="Remove this service"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <Input
-                    placeholder="e.g. Wedding Photography, Logo Design…"
-                    value={row.name}
-                    onChange={(e) =>
-                      updateServiceRow(index, { name: e.target.value })
-                    }
-                    className="bg-white h-10"
-                  />
-
-                  <Textarea
-                    placeholder="Describe what this service includes, pricing, turnaround time… (optional)"
-                    rows={2}
-                    value={row.description}
-                    onChange={(e) =>
-                      updateServiceRow(index, { description: e.target.value })
-                    }
-                    className="bg-white resize-none text-sm"
-                  />
-
-                  {row.imagePreview ? (
-                    <div className="relative w-full aspect-video rounded-lg overflow-hidden group border border-gray-200">
-                      <Image
-                        src={row.imagePreview}
-                        alt="Service image preview"
-                        fill
-                        className="object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateServiceRow(index, {
-                            imageFile: null,
-                            imagePreview: null,
-                          })
-                        }
-                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className="relative border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
-                      onClick={() =>
-                        rowFileInputRefs.current[index]?.click()
-                      }
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleRowImageFile(index, e.dataTransfer.files);
-                      }}
-                    >
-                      <UploadSimple className="w-5 h-5 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-1.5 transition-colors" />
-                      <p className="text-xs text-gray-500">
-                        <span className="text-[#93C01F] font-medium">
-                          Click to upload
-                        </span>{" "}
-                        or drag &amp; drop{" "}
-                        <span className="text-gray-400">(optional)</span>
-                      </p>
-                    </div>
-                  )}
-                  <input
-                    ref={(el) => {
-                      rowFileInputRefs.current[index] = el;
-                    }}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) =>
-                      handleRowImageFile(index, e.target.files)
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={addServiceRow}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-[#93C01F] hover:text-[#93C01F] hover:bg-[#93C01F]/5 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Add another service
-            </button>
-
-            <Button
-              className="w-full bg-[#93C01F] hover:bg-[#82ab1b]"
-              onClick={handleAddServices}
-              disabled={isSubmittingServices || validRowCount === 0}
-            >
-              {isSubmittingServices ? (
-                <SpinnerGap className="w-4 h-4 animate-spin" />
-              ) : validRowCount > 1 ? (
-                `Publish ${validRowCount} Services`
+          {/* Description */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-gray-900 text-sm">
+              About this listing
+            </h3>
+            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+              {listing.bio ? (
+                <RichTextDisplay html={listing.bio} />
               ) : (
-                "Publish Service"
+                <span className="text-gray-400">No description provided.</span>
               )}
-            </Button>
+            </div>
+          </div>
+
+          {/* Services */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
+              </h3>
+              <Button
+                size="sm"
+                className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
+                onClick={openAddServices}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Service
+              </Button>
+            </div>
+
+            {services.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-100"
+                  >
+                    <div className="w-11 h-11 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
+                      {service.image ? (
+                        <Image
+                          src={getImageUrl(service.image)}
+                          alt={service.name}
+                          fill
+                          className="object-cover"
+                          sizes="44px"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {service.name}
+                        </p>
+                        <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-[#93C01F] rounded"
+                            onClick={() => openEditService(service)}
+                          >
+                            <PencilSimple className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-red-500 rounded"
+                            onClick={() =>
+                              service.slug && handleDeleteService(service.slug)
+                            }
+                            disabled={
+                              isDeletingService &&
+                              deletingServiceSlug === service.slug
+                            }
+                          >
+                            {isDeletingService &&
+                            deletingServiceSlug === service.slug ? (
+                              <SpinnerGap className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {service.description && (
+                        <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 mt-2 border-2 border-dashed border-gray-100 rounded-xl">
+                <Briefcase className="w-8 h-8 text-gray-200 mb-2" />
+                <p className="text-gray-600 text-sm font-medium">
+                  No services yet
+                </p>
+                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+                  Tap &ldquo;Add Service&rdquo; to showcase what you offer.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Star className="w-4 h-4 text-[#93C01F]" /> Customer Reviews
+              </h3>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Star
+                      className="w-3.5 h-3.5 text-yellow-400"
+                      weight="fill"
+                    />
+                    <span className="font-semibold text-gray-900">
+                      {listing.rating.toFixed(1)}
+                    </span>{" "}
+                    avg
+                  </span>
+                  <span className="text-gray-200">|</span>
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {reviews.length}
+                    </span>{" "}
+                    review{reviews.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {reviewsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
+                <Star className="w-9 h-9 text-gray-200 mb-3" />
+                <p className="text-gray-600 text-sm font-medium">
+                  No reviews yet
+                </p>
+                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+                  Reviews from customers will appear here once they start coming
+                  in.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => {
+                  const reviewerName = review.user
+                    ? `${review.user.first_name} ${review.user.last_name}`.trim()
+                    : "Anonymous";
+                  const isReplying = replyingToSlug === review.slug;
+                  const alreadyReplied = !!review.vendor_reply;
+
+                  return (
+                    <div
+                      key={review.id}
+                      id={`review-${review.slug}`}
+                      className="border border-gray-100 rounded-xl p-4 space-y-3 bg-white"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-gray-500">
+                              {reviewerName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {reviewerName}
+                            </p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3 h-3 ${
+                                    star <= Math.round(review.rating ?? 0)
+                                      ? "text-yellow-400"
+                                      : "text-gray-200"
+                                  }`}
+                                  weight="fill"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-gray-400 shrink-0">
+                          {review.created_at
+                            ? new Date(review.created_at).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )
+                            : ""}
+                        </span>
+                      </div>
+
+                      {review.comment && (
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {review.comment}
+                        </p>
+                      )}
+
+                      {review.vendor_reply && (
+                        <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">
+                            Your reply
+                            {review.vendor_reply_at && (
+                              <span className="font-normal text-gray-400 ml-2">
+                                ·{" "}
+                                {new Date(
+                                  review.vendor_reply_at,
+                                ).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {review.vendor_reply}
+                          </p>
+                        </div>
+                      )}
+
+                      {!alreadyReplied && !isReplying && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingToSlug(review.slug);
+                            setReplyText("");
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
+                        >
+                          <ArrowBendUpLeft className="w-3.5 h-3.5" />
+                          Reply
+                        </button>
+                      )}
+
+                      {isReplying && (
+                        <div className="space-y-2.5 pt-1">
+                          <Textarea
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Write a reply to this review…"
+                            rows={3}
+                            maxLength={500}
+                            className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-gray-400">
+                              {replyText.length}/500
+                            </span>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs"
+                                disabled={isSubmittingReply}
+                                onClick={() => {
+                                  setReplyingToSlug(null);
+                                  setReplyText("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
+                                disabled={
+                                  isSubmittingReply || !replyText.trim()
+                                }
+                                onClick={() => handleReplySubmit(review.slug)}
+                              >
+                                {isSubmittingReply ? (
+                                  <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  "Post Reply"
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right: title, stats, description, address & details */}
+        {/* Right: title, stats, listing details */}
         <div className="lg:col-span-2 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -863,13 +1327,14 @@ export default function ListingDetailPage({ params }: PageProps) {
                 {listing.name}
               </h1>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                  <TypeIcon className="w-3 h-3" />
+                  {listing.type}
+                </span>
                 <span
                   className={`w-fit px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
                 >
                   {getStatusLabel(listing.status)}
-                </span>
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
-                  {listing.type}
                 </span>
               </div>
             </div>
@@ -891,7 +1356,9 @@ export default function ListingDetailPage({ params }: PageProps) {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => router.push(listingEdit(listing.type, listing.slug))}
+                onClick={() =>
+                  router.push(listingEdit(listing.type, listing.slug))
+                }
                 title="Edit listing"
               >
                 <PencilSimple className="w-4 h-4" />
@@ -929,9 +1396,7 @@ export default function ListingDetailPage({ params }: PageProps) {
                 <p className="text-base font-bold text-gray-900 leading-none">
                   {listing.bookmarks.toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-500 truncate mt-1">
-                  Bookmarks
-                </p>
+                <p className="text-xs text-gray-500 truncate mt-1">Bookmarks</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
@@ -958,314 +1423,207 @@ export default function ListingDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900 text-sm">
-              About this listing
-            </h3>
-            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
-              {listing.bio ? (
-                <RichTextDisplay html={listing.bio} />
-              ) : (
-                <span className="text-gray-400">No description provided.</span>
-              )}
-            </div>
-          </div>
-
-          {/* Address */}
+          {/* Listing Details */}
           <div className="rounded-xl border border-gray-100 bg-white p-4">
             <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Address
+              Listing Details
             </h3>
-            <InfoRow icon={MapPin} label="Location">
+            <InfoRow icon={Diamond} label="Subscription">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </InfoRow>
+
+            {listing.type === "event" &&
+              ev &&
+              (ev.start_date || ev.end_date) && (
+                <InfoRow icon={Calendar} label="Date">
+                  {ev.start_date}
+                  {ev.end_date ? ` – ${ev.end_date}` : ""}
+                </InfoRow>
+              )}
+            {listing.type === "event" &&
+              ev &&
+              (ev.start_time || ev.end_time) && (
+                <InfoRow icon={Clock} label="Time">
+                  {ev.start_time}
+                  {ev.end_time ? ` – ${ev.end_time}` : ""}
+                </InfoRow>
+              )}
+
+            <InfoRow
+              icon={MapPin}
+              label={listing.type === "event" ? "Venue" : "Location"}
+            >
               {listing.location}
             </InfoRow>
+
+            {listing.type === "event" && ev?.location_type && (
+              <InfoRow icon={Globe} label="Format">
+                {formatSnakeCase(ev.location_type)}
+              </InfoRow>
+            )}
+
             <InfoRow icon={Tag} label="Category">
               {listing.category}
             </InfoRow>
+            {listing.subcategory && (
+              <InfoRow icon={Tag} label="Sub category">
+                {listing.subcategory}
+              </InfoRow>
+            )}
+            {listing.contactInfo.website && (
+              <InfoRow icon={Globe} label="Website">
+                <a
+                  href={
+                    listing.contactInfo.website.startsWith("http")
+                      ? listing.contactInfo.website
+                      : `https://${listing.contactInfo.website}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {listing.contactInfo.website
+                    .replace(/^https?:\/\//, "")
+                    .replace(/\/$/, "")}
+                </a>
+              </InfoRow>
+            )}
+
+            {listing.type === "event" &&
+              ev &&
+              ev.price != null &&
+              ev.price !== "" && (
+                <InfoRow icon={Ticket} label="Price">
+                  {ev.currency ? `${ev.currency} ` : ""}
+                  {ev.price}
+                </InfoRow>
+              )}
+
+            {listing.businessRegNum && (
+              <InfoRow icon={Briefcase} label="Business reg. no.">
+                {listing.businessRegNum}
+              </InfoRow>
+            )}
+            {listing.claimStatus && (
+              <InfoRow icon={CheckCircle} label="Claim status">
+                <span className="capitalize">{listing.claimStatus}</span>
+              </InfoRow>
+            )}
           </div>
 
-          {/* Details */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Details
-            </h3>
-            <InfoRow icon={User} label="Account">
-              <span className="inline-flex items-center gap-2">
-                <Avatar className="h-5 w-5">
-                  <AvatarFallback className="bg-[#93C01F]/10 text-[#5F8B0A] text-[10px] font-semibold">
-                    {user ? getInitials(user.name || user.email || "U") : "U"}
-                  </AvatarFallback>
-                </Avatar>
-                {user?.name || user?.email || "You"}
-              </span>
-            </InfoRow>
-          </div>
-        </div>
-      </div>
-
-      {/* Services list (full width) */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
-        </h3>
-        {services.length > 0 ? (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                className="flex items-start gap-4 p-4 border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all bg-white"
-              >
-                {service.image ? (
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-100">
-                    <Image
-                      src={getImageUrl(service.image)}
-                      alt={service.name}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-6 h-6 text-gray-300" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-gray-900 text-sm">
-                      {service.name}
-                    </h3>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-[#93C01F]"
-                        onClick={() => openEditService(service)}
-                      >
-                        <PencilSimple className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-red-500"
-                        onClick={() =>
-                          service.slug && handleDeleteService(service.slug)
-                        }
-                        disabled={
-                          isDeletingService &&
-                          deletingServiceSlug === service.slug
-                        }
-                      >
-                        {isDeletingService &&
-                        deletingServiceSlug === service.slug ? (
-                          <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {service.description && (
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                      {service.description}
-                    </p>
-                  )}
-                </div>
+          {/* Social Links */}
+          {hasSocials && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3">
+                Social Links
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <SocialLink
+                  href={listing.socials.facebook}
+                  icon={FacebookLogo}
+                  label="Facebook"
+                />
+                <SocialLink
+                  href={listing.socials.instagram}
+                  icon={InstagramLogo}
+                  label="Instagram"
+                />
+                <SocialLink
+                  href={listing.socials.twitter}
+                  icon={XLogo}
+                  label="Twitter"
+                />
+                <SocialLink
+                  href={listing.socials.tiktok}
+                  icon={TiktokLogo}
+                  label="TikTok"
+                />
+                <SocialLink
+                  href={listing.socials.youtube}
+                  icon={YoutubeLogo}
+                  label="YouTube"
+                />
+                <SocialLink
+                  href={listing.socials.whatsapp}
+                  icon={WhatsappLogo}
+                  label="WhatsApp"
+                />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
-            <Briefcase className="w-9 h-9 text-gray-200 mb-3" />
-            <p className="text-gray-600 text-sm font-medium">No services yet</p>
-            <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-              Use the Add Services form above to showcase what you offer.
-            </p>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
 
-      {/* Reviews (full width) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <Star className="w-4 h-4 text-[#93C01F]" /> Customer Reviews
-          </h3>
-          {reviews.length > 0 && (
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <span>
-                <span className="font-semibold text-gray-900">
-                  {listing.rating.toFixed(1)}
-                </span>{" "}
-                avg
-              </span>
-              <span className="text-gray-200">|</span>
-              <span>
-                <span className="font-semibold text-gray-900">
-                  {reviews.length}
-                </span>{" "}
-                review{reviews.length !== 1 ? "s" : ""}
-              </span>
+          {/* Opening Hours */}
+          {listing.openingHours.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
+                {/* <Clock className="w-4 h-4 text-[#93C01F]" /> Opening Hours */}
+              Opening Hours
+              </h3>
+              <div className="divide-y divide-gray-50">
+                {listing.openingHours.map((h) => (
+                  <div
+                    key={h.day_of_week}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
+                    <span className="text-gray-500">{h.day_of_week}</span>
+                    <span className="font-medium text-gray-900">
+                      {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-
-        {reviewsLoading ? (
-          <div className="flex items-center justify-center py-10">
-            <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
-            <Star className="w-9 h-9 text-gray-200 mb-3" />
-            <p className="text-gray-600 text-sm font-medium">No reviews yet</p>
-            <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-              Reviews from customers will appear here once they start coming
-              in.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reviews.map((review) => {
-              const reviewerName = review.user
-                ? `${review.user.first_name} ${review.user.last_name}`.trim()
-                : "Anonymous";
-              const isReplying = replyingToSlug === review.slug;
-              const alreadyReplied = !!review.vendor_reply;
-
-              return (
-                <div
-                  key={review.id}
-                  id={`review-${review.slug}`}
-                  className="border border-gray-100 rounded-xl p-4 space-y-3 bg-white"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-gray-500">
-                          {reviewerName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {reviewerName}
-                        </p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`w-3 h-3 ${
-                                star <= Math.round(review.rating ?? 0)
-                                  ? "text-yellow-400"
-                                  : "text-gray-200"
-                              }`}
-                              weight="fill"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-gray-400 shrink-0">
-                      {review.created_at
-                        ? new Date(review.created_at).toLocaleDateString(
-                            "en-GB",
-                            { day: "numeric", month: "short", year: "numeric" },
-                          )
-                        : ""}
-                    </span>
-                  </div>
-
-                  {review.comment && (
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      {review.comment}
-                    </p>
-                  )}
-
-                  {review.vendor_reply && (
-                    <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
-                      <p className="text-xs font-semibold text-gray-700 mb-1">
-                        Your reply
-                        {review.vendor_reply_at && (
-                          <span className="font-normal text-gray-400 ml-2">
-                            ·{" "}
-                            {new Date(
-                              review.vendor_reply_at,
-                            ).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        {review.vendor_reply}
-                      </p>
-                    </div>
-                  )}
-
-                  {!alreadyReplied && !isReplying && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplyingToSlug(review.slug);
-                        setReplyText("");
-                      }}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
-                    >
-                      ↩ Reply
-                    </button>
-                  )}
-
-                  {isReplying && (
-                    <div className="space-y-2.5 pt-1">
-                      <Textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Write a reply to this review…"
-                        rows={3}
-                        maxLength={500}
-                        className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400">
-                          {replyText.length}/500
-                        </span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs"
-                            disabled={isSubmittingReply}
-                            onClick={() => {
-                              setReplyingToSlug(null);
-                              setReplyText("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
-                            disabled={isSubmittingReply || !replyText.trim()}
-                            onClick={() => handleReplySubmit(review.slug)}
-                          >
-                            {isSubmittingReply ? (
-                              <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              "Post Reply"
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
+
+      {/* Add Services Dialog */}
+      <Dialog
+        open={addServicesOpen}
+        onOpenChange={(open) => {
+          if (!open) setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+          setAddServicesOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Add Services
+            </DialogTitle>
+            <p className="text-xs text-gray-400">
+              Showcase what you offer — add as many as you like, then publish
+              them together.
+            </p>
+          </DialogHeader>
+
+          {addServicesForm}
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setAddServicesOpen(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#93C01F] hover:bg-[#82ab1b]"
+              onClick={handleAddServices}
+              disabled={isSubmittingServices || validRowCount === 0}
+            >
+              {isSubmittingServices ? (
+                <SpinnerGap className="w-4 h-4 animate-spin" />
+              ) : validRowCount > 1 ? (
+                `Publish ${validRowCount} Services`
+              ) : (
+                "Publish Service"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Service Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -1309,9 +1667,7 @@ export default function ListingDetailPage({ params }: PageProps) {
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-gray-700">
                   Image{" "}
-                  <span className="text-gray-400 font-normal">
-                    (Optional)
-                  </span>
+                  <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 {editImagePreview && (
                   <button
@@ -1433,8 +1789,8 @@ export default function ListingDetailPage({ params }: PageProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this listing?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{listing.name}</strong>.
-              This action cannot be undone.
+              This will permanently delete <strong>{listing.name}</strong>. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

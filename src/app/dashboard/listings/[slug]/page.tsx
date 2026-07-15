@@ -793,61 +793,6 @@ export default function ListingDetailsPage() {
             </div>
           </div>
 
-          {/* Vendor Details */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Vendor Details
-            </h3>
-            <InfoRow icon={User} label="Name">
-              <span className="inline-flex items-center gap-2">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage
-                    src={listing.vendorAvatar}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="text-[10px]">
-                    {getInitials(listing.vendor)}
-                  </AvatarFallback>
-                </Avatar>
-                {listing.vendor}
-              </span>
-            </InfoRow>
-            {listing.userInfo && (
-              <InfoRow icon={User} label="Owner">
-                {listing.userInfo.name}
-              </InfoRow>
-            )}
-            {listing.contactInfo.email && (
-              <InfoRow icon={Mail} label="Email">
-                {listing.contactInfo.email}
-              </InfoRow>
-            )}
-            {listing.contactInfo.phone && (
-              <InfoRow icon={Phone} label="Phone">
-                {listing.contactInfo.phone}
-              </InfoRow>
-            )}
-            {listing.contactInfo.secondaryPhone && (
-              <InfoRow icon={Phone} label="Secondary phone">
-                {listing.contactInfo.secondaryPhone}
-              </InfoRow>
-            )}
-            {website && (
-              <InfoRow icon={Globe} label="Website">
-                <a
-                  href={
-                    website.startsWith("http") ? website : `https://${website}`
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  {websiteLabel}
-                </a>
-              </InfoRow>
-            )}
-          </div>
-
           {/* Listing Details */}
           <div className="rounded-xl border border-gray-100 bg-white p-4">
             <h3 className="font-semibold text-gray-900 text-sm mb-1">
@@ -894,6 +839,20 @@ export default function ListingDetailsPage() {
             {listing.subcategory && (
               <InfoRow icon={Tag} label="Sub category">
                 {listing.subcategory}
+              </InfoRow>
+            )}
+            {website && (
+              <InfoRow icon={Globe} label="Website">
+                <a
+                  href={
+                    website.startsWith("http") ? website : `https://${website}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {websiteLabel}
+                </a>
               </InfoRow>
             )}
 
@@ -970,6 +929,46 @@ export default function ListingDetailsPage() {
             </div>
           )}
 
+          {/* Vendor Details */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-1">
+              Vendor Details
+            </h3>
+            <InfoRow icon={User} label="Name">
+              <span className="inline-flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage
+                    src={listing.vendorAvatar}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="text-[10px]">
+                    {getInitials(listing.vendor)}
+                  </AvatarFallback>
+                </Avatar>
+                {listing.vendor}
+              </span>
+            </InfoRow>
+            {listing.userInfo && (
+              <InfoRow icon={User} label="Owner">
+                {listing.userInfo.name}
+              </InfoRow>
+            )}
+            {listing.contactInfo.email && (
+              <InfoRow icon={Mail} label="Email">
+                {listing.contactInfo.email}
+              </InfoRow>
+            )}
+            {listing.contactInfo.phone && (
+              <InfoRow icon={Phone} label="Phone">
+                {listing.contactInfo.phone}
+              </InfoRow>
+            )}
+            {listing.contactInfo.secondaryPhone && (
+              <InfoRow icon={Phone} label="Secondary phone">
+                {listing.contactInfo.secondaryPhone}
+              </InfoRow>
+            )}
+          </div>
         </div>
       </div>
 
