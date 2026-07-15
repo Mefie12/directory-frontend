@@ -146,6 +146,18 @@ export default function RootLayout({
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "x8jgxrd7kq");`}
         </Script>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-L1GY8G7FVN"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-L1GY8G7FVN');
+          `}
+        </Script>
       </head>
       <body className={`${gilroy.variable} antialiased`}>
         {/* <Navbar /> */}

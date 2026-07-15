@@ -11,9 +11,11 @@ import { usePathname } from "next/navigation";
 
 interface CommunityCardProps {
   community: CommunityCard & { image?: string }; // Extend type to allow 'image'
+  /** Optional explicit link. When omitted, the link is derived from the current path. */
+  href?: string;
 }
 
-export default function CommunityCard({ community }: CommunityCardProps) {
+export default function CommunityCard({ community, href }: CommunityCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(community.slug);
   const pathname = usePathname(); // Get current path
@@ -40,8 +42,10 @@ export default function CommunityCard({ community }: CommunityCardProps) {
     return "/discover";
   };
 
-  // Construct the dynamic link based on current page
+  // Construct the dynamic link based on current page, unless an explicit href
+  // was provided (e.g. the category page routes by listing type).
   const getBusinessLink = () => {
+    if (href) return href;
     const basePath = getBasePath();
     return `${basePath}/${community.slug}`;
   };

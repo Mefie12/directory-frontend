@@ -5,16 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
+  ArrowBendUpLeft,
   PencilSimple,
   MapPin,
   Tag,
-  Diamond,
-  ArrowsClockwise,
-  // Link as LinkIcon,
+  Users,
   Check,
   Copy,
   X,
-  Eye,
   BookmarkSimple,
   Star,
   Trash,
@@ -22,15 +20,24 @@ import {
   SpinnerGap,
   UploadSimple,
   Briefcase,
-  Images,
+  Eye,
+  Globe,
+  Calendar,
+  Clock,
+  Ticket,
+  Diamond,
+  CheckCircle,
+  FacebookLogo,
+  InstagramLogo,
+  XLogo,
+  TiktokLogo,
+  YoutubeLogo,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/context/auth-context";
 import { useRolePath } from "@/hooks/useRolePath";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,6 +55,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Breadcrumb,
@@ -58,6 +66,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
+import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
 
 // --- Types ---
 
@@ -76,6 +85,37 @@ interface ListingImage {
 interface Category {
   id: number;
   name: string;
+  parent_slug?: string | null;
+  type?: string;
+}
+
+interface EventInfo {
+  start_date?: string | null;
+  end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  venue?: string | null;
+  venue_address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  price?: string | number | null;
+  currency?: string | null;
+  location_type?: string | null;
+}
+
+interface ApiOpeningHour {
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
+}
+
+interface ApiSocials {
+  facebook?: string | null;
+  instagram?: string | null;
+  twitter?: string | null;
+  tiktok?: string | null;
+  youtube?: string | null;
+  whatsapp?: string | null;
 }
 
 interface ApiListing {
@@ -88,12 +128,37 @@ interface ApiListing {
   city: string;
   status: string;
   type?: string;
+  plan?: string;
+  business_reg_num?: string | null;
+  claim_status?: string | null;
+  primary_phone?: string;
+  secondary_phone?: string;
+  email?: string;
+  website?: string;
   images: ListingImage[];
   categories: Category[];
+  opening_hours?: ApiOpeningHour[];
+  socials?: ApiSocials[] | ApiSocials;
   rating: number;
   ratings_count: number;
   views_count: number;
   bookmarks_count: number;
+  user?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  event_start_date?: string | null;
+  event_end_date?: string | null;
+  event_start_time?: string | null;
+  event_end_time?: string | null;
+  event_venue?: string | null;
+  event_venue_address?: string | null;
+  event_city?: string | null;
+  event_country?: string | null;
+  event_price?: string | number | null;
+  event_currency?: string | null;
+  event_location_type?: string | null;
 }
 
 interface Service {
@@ -103,6 +168,21 @@ interface Service {
   description: string;
   image?: string | null;
 }
+
+// A row in the "Add Services" multi-row form.
+interface ServiceRow {
+  name: string;
+  description: string;
+  imageFile: File | null;
+  imagePreview: string | null;
+}
+
+const EMPTY_SERVICE_ROW: ServiceRow = {
+  name: "",
+  description: "",
+  imageFile: null,
+  imagePreview: null,
+};
 
 interface ListingDetail {
   id: string;
@@ -114,6 +194,16 @@ interface ListingDetail {
   status: "published" | "pending" | "drafted";
   type: string;
   category: string;
+  subcategory?: string;
+  plan: string;
+  businessRegNum?: string | null;
+  claimStatus?: string | null;
+  contactInfo: {
+    website?: string;
+  };
+  openingHours: ApiOpeningHour[];
+  socials: ApiSocials;
+  event?: EventInfo;
   coverImage: string;
   allImages: string[];
   views: number;
@@ -158,23 +248,77 @@ const getStatusLabel = (status: string) => {
   return "Draft";
 };
 
+// "in_person" -> "In Person"
+const formatSnakeCase = (value: string) =>
+  value
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+// Compact key/value row used inside the Listing Details card.
+function InfoRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-gray-50 last:border-0 text-sm">
+      <span className="flex items-center gap-2 text-gray-500 shrink-0">
+        <Icon className="w-4 h-4 text-gray-400" />
+        {label}
+      </span>
+      <span className="font-medium text-gray-900 text-right truncate">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function SocialLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any;
+  label: string;
+}) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#93C01F] transition-colors p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+    >
+      <Icon className="w-4 h-4" />
+      <span className="truncate max-w-[150px]">{label}</span>
+    </a>
+  );
+}
+
 // --- Main Component ---
 
 export default function ListingDetailPage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { myListings, listingEdit } = useRolePath();
 
-  const defaultTab = searchParams.get("tab") || "overview";
   const highlightReviewSlug = searchParams.get("review");
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -185,21 +329,27 @@ export default function ListingDetailPage({ params }: PageProps) {
   const [replyText, setReplyText] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
-  // Service form state
-  const [showServiceForm, setShowServiceForm] = useState(false);
-  const [serviceFormData, setServiceFormData] = useState({
-    name: "",
-    description: "",
-  });
-  const [serviceImages, setServiceImages] = useState<File[]>([]);
-  const [serviceImagePreviews, setServiceImagePreviews] = useState<string[]>(
-    [],
-  );
-  const [isSubmittingService, setIsSubmittingService] = useState(false);
+  // "Add Services" multi-row form, now opened from a button as a modal
+  const [addServicesOpen, setAddServicesOpen] = useState(false);
+  const [serviceRows, setServiceRows] = useState<ServiceRow[]>([
+    { ...EMPTY_SERVICE_ROW },
+  ]);
+  const [isSubmittingServices, setIsSubmittingServices] = useState(false);
+  const rowFileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+  // Single-service edit dialog (triggered from the Services list below)
+  const [editOpen, setEditOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [deletingServiceSlug, setDeletingServiceSlug] = useState<string | null>(null);
+  const [editData, setEditData] = useState({ name: "", description: "" });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [deletingServiceSlug, setDeletingServiceSlug] = useState<string | null>(
+    null,
+  );
   const [isDeletingService, setIsDeletingService] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchListing = useCallback(async () => {
     try {
@@ -235,6 +385,69 @@ export default function ListingDetailPage({ params }: PageProps) {
         const catName = data.categories[0].name.toLowerCase();
         if (["community", "event"].includes(catName)) resolvedType = catName;
       }
+      resolvedType = resolvedType || "business";
+
+      // Category / sub-category split (mirrors the admin listing page).
+      let category = "Uncategorized";
+      let subcategory = "";
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
+        const mains = data.categories.filter(
+          (c) => c.parent_slug == null || c.type === "mainCategory",
+        );
+        const subs = data.categories.filter(
+          (c) => c.parent_slug != null && c.type !== "mainCategory",
+        );
+        category = (mains.length > 0 ? mains : data.categories)
+          .map((c) => c.name)
+          .join(", ");
+        subcategory = subs.map((c) => c.name).join(", ");
+      }
+
+      // Events carry their location under event_* fields; businesses/
+      // communities use the top-level address/city/country instead.
+      let location = "";
+      if (resolvedType === "event") {
+        location = [
+          data.event_venue,
+          data.event_venue_address,
+          data.event_city,
+          data.event_country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+      } else if (data.city && data.country) {
+        location = `${data.city}, ${data.country}`;
+      } else if (data.address) {
+        location = data.address;
+      } else if (data.country) {
+        location = data.country;
+      }
+      location = location || "Online";
+
+      const event: EventInfo | undefined =
+        resolvedType === "event"
+          ? {
+              start_date: data.event_start_date,
+              end_date: data.event_end_date,
+              start_time: data.event_start_time,
+              end_time: data.event_end_time,
+              venue: data.event_venue,
+              venue_address: data.event_venue_address,
+              city: data.event_city,
+              country: data.event_country,
+              price: data.event_price,
+              currency: data.event_currency,
+              location_type: data.event_location_type,
+            }
+          : undefined;
+
+      const openingHours: ApiOpeningHour[] = Array.isArray(data.opening_hours)
+        ? data.opening_hours
+        : [];
+
+      const socials: ApiSocials = Array.isArray(data.socials)
+        ? data.socials[0] || {}
+        : data.socials || {};
 
       setListing({
         id: data.id.toString(),
@@ -242,13 +455,21 @@ export default function ListingDetailPage({ params }: PageProps) {
         name: data.name,
         bio: data.bio || "",
         address: data.address || "",
-        location:
-          [data.city, data.country].filter(Boolean).join(", ") || "Online",
+        location,
         status,
-        type: resolvedType || "business",
-        category: data.categories?.[0]?.name || "Uncategorized",
-        coverImage:
-          validImages[0] || "/images/no-image.jpg",
+        type: resolvedType,
+        category,
+        subcategory: subcategory || undefined,
+        plan: data.plan || "Basic",
+        businessRegNum: data.business_reg_num,
+        claimStatus: data.claim_status,
+        contactInfo: {
+          website: data.website,
+        },
+        openingHours,
+        socials,
+        event,
+        coverImage: validImages[0] || "/images/no-image.jpg",
         allImages: validImages,
         views: data.views_count || 0,
         bookmarks: data.bookmarks_count || 0,
@@ -306,7 +527,15 @@ export default function ListingDetailPage({ params }: PageProps) {
       const updatedReview: ApiReview = updated.data ?? updated;
 
       setReviews((prev) =>
-        prev.map((r) => (r.slug === ratingSlug ? { ...r, vendor_reply: updatedReview.vendor_reply, vendor_reply_at: updatedReview.vendor_reply_at } : r)),
+        prev.map((r) =>
+          r.slug === ratingSlug
+            ? {
+                ...r,
+                vendor_reply: updatedReview.vendor_reply,
+                vendor_reply_at: updatedReview.vendor_reply_at,
+              }
+            : r,
+        ),
       );
       setReplyingToSlug(null);
       setReplyText("");
@@ -333,11 +562,7 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       const json = await res.json();
       setServices(
-        Array.isArray(json.data)
-          ? json.data
-          : Array.isArray(json)
-            ? json
-            : [],
+        Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [],
       );
     } catch {
       // Silent — services are optional
@@ -352,11 +577,6 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
   }, [authLoading, fetchListing, fetchServices, fetchReviews]);
 
-  // Open service form immediately when navigating with ?tab=services
-  useEffect(() => {
-    if (defaultTab === "services") setShowServiceForm(false);
-  }, [defaultTab]);
-
   // Scroll to and highlight a specific review when arriving via ?review= param
   useEffect(() => {
     if (!highlightReviewSlug || reviews.length === 0) return;
@@ -370,45 +590,177 @@ export default function ListingDetailPage({ params }: PageProps) {
     return () => clearTimeout(timer);
   }, [highlightReviewSlug, reviews]);
 
-  const handleImageFiles = (files: FileList | null) => {
-    if (!files) return;
-    const newFiles = Array.from(files).filter((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`"${file.name}" exceeds the 5 MB limit and was not added.`);
-        return false;
+  // Uploads a File to S3 via the presigned-URL flow and returns the S3 key.
+  const uploadServiceImage = useCallback(
+    async (file: File): Promise<string | null> => {
+      const token = localStorage.getItem("authToken");
+      const presignRes = await fetch(`/api/listings/${slug}/services/presign`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          mime_type: file.type,
+          size: file.size,
+        }),
+      });
+      if (!presignRes.ok) throw new Error("Could not get upload URL");
+      const { upload_url, key } = await presignRes.json();
+
+      const s3Res = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!s3Res.ok) throw new Error("Image upload to storage failed");
+      return key;
+    },
+    [slug],
+  );
+
+  // --- Multi-row "Add Services" form (inside the modal) ---
+
+  const openAddServices = () => {
+    setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+    setAddServicesOpen(true);
+  };
+
+  const addServiceRow = () =>
+    setServiceRows((prev) => [...prev, { ...EMPTY_SERVICE_ROW }]);
+
+  const removeServiceRow = (index: number) =>
+    setServiceRows((prev) => prev.filter((_, i) => i !== index));
+
+  const updateServiceRow = (index: number, patch: Partial<ServiceRow>) =>
+    setServiceRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+
+  const handleRowImageFile = (index: number, files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`"${file.name}" exceeds the 5 MB limit and was not added.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateServiceRow(index, {
+        imageFile: file,
+        imagePreview: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddServices = async () => {
+    const validRows = serviceRows.filter((r) => r.name.trim());
+    if (validRows.length === 0) {
+      toast.error("Add at least one service with a name");
+      return;
+    }
+    setIsSubmittingServices(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      for (const row of validRows) {
+        const imageKey = row.imageFile
+          ? await uploadServiceImage(row.imageFile)
+          : null;
+
+        const res = await fetch(`/api/listings/${slug}/services`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            name: row.name.trim(),
+            description: row.description,
+            image_key: imageKey,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || err.error || "Failed to add service");
+        }
       }
-      return true;
-    });
-    if (newFiles.length === 0) return;
-    setServiceImages((prev) => [...prev, ...newFiles]);
-    newFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setServiceImagePreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+
+      toast.success(
+        validRows.length > 1
+          ? `${validRows.length} services added successfully`
+          : "Service added successfully",
+      );
+      setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+      setAddServicesOpen(false);
+      fetchServices();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add services",
+      );
+    } finally {
+      setIsSubmittingServices(false);
+    }
   };
 
-  const removeServiceImage = (index: number) => {
-    setServiceImages((prev) => prev.filter((_, i) => i !== index));
-    setServiceImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
+  // --- Single-service edit dialog ---
 
-  const resetServiceForm = () => {
-    setServiceFormData({ name: "", description: "" });
-    setServiceImages([]);
-    setServiceImagePreviews([]);
-    setShowServiceForm(false);
-    setEditingService(null);
-  };
-
-  const handleEditService = (service: Service) => {
+  const openEditService = (service: Service) => {
     setEditingService(service);
-    setServiceFormData({ name: service.name, description: service.description || "" });
-    setServiceImages([]);
-    setServiceImagePreviews([]);
-    setShowServiceForm(true);
+    setEditData({ name: service.name, description: service.description || "" });
+    setEditImageFile(null);
+    setEditImagePreview(service.image ? getImageUrl(service.image) : null);
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingService?.slug) return;
+    if (!editData.name.trim()) {
+      toast.error("Service name is required");
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const payload: Record<string, unknown> = {
+        name: editData.name.trim(),
+        description: editData.description,
+      };
+      // Only touch the image when the user picked a new one, so the backend
+      // keeps the existing image otherwise.
+      if (editImageFile) {
+        payload.image_key = await uploadServiceImage(editImageFile);
+      }
+
+      const res = await fetch(`/api/services/${editingService.slug}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || "Failed to update service");
+      }
+
+      toast.success("Service updated successfully");
+      setEditOpen(false);
+      fetchServices();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update service",
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleDeleteService = async (serviceSlug: string) => {
@@ -427,92 +779,12 @@ export default function ListingDetailPage({ params }: PageProps) {
       toast.success("Service deleted");
       fetchServices();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete service");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete service",
+      );
     } finally {
       setIsDeletingService(false);
       setDeletingServiceSlug(null);
-    }
-  };
-
-  const handleServiceSubmit = async () => {
-    if (!serviceFormData.name.trim()) {
-      toast.error("Service name is required");
-      return;
-    }
-
-    setIsSubmittingService(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      const isEdit = !!editingService?.slug;
-      let imageKey: string | null = null;
-
-      // Step 1 + 2: presign → direct S3 upload (only when a new image is selected)
-      if (serviceImages.length > 0) {
-        const file = serviceImages[0];
-
-        const presignRes = await fetch(`/api/listings/${slug}/services/presign`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ filename: file.name, mime_type: file.type, size: file.size }),
-        });
-
-        if (!presignRes.ok) throw new Error("Could not get upload URL");
-        const { upload_url, key } = await presignRes.json();
-
-        // Upload directly to S3 — bypasses our server entirely
-        const s3Res = await fetch(upload_url, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!s3Res.ok) throw new Error("Image upload to storage failed");
-        imageKey = key;
-      }
-
-      // Step 3: create or update the service record with the S3 key (or null)
-      const endpoint = isEdit
-        ? `/api/services/${editingService!.slug}`
-        : `/api/listings/${slug}/services`;
-      const method = isEdit ? "PUT" : "POST";
-
-      const payload: Record<string, unknown> = {
-        name: serviceFormData.name,
-        description: serviceFormData.description,
-      };
-      // On create always send image_key (null = no image).
-      // On edit only send image_key when the user picked a new image,
-      // so the backend keeps the existing image when none is chosen.
-      if (!isEdit || serviceImages.length > 0) {
-        payload.image_key = imageKey;
-      }
-
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || `Failed to ${isEdit ? "update" : "create"} service`);
-      }
-
-      toast.success(isEdit ? "Service updated successfully" : "Service added successfully");
-      resetServiceForm();
-      fetchServices();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save service");
-    } finally {
-      setIsSubmittingService(false);
     }
   };
 
@@ -570,14 +842,6 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
   };
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-
   // --- Loading ---
   if (loading || authLoading) {
     return (
@@ -600,8 +864,133 @@ export default function ListingDetailPage({ params }: PageProps) {
     );
   }
 
+  const validRowCount = serviceRows.filter((r) => r.name.trim()).length;
+  const ev = listing.event;
+  const TypeIcon =
+    listing.type === "event"
+      ? Ticket
+      : listing.type === "community"
+        ? Users
+        : Briefcase;
+  const hasSocials = !!(
+    listing.socials.facebook ||
+    listing.socials.instagram ||
+    listing.socials.twitter ||
+    listing.socials.tiktok ||
+    listing.socials.youtube ||
+    listing.socials.whatsapp
+  );
+
+  const addServicesForm = (
+    <div className="space-y-4">
+      <div className="space-y-3 max-h-[520px] overflow-y-auto pr-0.5">
+        {serviceRows.map((row, index) => (
+          <div
+            key={index}
+            className="relative rounded-xl border border-gray-100 p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-[#5F8B0A] uppercase tracking-wide">
+                Service {index + 1}
+              </span>
+              {serviceRows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeServiceRow(index)}
+                  className="p-1 text-gray-400 hover:text-red-600 rounded"
+                  title="Remove this service"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <Input
+              placeholder="e.g. Wedding Photography, Logo Design…"
+              value={row.name}
+              onChange={(e) =>
+                updateServiceRow(index, { name: e.target.value })
+              }
+              className="bg-white h-10"
+            />
+
+            <Textarea
+              placeholder="Describe what this service includes, pricing, turnaround time… (optional)"
+              rows={2}
+              value={row.description}
+              onChange={(e) =>
+                updateServiceRow(index, { description: e.target.value })
+              }
+              className="bg-white resize-none text-sm"
+            />
+
+            {row.imagePreview ? (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden group border border-gray-200">
+                <Image
+                  src={row.imagePreview}
+                  alt="Service image preview"
+                  fill
+                  className="object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateServiceRow(index, {
+                      imageFile: null,
+                      imagePreview: null,
+                    })
+                  }
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="relative border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
+                onClick={() => rowFileInputRefs.current[index]?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleRowImageFile(index, e.dataTransfer.files);
+                }}
+              >
+                <UploadSimple className="w-5 h-5 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-1.5 transition-colors" />
+                <p className="text-xs text-gray-500">
+                  <span className="text-[#93C01F] font-medium">
+                    Click to upload
+                  </span>{" "}
+                  or drag &amp; drop{" "}
+                  <span className="text-gray-400">(optional)</span>
+                </p>
+              </div>
+            )}
+            <input
+              ref={(el) => {
+                rowFileInputRefs.current[index] = el;
+              }}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleRowImageFile(index, e.target.files)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addServiceRow}
+        className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-[#93C01F] hover:text-[#93C01F] hover:bg-[#93C01F]/5 transition-all"
+      >
+        <Plus className="w-4 h-4" />
+        Add another service
+      </button>
+    </div>
+  );
+
   return (
-    <div className="px-1 lg:px-8 py-4 space-y-6 max-w-7xl mx-auto">
+    <div className="px-1 lg:px-8 py-4 space-y-8 max-w-6xl mx-auto">
       {/* Breadcrumb */}
       <Breadcrumb>
         <BreadcrumbList>
@@ -621,935 +1010,791 @@ export default function ListingDetailPage({ params }: PageProps) {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Page Header */}
-      <div className="flex items-start sm:items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push(myListings)}
-            className="shrink-0 rounded-full"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-              {listing.name}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                className={`w-fit px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
-              >
-                {getStatusLabel(listing.status)}
-              </span>
-              <span className="text-gray-300">·</span>
-              <span className="text-sm text-gray-500 capitalize">
-                {listing.type}
-              </span>
+      {/* Hero: image gallery (left) + info column (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        {/* Left: gallery, description, services, reviews */}
+        <div className="lg:col-span-3 space-y-5">
+          <ListingImageGallery images={listing.allImages} alt={listing.name} />
+
+          {/* Description */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-gray-900 text-sm">
+              About this listing
+            </h3>
+            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+              {listing.bio ? (
+                <RichTextDisplay html={listing.bio} />
+              ) : (
+                <span className="text-gray-400">No description provided.</span>
+              )}
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            className="gap-2 hidden sm:flex"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-green-600" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-            {copied ? "Copied!" : "Copy Link"}
-          </Button>
-          <Button
-            size="sm"
-            className="bg-[#93C01F] hover:bg-[#82ab1b] gap-2"
-            onClick={() =>
-              router.push(listingEdit(listing.type, listing.slug))
-            }
-          >
-            <PencilSimple className="w-4 h-4" />
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Hero Cover Image */}
-      <div
-        className="relative w-full h-52 sm:h-72 rounded-2xl overflow-hidden cursor-pointer group bg-gray-100"
-        onClick={() => listing.allImages[0] && setPreviewImage(listing.allImages[0])}
-      >
-        <Image
-          src={listing.coverImage}
-          alt={listing.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          unoptimized
-          onError={(e) => {
-            const t = e.target as HTMLImageElement;
-            if (!t.src.includes("placeholder"))
-              t.src = "/images/no-image.jpg";
-          }}
-        />
-        <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent" />
-        {listing.allImages.length > 1 && (
-          <div className="absolute bottom-4 right-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
-            +{listing.allImages.length - 1} more photos
-          </div>
-        )}
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Left / Main Column ── */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="w-full grid grid-cols-4 mb-6 bg-gray-100 rounded-xl p-1 h-11">
-              <TabsTrigger
-                value="overview"
-                className="rounded-lg text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-medium"
+          {/* Services */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
+              </h3>
+              <Button
+                size="sm"
+                className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
+                onClick={openAddServices}
               >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="media"
-                className="rounded-lg text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-medium"
-              >
-                Media
-              </TabsTrigger>
-              <TabsTrigger
-                value="services"
-                className="rounded-lg text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-medium"
-              >
-                What We Do
-              </TabsTrigger>
-              <TabsTrigger
-                value="reviews"
-                className="rounded-lg text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:font-medium"
-              >
-                Reviews
-              </TabsTrigger>
-            </TabsList>
+                <Plus className="w-3.5 h-3.5" />
+                Add Service
+              </Button>
+            </div>
 
-            {/* ── Overview Tab ── */}
-            <TabsContent value="overview" className="space-y-5 mt-0">
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h2 className="font-semibold text-gray-900 mb-3">
-                  About this listing
-                </h2>
-                {listing.bio ? (
-                  <RichTextDisplay html={listing.bio} className="text-sm" />
-                ) : (
-                  <p className="text-sm text-gray-400 italic">No description provided.</p>
-                )}
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h2 className="font-semibold text-gray-900 mb-5">
-                  Listing Details
-                </h2>
-                <div className="grid grid-cols-[28px_1fr_auto] gap-y-5 gap-x-3 items-center text-sm">
-                  <ArrowsClockwise className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Status</span>
-                  <span
-                    className={`w-fit justify-self-end px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
+            {services.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-100"
                   >
-                    {getStatusLabel(listing.status)}
-                  </span>
-
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Location</span>
-                  <span className="font-medium text-gray-900 text-right">
-                    {listing.location}
-                  </span>
-
-                  <Tag className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Type</span>
-                  <span className="font-medium text-gray-900 capitalize text-right">
-                    {listing.type}
-                  </span>
-
-                  <Diamond className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Category</span>
-                  <Badge
-                    variant="outline"
-                    className="text-xs justify-self-end"
-                  >
-                    {listing.category}
-                  </Badge>
-
-                  {/* <LinkIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Slug</span>
-                  <div className="flex items-center gap-1 justify-self-end">
-                    <span className="text-gray-700 text-xs font-mono">
-                      {listing.slug}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-gray-400 hover:text-[#93C01F]"
-                      onClick={handleCopy}
-                    >
-                      {copied ? (
-                        <Check className="w-3 h-3 text-green-600" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                    </Button>
-                  </div> */}
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* ── Media Tab ── */}
-            <TabsContent value="media" className="space-y-5 mt-0">
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-semibold text-gray-900">
-                    Media Gallery
-                  </h2>
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
-                    {listing.allImages.length}{" "}
-                    {listing.allImages.length === 1 ? "photo" : "photos"}
-                  </span>
-                </div>
-
-                {listing.allImages.length > 0 ? (
-                  <div className="space-y-5">
-                    {/* Cover Photo */}
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#93C01F]" />
-                        Cover Photo
-                      </h3>
-                      <div
-                        className="relative aspect-video rounded-xl overflow-hidden cursor-pointer group"
-                        onClick={() =>
-                          setPreviewImage(listing.allImages[0])
-                        }
-                      >
+                    <div className="w-11 h-11 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
+                      {service.image ? (
                         <Image
-                          src={listing.allImages[0]}
-                          alt="Cover"
+                          src={getImageUrl(service.image)}
+                          alt={service.name}
                           fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="object-cover"
+                          sizes="44px"
                           unoptimized
                         />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                        <div className="absolute top-3 left-3 bg-[#93C01F] text-white text-xs px-2.5 py-1 rounded-md font-medium">
-                          Cover
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gallery */}
-                    {listing.allImages.length > 1 && (
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-gray-300" />
-                          Gallery ({listing.allImages.length - 1})
-                        </h3>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                          {listing.allImages.slice(1).map((img, i) => (
-                            <div
-                              key={i}
-                              className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group"
-                              onClick={() => setPreviewImage(img)}
-                            >
-                              <Image
-                                src={img}
-                                alt={`Gallery ${i + 1}`}
-                                fill
-                                className="object-cover transition-transform duration-300 group-hover:scale-110"
-                                unoptimized
-                              />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-100 rounded-xl">
-                    <Images className="w-10 h-10 text-gray-200 mb-3" />
-                    <p className="text-gray-500 text-sm font-medium">
-                      No photos yet
-                    </p>
-                    <p className="text-gray-400 text-xs mt-1">
-                      Add photos to make your listing stand out
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-5"
-                      onClick={() =>
-                        router.push(
-                          listingEdit(listing.type, listing.slug),
-                        )
-                      }
-                    >
-                      Add Photos
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* ── What We Do Tab ── */}
-            <TabsContent value="services" className="space-y-5 mt-0">
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="font-semibold text-gray-900">
-                      What We Do
-                    </h2>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Showcase your services &amp; offerings
-                    </p>
-                  </div>
-                  {!showServiceForm && (
-                    <Button
-                      size="sm"
-                      className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5"
-                      onClick={() => setShowServiceForm(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Service
-                    </Button>
-                  )}
-                </div>
-
-                {/* Inline Service Form */}
-                {showServiceForm && (
-                  <div className="mb-6 p-5 rounded-xl border border-[#93C01F]/25 bg-linear-to-b from-[#93C01F]/5 to-transparent space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-[#93C01F] flex items-center justify-center">
-                          {editingService ? (
-                            <PencilSimple className="w-3.5 h-3.5 text-white" />
-                          ) : (
-                            <Plus className="w-3.5 h-3.5 text-white" />
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-gray-900 text-sm">
-                          {editingService ? "Edit Service" : "New Service"}
-                        </h3>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-gray-400 hover:text-gray-700"
-                        onClick={resetServiceForm}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    {/* Name */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-gray-700">
-                        Service Name{" "}
-                        <span className="text-red-400">*</span>
-                      </label>
-                      <Input
-                        placeholder="e.g. Wedding Photography, Logo Design…"
-                        value={serviceFormData.name}
-                        onChange={(e) =>
-                          setServiceFormData((p) => ({
-                            ...p,
-                            name: e.target.value,
-                          }))
-                        }
-                        className="bg-white h-10"
-                      />
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-gray-700">
-                        Description
-                      </label>
-                      <Textarea
-                        placeholder="Describe what this service includes, pricing, turnaround time…"
-                        rows={3}
-                        value={serviceFormData.description}
-                        onChange={(e) =>
-                          setServiceFormData((p) => ({
-                            ...p,
-                            description: e.target.value,
-                          }))
-                        }
-                        className="bg-white resize-none text-sm"
-                      />
-                    </div>
-
-                    {/* Image Upload */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-gray-700">
-                          Image{" "}
-                          <span className="text-gray-400 font-normal">(Optional)</span>
-                        </label>
-                        {serviceImages.length > 0 && (
-                          <button
-                            type="button"
-                            className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                            onClick={() => {
-                              setServiceImages([]);
-                              setServiceImagePreviews([]);
-                            }}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Show preview when image selected, drop zone otherwise */}
-                      {serviceImagePreviews.length > 0 ? (
-                        <div className="relative w-full aspect-video rounded-xl overflow-hidden group border border-gray-200">
-                          <Image
-                            src={serviceImagePreviews[0]}
-                            alt="Service image preview"
-                            fill
-                            className="object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setServiceImages([]);
-                              setServiceImagePreviews([]);
-                            }}
-                            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="absolute bottom-2 right-2 text-[10px] bg-black/50 text-white px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            Change
-                          </button>
-                        </div>
                       ) : (
-                        <div
-                          className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
-                          onClick={() => fileInputRef.current?.click()}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            handleImageFiles(e.dataTransfer.files);
-                          }}
-                        >
-                          <UploadSimple className="w-7 h-7 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-2 transition-colors" />
-                          <p className="text-sm text-gray-500">
-                            <span className="text-[#93C01F] font-medium">
-                              Click to upload
-                            </span>{" "}
-                            or drag &amp; drop
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {service.name}
+                        </p>
+                        <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-[#93C01F] rounded"
+                            onClick={() => openEditService(service)}
+                          >
+                            <PencilSimple className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 text-gray-400 hover:text-red-500 rounded"
+                            onClick={() =>
+                              service.slug && handleDeleteService(service.slug)
+                            }
+                            disabled={
+                              isDeletingService &&
+                              deletingServiceSlug === service.slug
+                            }
+                          >
+                            {isDeletingService &&
+                            deletingServiceSlug === service.slug ? (
+                              <SpinnerGap className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {service.description && (
+                        <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 mt-2 border-2 border-dashed border-gray-100 rounded-xl">
+                <Briefcase className="w-8 h-8 text-gray-200 mb-2" />
+                <p className="text-gray-600 text-sm font-medium">
+                  No services yet
+                </p>
+                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+                  Tap &ldquo;Add Service&rdquo; to showcase what you offer.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Star className="w-4 h-4 text-[#93C01F]" /> Customer Reviews
+              </h3>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Star
+                      className="w-3.5 h-3.5 text-yellow-400"
+                      weight="fill"
+                    />
+                    <span className="font-semibold text-gray-900">
+                      {listing.rating.toFixed(1)}
+                    </span>{" "}
+                    avg
+                  </span>
+                  <span className="text-gray-200">|</span>
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {reviews.length}
+                    </span>{" "}
+                    review{reviews.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {reviewsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
+                <Star className="w-9 h-9 text-gray-200 mb-3" />
+                <p className="text-gray-600 text-sm font-medium">
+                  No reviews yet
+                </p>
+                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+                  Reviews from customers will appear here once they start coming
+                  in.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => {
+                  const reviewerName = review.user
+                    ? `${review.user.first_name} ${review.user.last_name}`.trim()
+                    : "Anonymous";
+                  const isReplying = replyingToSlug === review.slug;
+                  const alreadyReplied = !!review.vendor_reply;
+
+                  return (
+                    <div
+                      key={review.id}
+                      id={`review-${review.slug}`}
+                      className="border border-gray-100 rounded-xl p-4 space-y-3 bg-white"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-gray-500">
+                              {reviewerName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {reviewerName}
+                            </p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3 h-3 ${
+                                    star <= Math.round(review.rating ?? 0)
+                                      ? "text-yellow-400"
+                                      : "text-gray-200"
+                                  }`}
+                                  weight="fill"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-gray-400 shrink-0">
+                          {review.created_at
+                            ? new Date(review.created_at).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )
+                            : ""}
+                        </span>
+                      </div>
+
+                      {review.comment && (
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {review.comment}
+                        </p>
+                      )}
+
+                      {review.vendor_reply && (
+                        <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">
+                            Your reply
+                            {review.vendor_reply_at && (
+                              <span className="font-normal text-gray-400 ml-2">
+                                ·{" "}
+                                {new Date(
+                                  review.vendor_reply_at,
+                                ).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            )}
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            PNG, JPG, WEBP · up to 10 MB
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {review.vendor_reply}
                           </p>
                         </div>
                       )}
 
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImageFiles(e.target.files)}
-                      />
-                    </div>
-
-                    {/* Form Actions */}
-                    <div className="flex gap-2.5 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={resetServiceForm}
-                        disabled={isSubmittingService}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-[#93C01F] hover:bg-[#82ab1b]"
-                        onClick={handleServiceSubmit}
-                        disabled={
-                          isSubmittingService ||
-                          !serviceFormData.name.trim()
-                        }
-                      >
-                        {isSubmittingService ? (
-                          <SpinnerGap className="w-4 h-4 animate-spin" />
-                        ) : (
-                          editingService ? "Update Service" : "Save Service"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Services List */}
-                {services.length > 0 ? (
-                  <div className="space-y-3">
-                    {services.map((service) => {
-                      return (
-                        <div
-                          key={service.id}
-                          className="flex items-start gap-4 p-4 border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all"
+                      {!alreadyReplied && !isReplying && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingToSlug(review.slug);
+                            setReplyText("");
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
                         >
-                          {service.image ? (
-                            <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-gray-100">
-                              <Image
-                                src={getImageUrl(service.image)}
-                                alt={service.name}
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                              <Briefcase className="w-6 h-6 text-gray-300" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-semibold text-gray-900 text-sm">
-                                {service.name}
-                              </h3>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-gray-400 hover:text-[#93C01F]"
-                                  onClick={() => handleEditService(service)}
-                                  disabled={showServiceForm}
-                                >
-                                  <PencilSimple className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-gray-400 hover:text-red-500"
-                                  onClick={() => service.slug && handleDeleteService(service.slug)}
-                                  disabled={isDeletingService && deletingServiceSlug === service.slug}
-                                >
-                                  {isDeletingService && deletingServiceSlug === service.slug ? (
-                                    <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash className="w-3.5 h-3.5" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                            {service.description && (
-                              <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                                {service.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                          <ArrowBendUpLeft className="w-3.5 h-3.5" />
+                          Reply
+                        </button>
+                      )}
 
-                    {/* Add another */}
-                    {!showServiceForm && (
-                      <button
-                        type="button"
-                        className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-[#93C01F] hover:text-[#93C01F] hover:bg-[#93C01F]/5 transition-all"
-                        onClick={() => setShowServiceForm(true)}
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add another service
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  !showServiceForm && (
-                    <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-100 rounded-xl">
-                      <Briefcase className="w-10 h-10 text-gray-200 mb-3" />
-                      <p className="text-gray-600 text-sm font-medium">
-                        No services yet
-                      </p>
-                      <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-                        Add services to help customers understand what
-                        you offer
-                      </p>
-                      <Button
-                        size="sm"
-                        className="mt-5 bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5"
-                        onClick={() => setShowServiceForm(true)}
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Your First Service
-                      </Button>
-                    </div>
-                  )
-                )}
-              </div>
-            </TabsContent>
-
-            {/* ── Reviews Tab ── */}
-            <TabsContent value="reviews" className="space-y-5 mt-0">
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-gray-400" />
-                    <h3 className="font-semibold text-gray-900 text-sm">
-                      Customer Reviews
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    {reviews.length > 0 && (
-                      <>
-                        <span>
-                          <span className="font-semibold text-gray-900">
-                            {listing.rating.toFixed(1)}
-                          </span>{" "}
-                          avg
-                        </span>
-                        <span className="text-gray-200">|</span>
-                        <span>
-                          <span className="font-semibold text-gray-900">
-                            {reviews.length}
-                          </span>{" "}
-                          review{reviews.length !== 1 ? "s" : ""}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {reviewsLoading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
-                  </div>
-                ) : reviews.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
-                    <Star className="w-9 h-9 text-gray-200 mb-3" />
-                    <p className="text-gray-600 text-sm font-medium">No reviews yet</p>
-                    <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-                      Reviews from customers will appear here once they start coming in.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {reviews.map((review) => {
-                      const reviewerName = review.user
-                        ? `${review.user.first_name} ${review.user.last_name}`.trim()
-                        : "Anonymous";
-                      const isReplying = replyingToSlug === review.slug;
-                      const alreadyReplied = !!review.vendor_reply;
-
-                      return (
-                        <div
-                          key={review.id}
-                          id={`review-${review.slug}`}
-                          className="border border-gray-100 rounded-xl p-4 space-y-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                                <span className="text-xs font-semibold text-gray-500">
-                                  {reviewerName.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {reviewerName}
-                                </p>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  {[1, 2, 3, 4, 5].map((star) => (
-                                    <Star
-                                      key={star}
-                                      className={`w-3 h-3 ${
-                                        star <= Math.round(review.rating ?? 0)
-                                          ? "text-yellow-400"
-                                          : "text-gray-200"
-                                      }`}
-                                      weight="fill"
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-[11px] text-gray-400 shrink-0">
-                              {review.created_at
-                                ? new Date(review.created_at).toLocaleDateString("en-GB", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })
-                                : ""}
+                      {isReplying && (
+                        <div className="space-y-2.5 pt-1">
+                          <Textarea
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Write a reply to this review…"
+                            rows={3}
+                            maxLength={500}
+                            className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-gray-400">
+                              {replyText.length}/500
                             </span>
-                          </div>
-
-                          {review.comment && (
-                            <p className="text-sm text-gray-600 leading-relaxed">
-                              {review.comment}
-                            </p>
-                          )}
-
-                          {review.vendor_reply && (
-                            <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
-                              <p className="text-xs font-semibold text-gray-700 mb-1">
-                                Your reply
-                                {review.vendor_reply_at && (
-                                  <span className="font-normal text-gray-400 ml-2">
-                                    ·{" "}
-                                    {new Date(review.vendor_reply_at).toLocaleDateString("en-GB", {
-                                      day: "numeric",
-                                      month: "short",
-                                      year: "numeric",
-                                    })}
-                                  </span>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs"
+                                disabled={isSubmittingReply}
+                                onClick={() => {
+                                  setReplyingToSlug(null);
+                                  setReplyText("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
+                                disabled={
+                                  isSubmittingReply || !replyText.trim()
+                                }
+                                onClick={() => handleReplySubmit(review.slug)}
+                              >
+                                {isSubmittingReply ? (
+                                  <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  "Post Reply"
                                 )}
-                              </p>
-                              <p className="text-sm text-gray-600 leading-relaxed">
-                                {review.vendor_reply}
-                              </p>
+                              </Button>
                             </div>
-                          )}
-
-                          {!alreadyReplied && !isReplying && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReplyingToSlug(review.slug);
-                                setReplyText("");
-                              }}
-                              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
-                            >
-                              ↩ Reply
-                            </button>
-                          )}
-
-                          {isReplying && (
-                            <div className="space-y-2.5 pt-1">
-                              <Textarea
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                placeholder="Write a reply to this review…"
-                                rows={3}
-                                maxLength={500}
-                                className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
-                              />
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-gray-400">
-                                  {replyText.length}/500
-                                </span>
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 text-xs"
-                                    disabled={isSubmittingReply}
-                                    onClick={() => {
-                                      setReplyingToSlug(null);
-                                      setReplyText("");
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
-                                    disabled={isSubmittingReply || !replyText.trim()}
-                                    onClick={() => handleReplySubmit(review.slug)}
-                                  >
-                                    {isSubmittingReply ? (
-                                      <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      "Post Reply"
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </div>
 
-        
-
-        {/* ── Right Sidebar ── */}
-        <div className="space-y-4">
-          {/* Performance Stats */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 text-sm mb-4">
-              Performance
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 rounded-xl p-3.5 text-center">
-                <Eye className="w-4 h-4 text-gray-400 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {listing.views.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Views</div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3.5 text-center">
-                <BookmarkSimple className="w-4 h-4 text-gray-400 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {listing.bookmarks}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Bookmarks</div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3.5 text-center">
-                <Star className="w-4 h-4 text-yellow-400 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {listing.rating.toFixed(1)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Rating</div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3.5 text-center">
-                <Star className="w-4 h-4 text-gray-400 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {listing.ratingsCount}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Reviews</div>
+        {/* Right: title, stats, listing details */}
+        <div className="lg:col-span-2 space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+                {listing.name}
+              </h1>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                  <TypeIcon className="w-3 h-3" />
+                  {listing.type}
+                </span>
+                <span
+                  className={`w-fit px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
+                >
+                  {getStatusLabel(listing.status)}
+                </span>
               </div>
             </div>
-          </div>
-
-          {/* Owner */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 text-sm mb-4">
-              Owner
-            </h3>
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-[#93C01F]/10 text-[#5F8B0A] text-sm font-semibold">
-                  {user
-                    ? getInitials(user.name || user.email || "U")
-                    : "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <div className="font-medium text-gray-900 text-sm truncate">
-                  {user?.name || "You"}
-                </div>
-                <div className="text-xs text-gray-400 truncate">
-                  {user?.email}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 text-sm mb-4">
-              Quick Actions
-            </h3>
-            <div className="space-y-2">
+            <div className="flex items-center gap-1 shrink-0">
               <Button
-                className="w-full bg-[#93C01F] hover:bg-[#82ab1b] gap-2"
-                onClick={() =>
-                  router.push(listingEdit(listing.type, listing.slug))
-                }
-              >
-                <PencilSimple className="w-4 h-4" />
-                Edit Listing
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 onClick={handleCopy}
+                title="Copy listing link"
               >
                 {copied ? (
                   <Check className="w-4 h-4 text-green-600" />
                 ) : (
                   <Copy className="w-4 h-4" />
                 )}
-                {copied ? "Copied!" : "Copy Listing Link"}
               </Button>
               <Button
-                variant="outline"
-                className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() =>
+                  router.push(listingEdit(listing.type, listing.slug))
+                }
+                title="Edit listing"
+              >
+                <PencilSimple className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                 onClick={() => setShowDeleteDialog(true)}
+                title="Delete listing"
               >
                 <Trash className="w-4 h-4" />
-                Delete Listing
               </Button>
             </div>
           </div>
+
+          {/* Stat tiles */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#F4F9E8] text-[#5F8B0A]">
+                <Eye className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-gray-900 leading-none">
+                  {listing.views.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500 truncate mt-1">Views</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 text-amber-600">
+                <BookmarkSimple className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-gray-900 leading-none">
+                  {listing.bookmarks.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500 truncate mt-1">Bookmarks</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-purple-50 text-purple-600">
+                <Star className="w-4.5 h-4.5" weight="fill" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-gray-900 leading-none">
+                  {listing.rating.toFixed(1)}
+                </p>
+                <p className="text-xs text-gray-500 truncate mt-1">Rating</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+                <Star className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-gray-900 leading-none">
+                  {listing.ratingsCount}
+                </p>
+                <p className="text-xs text-gray-500 truncate mt-1">Reviews</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Listing Details */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-1">
+              Listing Details
+            </h3>
+            <InfoRow icon={Diamond} label="Subscription">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </InfoRow>
+
+            {listing.type === "event" &&
+              ev &&
+              (ev.start_date || ev.end_date) && (
+                <InfoRow icon={Calendar} label="Date">
+                  {ev.start_date}
+                  {ev.end_date ? ` – ${ev.end_date}` : ""}
+                </InfoRow>
+              )}
+            {listing.type === "event" &&
+              ev &&
+              (ev.start_time || ev.end_time) && (
+                <InfoRow icon={Clock} label="Time">
+                  {ev.start_time}
+                  {ev.end_time ? ` – ${ev.end_time}` : ""}
+                </InfoRow>
+              )}
+
+            <InfoRow
+              icon={MapPin}
+              label={listing.type === "event" ? "Venue" : "Location"}
+            >
+              {listing.location}
+            </InfoRow>
+
+            {listing.type === "event" && ev?.location_type && (
+              <InfoRow icon={Globe} label="Format">
+                {formatSnakeCase(ev.location_type)}
+              </InfoRow>
+            )}
+
+            <InfoRow icon={Tag} label="Category">
+              {listing.category}
+            </InfoRow>
+            {listing.subcategory && (
+              <InfoRow icon={Tag} label="Sub category">
+                {listing.subcategory}
+              </InfoRow>
+            )}
+            {listing.contactInfo.website && (
+              <InfoRow icon={Globe} label="Website">
+                <a
+                  href={
+                    listing.contactInfo.website.startsWith("http")
+                      ? listing.contactInfo.website
+                      : `https://${listing.contactInfo.website}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  {listing.contactInfo.website
+                    .replace(/^https?:\/\//, "")
+                    .replace(/\/$/, "")}
+                </a>
+              </InfoRow>
+            )}
+
+            {listing.type === "event" &&
+              ev &&
+              ev.price != null &&
+              ev.price !== "" && (
+                <InfoRow icon={Ticket} label="Price">
+                  {ev.currency ? `${ev.currency} ` : ""}
+                  {ev.price}
+                </InfoRow>
+              )}
+
+            {listing.businessRegNum && (
+              <InfoRow icon={Briefcase} label="Business reg. no.">
+                {listing.businessRegNum}
+              </InfoRow>
+            )}
+            {listing.claimStatus && (
+              <InfoRow icon={CheckCircle} label="Claim status">
+                <span className="capitalize">{listing.claimStatus}</span>
+              </InfoRow>
+            )}
+          </div>
+
+          {/* Social Links */}
+          {hasSocials && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3">
+                Social Links
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <SocialLink
+                  href={listing.socials.facebook}
+                  icon={FacebookLogo}
+                  label="Facebook"
+                />
+                <SocialLink
+                  href={listing.socials.instagram}
+                  icon={InstagramLogo}
+                  label="Instagram"
+                />
+                <SocialLink
+                  href={listing.socials.twitter}
+                  icon={XLogo}
+                  label="Twitter"
+                />
+                <SocialLink
+                  href={listing.socials.tiktok}
+                  icon={TiktokLogo}
+                  label="TikTok"
+                />
+                <SocialLink
+                  href={listing.socials.youtube}
+                  icon={YoutubeLogo}
+                  label="YouTube"
+                />
+                <SocialLink
+                  href={listing.socials.whatsapp}
+                  icon={WhatsappLogo}
+                  label="WhatsApp"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Opening Hours */}
+          {listing.openingHours.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
+                {/* <Clock className="w-4 h-4 text-[#93C01F]" /> Opening Hours */}
+              Opening Hours
+              </h3>
+              <div className="divide-y divide-gray-50">
+                {listing.openingHours.map((h) => (
+                  <div
+                    key={h.day_of_week}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
+                    <span className="text-gray-500">{h.day_of_week}</span>
+                    <span className="font-medium text-gray-900">
+                      {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-
-
-      {/* Image Preview Dialog */}
+      {/* Add Services Dialog */}
       <Dialog
-        open={!!previewImage}
-        onOpenChange={() => setPreviewImage(null)}
+        open={addServicesOpen}
+        onOpenChange={(open) => {
+          if (!open) setServiceRows([{ ...EMPTY_SERVICE_ROW }]);
+          setAddServicesOpen(open);
+        }}
       >
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none [&>button:last-child]:hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Image Preview</DialogTitle>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Add Services
+            </DialogTitle>
+            <p className="text-xs text-gray-400">
+              Showcase what you offer — add as many as you like, then publish
+              them together.
+            </p>
           </DialogHeader>
-          <div className="relative w-full max-h-[88vh] flex items-center justify-center">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-4 right-4 z-50 h-9 w-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/80 border border-white/20 cursor-pointer transition-colors"
-              aria-label="Close preview"
+
+          {addServicesForm}
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setAddServicesOpen(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700"
             >
-              <X className="w-4 h-4" />
-            </button>
-            {previewImage && (
-              <Image
-                src={previewImage}
-                alt="Preview"
-                width={1200}
-                height={800}
-                className="object-contain max-h-[88vh] w-auto"
-                unoptimized
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#93C01F] hover:bg-[#82ab1b]"
+              onClick={handleAddServices}
+              disabled={isSubmittingServices || validRowCount === 0}
+            >
+              {isSubmittingServices ? (
+                <SpinnerGap className="w-4 h-4 animate-spin" />
+              ) : validRowCount > 1 ? (
+                `Publish ${validRowCount} Services`
+              ) : (
+                "Publish Service"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Service Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Edit Service
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700">
+                Service Name <span className="text-red-400">*</span>
+              </label>
+              <Input
+                placeholder="e.g. Wedding Photography, Logo Design…"
+                value={editData.name}
+                onChange={(e) =>
+                  setEditData((p) => ({ ...p, name: e.target.value }))
+                }
               />
-            )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700">
+                Description
+              </label>
+              <Textarea
+                placeholder="Describe what this service includes, pricing, turnaround time…"
+                rows={3}
+                value={editData.description}
+                onChange={(e) =>
+                  setEditData((p) => ({ ...p, description: e.target.value }))
+                }
+                className="resize-none text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-700">
+                  Image{" "}
+                  <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                {editImagePreview && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                    onClick={() => {
+                      setEditImageFile(null);
+                      setEditImagePreview(null);
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {editImagePreview ? (
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden group border border-gray-200">
+                  <Image
+                    src={editImagePreview}
+                    alt="Service image preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <button
+                    type="button"
+                    onClick={() => editFileInputRef.current?.click()}
+                    className="absolute bottom-2 right-2 text-[10px] bg-black/50 text-white px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-[#93C01F] hover:bg-[#93C01F]/5 transition-all cursor-pointer group"
+                  onClick={() => editFileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error(
+                        `"${file.name}" exceeds the 5 MB limit and was not added.`,
+                      );
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setEditImageFile(file);
+                      setEditImagePreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                >
+                  <UploadSimple className="w-7 h-7 text-gray-300 group-hover:text-[#93C01F] mx-auto mb-2 transition-colors" />
+                  <p className="text-sm text-gray-500">
+                    <span className="text-[#93C01F] font-medium">
+                      Click to upload
+                    </span>{" "}
+                    or drag &amp; drop
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    PNG, JPG, WEBP · up to 5 MB
+                  </p>
+                </div>
+              )}
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) {
+                    toast.error(
+                      `"${file.name}" exceeds the 5 MB limit and was not added.`,
+                    );
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    setEditImageFile(file);
+                    setEditImagePreview(reader.result as string);
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+            </div>
           </div>
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setEditOpen(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#93C01F] hover:bg-[#82ab1b]"
+              onClick={handleSaveEdit}
+              disabled={isSavingEdit || !editData.name.trim()}
+            >
+              {isSavingEdit ? (
+                <SpinnerGap className="w-4 h-4 animate-spin" />
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-      >
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this listing?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete{" "}
-              <strong>{listing.name}</strong>. This action cannot be
-              undone.
+              This will permanently delete <strong>{listing.name}</strong>. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}

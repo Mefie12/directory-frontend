@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { faqs as staticFaqs } from "@/lib/data";
 
 interface FAQ {
@@ -14,6 +15,8 @@ interface FAQ {
   slug?: string;
   question: string;
   answer: string;
+  status?: string; // "visible" | "hidden"
+  sort_order?: number;
 }
 
 export function Faqs() {
@@ -28,7 +31,14 @@ export function Faqs() {
       })
       .then((data) => {
         const list: FAQ[] = data.data || data.faqs || data || [];
-        setFaqs(list.length > 0 ? list : staticFaqs);
+        // Respect the admin's visibility + ordering. These fields apply as soon
+        // as the public /api/faqs endpoint exposes them; until then the list is
+        // rendered as returned (all visible, API order).
+        const visible = list.filter((f) => f.status == null || f.status === "visible");
+        const ordered = [...visible].sort(
+          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        );
+        setFaqs(ordered.length > 0 ? ordered : staticFaqs);
       })
       .catch(() => {
         setFaqs(staticFaqs);
@@ -75,8 +85,11 @@ export function Faqs() {
                 <AccordionTrigger className="py-5 text-left font-semibold text-base text-gray-900 hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="pb-5 text-gray-600 text-sm leading-relaxed">
-                  {faq.answer}
+                <AccordionContent className="pb-5">
+                  <RichTextDisplay
+                    html={faq.answer}
+                    className="text-gray-600 text-sm leading-relaxed"
+                  />
                 </AccordionContent>
               </AccordionItem>
             ))}

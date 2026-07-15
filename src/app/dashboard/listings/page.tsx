@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +23,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -34,37 +33,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
   Plus,
   Search,
+  Edit2,
+  Trash2,
+  Eye,
   RefreshCcw,
   User,
   MapPin,
   Tag,
   Gem,
-  Edit2,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  AlertTriangle,
   Phone,
   Mail,
   Globe,
@@ -72,14 +60,13 @@ import {
   Instagram,
   Twitter,
   Youtube,
-  Linkedin,
-  Eye,
+  Music2,
+  MessageCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
+import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 
 // --- Types ---
 type TabType = "all" | "approved" | "pending" | "suspended" | "rejected" | "categories";
@@ -110,8 +97,9 @@ interface Listing {
       facebook?: string;
       instagram?: string;
       twitter?: string;
+      tiktok?: string;
       youtube?: string;
-      linkedin?: string;
+      whatsapp?: string;
     };
   };
   verified: boolean;
@@ -137,6 +125,7 @@ interface RawListing {
   thumbnail?: string;
   plan?: string;
   description?: string;
+  bio?: string;
   primary_phone?: string;
   email?: string;
   website?: string;
@@ -293,8 +282,8 @@ const categoryApi = {
 };
 
 export default function Listings() {
+  const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
-  const [isVerified, setIsVerified] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [allData, setAllData] = useState<Listing[]>([]);
@@ -323,11 +312,6 @@ export default function Listings() {
     is_main: false,
     parent_id: null,
   });
-  const [listingToDelete, setListingToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [pendingVerification, setPendingVerification] = useState<{ slug: string; name: string; value: boolean } | null>(null);
 
   const itemsPerPage = 10;
 
@@ -450,7 +434,7 @@ export default function Listings() {
             ? [imageUrl]
             : [],
         plan: (item.plan || "Basic") as "Basic" | "Pro" | "Premium",
-        description: item.description || "No description provided.",
+        description: item.bio || item.description || "",
         userInfo: userInfo,
         contactInfo: {
           phone: item.primary_phone,
@@ -460,8 +444,9 @@ export default function Listings() {
             facebook: socialsData?.facebook,
             instagram: socialsData?.instagram,
             twitter: socialsData?.twitter,
+            tiktok: socialsData?.tiktok,
             youtube: socialsData?.youtube,
-            linkedin: socialsData?.linkedin,
+            whatsapp: socialsData?.whatsapp,
           },
         },
         verified: !!(item.listing_verified ?? item.is_verified),
@@ -548,100 +533,6 @@ export default function Listings() {
         error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(errorMessage);
       console.error("Delete error:", error);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!listingToDelete) return;
-    setIsDeleting(true);
-
-    try {
-      const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      const response = await fetch(
-        `${API_URL}/api/listing/${listingToDelete}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) throw new Error("Failed to delete listing");
-
-      setAllData((prev) =>
-        prev.filter(
-          (item) =>
-            item.slug !== listingToDelete && item.id !== listingToDelete,
-        ),
-      );
-
-      if (selectedListing?.slug === listingToDelete) {
-        setSelectedListing(null);
-      }
-
-      toast.success("Listing deleted successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to delete listing");
-    } finally {
-      setIsDeleting(false);
-      setListingToDelete(null);
-    }
-  };
-
-  const handleStatusUpdate = async (
-    listingSlug: string,
-    newStatus: "approved" | "rejected" | "suspended",
-  ) => {
-    setIsUpdatingStatus(listingSlug);
-
-    try {
-      const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      const response = await fetch(
-        `${API_URL}/api/listing/${listingSlug}/update_status`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ status: newStatus }),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to update status`);
-      }
-
-      setAllData((prev) =>
-        prev.map((item) => {
-          if (item.slug === listingSlug || item.id === listingSlug) {
-            let uiStatus: "Approved" | "Rejected" | "Suspended" | "Pending" =
-              "Pending";
-            if (newStatus === "approved") uiStatus = "Approved";
-            else if (newStatus === "rejected") uiStatus = "Rejected";
-            else if (newStatus === "suspended") uiStatus = "Suspended";
-            return { ...item, approval: uiStatus };
-          }
-          return item;
-        }),
-      );
-      await loadAllData();
-      toast.success(`Listing ${newStatus}`);
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : "Failed to update status";
-      toast.error(msg);
-    } finally {
-      setIsUpdatingStatus(null);
     }
   };
 
@@ -862,6 +753,33 @@ export default function Listings() {
     return "bg-red-100 text-red-800";
   };
 
+  // Open the preview immediately from list data, then hydrate the full record
+  // (bio/description, socials, services…) from /show, which the list endpoint
+  // does not include.
+  const openPreview = async (item: Listing) => {
+    setSelectedListing(item);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/listing/${item.slug}/show`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const raw = json.data || json.listing || json;
+      const [full] = extractListingsFromResponse([raw]);
+      if (full) {
+        setSelectedListing((prev) =>
+          prev && prev.slug === item.slug ? { ...prev, ...full } : prev,
+        );
+      }
+    } catch {
+      // Keep the list-level preview if the fetch fails.
+    }
+  };
+
   const getApprovalBadgeVariant = (status: string) => {
     switch (status) {
       case "Approved":
@@ -893,64 +811,6 @@ export default function Listings() {
         );
     }
     return pages;
-  };
-
-  // Sync verified toggle when sidebar opens a different listing
-  useEffect(() => {
-    if (selectedListing) {
-      setIsVerified(selectedListing.verified);
-    }
-  }, [selectedListing]);
-
-  const handleVerifyToggle = (checked: boolean) => {
-    if (!selectedListing) return;
-    // Store intent and open confirmation dialog — don't fire the API yet
-    setPendingVerification({ slug: selectedListing.slug, name: selectedListing.name, value: checked });
-  };
-
-  const handleVerifyConfirm = async () => {
-    if (!pendingVerification || !selectedListing) return;
-    const { slug, value } = pendingVerification;
-    setPendingVerification(null);
-    setIsVerifying(true);
-    setIsVerified(value);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(
-        `/api/listing/${slug}/verify_listing`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ listing_verified: value }),
-        },
-      );
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error((err as { message?: string }).message || "Failed to update verification");
-      }
-      setAllData((prev) =>
-        prev.map((item) =>
-          item.slug === slug ? { ...item, verified: value } : item,
-        ),
-      );
-      setSelectedListing((prev) => prev ? { ...prev, verified: value } : prev);
-      toast.success(value ? "Listing verified successfully" : "Verification removed");
-    } catch (error) {
-      setIsVerified(!value);
-      const msg = error instanceof Error ? error.message : "Failed to update verification";
-      toast.error(msg);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleVerifyCancel = () => {
-    // Revert the toggle visually — user dismissed the dialog
-    setPendingVerification(null);
   };
 
   // --- SOCIAL ICON HELPER ---
@@ -1196,7 +1056,7 @@ export default function Listings() {
                       <TableRow
                         key={item.id}
                         className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setSelectedListing(item)}
+                        onClick={() => openPreview(item)}
                       >
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -1248,7 +1108,7 @@ export default function Listings() {
                           </Badge>
                         </TableCell>
 
-                        {/* --- ACTIONS MENU WITH ALL TOGGLES --- */}
+                        {/* --- ACTIONS MENU: View Details → details page --- */}
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1257,68 +1117,18 @@ export default function Listings() {
                                 size="icon"
                                 className="h-8 w-8"
                               >
-                                {isUpdatingStatus === item.slug ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                                ) : (
-                                  <MoreHorizontal className="h-4 w-4" />
-                                )}
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem
-                                onClick={() => setSelectedListing(item)}
+                                onClick={() =>
+                                  router.push(`/dashboard/listings/${item.slug}`)
+                                }
                                 className="cursor-pointer"
                               >
                                 <Eye className="mr-1 h-4 w-4" /> View Details
-                              </DropdownMenuItem>
-
-                              <DropdownMenuSeparator />
-                              <DropdownMenuLabel>Status</DropdownMenuLabel>
-
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusUpdate(item.slug, "approved");
-                                }}
-                                className="text-green-600 cursor-pointer focus:text-green-700"
-                              >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />{" "}
-                                Approve
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusUpdate(item.slug, "suspended");
-                                }}
-                                className="text-orange-600 cursor-pointer focus:text-orange-700"
-                              >
-                                <AlertTriangle className="mr-2 h-4 w-4" />{" "}
-                                Suspend
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusUpdate(item.slug, "rejected");
-                                }}
-                                className="text-red-600 cursor-pointer focus:text-red-700"
-                              >
-                                <XCircle className="mr-2 h-4 w-4" /> Reject
-                              </DropdownMenuItem>
-
-                              <DropdownMenuSeparator />
-
-                              <DropdownMenuItem
-                                className="text-red-600 focus:text-red-700 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setListingToDelete(item.slug || item.id);
-                                }}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1530,361 +1340,261 @@ export default function Listings() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={!!listingToDelete}
-        onOpenChange={(open) => !open && setListingToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              listing and remove the data from your servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleDeleteConfirm();
-              }}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete Listing"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* --- VERIFY CONFIRMATION DIALOG --- */}
-      <AlertDialog
-        open={!!pendingVerification}
-        onOpenChange={(open) => { if (!open) handleVerifyCancel(); }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingVerification?.value ? "Verify this listing?" : "Remove verification?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingVerification?.value
-                ? `This will mark "${pendingVerification?.name}" as a verified listing. A verification badge will appear on its public card.`
-                : `This will remove the verification badge from "${pendingVerification?.name}". The listing will remain approved and visible.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleVerifyCancel}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleVerifyConfirm}
-              className={pendingVerification?.value ? "bg-[#93C01F] hover:bg-[#7ea919]" : "bg-orange-500 hover:bg-orange-600"}
-            >
-              {pendingVerification?.value ? "Yes, verify listing" : "Yes, remove verification"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* --- SIDEBAR (SHEET) --- */}
+      {/* --- PREVIEW SIDEBAR (SHEET) --- */}
       <Sheet
         open={!!selectedListing}
         onOpenChange={(open) => !open && setSelectedListing(null)}
       >
         <SheetContent className="w-[400px] sm:w-[540px] p-0 overflow-y-auto">
-          {selectedListing && (
-            <>
-              {/* Header */}
-              <div className="p-6 pb-2 border-b border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <div
-                    className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900"
-                    onClick={() => setSelectedListing(null)}
-                  >
-                    <ChevronLeft className="w-4 h-4" /> Listings
-                  </div>
-                </div>
-                <SheetTitle className="text-2xl font-bold flex items-center gap-0.5">
-                  {selectedListing.name}
-                  {isVerified && (
-                    <Image
-                      src="/images/icons/verify.svg"
-                      alt="Verified"
-                      width={20}
-                      height={20}
-                    />
-                  )}
-                </SheetTitle>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 space-y-8">
-                {/* --- 1. Info Grid --- */}
-                <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
-                  {/* Status */}
-                  <RefreshCcw className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Status</span>
-                  <div className="justify-self-end">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        selectedListing.approval,
-                      )}`}
+          {selectedListing &&
+            (() => {
+              const socials = selectedListing.contactInfo?.socials;
+              const hasSocials = !!(
+                socials?.facebook ||
+                socials?.instagram ||
+                socials?.twitter ||
+                socials?.tiktok ||
+                socials?.youtube ||
+                socials?.whatsapp
+              );
+              const website = selectedListing.contactInfo?.website;
+              const websiteLabel = website
+                ? website.replace(/^https?:\/\//, "").replace(/\/$/, "")
+                : "";
+              return (
+                <>
+                  {/* Header */}
+                  <div className="p-6 pb-2 border-b border-gray-100">
+                    <div
+                      className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer hover:text-gray-900 mb-2"
+                      onClick={() => setSelectedListing(null)}
                     >
-                      {selectedListing.approval}
-                    </span>
+                      <ChevronLeft className="w-4 h-4" /> Listings
+                    </div>
+                    <SheetTitle className="text-2xl font-bold flex items-center gap-0.5">
+                      {selectedListing.name}
+                      {selectedListing.verified && (
+                        <Image
+                          src="/images/icons/verify.svg"
+                          alt="Verified"
+                          width={20}
+                          height={20}
+                        />
+                      )}
+                    </SheetTitle>
                   </div>
 
-                  {/* Vendor */}
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Vendor</span>
-                  <div className="justify-self-end flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage
-                        src={selectedListing.vendorAvatar}
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="text-[10px]">
-                        {getInitials(selectedListing.vendor)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-gray-900">
-                      {selectedListing.vendor}
-                    </span>
-                  </div>
-
-                  {/* Location */}
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Location</span>
-                  <div className="justify-self-end font-medium text-gray-900">
-                    {selectedListing.location}
-                  </div>
-
-                  {/* Type */}
-                  <Tag className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Type</span>
-                  <div className="justify-self-end font-medium text-gray-900 capitalize">
-                    {selectedListing.type}
-                  </div>
-
-                  {/* Plan */}
-                  <Gem className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-500">Plan</span>
-                  <div className="justify-self-end">
-                    <span className="bg-[#548235] text-white px-2.5 py-0.5 rounded-full text-xs font-medium">
-                      {selectedListing.plan || "Basic"}
-                    </span>
-                  </div>
-
-                  {/* Owner */}
-                  {selectedListing.userInfo && (
-                    <>
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-500">Owner</span>
-                      <div className="justify-self-end font-medium text-gray-900">
-                        {selectedListing.userInfo.name}
-                        {selectedListing.userInfo.email && (
-                          <div className="text-xs text-gray-500">
-                            {selectedListing.userInfo.email}
-                          </div>
-                        )}
+                  {/* Content */}
+                  <div className="p-6 space-y-8">
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-[24px_1fr_auto] gap-y-6 gap-x-3 items-center text-sm">
+                      <RefreshCcw className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Status</span>
+                      <div className="justify-self-end">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            selectedListing.approval,
+                          )}`}
+                        >
+                          {selectedListing.approval}
+                        </span>
                       </div>
-                    </>
-                  )}
-                </div>
 
-                {/* --- 2. Description --- */}
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900">
-                    Listing Description
-                  </h3>
-                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100">
-                    {selectedListing.description}
-                  </div>
-                </div>
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Vendor</span>
+                      <div className="justify-self-end flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage
+                            src={selectedListing.vendorAvatar}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(selectedListing.vendor)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-gray-900">
+                          {selectedListing.vendor}
+                        </span>
+                      </div>
 
-                {/* --- 3. Tabs: Media & Contact Info --- */}
-                <div>
-                  <Tabs defaultValue="media" className="w-full">
-                    <div className="border-b border-gray-200 w-full">
-                      <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-4">
-                        <TabsTrigger
-                          value="media"
-                          className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
-                        >
-                          Media
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="contact"
-                          className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
-                        >
-                          Contact Info
-                        </TabsTrigger>
-                      </TabsList>
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Location</span>
+                      <div className="justify-self-end font-medium text-gray-900">
+                        {selectedListing.location}
+                      </div>
+
+                      <Tag className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Type</span>
+                      <div className="justify-self-end font-medium text-gray-900 capitalize">
+                        {selectedListing.type}
+                      </div>
+
+                      <Gem className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Plan</span>
+                      <div className="justify-self-end">
+                        <span className="bg-[#548235] text-white px-2.5 py-0.5 rounded-full text-xs font-medium">
+                          {selectedListing.plan || "Basic"}
+                        </span>
+                      </div>
+
+                      {selectedListing.userInfo && (
+                        <>
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-500">Owner</span>
+                          <div className="justify-self-end font-medium text-gray-900">
+                            {selectedListing.userInfo.name}
+                            {selectedListing.userInfo.email && (
+                              <div className="text-xs text-gray-500">
+                                {selectedListing.userInfo.email}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
 
-                    <div className="mt-4">
-                      {/* Media Tab */}
-                      <TabsContent value="media" className="mt-0">
-                        <div className="grid grid-cols-2 gap-4">
-                          {selectedListing.images &&
-                          selectedListing.images.length > 0 ? (
-                            <>
-                              <div className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden">
-                                <Image
-                                  src={selectedListing.images[0]}
-                                  alt="Cover"
-                                  fill
-                                  className="object-cover"
-                                  sizes="(max-width: 768px) 100vw, 50vw"
-                                  unoptimized={true}
-                                />
+                    {/* Description */}
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-gray-900">
+                        Listing Description
+                      </h3>
+                      <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 leading-relaxed border border-gray-100 whitespace-pre-line">
+                        {selectedListing.description ? (
+                          <RichTextDisplay html={selectedListing.description} />
+                        ) : (
+                          <span className="text-gray-400">
+                            No description provided.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tabs: Media & Contact */}
+                    <Tabs defaultValue="media" className="w-full">
+                      <div className="border-b border-gray-200 w-full">
+                        <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-4">
+                          <TabsTrigger
+                            value="media"
+                            className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
+                          >
+                            Media
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="contact"
+                            className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-gray-500 shadow-none transition-none hover:text-gray-700 data-[state=active]:border-b-[#93C01F] data-[state=active]:bg-transparent data-[state=active]:text-[#93C01F] data-[state=active]:shadow-none"
+                          >
+                            Contact Info
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <div className="mt-4">
+                        <TabsContent value="media" className="mt-0">
+                          <div className="grid grid-cols-2 gap-4">
+                            {selectedListing.images &&
+                            selectedListing.images.length > 0 ? (
+                              selectedListing.images.slice(0, 4).map((img, index) => (
+                                <div
+                                  key={index}
+                                  className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
+                                >
+                                  <Image
+                                    src={img}
+                                    alt={`Media ${index + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                    unoptimized
+                                  />
+                                </div>
+                              ))
+                            ) : (
+                              <div className="col-span-2 text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                <p className="text-gray-400 text-sm">
+                                  No media uploaded
+                                </p>
                               </div>
-                              {selectedListing.images
-                                .slice(1, 4)
-                                .map((img, index) => (
-                                  <div
-                                    key={index}
-                                    className="aspect-square bg-gray-100 rounded-lg relative overflow-hidden"
-                                  >
-                                    <Image
-                                      src={img}
-                                      alt={`Media ${index + 2}`}
-                                      fill
-                                      className="object-cover"
-                                      sizes="(max-width: 768px) 100vw, 50vw"
-                                      unoptimized={true}
-                                    />
-                                  </div>
-                                ))}
-                            </>
-                          ) : (
-                            <div className="col-span-2 text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                              <p className="text-gray-400 text-sm">
-                                No media uploaded
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
+                            )}
+                          </div>
+                        </TabsContent>
 
-                      {/* Contact Info Tab */}
-                      <TabsContent value="contact" className="mt-0">
-                        <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                          {selectedListing.contactInfo ? (
-                            <>
-                              {selectedListing.contactInfo.phone && (
-                                <div className="flex items-center gap-3">
-                                  <Phone className="w-4 h-4 text-gray-500" />
-                                  <span className="text-sm text-gray-700">
-                                    {selectedListing.contactInfo.phone}
-                                  </span>
-                                </div>
-                              )}
-                              {selectedListing.contactInfo.email && (
-                                <div className="flex items-center gap-3">
-                                  <Mail className="w-4 h-4 text-gray-500" />
-                                  <span className="text-sm text-gray-700">
-                                    {selectedListing.contactInfo.email}
-                                  </span>
-                                </div>
-                              )}
-                              {selectedListing.contactInfo.website && (
-                                <div className="flex items-center gap-3">
-                                  <Globe className="w-4 h-4 text-gray-500" />
-                                  <a
-                                    href={selectedListing.contactInfo.website}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-sm text-blue-600 hover:underline"
-                                  >
-                                    Website
-                                  </a>
+                        <TabsContent value="contact" className="mt-0">
+                          <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            {selectedListing.contactInfo?.phone && (
+                              <div className="flex items-center gap-3">
+                                <Phone className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm text-gray-700">
+                                  {selectedListing.contactInfo.phone}
+                                </span>
+                              </div>
+                            )}
+                            {selectedListing.contactInfo?.email && (
+                              <div className="flex items-center gap-3">
+                                <Mail className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm text-gray-700">
+                                  {selectedListing.contactInfo.email}
+                                </span>
+                              </div>
+                            )}
+                            {website && (
+                              <div className="flex items-center gap-3">
+                                <Globe className="w-4 h-4 text-gray-500" />
+                                <a
+                                  href={
+                                    website.startsWith("http")
+                                      ? website
+                                      : `https://${website}`
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sm text-blue-600 hover:underline truncate"
+                                >
+                                  {websiteLabel}
+                                </a>
+                              </div>
+                            )}
+                            {!selectedListing.contactInfo?.phone &&
+                              !selectedListing.contactInfo?.email &&
+                              !website &&
+                              !hasSocials && (
+                                <div className="text-center py-4 text-gray-400 text-sm">
+                                  No contact information available
                                 </div>
                               )}
 
-                              {/* Socials */}
+                            {hasSocials && (
                               <div className="pt-2 border-t border-gray-200 mt-2">
                                 <p className="text-xs font-semibold text-gray-500 mb-2 uppercase">
                                   Social Links
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
-                                  <SocialLink
-                                    href={
-                                      selectedListing.contactInfo.socials
-                                        ?.facebook
-                                    }
-                                    icon={Facebook}
-                                    label="Facebook"
-                                  />
-                                  <SocialLink
-                                    href={
-                                      selectedListing.contactInfo.socials
-                                        ?.instagram
-                                    }
-                                    icon={Instagram}
-                                    label="Instagram"
-                                  />
-                                  <SocialLink
-                                    href={
-                                      selectedListing.contactInfo.socials
-                                        ?.twitter
-                                    }
-                                    icon={Twitter}
-                                    label="Twitter"
-                                  />
-                                  <SocialLink
-                                    href={
-                                      selectedListing.contactInfo.socials
-                                        ?.youtube
-                                    }
-                                    icon={Youtube}
-                                    label="YouTube"
-                                  />
-                                  <SocialLink
-                                    href={
-                                      selectedListing.contactInfo.socials
-                                        ?.linkedin
-                                    }
-                                    icon={Linkedin}
-                                    label="LinkedIn"
-                                  />
+                                  <SocialLink href={socials?.facebook} icon={Facebook} label="Facebook" />
+                                  <SocialLink href={socials?.instagram} icon={Instagram} label="Instagram" />
+                                  <SocialLink href={socials?.twitter} icon={Twitter} label="Twitter" />
+                                  <SocialLink href={socials?.tiktok} icon={Music2} label="TikTok" />
+                                  <SocialLink href={socials?.youtube} icon={Youtube} label="YouTube" />
+                                  <SocialLink href={socials?.whatsapp} icon={MessageCircle} label="WhatsApp" />
                                 </div>
                               </div>
-                            </>
-                          ) : (
-                            <div className="text-center py-4 text-gray-400 text-sm">
-                              No contact information available
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
-                    </div>
-                  </Tabs>
-                </div>
-                <div className="border-t border-gray-100 pt-6 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-base font-medium text-gray-900">
-                        Verify Listing
-                      </Label>
-                      <p className="text-sm text-gray-500">
-                        Mark this listing as verified
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="verify-mode"
-                        checked={pendingVerification?.slug === selectedListing?.slug ? pendingVerification.value : isVerified}
-                        onCheckedChange={handleVerifyToggle}
-                        disabled={isVerifying}
-                        className="data-[state=checked]:bg-[#93C01F]"
-                      />
-                    </div>
+                            )}
+                          </div>
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+
+                    {/* Open full details page */}
+                    <Button
+                      onClick={() =>
+                        router.push(`/dashboard/listings/${selectedListing.slug}`)
+                      }
+                      className="w-full bg-[#93C01F] hover:bg-[#7ea919] text-white gap-2"
+                    >
+                      <Eye className="w-4 h-4" /> View full details
+                    </Button>
                   </div>
-                </div>
-              </div>
-            </>
-          )}
+                </>
+              );
+            })()}
         </SheetContent>
       </Sheet>
     </div>

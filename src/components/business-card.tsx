@@ -21,9 +21,11 @@ export type Business = {
 
 type BusinessCardProps = {
   business: Business;
+  /** Optional explicit link. When omitted, the link is derived from the current path. */
+  href?: string;
 };
 
-export function BusinessCard({ business }: BusinessCardProps) {
+export function BusinessCard({ business, href }: BusinessCardProps) {
   const { isBookmarked, toggleBookmark } = useBookmark();
   const isActive = isBookmarked(business.slug);
   const pathname = usePathname();
@@ -51,8 +53,10 @@ export function BusinessCard({ business }: BusinessCardProps) {
     return "/discover";
   };
 
-  // Construct the dynamic link based on current page
+  // Construct the dynamic link based on current page, unless an explicit href
+  // was provided (e.g. the category page routes by listing type).
   const getBusinessLink = () => {
+    if (href) return href;
     const basePath = getBasePath();
     return `${basePath}/${business.slug}`;
   };

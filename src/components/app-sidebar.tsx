@@ -10,15 +10,25 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { useRealtimeRole } from "@/hooks/useRealtimeRole";
 import { useEffect, useState } from "react";
-import useDashboardNavigation from "@/hooks/useDashboardNavigation";
+import useDashboardNavigation, {
+  type MenuItem,
+} from "@/hooks/useDashboardNavigation";
 import { normalizeRole, ROLE_HOME, type UserRole } from "@/lib/roles";
 
 interface AppSidebarProps {
@@ -54,6 +64,29 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
   }, [initialRole]);
 
   if (!user) return null;
+
+  // Renders either an SVG path (string icon) or a Phosphor icon component.
+  const renderIcon = (icon: MenuItem["icon"], title: string) => {
+    if (typeof icon === "string") {
+      return (
+        <Image
+          src={icon}
+          alt={title}
+          width={20}
+          height={20}
+          className="w-5 h-5"
+        />
+      );
+    }
+    const IconComponent = icon;
+    // !text-white beats the sidebar's built-in [&>svg]:text-sidebar-accent-foreground
+    // rule (dark on our dark-blue sidebar), which otherwise wins on specificity.
+    return <IconComponent weight="fill" className="w-5 h-5 text-white!" />;
+  };
+
+  const closeOnMobile = () => {
+    if (window.innerWidth < 768) handleCloseSidebar();
+  };
 
   return (
     <>
@@ -100,41 +133,70 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
           <SidebarGroup className="bg-[#1C3C59]">
             <SidebarGroupContent className="bg-[#1C3C59]">
               <SidebarMenu className="pt-4 space-y-2">
-                {items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <Link
-                        href={item.url}
-                        className={`flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors ${
-                          isActive(item.url) ? "bg-[#93C01F]" : ""
-                        }`}
-                        onClick={() => {
-                          if (window.innerWidth < 768) {
-                            handleCloseSidebar();
-                          }
-                        }}
-                      >
-                        {typeof item.icon === "string" ? (
-                          <Image
-                            src={item.icon}
-                            alt={item.title}
-                            width={20}
-                            height={20}
-                            className="w-5 h-5"
-                          />
-                        ) : (
-                          <item.icon
-                            weight="fill"
-                            className="w-10 h-10 text-white hover:text-white"
-                          />
-                        )}
-                        <span className="text-sm font-medium text-white">
-                          {item.title}
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {items.map((item) =>
+                  item.children && item.children.length > 0 ? (
+                    // ─── Dropdown group (e.g. Support → FAQs) ───
+                    <Collapsible
+                      key={item.title}
+                      defaultOpen={item.children.some((child) =>
+                        isActive(child.url),
+                      )}
+                      className="group/collapsible"
+                    >
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors data-[state=open]:bg-white/5">
+                            {renderIcon(item.icon, item.title)}
+                            <span className="text-sm font-medium text-white">
+                              {item.title}
+                            </span>
+                            <ChevronDown className="ml-auto w-4 h-4 text-white transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub className="border-white/10">
+                            {item.children.map((child) => (
+                              <SidebarMenuSubItem key={child.title}>
+                                <SidebarMenuSubButton asChild>
+                                  <Link
+                                    href={child.url ?? "#"}
+                                    onClick={closeOnMobile}
+                                    className={`flex items-center gap-3 px-3 py-4 rounded-lg text-white hover:bg-white/10 hover:text-white transition-colors ${
+                                      isActive(child.url) ? "bg-[#93C01F]" : ""
+                                    }`}
+                                  >
+                                    {renderIcon(child.icon, child.title)}
+                                    <span className="text-sm font-medium text-white">
+                                      {child.title}
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  ) : (
+                    // ─── Single link item ───
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <Link
+                          href={item.url ?? "#"}
+                          className={`flex items-center gap-3 px-3 py-4 rounded-lg hover:bg-white/10 text-white transition-colors ${
+                            isActive(item.url) ? "bg-[#93C01F]" : ""
+                          }`}
+                          onClick={closeOnMobile}
+                        >
+                          {renderIcon(item.icon, item.title)}
+                          <span className="text-sm font-medium text-white">
+                            {item.title}
+                          </span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ),
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

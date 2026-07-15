@@ -2,8 +2,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  RichTextEditor,
+  RichTextDisplay,
+} from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -21,17 +30,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Edit2, Trash2, Loader2, Search } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Loader2,
+  Search,
+  Eye,
+  EyeOff,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  X as XIcon,
+} from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 
+// ── Types ──
 interface FAQ {
   id: number;
   slug: string;
   question: string;
   answer: string;
-  created_at?: string;
-  updated_at?: string;
+  status?: string; // "visible" | "hidden"
+  sort_order?: number;
 }
 
 interface FAQFormData {
@@ -39,18 +61,29 @@ interface FAQFormData {
   answer: string;
 }
 
-interface PaginationMeta {
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
+// A create/edit row carries an editable order number alongside the content.
+interface FAQRow {
+  question: string;
+  answer: string;
+  order: string; // free-text so the input can be cleared; parsed on submit
 }
 
+// Admin payload always includes slug; the numeric id is a safety fallback.
+const faqKey = (faq: FAQ) => faq.slug ?? String(faq.id);
+
+// Visibility is a status string on the backend ("visible" | "hidden").
+const isHidden = (faq: FAQ) => faq.status != null && faq.status !== "visible";
+
+// Strip tags to check whether a rich-text value has any real content.
+const isBlank = (html: string) => !html.replace(/<[^>]*>/g, "").trim();
+
+const EMPTY_ROW: FAQRow = { question: "", answer: "", order: "" };
+
+// ── API ──
 const faqApi = {
-  getFaqs: async (params?: Record<string, string>): Promise<{ data: FAQ[]; meta: PaginationMeta }> => {
+  getFaqs: async (): Promise<FAQ[]> => {
     const token = localStorage.getItem("authToken");
-    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    const response = await fetch(`/api/admin/faqs${qs}`, {
+    const response = await fetch(`/api/admin/faqs?limit=100`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
@@ -58,18 +91,12 @@ const faqApi = {
     });
     if (!response.ok) throw new Error("Failed to fetch FAQs");
     const data = await response.json();
-    return {
-      data: data.data || data.faqs || data || [],
-      meta: data.meta || data.pagination || {
-        current_page: 1,
-        last_page: 1,
-        per_page: 10,
-        total: (data.data || data.faqs || data || []).length,
-      },
-    };
+    return data.data || data.faqs || data || [];
   },
 
-  createFaq: async (formData: FAQFormData): Promise<FAQ> => {
+  createFaq: async (
+    body: FAQFormData & { sort_order?: number },
+  ): Promise<FAQ> => {
     const token = localStorage.getItem("authToken");
     const response = await fetch("/api/admin/faqs", {
       method: "POST",
@@ -78,38 +105,59 @@ const faqApi = {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
-      const err = await response.json();
+      const err = await response.json().catch(() => ({}));
       throw new Error(err.error || err.message || "Failed to create FAQ");
     }
     const result = await response.json();
     return result.data || result;
   },
 
-  updateFaq: async (slug: string, formData: FAQFormData): Promise<FAQ> => {
+  // Accepts sort_order alongside question/answer so reordering persists.
+  updateFaq: async (
+    key: string,
+    body: FAQFormData & { sort_order?: number },
+  ): Promise<FAQ> => {
     const token = localStorage.getItem("authToken");
-    const response = await fetch(`/api/admin/faqs/${slug}`, {
+    const response = await fetch(`/api/admin/faqs/${key}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
-      const err = await response.json();
+      const err = await response.json().catch(() => ({}));
       throw new Error(err.error || err.message || "Failed to update FAQ");
     }
     const result = await response.json();
     return result.data || result;
   },
 
-  deleteFaq: async (slug: string): Promise<void> => {
+  // Dedicated endpoint that flips visibility server-side (no body).
+  toggleStatus: async (key: string): Promise<void> => {
     const token = localStorage.getItem("authToken");
-    const response = await fetch(`/api/admin/faqs/${slug}`, {
+    const response = await fetch(`/api/admin/faqs/${key}/toggle-status`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok && response.status !== 204) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || "Failed to toggle status");
+    }
+  },
+
+  deleteFaq: async (key: string): Promise<void> => {
+    const token = localStorage.getItem("authToken");
+    const response = await fetch(`/api/admin/faqs/${key}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -123,91 +171,156 @@ const faqApi = {
   },
 };
 
-const EMPTY_FORM: FAQFormData = { question: "", answer: "" };
-
 export default function FaqsPage() {
   const { loading: authLoading } = useAuth();
 
   const [faqs, setFaqs] = useState<FAQ[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 10, total: 0 });
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Create (dynamic multi-row) dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [rows, setRows] = useState<FAQRow[]>([{ ...EMPTY_ROW }]);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Edit (single) dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editData, setEditData] = useState<FAQRow>({ ...EMPTY_ROW });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Delete
+  const [faqToDelete, setFaqToDelete] = useState<FAQ | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [editingSlug, setEditingSlug] = useState<string | null>(null);
-  const [formData, setFormData] = useState<FAQFormData>(EMPTY_FORM);
-  const [faqToDelete, setFaqToDelete] = useState<FAQ | null>(null);
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [search]);
+  // Drag-and-drop reorder
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragEnabled, setDragEnabled] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const loadFaqs = useCallback(async () => {
     if (authLoading) return;
     setIsLoading(true);
     try {
-      const params: Record<string, string> = {
-        page: String(page),
-        limit: "10",
-      };
-      if (debouncedSearch) params.search = debouncedSearch;
-      const result = await faqApi.getFaqs(params);
-      setFaqs(result.data);
-      setMeta(result.meta);
+      const list = await faqApi.getFaqs();
+      // Respect the backend sort_order when it distinguishes items; otherwise
+      // keep the order the API returned.
+      const sorted = [...list].sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+      );
+      setFaqs(sorted);
     } catch {
       toast.error("Failed to load FAQs");
     } finally {
       setIsLoading(false);
     }
-  }, [authLoading, page, debouncedSearch]);
+  }, [authLoading]);
 
   useEffect(() => {
     loadFaqs();
   }, [loadFaqs]);
 
-  const openAddDialog = () => {
-    setEditingSlug(null);
-    setFormData(EMPTY_FORM);
-    setFormDialogOpen(true);
+  const filtered = search.trim()
+    ? faqs.filter((f) =>
+        f.question.toLowerCase().includes(search.trim().toLowerCase()),
+      )
+    : faqs;
+  const isSearching = search.trim().length > 0;
+
+  // ── Create (dynamic rows) ──
+  // Default order continues from the current list so new FAQs land at the end.
+  const nextOrder = (offset: number) => String(faqs.length + offset + 1);
+  const openCreate = () => {
+    setRows([{ ...EMPTY_ROW, order: nextOrder(0) }]);
+    setCreateOpen(true);
+  };
+  const addRow = () =>
+    setRows((prev) => [
+      ...prev,
+      { ...EMPTY_ROW, order: nextOrder(prev.length) },
+    ]);
+  const removeRow = (index: number) =>
+    setRows((prev) => prev.filter((_, i) => i !== index));
+  const updateRow = (index: number, field: keyof FAQRow, value: string) =>
+    setRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+
+  const handleCreate = async () => {
+    const valid = rows.filter(
+      (r) => r.question.trim() && !isBlank(r.answer),
+    );
+    if (valid.length === 0) {
+      toast.error("Add at least one FAQ with a question and response");
+      return;
+    }
+    if (valid.length !== rows.length) {
+      toast.error("Every FAQ needs both a question and a response");
+      return;
+    }
+    setIsCreating(true);
+    try {
+      // No batch endpoint on the backend — create each FAQ sequentially.
+      for (const [i, row] of valid.entries()) {
+        const parsed = parseInt(row.order, 10);
+        await faqApi.createFaq({
+          question: row.question.trim(),
+          answer: row.answer,
+          sort_order: Number.isFinite(parsed) ? parsed : faqs.length + i + 1,
+        });
+      }
+      toast.success(
+        valid.length > 1
+          ? `${valid.length} FAQs created successfully`
+          : "FAQ created successfully",
+      );
+      setCreateOpen(false);
+      setRows([{ ...EMPTY_ROW }]);
+      await loadFaqs();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const openEditDialog = (faq: FAQ) => {
-    setEditingSlug(faq.slug);
-    setFormData({ question: faq.question, answer: faq.answer });
-    setFormDialogOpen(true);
+  // ── Edit ──
+  const openEdit = (faq: FAQ) => {
+    setEditingKey(faqKey(faq));
+    setEditData({
+      question: faq.question,
+      answer: faq.answer,
+      order: faq.sort_order != null ? String(faq.sort_order) : "",
+    });
+    setEditOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!formData.question.trim()) {
+  const handleSaveEdit = async () => {
+    if (!editingKey) return;
+    if (!editData.question.trim()) {
       toast.error("Question is required");
       return;
     }
-    if (!formData.answer.trim()) {
-      toast.error("Answer is required");
+    if (isBlank(editData.answer)) {
+      toast.error("Response is required");
       return;
     }
     setIsSaving(true);
     try {
-      if (editingSlug) {
-        const updated = await faqApi.updateFaq(editingSlug, formData);
-        setFaqs((prev) => prev.map((f) => (f.slug === editingSlug ? updated : f)));
-        toast.success("FAQ updated successfully");
-      } else {
-        await faqApi.createFaq(formData);
-        toast.success("FAQ created successfully");
-        await loadFaqs();
-      }
-      setFormDialogOpen(false);
-      setFormData(EMPTY_FORM);
+      const current = faqs.find((f) => faqKey(f) === editingKey);
+      const parsed = parseInt(editData.order, 10);
+      const updated = await faqApi.updateFaq(editingKey, {
+        question: editData.question.trim(),
+        answer: editData.answer,
+        sort_order: Number.isFinite(parsed) ? parsed : current?.sort_order,
+      });
+      setFaqs((prev) =>
+        prev.map((f) =>
+          faqKey(f) === editingKey ? { ...f, ...updated } : f,
+        ),
+      );
+      toast.success("FAQ updated successfully");
+      setEditOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unknown error");
     } finally {
@@ -215,13 +328,90 @@ export default function FaqsPage() {
     }
   };
 
+  // ── Hide / Show via the dedicated toggle-status endpoint (optimistic) ──
+  const handleToggleHide = async (faq: FAQ) => {
+    const key = faqKey(faq);
+    const nextStatus = isHidden(faq) ? "visible" : "hidden";
+    setFaqs((prev) =>
+      prev.map((f) => (faqKey(f) === key ? { ...f, status: nextStatus } : f)),
+    );
+    try {
+      await faqApi.toggleStatus(key);
+    } catch {
+      // Revert on failure
+      setFaqs((prev) =>
+        prev.map((f) =>
+          faqKey(f) === key ? { ...f, status: faq.status } : f,
+        ),
+      );
+      toast.error("Could not update visibility");
+    }
+  };
+
+  // ── Reorder (optimistic; persists sort_order for every row that moved) ──
+  const persistReorder = async (reordered: FAQ[]) => {
+    const previous = faqs;
+    // Assign fresh sequential sort_order (1-based) so ordering is unambiguous.
+    const withOrder = reordered.map((f, i) => ({ ...f, sort_order: i + 1 }));
+    setFaqs(withOrder);
+
+    const changed = withOrder.filter((f) => {
+      const before = previous.find((p) => faqKey(p) === faqKey(f));
+      return before && before.sort_order !== f.sort_order;
+    });
+    if (changed.length === 0) return;
+
+    try {
+      await Promise.all(
+        changed.map((f) =>
+          faqApi.updateFaq(faqKey(f), {
+            question: f.question,
+            answer: f.answer,
+            sort_order: f.sort_order,
+          }),
+        ),
+      );
+    } catch {
+      setFaqs(previous);
+      toast.error("Could not save the new order");
+    }
+  };
+
+  const handleMove = (index: number, direction: "up" | "down") => {
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= faqs.length) return;
+    const reordered = [...faqs];
+    [reordered[index], reordered[target]] = [
+      reordered[target],
+      reordered[index],
+    ];
+    persistReorder(reordered);
+  };
+
+  // Native drag-and-drop (no external dep). Dragging is armed only by the grip
+  // handle so text selection and buttons inside a row keep working.
+  const handleDrop = (to: number) => {
+    if (dragIndex === null || dragIndex === to) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...faqs];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(to, 0, moved);
+    persistReorder(reordered);
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // ── Delete ──
   const handleDeleteConfirm = async () => {
     if (!faqToDelete) return;
+    const key = faqKey(faqToDelete);
     setIsDeleting(true);
     try {
-      await faqApi.deleteFaq(faqToDelete.slug);
-      setFaqs((prev) => prev.filter((f) => f.slug !== faqToDelete.slug));
-      setMeta((prev) => ({ ...prev, total: prev.total - 1 }));
+      await faqApi.deleteFaq(key);
+      setFaqs((prev) => prev.filter((f) => faqKey(f) !== key));
       toast.success("FAQ deleted successfully");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unknown error");
@@ -231,17 +421,20 @@ export default function FaqsPage() {
     }
   };
 
-  const dialogTitle = editingSlug ? "Edit FAQ" : "Add FAQ";
-
   return (
     <div className="p-2 lg:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold">FAQs</h1>
+        <div>
+          <h1 className="text-3xl font-semibold">FAQs</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Add, edit, hide, delete and arrange the FAQs shown on the site.
+          </p>
+        </div>
         <Button
           className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-2"
-          onClick={openAddDialog}
+          onClick={openCreate}
         >
-          <Plus className="w-4 h-4" /> Add FAQ
+          <Plus className="w-4 h-4" /> Add FAQs
         </Button>
       </div>
 
@@ -256,112 +449,294 @@ export default function FaqsPage() {
         />
       </div>
 
+      {isSearching && (
+        <p className="text-xs text-gray-400">
+          Reordering is disabled while searching. Clear the search to arrange
+          FAQs.
+        </p>
+      )}
+
       {/* List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-gray-500">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
           Loading FAQs...
         </div>
-      ) : faqs.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          {debouncedSearch ? "No FAQs match your search." : "No FAQs yet. Add one to get started."}
+          {isSearching
+            ? "No FAQs match your search."
+            : "No FAQs yet. Add one to get started."}
         </div>
       ) : (
         <div className="space-y-3">
-          {faqs.map((faq, idx) => (
+          {filtered.map((faq, idx) => (
             <div
-              key={faq.slug}
-              className="group flex items-start gap-4 p-5 border border-gray-200 rounded-xl bg-white hover:border-[#93C01F]/40 hover:bg-[#F4F9E8]/30 transition-colors"
+              key={faqKey(faq)}
+              draggable={dragEnabled && !isSearching}
+              onDragStart={() => setDragIndex(idx)}
+              onDragOver={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                setDragOverIndex(idx);
+              }}
+              onDrop={() => handleDrop(idx)}
+              onDragEnd={() => {
+                setDragEnabled(false);
+                setDragIndex(null);
+                setDragOverIndex(null);
+              }}
+              className={`group flex items-start gap-4 p-5 border rounded-xl bg-white transition-colors ${
+                dragOverIndex === idx && dragIndex !== null && dragIndex !== idx
+                  ? "border-[#93C01F] ring-2 ring-[#93C01F]/30"
+                  : isHidden(faq)
+                    ? "border-gray-200 opacity-60"
+                    : "border-gray-200 hover:border-[#93C01F]/40 hover:bg-[#F4F9E8]/30"
+              } ${dragIndex === idx ? "opacity-50" : ""}`}
             >
-              <span className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-[#93C01F]/10 text-[#5F8B0A] flex items-center justify-center text-sm font-semibold">
-                {(page - 1) * 10 + idx + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-sm leading-snug">
-                  {faq.question}
-                </p>
-                <p className="mt-1.5 text-gray-500 text-sm leading-relaxed whitespace-pre-wrap">
-                  {faq.answer}
-                </p>
+              {/* Reorder controls */}
+              <div className="flex flex-col items-center gap-1 pt-0.5">
+                {/* Drag handle — arms native dragging while held */}
+                <button
+                  className="p-1 text-gray-300 hover:text-gray-600 cursor-grab active:cursor-grabbing disabled:opacity-30 disabled:cursor-not-allowed"
+                  onMouseDown={() => setDragEnabled(true)}
+                  onMouseUp={() => setDragEnabled(false)}
+                  disabled={isSearching}
+                  title="Drag to reorder"
+                  aria-label="Drag to reorder"
+                >
+                  <GripVertical className="w-4 h-4" />
+                </button>
+                <button
+                  className="p-1 text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                  onClick={() => handleMove(idx, "up")}
+                  disabled={isSearching || idx === 0}
+                  title="Move up"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-semibold text-gray-400">
+                  {idx + 1}
+                </span>
+                <button
+                  className="p-1 text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                  onClick={() => handleMove(idx, "down")}
+                  disabled={isSearching || idx === filtered.length - 1}
+                  title="Move down"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-                <button
-                  className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
-                  onClick={() => openEditDialog(faq)}
-                  title="Edit"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  className="p-1.5 text-gray-400 hover:text-red-600 rounded"
-                  onClick={() => setFaqToDelete(faq)}
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900 text-sm leading-snug">
+                    {faq.question}
+                  </p>
+                  {isHidden(faq) && (
+                    <Badge className="bg-gray-100 hover:bg-gray-100 text-gray-500 border border-gray-200 gap-1 pl-1.5">
+                      <EyeOff className="w-3 h-3" /> Hidden
+                    </Badge>
+                  )}
+                </div>
+                <RichTextDisplay
+                  html={faq.answer}
+                  className="mt-1.5 text-sm text-gray-500"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
+                      onClick={() => handleToggleHide(faq)}
+                    >
+                      {isHidden(faq) ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <EyeOff className="w-4 h-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isHidden(faq) ? "Show on site" : "Hide from site"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded"
+                      onClick={() => openEdit(faq)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                      onClick={() => setFaqToDelete(faq)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Pagination */}
-      {meta.last_page > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-gray-500">
-            Page {meta.current_page} of {meta.last_page} &middot; {meta.total} total
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= meta.last_page}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Dialog */}
+      {/* ── Create dialog: dynamic add/remove rows ── */}
       <Dialog
-        open={formDialogOpen}
+        open={createOpen}
         onOpenChange={(open) => {
-          if (!open) setFormData(EMPTY_FORM);
-          setFormDialogOpen(open);
+          if (!open) setRows([{ ...EMPTY_ROW }]);
+          setCreateOpen(open);
         }}
       >
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">{dialogTitle}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Add FAQs</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label className="text-gray-600">Question</Label>
-              <Input
-                value={formData.question}
-                onChange={(e) => setFormData((p) => ({ ...p, question: e.target.value }))}
-                placeholder="Enter the question"
-              />
+          <div className="space-y-4 py-2">
+            {rows.map((row, index) => (
+              <div
+                key={index}
+                className="relative rounded-xl border border-gray-200 p-4 space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#5F8B0A] uppercase tracking-wide">
+                    FAQ {index + 1}
+                  </span>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRow(index)}
+                      className="p-1 text-gray-400 hover:text-red-600 rounded"
+                      title="Remove this FAQ"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="space-y-2 flex-1">
+                    <Label className="text-gray-600">Question</Label>
+                    <Input
+                      value={row.question}
+                      onChange={(e) =>
+                        updateRow(index, "question", e.target.value)
+                      }
+                      placeholder="Enter the question"
+                    />
+                  </div>
+                  <div className="space-y-2 w-24 shrink-0">
+                    <Label className="text-gray-600">Order</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={row.order}
+                      onChange={(e) => updateRow(index, "order", e.target.value)}
+                      placeholder="#"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-600">Response</Label>
+                  <RichTextEditor
+                    value={row.answer}
+                    onChange={(html) => updateRow(index, "answer", html)}
+                    placeholder="Enter the response"
+                  />
+                </div>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addRow}
+              className="w-full bg-gray-50 text-gray-600 border border-dashed border-gray-300 gap-2 hover:bg-gray-100"
+            >
+              <Plus className="w-4 h-4" /> Add another FAQ
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setCreateOpen(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#93C01F] hover:bg-[#7da815] text-white"
+              onClick={handleCreate}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                `Save ${rows.length > 1 ? `${rows.length} FAQs` : "FAQ"}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit dialog: single FAQ ── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Edit FAQ</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="flex gap-3">
+              <div className="space-y-2 flex-1">
+                <Label className="text-gray-600">Question</Label>
+                <Input
+                  value={editData.question}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, question: e.target.value }))
+                  }
+                  placeholder="Enter the question"
+                />
+              </div>
+              <div className="space-y-2 w-24 shrink-0">
+                <Label className="text-gray-600">Order</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={editData.order}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, order: e.target.value }))
+                  }
+                  placeholder="#"
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-gray-600">Answer</Label>
-              <Textarea
-                value={formData.answer}
-                onChange={(e) => setFormData((p) => ({ ...p, answer: e.target.value }))}
-                placeholder="Enter the answer"
-                rows={6}
-                className="resize-none"
+              <Label className="text-gray-600">Response</Label>
+              <RichTextEditor
+                value={editData.answer}
+                onChange={(html) =>
+                  setEditData((p) => ({ ...p, answer: html }))
+                }
+                placeholder="Enter the response"
               />
             </div>
           </div>
@@ -369,17 +744,14 @@ export default function FaqsPage() {
           <DialogFooter>
             <Button
               variant="secondary"
-              onClick={() => {
-                setFormDialogOpen(false);
-                setFormData(EMPTY_FORM);
-              }}
+              onClick={() => setEditOpen(false)}
               className="bg-gray-100 hover:bg-gray-200 text-gray-700"
             >
               Cancel
             </Button>
             <Button
               className="bg-[#93C01F] hover:bg-[#7da815] text-white"
-              onClick={handleSave}
+              onClick={handleSaveEdit}
               disabled={isSaving}
             >
               {isSaving ? (
@@ -387,17 +759,15 @@ export default function FaqsPage() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...
                 </>
-              ) : editingSlug ? (
-                "Save Changes"
               ) : (
-                "Add FAQ"
+                "Save Changes"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* ── Delete confirmation ── */}
       <AlertDialog
         open={!!faqToDelete}
         onOpenChange={(open) => !open && setFaqToDelete(null)}
@@ -407,7 +777,8 @@ export default function FaqsPage() {
             <AlertDialogTitle>Delete this FAQ?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently remove the question:{" "}
-              <strong>&ldquo;{faqToDelete?.question}&rdquo;</strong>. This action cannot be undone.
+              <strong>&ldquo;{faqToDelete?.question}&rdquo;</strong>. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
