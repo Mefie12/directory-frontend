@@ -158,7 +158,9 @@ const mapListing = (item: any): ListingDetail => {
         .map((img: any) => getImageUrl(img.original || img))
     : [];
   const image =
-    images[0] || getImageUrl(item.image || item.thumbnail) || "/images/no-image.jpg";
+    images[0] ||
+    getImageUrl(item.image || item.thumbnail) ||
+    "/images/no-image.jpg";
 
   let category = "General";
   if (Array.isArray(item.categories) && item.categories.length > 0) {
@@ -180,7 +182,8 @@ const mapListing = (item: any): ListingDetail => {
 
   const rawStatus = (item.status || "pending").toLowerCase();
   let approval: ListingDetail["approval"] = "Pending";
-  if (rawStatus === "approved" || rawStatus === "published") approval = "Approved";
+  if (rawStatus === "approved" || rawStatus === "published")
+    approval = "Approved";
   else if (rawStatus === "rejected") approval = "Rejected";
   else if (rawStatus === "suspended") approval = "Suspended";
 
@@ -403,7 +406,9 @@ export default function ListingDetailsPage() {
       setListing((prev) => (prev ? { ...prev, approval: uiStatus } : prev));
       toast.success(`Listing ${newStatus}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update status");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update status",
+      );
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -416,13 +421,19 @@ export default function ListingDetailsPage() {
       const token = localStorage.getItem("authToken");
       const res = await fetch(`/api/listing/${listing.slug}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
       });
-      if (!res.ok && res.status !== 204) throw new Error("Failed to delete listing");
+      if (!res.ok && res.status !== 204)
+        throw new Error("Failed to delete listing");
       toast.success("Listing deleted successfully");
       router.push("/dashboard/listings");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete listing");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete listing",
+      );
       setIsDeleting(false);
       setShowDelete(false);
     }
@@ -447,13 +458,21 @@ export default function ListingDetailsPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).message || "Failed to update verification");
+        throw new Error(
+          (err as any).message || "Failed to update verification",
+        );
       }
       setListing((prev) => (prev ? { ...prev, verified: value } : prev));
-      toast.success(value ? "Listing verified successfully" : "Verification removed");
+      toast.success(
+        value ? "Listing verified successfully" : "Verification removed",
+      );
     } catch (error) {
       setIsVerified(!value);
-      toast.error(error instanceof Error ? error.message : "Failed to update verification");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update verification",
+      );
     } finally {
       setIsVerifying(false);
     }
@@ -549,13 +568,81 @@ export default function ListingDetailsPage() {
 
       {/* Hero: image gallery (left) + info column (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Left: carousel + action card */}
+        {/* Left: carousel + description + stats */}
         <div className="lg:col-span-3 space-y-5">
           <ListingImageGallery
             images={listing.images}
             alt={listing.name}
             verified={isVerified}
           />
+
+          {/* Description */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-gray-900 text-sm">Description</h3>
+            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+              {listing.description ? (
+                <RichTextDisplay html={listing.description} />
+              ) : (
+                <span className="text-gray-400">No description provided.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Stat tiles */}
+          <div className="grid grid-cols-2 gap-3">
+            {statTiles.map((tile) => (
+              <div
+                key={tile.label}
+                className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white"
+              >
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tile.tint}`}
+                >
+                  <tile.icon className="w-4.5 h-4.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-gray-900 leading-none">
+                    {tile.value}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate mt-1">
+                    {tile.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: title, manage actions, address & details */}
+        <div className="lg:col-span-2 space-y-5">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5">
+              {listing.name}
+              {isVerified && (
+                <Image
+                  src="/images/icons/verify.svg"
+                  alt="Verified"
+                  width={20}
+                  height={20}
+                />
+              )}
+            </h1>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
+                  listing.approval,
+                )}`}
+              >
+                {listing.approval}
+              </span>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                {listing.type}
+              </span>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </div>
+          </div>
 
           {/* Sidebar slot: moderation actions + verify toggle */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 space-y-5">
@@ -569,38 +656,47 @@ export default function ListingDetailsPage() {
                 <Button
                   onClick={() => handleStatusUpdate("approved")}
                   disabled={isUpdatingStatus}
-                  variant={listing.approval === "Approved" ? "default" : "outline"}
+                  variant={
+                    listing.approval === "Approved" ? "default" : "outline"
+                  }
                   className={
                     listing.approval === "Approved"
                       ? "bg-[#93C01F] hover:bg-[#7ea919] text-white border-[#93C01F] gap-1.5"
                       : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
                   }
                 >
-                  <CheckCircle2 className="w-4 h-4" /> Approve
+                  <CheckCircle2 className="w-4 h-4" />
+                  {listing.approval === "Approved" ? "Approved" : "Approve"}
                 </Button>
                 <Button
                   onClick={() => handleStatusUpdate("suspended")}
                   disabled={isUpdatingStatus}
-                  variant={listing.approval === "Suspended" ? "default" : "outline"}
+                  variant={
+                    listing.approval === "Suspended" ? "default" : "outline"
+                  }
                   className={
                     listing.approval === "Suspended"
                       ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 gap-1.5"
                       : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
                   }
                 >
-                  <AlertTriangle className="w-4 h-4" /> Suspend
+                  <AlertTriangle className="w-4 h-4" />
+                  {listing.approval === "Suspended" ? "Suspended" : "Suspend"}
                 </Button>
                 <Button
                   onClick={() => handleStatusUpdate("rejected")}
                   disabled={isUpdatingStatus}
-                  variant={listing.approval === "Rejected" ? "default" : "outline"}
+                  variant={
+                    listing.approval === "Rejected" ? "default" : "outline"
+                  }
                   className={
                     listing.approval === "Rejected"
                       ? "bg-red-600 hover:bg-red-700 text-white border-red-600 gap-1.5"
                       : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
                   }
                 >
-                  <XCircle className="w-4 h-4" /> Reject
+                  <XCircle className="w-4 h-4" />
+                  {listing.approval === "Rejected" ? "Rejected" : "Reject"}
                 </Button>
 
                 <div className="w-px h-6 bg-gray-200 mx-1" />
@@ -632,76 +728,6 @@ export default function ListingDetailsPage() {
                 disabled={isVerifying}
                 className="data-[state=checked]:bg-[#93C01F]"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Right: title, stats, description, address & details */}
-        <div className="lg:col-span-2 space-y-5">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5">
-              {listing.name}
-              {isVerified && (
-                <Image
-                  src="/images/icons/verify.svg"
-                  alt="Verified"
-                  width={20}
-                  height={20}
-                />
-              )}
-            </h1>
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span
-                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
-                  listing.approval,
-                )}`}
-              >
-                {listing.approval}
-              </span>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
-                {listing.type}
-              </span>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-                {listing.plan || "Basic"} plan
-              </span>
-            </div>
-          </div>
-
-          {/* Stat tiles */}
-          <div className="grid grid-cols-2 gap-3">
-            {statTiles.map((tile) => (
-              <div
-                key={tile.label}
-                className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white"
-              >
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tile.tint}`}
-                >
-                  <tile.icon className="w-4.5 h-4.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-base font-bold text-gray-900 leading-none">
-                    {tile.value}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate mt-1">
-                    {tile.label}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900 text-sm">
-              Description
-            </h3>
-            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
-              {listing.description ? (
-                <RichTextDisplay html={listing.description} />
-              ) : (
-                <span className="text-gray-400">No description provided.</span>
-              )}
             </div>
           </div>
 
@@ -760,7 +786,9 @@ export default function ListingDetailsPage() {
             {website && (
               <InfoRow icon={Globe} label="Website">
                 <a
-                  href={website.startsWith("http") ? website : `https://${website}`}
+                  href={
+                    website.startsWith("http") ? website : `https://${website}`
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 hover:underline"
@@ -787,7 +815,8 @@ export default function ListingDetailsPage() {
           {listing.type === "event" && hasEventInfo && ev && (
             <div className="rounded-xl border border-gray-100 bg-white p-4">
               <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
-                <Ticket className="w-4 h-4 text-[#93C01F]" /> Event & Ticketing
+                {/* <Ticket className="w-4 h-4 text-[#93C01F]" /> Date, Venue &amp; Ticketing */}
+                Date, Venue &amp; Ticketing
               </h3>
               {(ev.start_date || ev.end_date) && (
                 <InfoRow icon={Calendar} label="Date">
@@ -829,12 +858,24 @@ export default function ListingDetailsPage() {
                 Social Links
               </h3>
               <div className="grid grid-cols-2 gap-2">
-                <SocialLink href={s.facebook} icon={Facebook} label="Facebook" />
-                <SocialLink href={s.instagram} icon={Instagram} label="Instagram" />
+                <SocialLink
+                  href={s.facebook}
+                  icon={Facebook}
+                  label="Facebook"
+                />
+                <SocialLink
+                  href={s.instagram}
+                  icon={Instagram}
+                  label="Instagram"
+                />
                 <SocialLink href={s.twitter} icon={Twitter} label="Twitter" />
                 <SocialLink href={s.tiktok} icon={Music2} label="TikTok" />
                 <SocialLink href={s.youtube} icon={Youtube} label="YouTube" />
-                <SocialLink href={s.whatsapp} icon={MessageCircle} label="WhatsApp" />
+                <SocialLink
+                  href={s.whatsapp}
+                  icon={MessageCircle}
+                  label="WhatsApp"
+                />
               </div>
             </div>
           )}
@@ -860,53 +901,52 @@ export default function ListingDetailsPage() {
               </div>
             </div>
           )}
+
+          {/* Services — compact, paired 2-up grid like the Overview tiles */}
+          {listing.services.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
+                {/* <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services */}
+                Services 
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {listing.services.map((svc) => (
+                  <div
+                    key={svc.slug}
+                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-100"
+                  >
+                    <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
+                      {svc.image ? (
+                        <Image
+                          src={svc.image}
+                          alt={svc.name}
+                          fill
+                          className="object-cover"
+                          sizes="36px"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 truncate">
+                      {svc.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Services */}
-      {listing.services.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
-          </h3>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {listing.services.map((svc) => (
-              <div
-                key={svc.slug}
-                className="flex gap-3 p-3 border border-gray-100 rounded-lg bg-white"
-              >
-                <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0 relative">
-                  {svc.image ? (
-                    <Image
-                      src={svc.image}
-                      alt={svc.name}
-                      fill
-                      className="object-cover"
-                      sizes="56px"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                      <Briefcase className="w-5 h-5" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{svc.name}</p>
-                  {svc.description && (
-                    <p className="text-xs text-gray-500 line-clamp-2">
-                      {svc.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Delete confirmation */}
-      <AlertDialog open={showDelete} onOpenChange={(o) => !o && setShowDelete(false)}>
+      <AlertDialog
+        open={showDelete}
+        onOpenChange={(o) => !o && setShowDelete(false)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -960,7 +1000,9 @@ export default function ListingDetailsPage() {
                   : "bg-orange-500 hover:bg-orange-600"
               }
             >
-              {pendingVerify ? "Yes, verify listing" : "Yes, remove verification"}
+              {pendingVerify
+                ? "Yes, verify listing"
+                : "Yes, remove verification"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
