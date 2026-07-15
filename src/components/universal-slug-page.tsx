@@ -731,6 +731,13 @@ function SidebarInfo({
   hours: OpeningHour[];
 }) {
   const socialLinks = provider.socials || {};
+  const hasContact = !!(
+    provider.phone ||
+    provider.email ||
+    Object.values(socialLinks).some((v) => v)
+  );
+  const hasHours = !!(hours && hours.length > 0);
+  const showClaimButton = !provider.claim_status;
 
   const { user } = useAuth();
   const router = useRouter();
@@ -742,6 +749,17 @@ function SidebarInfo({
       router.push(`/auth/login?redirect=/claim/${provider.slug}/verify`);
     }
   };
+
+  // Nothing to show in this card at all — don't render an empty white box.
+  if (
+    pricing.length === 0 &&
+    !hasHours &&
+    !hasContact &&
+    !provider.website &&
+    !showClaimButton
+  ) {
+    return null;
+  }
 
   return (
     <Card>
@@ -755,7 +773,7 @@ function SidebarInfo({
           </>
         )}
 
-        {hours && hours.length > 0 && (
+        {hasHours && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
               <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" /> Business Hours
@@ -780,6 +798,8 @@ function SidebarInfo({
         )}
 
 
+        {hasContact && (
+        <>
         <h5 className="text-lg font-black text-black">Contact</h5>
         <div className="mt-3 space-y-4 text-sm text-gray-600">
           {provider.phone && (
@@ -842,8 +862,10 @@ function SidebarInfo({
             </div>
           )}
         </div>
+        </>
+        )}
 
-        {(provider.website || !provider.claim_status) && <Divider />}
+        {hasContact && (provider.website || showClaimButton) && <Divider />}
 
         {provider.website && (
           <>

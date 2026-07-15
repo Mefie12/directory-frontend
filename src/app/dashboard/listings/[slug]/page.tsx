@@ -24,8 +24,10 @@ import {
 import {
   ChevronLeft,
   User,
+  Users,
   MapPin,
   Tag,
+  Gem,
   Phone,
   Mail,
   Globe,
@@ -119,8 +121,6 @@ interface ListingDetail {
   };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
 const getInitials = (name: string) =>
   name
     .split(" ")
@@ -132,7 +132,8 @@ const getInitials = (name: string) =>
 const getImageUrl = (url: string | undefined): string => {
   if (!url) return "/images/no-image.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  return `${API_URL}/${url.replace(/^\//, "")}`;
+  // Backend returns bare S3 keys e.g. "staging/services/uuid.png"
+  return `https://mefie-bucket.s3.eu-north-1.amazonaws.com/${url.replace(/^\//, "")}`;
 };
 
 // Maps a raw single-listing payload into the shape this page renders.
@@ -271,12 +272,12 @@ const mapListing = (item: any): ListingDetail => {
   };
 };
 
-const getStatusColor = (status: string) => {
-  if (status === "Approved") return "bg-[#E9F5D6] text-[#5F8B0A]";
-  if (status === "Pending") return "bg-yellow-100 text-yellow-700";
-  if (status === "Suspended") return "bg-orange-100 text-orange-700";
-  return "bg-red-100 text-red-800";
-};
+// const getStatusColor = (status: string) => {
+//   if (status === "Approved") return "bg-[#E9F5D6] text-[#5F8B0A]";
+//   if (status === "Pending") return "bg-yellow-100 text-yellow-700";
+//   if (status === "Suspended") return "bg-orange-100 text-orange-700";
+//   return "bg-red-100 text-red-800";
+// };
 
 // "in_person" -> "In Person"
 const formatSnakeCase = (value: string) =>
@@ -529,6 +530,13 @@ export default function ListingDetailsPage() {
       ev.location_type)
   );
 
+  const TypeIcon =
+    listing.type === "event"
+      ? Ticket
+      : listing.type === "community"
+        ? Users
+        : Briefcase;
+
   const statTiles = [
     {
       icon: Eye,
@@ -611,6 +619,51 @@ export default function ListingDetailsPage() {
               </div>
             ))}
           </div>
+
+          {/* Services — compact, paired 2-up grid like the Overview tiles */}
+          {listing.services.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h3 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
+                {/* <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services */}
+                Services
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {listing.services.map((svc) => (
+                  <div
+                    key={svc.slug}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-100"
+                  >
+                    <div className="w-11 h-11 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
+                      {svc.image ? (
+                        <Image
+                          src={svc.image}
+                          alt={svc.name}
+                          fill
+                          className="object-cover"
+                          sizes="44px"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {svc.name}
+                      </p>
+                      {svc.description && (
+                        <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                          {svc.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: title, manage actions, address & details */}
@@ -628,18 +681,16 @@ export default function ListingDetailsPage() {
               )}
             </h1>
             <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span
+              {/* <span
                 className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(
                   listing.approval,
                 )}`}
               >
                 {listing.approval}
-              </span>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+              </span> */}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                <TypeIcon className="w-3 h-3" />
                 {listing.type}
-              </span>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-                {listing.plan || "Basic"} plan
               </span>
             </div>
           </div>
@@ -768,6 +819,11 @@ export default function ListingDetailsPage() {
                 {listing.userInfo.name}
               </InfoRow>
             )}
+            <InfoRow icon={Gem} label="Subscription">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+                {listing.plan || "Basic"} plan
+              </span>
+            </InfoRow>
             {listing.contactInfo.phone && (
               <InfoRow icon={Phone} label="Phone">
                 {listing.contactInfo.phone}
@@ -902,43 +958,6 @@ export default function ListingDetailsPage() {
             </div>
           )}
 
-          {/* Services — compact, paired 2-up grid like the Overview tiles */}
-          {listing.services.length > 0 && (
-            <div className="rounded-xl border border-gray-100 bg-white p-4">
-              <h3 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
-                {/* <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services */}
-                Services 
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {listing.services.map((svc) => (
-                  <div
-                    key={svc.slug}
-                    className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-100"
-                  >
-                    <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
-                      {svc.image ? (
-                        <Image
-                          src={svc.image}
-                          alt={svc.name}
-                          fill
-                          className="object-cover"
-                          sizes="36px"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                          <Briefcase className="w-4 h-4" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium text-gray-900 truncate">
-                      {svc.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
