@@ -7,6 +7,7 @@ import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
 import { FileUploader } from "@/components/dashboard/listing/media-uploader";
 import { z } from "zod";
+import { handleSessionExpired } from "@/lib/session";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -249,6 +250,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           );
 
           if (!response.ok) {
+            if (handleSessionExpired(response.status)) return false;
             const errorData = await response.json();
             throw new Error(
               errorData.message || `Update failed for media ${i + 1}`,
@@ -282,6 +284,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           });
 
           if (!response.ok) {
+            if (handleSessionExpired(response.status)) return false;
             const errorData = await response.json();
             throw new Error(
               errorData.message || `File ${i + 1} failed to upload`,

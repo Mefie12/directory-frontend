@@ -580,7 +580,14 @@ export default function ListingDetailPage({ params }: PageProps) {
   // Scroll to and highlight a specific review when arriving via ?review= param
   useEffect(() => {
     if (!highlightReviewSlug || reviews.length === 0) return;
-    const el = document.getElementById(`review-${highlightReviewSlug}`);
+    // The review card renders once in the mobile tree and once in the
+    // desktop tree (only one is visible at a time), so pick the visible copy.
+    const matches = document.querySelectorAll(
+      `[id="review-${highlightReviewSlug}"]`,
+    );
+    const el = Array.from(matches).find(
+      (c) => (c as HTMLElement).offsetParent !== null,
+    ) as HTMLElement | undefined;
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("ring-2", "ring-[#93C01F]", "ring-offset-2");
@@ -989,6 +996,558 @@ export default function ListingDetailPage({ params }: PageProps) {
     </div>
   );
 
+  const galleryBlock = (
+    <ListingImageGallery images={listing.allImages} alt={listing.name} />
+  );
+
+  const descriptionBlock = (
+    <div className="space-y-2">
+      <h3 className="font-semibold text-gray-900 text-sm">
+        About this listing
+      </h3>
+      <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+        {listing.bio ? (
+          <RichTextDisplay html={listing.bio} />
+        ) : (
+          <span className="text-gray-400">No description provided.</span>
+        )}
+      </div>
+    </div>
+  );
+
+  const servicesBlock = (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+          <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
+        </h3>
+        <Button
+          size="sm"
+          className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
+          onClick={openAddServices}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add Service
+        </Button>
+      </div>
+
+      {services.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          {services.map((service) => (
+            <div
+              key={service.id}
+              className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-100"
+            >
+              <div className="w-11 h-11 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
+                {service.image ? (
+                  <Image
+                    src={getImageUrl(service.image)}
+                    alt={service.name}
+                    fill
+                    className="object-cover"
+                    sizes="44px"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-300">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {service.name}
+                  </p>
+                  <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
+                    <button
+                      type="button"
+                      className="p-1 text-gray-400 hover:text-[#93C01F] rounded"
+                      onClick={() => openEditService(service)}
+                    >
+                      <PencilSimple className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-1 text-gray-400 hover:text-red-500 rounded"
+                      onClick={() =>
+                        service.slug && handleDeleteService(service.slug)
+                      }
+                      disabled={
+                        isDeletingService &&
+                        deletingServiceSlug === service.slug
+                      }
+                    >
+                      {isDeletingService &&
+                      deletingServiceSlug === service.slug ? (
+                        <SpinnerGap className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Trash className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {service.description && (
+                  <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                    {service.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-10 mt-2 border-2 border-dashed border-gray-100 rounded-xl">
+          <Briefcase className="w-8 h-8 text-gray-200 mb-2" />
+          <p className="text-gray-600 text-sm font-medium">
+            No services yet
+          </p>
+          <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+            Tap &ldquo;Add Service&rdquo; to showcase what you offer.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const reviewsBlock = (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <Star className="w-4 h-4 text-[#93C01F]" /> Customer Reviews
+        </h3>
+        {reviews.length > 0 && (
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span className="inline-flex items-center gap-1">
+              <Star className="w-3.5 h-3.5 text-yellow-400" weight="fill" />
+              <span className="font-semibold text-gray-900">
+                {listing.rating.toFixed(1)}
+              </span>{" "}
+              avg
+            </span>
+            <span className="text-gray-200">|</span>
+            <span>
+              <span className="font-semibold text-gray-900">
+                {reviews.length}
+              </span>{" "}
+              review{reviews.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {reviewsLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
+        </div>
+      ) : reviews.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
+          <Star className="w-9 h-9 text-gray-200 mb-3" />
+          <p className="text-gray-600 text-sm font-medium">No reviews yet</p>
+          <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
+            Reviews from customers will appear here once they start coming in.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((review) => {
+            const reviewerName = review.user
+              ? `${review.user.first_name} ${review.user.last_name}`.trim()
+              : "Anonymous";
+            const isReplying = replyingToSlug === review.slug;
+            const alreadyReplied = !!review.vendor_reply;
+
+            return (
+              <div
+                key={review.id}
+                id={`review-${review.slug}`}
+                className="border border-gray-100 rounded-xl p-4 space-y-3 bg-white"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-gray-500">
+                        {reviewerName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {reviewerName}
+                      </p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3 h-3 ${
+                              star <= Math.round(review.rating ?? 0)
+                                ? "text-yellow-400"
+                                : "text-gray-200"
+                            }`}
+                            weight="fill"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-gray-400 shrink-0">
+                    {review.created_at
+                      ? new Date(review.created_at).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )
+                      : ""}
+                  </span>
+                </div>
+
+                {review.comment && (
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {review.comment}
+                  </p>
+                )}
+
+                {review.vendor_reply && (
+                  <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      Your reply
+                      {review.vendor_reply_at && (
+                        <span className="font-normal text-gray-400 ml-2">
+                          ·{" "}
+                          {new Date(
+                            review.vendor_reply_at,
+                          ).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {review.vendor_reply}
+                    </p>
+                  </div>
+                )}
+
+                {!alreadyReplied && !isReplying && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReplyingToSlug(review.slug);
+                      setReplyText("");
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
+                  >
+                    <ArrowBendUpLeft className="w-3.5 h-3.5" />
+                    Reply
+                  </button>
+                )}
+
+                {isReplying && (
+                  <div className="space-y-2.5 pt-1">
+                    <Textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Write a reply to this review…"
+                      rows={3}
+                      maxLength={500}
+                      className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-gray-400">
+                        {replyText.length}/500
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs"
+                          disabled={isSubmittingReply}
+                          onClick={() => {
+                            setReplyingToSlug(null);
+                            setReplyText("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
+                          disabled={isSubmittingReply || !replyText.trim()}
+                          onClick={() => handleReplySubmit(review.slug)}
+                        >
+                          {isSubmittingReply ? (
+                            <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            "Post Reply"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const titleBlock = (
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+          {listing.name}
+        </h1>
+        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+            <TypeIcon className="w-3 h-3" />
+            {listing.type}
+          </span>
+          <span
+            className={`w-fit px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
+          >
+            {getStatusLabel(listing.status)}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleCopy}
+          title="Copy listing link"
+        >
+          {copied ? (
+            <Check className="w-4 h-4 text-green-600" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => router.push(listingEdit(listing.type, listing.slug))}
+          title="Edit listing"
+        >
+          <PencilSimple className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={() => setShowDeleteDialog(true)}
+          title="Delete listing"
+        >
+          <Trash className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  const statsBlock = (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#F4F9E8] text-[#5F8B0A]">
+          <Eye className="w-4.5 h-4.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-gray-900 leading-none">
+            {listing.views.toLocaleString()}
+          </p>
+          <p className="text-xs text-gray-500 truncate mt-1">Views</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 text-amber-600">
+          <BookmarkSimple className="w-4.5 h-4.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-gray-900 leading-none">
+            {listing.bookmarks.toLocaleString()}
+          </p>
+          <p className="text-xs text-gray-500 truncate mt-1">Bookmarks</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-purple-50 text-purple-600">
+          <Star className="w-4.5 h-4.5" weight="fill" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-gray-900 leading-none">
+            {listing.rating.toFixed(1)}
+          </p>
+          <p className="text-xs text-gray-500 truncate mt-1">Rating</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+          <Star className="w-4.5 h-4.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-gray-900 leading-none">
+            {listing.ratingsCount}
+          </p>
+          <p className="text-xs text-gray-500 truncate mt-1">Reviews</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const listingDetailsBlock = (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <h3 className="font-semibold text-gray-900 text-sm mb-1">
+        Listing Details
+      </h3>
+      <InfoRow icon={Diamond} label="Subscription">
+        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+          {listing.plan || "Basic"} plan
+        </span>
+      </InfoRow>
+
+      {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
+        <InfoRow icon={Calendar} label="Date">
+          {ev.start_date}
+          {ev.end_date ? ` – ${ev.end_date}` : ""}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev && (ev.start_time || ev.end_time) && (
+        <InfoRow icon={Clock} label="Time">
+          {ev.start_time}
+          {ev.end_time ? ` – ${ev.end_time}` : ""}
+        </InfoRow>
+      )}
+
+      <InfoRow
+        icon={MapPin}
+        label={listing.type === "event" ? "Venue" : "Location"}
+      >
+        {listing.location}
+      </InfoRow>
+
+      {listing.type === "event" && ev?.location_type && (
+        <InfoRow icon={Globe} label="Format">
+          {formatSnakeCase(ev.location_type)}
+        </InfoRow>
+      )}
+
+      <InfoRow icon={Tag} label="Category">
+        {listing.category}
+      </InfoRow>
+      {listing.subcategory && (
+        <InfoRow icon={Tag} label="Sub category">
+          {listing.subcategory}
+        </InfoRow>
+      )}
+      {listing.contactInfo.website && (
+        <InfoRow icon={Globe} label="Website">
+          <a
+            href={
+              listing.contactInfo.website.startsWith("http")
+                ? listing.contactInfo.website
+                : `https://${listing.contactInfo.website}`
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            {listing.contactInfo.website
+              .replace(/^https?:\/\//, "")
+              .replace(/\/$/, "")}
+          </a>
+        </InfoRow>
+      )}
+
+      {listing.type === "event" &&
+        ev &&
+        ev.price != null &&
+        ev.price !== "" && (
+          <InfoRow icon={Ticket} label="Price">
+            {ev.currency ? `${ev.currency} ` : ""}
+            {ev.price}
+          </InfoRow>
+        )}
+
+      {listing.businessRegNum && (
+        <InfoRow icon={Briefcase} label="Business reg. no.">
+          {listing.businessRegNum}
+        </InfoRow>
+      )}
+      {listing.claimStatus && (
+        <InfoRow icon={CheckCircle} label="Claim status">
+          <span className="capitalize">{listing.claimStatus}</span>
+        </InfoRow>
+      )}
+    </div>
+  );
+
+  const socialLinksBlock = hasSocials && (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <h3 className="font-semibold text-gray-900 text-sm mb-3">
+        Social Links
+      </h3>
+      <div className="grid grid-cols-2 gap-2">
+        <SocialLink
+          href={listing.socials.facebook}
+          icon={FacebookLogo}
+          label="Facebook"
+        />
+        <SocialLink
+          href={listing.socials.instagram}
+          icon={InstagramLogo}
+          label="Instagram"
+        />
+        <SocialLink
+          href={listing.socials.twitter}
+          icon={XLogo}
+          label="Twitter"
+        />
+        <SocialLink
+          href={listing.socials.tiktok}
+          icon={TiktokLogo}
+          label="TikTok"
+        />
+        <SocialLink
+          href={listing.socials.youtube}
+          icon={YoutubeLogo}
+          label="YouTube"
+        />
+        <SocialLink
+          href={listing.socials.whatsapp}
+          icon={WhatsappLogo}
+          label="WhatsApp"
+        />
+      </div>
+    </div>
+  );
+
+  const openingHoursBlock = listing.openingHours.length > 0 && (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
+        Opening Hours
+      </h3>
+      <div className="divide-y divide-gray-50">
+        {listing.openingHours.map((h) => (
+          <div
+            key={h.day_of_week}
+            className="flex items-center justify-between py-2.5 text-sm"
+          >
+            <span className="text-gray-500">{h.day_of_week}</span>
+            <span className="font-medium text-gray-900">
+              {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="px-1 lg:px-8 py-4 space-y-8 max-w-6xl mx-auto">
       {/* Breadcrumb */}
@@ -1010,572 +1569,36 @@ export default function ListingDetailPage({ params }: PageProps) {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Hero: image gallery (left) + info column (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+      {/* Mobile: Image -> Description -> Name/tags -> Analytics -> Listing Details -> Services -> Reviews */}
+      <div className="lg:hidden space-y-5">
+        {galleryBlock}
+        {descriptionBlock}
+        {titleBlock}
+        {statsBlock}
+        {listingDetailsBlock}
+        {socialLinksBlock}
+        {openingHoursBlock}
+        {servicesBlock}
+        {reviewsBlock}
+      </div>
+
+      {/* Desktop: image gallery (left) + info column (right) */}
+      <div className="hidden lg:grid lg:grid-cols-5 gap-8">
         {/* Left: gallery, description, services, reviews */}
         <div className="lg:col-span-3 space-y-5">
-          <ListingImageGallery images={listing.allImages} alt={listing.name} />
-
-          {/* Description */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900 text-sm">
-              About this listing
-            </h3>
-            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
-              {listing.bio ? (
-                <RichTextDisplay html={listing.bio} />
-              ) : (
-                <span className="text-gray-400">No description provided.</span>
-              )}
-            </div>
-          </div>
-
-          {/* Services */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
-              </h3>
-              <Button
-                size="sm"
-                className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
-                onClick={openAddServices}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Service
-              </Button>
-            </div>
-
-            {services.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                {services.map((service) => (
-                  <div
-                    key={service.id}
-                    className="flex items-start gap-2.5 p-2.5 rounded-lg border border-gray-100"
-                  >
-                    <div className="w-11 h-11 rounded-md overflow-hidden bg-gray-100 shrink-0 relative">
-                      {service.image ? (
-                        <Image
-                          src={getImageUrl(service.image)}
-                          alt={service.name}
-                          fill
-                          className="object-cover"
-                          sizes="44px"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                          <Briefcase className="w-4 h-4" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {service.name}
-                        </p>
-                        <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
-                          <button
-                            type="button"
-                            className="p-1 text-gray-400 hover:text-[#93C01F] rounded"
-                            onClick={() => openEditService(service)}
-                          >
-                            <PencilSimple className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            className="p-1 text-gray-400 hover:text-red-500 rounded"
-                            onClick={() =>
-                              service.slug && handleDeleteService(service.slug)
-                            }
-                            disabled={
-                              isDeletingService &&
-                              deletingServiceSlug === service.slug
-                            }
-                          >
-                            {isDeletingService &&
-                            deletingServiceSlug === service.slug ? (
-                              <SpinnerGap className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Trash className="w-3 h-3" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      {service.description && (
-                        <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
-                          {service.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 mt-2 border-2 border-dashed border-gray-100 rounded-xl">
-                <Briefcase className="w-8 h-8 text-gray-200 mb-2" />
-                <p className="text-gray-600 text-sm font-medium">
-                  No services yet
-                </p>
-                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-                  Tap &ldquo;Add Service&rdquo; to showcase what you offer.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Reviews */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Star className="w-4 h-4 text-[#93C01F]" /> Customer Reviews
-              </h3>
-              {reviews.length > 0 && (
-                <div className="flex items-center gap-3 text-xs text-gray-500">
-                  <span className="inline-flex items-center gap-1">
-                    <Star
-                      className="w-3.5 h-3.5 text-yellow-400"
-                      weight="fill"
-                    />
-                    <span className="font-semibold text-gray-900">
-                      {listing.rating.toFixed(1)}
-                    </span>{" "}
-                    avg
-                  </span>
-                  <span className="text-gray-200">|</span>
-                  <span>
-                    <span className="font-semibold text-gray-900">
-                      {reviews.length}
-                    </span>{" "}
-                    review{reviews.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {reviewsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <SpinnerGap className="w-6 h-6 animate-spin text-[#93C01F]" />
-              </div>
-            ) : reviews.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 border-2 border-dashed border-gray-100 rounded-xl">
-                <Star className="w-9 h-9 text-gray-200 mb-3" />
-                <p className="text-gray-600 text-sm font-medium">
-                  No reviews yet
-                </p>
-                <p className="text-gray-400 text-xs mt-1 text-center max-w-xs">
-                  Reviews from customers will appear here once they start coming
-                  in.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => {
-                  const reviewerName = review.user
-                    ? `${review.user.first_name} ${review.user.last_name}`.trim()
-                    : "Anonymous";
-                  const isReplying = replyingToSlug === review.slug;
-                  const alreadyReplied = !!review.vendor_reply;
-
-                  return (
-                    <div
-                      key={review.id}
-                      id={`review-${review.slug}`}
-                      className="border border-gray-100 rounded-xl p-4 space-y-3 bg-white"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-gray-500">
-                              {reviewerName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {reviewerName}
-                            </p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`w-3 h-3 ${
-                                    star <= Math.round(review.rating ?? 0)
-                                      ? "text-yellow-400"
-                                      : "text-gray-200"
-                                  }`}
-                                  weight="fill"
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[11px] text-gray-400 shrink-0">
-                          {review.created_at
-                            ? new Date(review.created_at).toLocaleDateString(
-                                "en-GB",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )
-                            : ""}
-                        </span>
-                      </div>
-
-                      {review.comment && (
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {review.comment}
-                        </p>
-                      )}
-
-                      {review.vendor_reply && (
-                        <div className="bg-gray-50 rounded-lg p-3 border-l-2 border-[#93C01F]/40">
-                          <p className="text-xs font-semibold text-gray-700 mb-1">
-                            Your reply
-                            {review.vendor_reply_at && (
-                              <span className="font-normal text-gray-400 ml-2">
-                                ·{" "}
-                                {new Date(
-                                  review.vendor_reply_at,
-                                ).toLocaleDateString("en-GB", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            {review.vendor_reply}
-                          </p>
-                        </div>
-                      )}
-
-                      {!alreadyReplied && !isReplying && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReplyingToSlug(review.slug);
-                            setReplyText("");
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-[#93C01F] transition-colors"
-                        >
-                          <ArrowBendUpLeft className="w-3.5 h-3.5" />
-                          Reply
-                        </button>
-                      )}
-
-                      {isReplying && (
-                        <div className="space-y-2.5 pt-1">
-                          <Textarea
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            placeholder="Write a reply to this review…"
-                            rows={3}
-                            maxLength={500}
-                            className="resize-none text-sm bg-gray-50 border-gray-200 focus-visible:ring-[#93C01F]"
-                          />
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-gray-400">
-                              {replyText.length}/500
-                            </span>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-xs"
-                                disabled={isSubmittingReply}
-                                onClick={() => {
-                                  setReplyingToSlug(null);
-                                  setReplyText("");
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-[#93C01F] hover:bg-[#82ab1b] gap-1"
-                                disabled={
-                                  isSubmittingReply || !replyText.trim()
-                                }
-                                onClick={() => handleReplySubmit(review.slug)}
-                              >
-                                {isSubmittingReply ? (
-                                  <SpinnerGap className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  "Post Reply"
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {galleryBlock}
+          {descriptionBlock}
+          {servicesBlock}
+          {reviewsBlock}
         </div>
 
         {/* Right: title, stats, listing details */}
         <div className="lg:col-span-2 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                {listing.name}
-              </h1>
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
-                  <TypeIcon className="w-3 h-3" />
-                  {listing.type}
-                </span>
-                <span
-                  className={`w-fit px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}
-                >
-                  {getStatusLabel(listing.status)}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleCopy}
-                title="Copy listing link"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() =>
-                  router.push(listingEdit(listing.type, listing.slug))
-                }
-                title="Edit listing"
-              >
-                <PencilSimple className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => setShowDeleteDialog(true)}
-                title="Delete listing"
-              >
-                <Trash className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Stat tiles */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#F4F9E8] text-[#5F8B0A]">
-                <Eye className="w-4.5 h-4.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 leading-none">
-                  {listing.views.toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-500 truncate mt-1">Views</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 text-amber-600">
-                <BookmarkSimple className="w-4.5 h-4.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 leading-none">
-                  {listing.bookmarks.toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-500 truncate mt-1">Bookmarks</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-purple-50 text-purple-600">
-                <Star className="w-4.5 h-4.5" weight="fill" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 leading-none">
-                  {listing.rating.toFixed(1)}
-                </p>
-                <p className="text-xs text-gray-500 truncate mt-1">Rating</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 bg-white">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
-                <Star className="w-4.5 h-4.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900 leading-none">
-                  {listing.ratingsCount}
-                </p>
-                <p className="text-xs text-gray-500 truncate mt-1">Reviews</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Listing Details */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <h3 className="font-semibold text-gray-900 text-sm mb-1">
-              Listing Details
-            </h3>
-            <InfoRow icon={Diamond} label="Subscription">
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-                {listing.plan || "Basic"} plan
-              </span>
-            </InfoRow>
-
-            {listing.type === "event" &&
-              ev &&
-              (ev.start_date || ev.end_date) && (
-                <InfoRow icon={Calendar} label="Date">
-                  {ev.start_date}
-                  {ev.end_date ? ` – ${ev.end_date}` : ""}
-                </InfoRow>
-              )}
-            {listing.type === "event" &&
-              ev &&
-              (ev.start_time || ev.end_time) && (
-                <InfoRow icon={Clock} label="Time">
-                  {ev.start_time}
-                  {ev.end_time ? ` – ${ev.end_time}` : ""}
-                </InfoRow>
-              )}
-
-            <InfoRow
-              icon={MapPin}
-              label={listing.type === "event" ? "Venue" : "Location"}
-            >
-              {listing.location}
-            </InfoRow>
-
-            {listing.type === "event" && ev?.location_type && (
-              <InfoRow icon={Globe} label="Format">
-                {formatSnakeCase(ev.location_type)}
-              </InfoRow>
-            )}
-
-            <InfoRow icon={Tag} label="Category">
-              {listing.category}
-            </InfoRow>
-            {listing.subcategory && (
-              <InfoRow icon={Tag} label="Sub category">
-                {listing.subcategory}
-              </InfoRow>
-            )}
-            {listing.contactInfo.website && (
-              <InfoRow icon={Globe} label="Website">
-                <a
-                  href={
-                    listing.contactInfo.website.startsWith("http")
-                      ? listing.contactInfo.website
-                      : `https://${listing.contactInfo.website}`
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  {listing.contactInfo.website
-                    .replace(/^https?:\/\//, "")
-                    .replace(/\/$/, "")}
-                </a>
-              </InfoRow>
-            )}
-
-            {listing.type === "event" &&
-              ev &&
-              ev.price != null &&
-              ev.price !== "" && (
-                <InfoRow icon={Ticket} label="Price">
-                  {ev.currency ? `${ev.currency} ` : ""}
-                  {ev.price}
-                </InfoRow>
-              )}
-
-            {listing.businessRegNum && (
-              <InfoRow icon={Briefcase} label="Business reg. no.">
-                {listing.businessRegNum}
-              </InfoRow>
-            )}
-            {listing.claimStatus && (
-              <InfoRow icon={CheckCircle} label="Claim status">
-                <span className="capitalize">{listing.claimStatus}</span>
-              </InfoRow>
-            )}
-          </div>
-
-          {/* Social Links */}
-          {hasSocials && (
-            <div className="rounded-xl border border-gray-100 bg-white p-4">
-              <h3 className="font-semibold text-gray-900 text-sm mb-3">
-                Social Links
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                <SocialLink
-                  href={listing.socials.facebook}
-                  icon={FacebookLogo}
-                  label="Facebook"
-                />
-                <SocialLink
-                  href={listing.socials.instagram}
-                  icon={InstagramLogo}
-                  label="Instagram"
-                />
-                <SocialLink
-                  href={listing.socials.twitter}
-                  icon={XLogo}
-                  label="Twitter"
-                />
-                <SocialLink
-                  href={listing.socials.tiktok}
-                  icon={TiktokLogo}
-                  label="TikTok"
-                />
-                <SocialLink
-                  href={listing.socials.youtube}
-                  icon={YoutubeLogo}
-                  label="YouTube"
-                />
-                <SocialLink
-                  href={listing.socials.whatsapp}
-                  icon={WhatsappLogo}
-                  label="WhatsApp"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Opening Hours */}
-          {listing.openingHours.length > 0 && (
-            <div className="rounded-xl border border-gray-100 bg-white p-4">
-              <h3 className="font-semibold text-gray-900 text-sm mb-1 flex items-center gap-2">
-                {/* <Clock className="w-4 h-4 text-[#93C01F]" /> Opening Hours */}
-              Opening Hours
-              </h3>
-              <div className="divide-y divide-gray-50">
-                {listing.openingHours.map((h) => (
-                  <div
-                    key={h.day_of_week}
-                    className="flex items-center justify-between py-2.5 text-sm"
-                  >
-                    <span className="text-gray-500">{h.day_of_week}</span>
-                    <span className="font-medium text-gray-900">
-                      {h.open_time?.slice(0, 5)} – {h.close_time?.slice(0, 5)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {titleBlock}
+          {statsBlock}
+          {listingDetailsBlock}
+          {socialLinksBlock}
+          {openingHoursBlock}
         </div>
       </div>
 

@@ -18,6 +18,7 @@ import {
   parseLaravel422Errors,
 } from "@/lib/directory/utils";
 import { cleanPhone, normalizePhoneInput, validatePhone } from "@/lib/phone";
+import { handleSessionExpired } from "@/lib/session";
 
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
@@ -327,6 +328,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           const json = await res.json();
 
           if (!res.ok) {
+            if (handleSessionExpired(res.status)) return false;
             if (res.status === 422 && json.errors) {
               const fieldErrors = parseLaravel422Errors(json.errors);
               Object.entries(fieldErrors).forEach(([field, message]) => {

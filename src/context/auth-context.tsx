@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { installSessionExpiryInterceptor } from "@/lib/session";
 
 interface User {
   id: string;
@@ -169,6 +170,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetchUserProfile(token);
     }
   };
+
+  // Install once: redirects to login on any authenticated request's 401,
+  // so individual fetch call sites don't each need their own check.
+  useEffect(() => {
+    installSessionExpiryInterceptor();
+  }, []);
 
   // Check for existing token on mount
   useEffect(() => {

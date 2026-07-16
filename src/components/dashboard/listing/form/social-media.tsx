@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
 import { isValidUrl, normalizeUrl, normalizeWhatsApp } from "@/lib/directory/utils";
+import { handleSessionExpired } from "@/lib/session";
 import { validatePhoneInternational } from "@/lib/phone";
 
 // --- Platform-specific URL validators ---
@@ -316,6 +317,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         });
 
         if (!response.ok) {
+          if (handleSessionExpired(response.status)) return false;
           const errorData = await response.json();
           throw new Error(
             errorData.message || "Failed to save social media links",
