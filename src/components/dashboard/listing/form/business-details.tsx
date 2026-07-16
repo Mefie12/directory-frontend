@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { handleSessionExpired } from "@/lib/session";
 import {
   BusinessHoursSelector,
   DaySchedule,
@@ -615,6 +616,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const hoursOk = hoursResults.every((r) => r.ok);
 
         if (!detailsRes.ok) {
+          if (handleSessionExpired(detailsRes.status)) return false;
           const errJson = await detailsRes.json().catch(() => ({}));
           if (detailsRes.status === 422 && errJson.errors) {
             const fieldMap: Record<string, keyof DetailsFormValues> = {
@@ -635,6 +637,10 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         }
 
         if (!hoursOk) {
+          const unauthorized = hoursResults.find((r) => r.status === 401);
+          if (unauthorized && handleSessionExpired(unauthorized.status)) {
+            return false;
+          }
           toast.error("Failed to save opening hours");
           return false;
         }
