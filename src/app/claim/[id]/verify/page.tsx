@@ -3,12 +3,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import VerifyOtp from "@/components/verify/verify-otp";
 import ClaimSubmission from "@/components/verify/claim-submission";
 import ClaimSuccess from "@/components/verify/claim-status";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 type View = "submission" | "otp" | "success";
 
@@ -21,36 +23,42 @@ const STEPS = [
 export default function VerifyBusinessPage() {
   const router = useRouter();
   const params = useParams();
-  const listingId = params?.id as string;
+  const listingSlug = params?.id as string;
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState<View>("submission");
   const [businessData, setBusinessData] = useState<any>(null);
-  const [claimedEmail, setClaimedEmail] = useState("");
+  const [eligibility, setEligibility] = useState<ClaimEligibility | null>(null);
 
   useEffect(() => {
     const initializePage = async () => {
       const token = localStorage.getItem("authToken");
       if (!token) { router.push("/auth/login"); return; }
-      if (!listingId) { toast.error("Invalid listing"); router.push("/claim"); return; }
+      if (!listingSlug) { toast.error("Invalid listing"); router.push("/claim"); return; }
 
       try {
-        const response = await fetch(`${API_URL}/api/listing/${listingId}/show`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const json = await response.json();
+        const [listingRes, eligibilityData] = await Promise.all([
+          fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          getClaimEligibility(listingSlug, token),
+        ]);
+
+        if (listingRes.ok) {
+          const json = await listingRes.json();
           setBusinessData(json.data || json);
         } else {
           toast.error("Failed to load business details");
         }
+
+        setEligibility(eligibilityData);
       } catch (error) {
         console.error("Initialization error:", error);
         toast.error("Failed to initialize page");
@@ -59,16 +67,11 @@ export default function VerifyBusinessPage() {
       }
     };
     initializePage();
-  }, [API_URL, listingId, router]);
+  }, [API_URL, listingSlug, router]);
 
   const handleBack = () => {
     if (currentView === "otp") { setCurrentView("submission"); return; }
     router.back();
-  };
-
-  const handleSubmissionNext = (email?: string) => {
-    if (email) { setClaimedEmail(email); setCurrentView("otp"); }
-    else { setCurrentView("success"); }
   };
 
   const currentStepIndex = STEPS.findIndex((s) => s.key === currentView);
@@ -80,6 +83,21 @@ export default function VerifyBusinessPage() {
           <Loader2 className="w-6 h-6 text-[#93C01F] animate-spin" />
         </div>
         <p className="text-sm text-gray-400 font-medium">Loading details...</p>
+      </div>
+    );
+  }
+
+  if (eligibility && !eligibility.claimable) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+          <AlertCircle className="w-6 h-6 text-amber-500" />
+        </div>
+        <h2 className="text-xl font-bold text-[#1F3A4C]">This listing can&apos;t be claimed right now</h2>
+        <p className="text-sm text-gray-500 max-w-sm">{eligibility.reason}</p>
+        <Button onClick={() => router.push("/claim")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white">
+          Back to directory
+        </Button>
       </div>
     );
   }
@@ -147,13 +165,18 @@ export default function VerifyBusinessPage() {
 
       {/* Page content */}
       <div className="max-w-lg mx-auto px-4 pt-6 pb-10">
-        {currentView === "submission" && (
-          <ClaimSubmission business={businessData} onNext={handleSubmissionNext} />
+        {currentView === "submission" && eligibility && (
+          <ClaimSubmission
+            business={businessData}
+            eligibility={eligibility}
+            listingSlug={listingSlug}
+            onNext={(view) => setCurrentView(view)}
+          />
         )}
         {currentView === "otp" && (
           <VerifyOtp
             business={businessData}
-            claimedEmail={claimedEmail}
+            listingSlug={listingSlug}
             onNext={() => setCurrentView("success")}
           />
         )}

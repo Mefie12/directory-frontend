@@ -502,7 +502,7 @@ export default function Users() {
                         ) : (
                           <Select
                             disabled={isActionLoading}
-                            defaultValue={u.role}
+                            value={u.role}
                             onValueChange={(val) => handleRoleChange(u.id, val)}
                           >
                             <SelectTrigger className="w-[100px] h-8 text-xs shadow-none border-gray-300 focus:ring-0 rounded-full">

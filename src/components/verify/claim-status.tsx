@@ -43,9 +43,9 @@ export default function ClaimStatus({ business }: any) {
         </div>
         <ul className="space-y-4">
           {[
-            "Our team will review your submitted evidence within 24–48 hours.",
-            "You'll receive an email notification once the status changes.",
-            "Once approved, your listing will display a verified badge.",
+            "Our team typically reviews claims within 3–5 business days (time spent waiting on requested evidence doesn't count).",
+            "You'll receive an email notification once the status changes, and can track progress from your dashboard.",
+            "Once approved, you'll get management access to this listing. This is separate from Me-fie's public verification badge, which only an admin can award.",
           ].map((text, i) => (
             <li key={i} className="flex gap-3 text-sm text-gray-600 items-start">
               <span className="w-6 h-6 rounded-full bg-[#93C01F]/10 text-[#1F3A4C] flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">

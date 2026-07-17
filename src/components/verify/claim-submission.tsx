@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Textarea } from "../ui/textarea";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -27,6 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ClaimEligibility, initiateEmailClaim, submitDocumentClaim } from "@/lib/api";
+
+const MAX_FILES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 const getImageUrl = (imageEntry: any): string => {
   if (!imageEntry) return "/images/no-image.jpg";
@@ -44,94 +48,77 @@ const getImageUrl = (imageEntry: any): string => {
 
 export default function ClaimSubmission({
   business,
+  eligibility,
+  listingSlug,
   onNext,
 }: {
   business: any;
-  onNext: (email?: string) => void;
+  eligibility: ClaimEligibility;
+  listingSlug: string;
+  onNext: (view: "otp" | "success") => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
-  const [method, setMethod] = useState<"documents" | "email">("documents");
-  const [file, setFile] = useState<string | null>(null);
-  const [fileObject, setFileObject] = useState<File | null>(null);
+  const availableMethods = eligibility.available_methods;
+  const [method, setMethod] = useState<"document" | "email">(
+    availableMethods.includes("document") ? "document" : "email",
+  );
+  const [files, setFiles] = useState<File[]>([]);
   const [role, setRole] = useState("Owner");
-  const [businessEmail, setBusinessEmail] = useState("");
   const [notes, setNotes] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isRectification = eligibility.claim_type === "rectification";
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        toast.error("File is too large. Max 10MB allowed.");
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
+
+    const combined = [...files, ...selected].slice(0, MAX_FILES);
+    const rejected = [...files, ...selected].length > MAX_FILES;
+
+    for (const file of combined) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} is too large. Max 5MB per file.`);
         return;
       }
-      setFile(selectedFile.name);
-      setFileObject(selectedFile);
-      toast.success("File attached.");
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        toast.error(`${file.name} must be a PDF, JPEG, PNG, or WebP file.`);
+        return;
+      }
     }
-  };
 
-  const handleRemoveFile = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setFile(null);
-    setFileObject(null);
+    if (rejected) {
+      toast.error(`You can attach up to ${MAX_FILES} files.`);
+    }
+
+    setFiles(combined);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = async () => {
-    const slug = business.slug || business.id;
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-    const token = localStorage.getItem("authToken");
+  const handleRemoveFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
-    if (method === "documents" && !fileObject) {
-      toast.error("Please upload a document to proceed.");
-      return;
-    }
-    if (method === "email" && !businessEmail) {
-      toast.error("Please enter your business email.");
+  const handleSubmit = async () => {
+    const token = localStorage.getItem("authToken") || undefined;
+
+    if (method === "document" && files.length === 0) {
+      toast.error("Please upload at least one document to proceed.");
       return;
     }
 
     setIsLoading(true);
     try {
       if (method === "email") {
-        const response = await fetch(`${API_URL}/api/listing/${slug}/claim_by_email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ email: businessEmail, role }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          toast.success(data.message || "Verification code sent!");
-          onNext(businessEmail);
-        } else {
-          throw new Error(data.message || "Failed to initiate email verification.");
-        }
+        await initiateEmailClaim(listingSlug, token);
+        toast.success("Verification code sent!");
+        onNext("otp");
       } else {
-        const body = new FormData();
-        if (fileObject) body.append("document", fileObject);
-        body.append("role", role);
-        if (notes) body.append("notes", notes);
-
-        const response = await fetch(`${API_URL}/api/listing/${slug}/claim`, {
-          method: "POST",
-          headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-          body,
-        });
-        const data = await response.json();
-        if (response.ok) {
-          toast.success(data.message || "Evidence submitted for review.");
-          onNext();
-        } else {
-          throw new Error(data.message || "Failed to submit document claim.");
-        }
+        await submitDocumentClaim(listingSlug, files, token);
+        toast.success("Evidence submitted for review.");
+        onNext("success");
       }
     } catch (error: any) {
       toast.error(error.message || "Something went wrong.");
@@ -156,7 +143,7 @@ export default function ClaimSubmission({
         <div className="absolute inset-0 px-5 py-4 flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-[#93C01F] uppercase tracking-widest font-bold mb-1">
-              Claiming this listing
+              {isRectification ? "Requesting an ownership review" : "Claiming this listing"}
             </p>
             <h3 className="text-white font-bold text-lg leading-snug truncate">
               {business?.name}
@@ -174,155 +161,180 @@ export default function ClaimSubmission({
         </div>
       </div>
 
+      {isRectification && (
+        <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            This listing already has a manager. Submitting document evidence opens an
+            ownership review — the current manager keeps access while our team compares
+            evidence, and nothing changes unless an admin approves the transfer.
+          </span>
+        </div>
+      )}
+
       <div className="space-y-8">
-        {/* Step 1 — Role */}
-        <div>
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#93C01F]/10 text-[#1F3A4C] text-xs font-bold shrink-0">
-              1
-            </span>
-            <h4 className="font-bold text-[#1F3A4C] text-sm">Your relationship to this listing</h4>
+        {!isRectification && (
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#93C01F]/10 text-[#1F3A4C] text-xs font-bold shrink-0">
+                1
+              </span>
+              <h4 className="font-bold text-[#1F3A4C] text-sm">Your relationship to this listing</h4>
+            </div>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="w-full h-11 bg-white border border-gray-200 rounded-xl px-4 text-sm font-medium shadow-none focus:ring-[#93C01F]">
+                <SelectValue placeholder="Select your role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Owner">Owner</SelectItem>
+                <SelectItem value="Manager">Manager</SelectItem>
+                <SelectItem value="Employee">Employee</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={role} onValueChange={setRole}>
-            <SelectTrigger className="w-full h-11 bg-white border border-gray-200 rounded-xl px-4 text-sm font-medium shadow-none focus:ring-[#93C01F]">
-              <SelectValue placeholder="Select your role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Owner">Owner</SelectItem>
-              <SelectItem value="Manager">Manager</SelectItem>
-              <SelectItem value="Employee">Employee</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        )}
 
-        {/* Step 2 — Verification method */}
-        <div>
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#93C01F]/10 text-[#1F3A4C] text-xs font-bold shrink-0">
-              2
-            </span>
-            <h4 className="font-bold text-[#1F3A4C] text-sm">How would you like to verify?</h4>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {(["documents", "email"] as const).map((m) => {
-              const active = method === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => setMethod(m)}
-                  className={cn(
-                    "flex flex-col items-start gap-2.5 p-4 rounded-xl border-2 text-left transition-all",
-                    active
-                      ? "border-[#93C01F] bg-[#93C01F]/5"
-                      : "border-gray-200 bg-white hover:border-gray-300",
-                  )}
-                >
-                  <div className={cn("p-2 rounded-lg", active ? "bg-[#93C01F]/15" : "bg-gray-100")}>
-                    {m === "documents" ? (
-                      <FileText className={cn("w-4 h-4", active ? "text-[#93C01F]" : "text-gray-500")} />
-                    ) : (
-                      <Mail className={cn("w-4 h-4", active ? "text-[#93C01F]" : "text-gray-500")} />
+        {!isRectification && availableMethods.length > 1 && (
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#93C01F]/10 text-[#1F3A4C] text-xs font-bold shrink-0">
+                2
+              </span>
+              <h4 className="font-bold text-[#1F3A4C] text-sm">How would you like to verify?</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {availableMethods.map((m) => {
+                const active = method === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setMethod(m)}
+                    className={cn(
+                      "flex flex-col items-start gap-2.5 p-4 rounded-xl border-2 text-left transition-all",
+                      active
+                        ? "border-[#93C01F] bg-[#93C01F]/5"
+                        : "border-gray-200 bg-white hover:border-gray-300",
                     )}
-                  </div>
-                  <div>
-                    <p className={cn("text-sm font-bold leading-tight", active ? "text-[#1F3A4C]" : "text-gray-700")}>
-                      {m === "documents" ? "Document" : "Email"}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">
-                      {m === "documents" ? "Upload proof of ownership" : "Verify via business email"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                  >
+                    <div className={cn("p-2 rounded-lg", active ? "bg-[#93C01F]/15" : "bg-gray-100")}>
+                      {m === "document" ? (
+                        <FileText className={cn("w-4 h-4", active ? "text-[#93C01F]" : "text-gray-500")} />
+                      ) : (
+                        <Mail className={cn("w-4 h-4", active ? "text-[#93C01F]" : "text-gray-500")} />
+                      )}
+                    </div>
+                    <div>
+                      <p className={cn("text-sm font-bold leading-tight", active ? "text-[#1F3A4C]" : "text-gray-700")}>
+                        {m === "document" ? "Document" : "Email"}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">
+                        {m === "document" ? "Upload proof of ownership" : "Verify via business email"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Step 3 — Upload / Email */}
         <div>
           <div className="flex items-center gap-2.5 mb-3">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#93C01F]/10 text-[#1F3A4C] text-xs font-bold shrink-0">
-              3
+              {isRectification ? 1 : 3}
             </span>
             <h4 className="font-bold text-[#1F3A4C] text-sm">
-              {method === "documents" ? "Upload your document" : "Enter your business email"}
+              {method === "document" ? "Upload your documents" : "Verify your business email"}
             </h4>
           </div>
 
-          {method === "documents" ? (
+          {method === "document" ? (
             <>
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                multiple
               />
-              {!file ? (
-                <div
-                  onClick={handleUploadClick}
-                  className="border-2 border-dashed border-gray-200 rounded-xl bg-white p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#93C01F]/50 hover:bg-[#93C01F]/3 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-full bg-gray-50 shadow-sm border border-gray-100 flex items-center justify-center mb-3 group-hover:border-[#93C01F]/30 transition-colors">
-                    <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#93C01F] transition-colors" />
-                  </div>
-                  <p className="text-sm font-bold text-gray-800">Tap to upload</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, JPG or PNG — max 10 MB</p>
+              <div
+                onClick={files.length < MAX_FILES ? handleUploadClick : undefined}
+                className={cn(
+                  "border-2 border-dashed border-gray-200 rounded-xl bg-white p-6 flex flex-col items-center justify-center text-center transition-all group mb-3",
+                  files.length < MAX_FILES && "cursor-pointer hover:border-[#93C01F]/50 hover:bg-[#93C01F]/3",
+                )}
+              >
+                <div className="w-12 h-12 rounded-full bg-gray-50 shadow-sm border border-gray-100 flex items-center justify-center mb-3 group-hover:border-[#93C01F]/30 transition-colors">
+                  <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#93C01F] transition-colors" />
                 </div>
-              ) : (
-                <div className="flex items-center justify-between bg-[#93C01F]/5 border border-[#93C01F]/25 rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <CheckCircle2 className="w-5 h-5 text-[#93C01F] shrink-0" />
-                    <p className="text-sm font-semibold text-[#1F3A4C] truncate">{file}</p>
-                  </div>
-                  <button
-                    onClick={handleRemoveFile}
-                    className="text-gray-400 hover:text-red-500 transition-colors ml-3 shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <p className="text-sm font-bold text-gray-800">Tap to upload</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  PDF, JPG, PNG or WebP — max 5MB each, up to {MAX_FILES} files
+                </p>
+              </div>
+
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((file, i) => (
+                    <div
+                      key={`${file.name}-${i}`}
+                      className="flex items-center justify-between bg-[#93C01F]/5 border border-[#93C01F]/25 rounded-xl px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CheckCircle2 className="w-5 h-5 text-[#93C01F] shrink-0" />
+                        <p className="text-sm font-semibold text-[#1F3A4C] truncate">{file.name}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFile(i)}
+                        className="text-gray-400 hover:text-red-500 transition-colors ml-3 shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
+
               <p className="text-[11px] text-gray-400 mt-2 flex items-start gap-1.5">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" />
-                Accepted: business registration, utility bill, or official government document
+                A business registration document is the strongest evidence, but other
+                reasonable ownership evidence is accepted.
               </p>
             </>
           ) : (
             <div className="space-y-2">
-              <Input
-                type="email"
-                placeholder="e.g. owner@yourbusiness.com"
-                value={businessEmail}
-                onChange={(e) => setBusinessEmail(e.target.value)}
-                className="h-11 border-gray-200 rounded-xl focus-visible:ring-[#93C01F] text-sm"
-              />
+              <div className="h-11 flex items-center px-4 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-[#1F3A4C]">
+                {eligibility.masked_email || "Listing email on file"}
+              </div>
               <p className="text-[11px] text-gray-400 flex items-start gap-1.5">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" />
-                We&apos;ll send a 6-digit code to verify you control this address.
+                We&apos;ll send a 6-digit code to this address. If you don&apos;t have
+                access to it, use the document method instead.
               </p>
             </div>
           )}
         </div>
 
-        {/* Step 4 — Notes (optional) */}
-        <div>
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-xs font-bold shrink-0">
-              4
-            </span>
-            <h4 className="font-bold text-gray-500 text-sm">
-              Additional notes{" "}
-              <span className="font-normal text-gray-400 text-xs">(optional)</span>
-            </h4>
+        {!isRectification && (
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-xs font-bold shrink-0">
+                4
+              </span>
+              <h4 className="font-bold text-gray-500 text-sm">
+                Additional notes{" "}
+                <span className="font-normal text-gray-400 text-xs">(optional)</span>
+              </h4>
+            </div>
+            <Textarea
+              placeholder="Anything else you'd like to share about your connection to this listing…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full min-h-[88px] rounded-xl p-4 text-sm focus-visible:ring-[#93C01F] resize-none border-gray-200 placeholder:text-gray-300"
+            />
           </div>
-          <Textarea
-            placeholder="Anything else you'd like to share about your connection to this listing…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full min-h-[88px] rounded-xl p-4 text-sm focus-visible:ring-[#93C01F] resize-none border-gray-200 placeholder:text-gray-300"
-          />
-        </div>
+        )}
       </div>
 
       {/* Sticky footer CTA */}
@@ -330,7 +342,8 @@ export default function ClaimSubmission({
         <div className="max-w-lg mx-auto space-y-2.5">
           <p className="text-[11px] text-gray-400 text-center flex items-center justify-center gap-1.5">
             <Shield className="w-3 h-3 shrink-0" />
-            Your information is reviewed by our team and kept confidential.
+            Every case is reviewed by our team — verifying access doesn&apos;t transfer
+            management on its own.
           </p>
           <Button
             onClick={handleSubmit}
