@@ -335,7 +335,7 @@ const SocialIcon = ({
     className="group flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 transition-all hover:shadow-sm"
   >
     <div className="flex items-center gap-3">
-      <div 
+      <div
         className="flex items-center justify-center w-9 h-9 rounded-lg bg-white shadow-sm group-hover:scale-110 transition-transform"
         style={{ color: brandColor }}
       >
@@ -345,7 +345,11 @@ const SocialIcon = ({
         {name}
       </span>
     </div>
-    <CaretRight size={14} weight="bold" className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
+    <CaretRight
+      size={14}
+      weight="bold"
+      className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all"
+    />
   </Link>
 );
 
@@ -418,11 +422,11 @@ function ProviderHeader({
             className="overflow-hidden transition-all duration-500 ease-linear"
             style={{ maxHeight: expanded ? "2000px" : "4.5rem" }}
           >
-            <div
-              ref={textRef}
-              className={expanded ? "" : "line-clamp-3"}
-            >
-              <RichTextDisplay html={provider.description} className="text-base" />
+            <div ref={textRef} className={expanded ? "" : "line-clamp-3"}>
+              <RichTextDisplay
+                html={provider.description}
+                className="text-base"
+              />
             </div>
           </div>
           {(isClamped || expanded) && (
@@ -452,9 +456,7 @@ function ProviderTabs({
   galleryItems: GalleryItem[];
   listingSlug: string;
 }) {
-  const {
-    reviews,
-  } = {
+  const { reviews } = {
     reviews: template.reviews || [],
   };
 
@@ -462,10 +464,7 @@ function ProviderTabs({
     <div className="mt-6 px-4 pb-4">
       <Tabs defaultValue="portfolio" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto rounded-full no-scrollbar">
-          {[
-            "Portfolio",
-            "Reviews",
-          ].map((tab) => (
+          {["Portfolio", "Reviews"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -498,7 +497,6 @@ function ProviderTabs({
           </Card>
         </TabsContent>
       </Tabs>
-
     </div>
   );
 }
@@ -514,11 +512,12 @@ function SidebarLocation({ provider }: { provider: Provider }) {
 
   // --- ADD THIS LOGIC HERE ---
   // Generate Google Maps Directions URL
-  const directionsUrl = provider.latitude && provider.longitude
-    ? `https://www.google.com/maps/dir/?api=1&destination=${provider.latitude},${provider.longitude}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-        provider.name + " " + (provider.location || provider.country || "")
-      )}`;
+  const directionsUrl =
+    provider.latitude && provider.longitude
+      ? `https://www.google.com/maps/dir/?api=1&destination=${provider.latitude},${provider.longitude}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+          provider.name + " " + (provider.location || provider.country || ""),
+        )}`;
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -528,18 +527,31 @@ function SidebarLocation({ provider }: { provider: Provider }) {
 
     const initMap = async () => {
       try {
-        let lng: number; let lat: number;
+        let lng: number;
+        let lat: number;
         if (provider.latitude && provider.longitude) {
-          lng = provider.longitude; lat = provider.latitude;
+          lng = provider.longitude;
+          lat = provider.latitude;
         } else {
-          const query = encodeURIComponent(provider.name + " " + (provider.location || provider.country || ""));
-          const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`);
+          const query = encodeURIComponent(
+            provider.name + " " + (provider.location || provider.country || ""),
+          );
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`,
+          );
           const data = await res.json();
-          if (data.features?.[0]) { [lng, lat] = data.features[0].center; } 
-          else { setError("Location not found"); setIsLoading(false); return; }
+          if (data.features?.[0]) {
+            [lng, lat] = data.features[0].center;
+          } else {
+            setError("Location not found");
+            setIsLoading(false);
+            return;
+          }
         }
 
-        if (map.current) { map.current.remove(); }
+        if (map.current) {
+          map.current.remove();
+        }
         map.current = new mapboxgl.Map({
           container: mapContainer.current!,
           style: "mapbox://styles/mapbox/streets-v12",
@@ -547,22 +559,50 @@ function SidebarLocation({ provider }: { provider: Provider }) {
           zoom: 14,
           interactive: false,
         });
-        new mapboxgl.Marker({ color: "#93C01F" }).setLngLat([lng, lat]).addTo(map.current);
-        map.current.on("load", () => { setIsLoading(false); });
-      } catch { setError("Failed to load map"); setIsLoading(false); }
+        new mapboxgl.Marker({ color: "#93C01F" })
+          .setLngLat([lng, lat])
+          .addTo(map.current);
+        map.current.on("load", () => {
+          setIsLoading(false);
+        });
+      } catch {
+        setError("Failed to load map");
+        setIsLoading(false);
+      }
     };
     initMap();
-    return () => { map.current?.remove(); map.current = null; };
-  }, [provider.latitude, provider.longitude, provider.name, provider.location, provider.country]);
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [
+    provider.latitude,
+    provider.longitude,
+    provider.name,
+    provider.location,
+    provider.country,
+  ]);
 
   return (
     <Card>
       <CardContent className="pt-0.5">
         <h4 className="text-lg font-black text-gray-900">Location</h4>
         <div className="mt-3 relative h-40 w-full overflow-hidden rounded-xl bg-gray-100">
-          {isLoading && !error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}
-          {error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">{error}</div>}
-          <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: "160px" }} />
+          {isLoading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              Loading...
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              {error}
+            </div>
+          )}
+          <div
+            ref={mapContainer}
+            className="absolute inset-0 w-full h-full"
+            style={{ minHeight: "160px" }}
+          />
         </div>
         <p className="mt-3 text-xs text-gray-500">
           {provider.location ?? provider.country ?? "Available internationally"}
@@ -575,7 +615,11 @@ function SidebarLocation({ provider }: { provider: Provider }) {
           rel="noreferrer"
           className="mt-5 flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-[#93C01F] text-[#93C01F] text-sm font-bold hover:bg-[#93C01F] hover:text-white transition-all group"
         >
-          <NavigationArrow size={18} weight="fill" className="group-hover:rotate-12 transition-transform" />
+          <NavigationArrow
+            size={18}
+            weight="fill"
+            className="group-hover:rotate-12 transition-transform"
+          />
           Get Directions
         </Link>
       </CardContent>
@@ -612,12 +656,16 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
     locationType === "in_person"
       ? "In Person"
       : locationType === "online"
-      ? "Online"
-      : locationType === "hybrid"
-      ? "Hybrid"
-      : null;
+        ? "Online"
+        : locationType === "hybrid"
+          ? "Hybrid"
+          : null;
 
-  const venueParts = [eventData.event_venue, eventData.event_city, eventData.event_country]
+  const venueParts = [
+    eventData.event_venue,
+    eventData.event_city,
+    eventData.event_country,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -636,7 +684,9 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">📅</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Date</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Date
+              </p>
               <p className="text-sm font-semibold text-gray-800">{dateRange}</p>
             </div>
           </div>
@@ -647,10 +697,13 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">🕐</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Time</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Time
+              </p>
               <p className="text-sm font-semibold text-gray-800">
                 {format12Hour(eventData.event_start_time)}
-                {eventData.event_end_time && ` – ${format12Hour(eventData.event_end_time)}`}
+                {eventData.event_end_time &&
+                  ` – ${format12Hour(eventData.event_end_time)}`}
               </p>
             </div>
           </div>
@@ -661,48 +714,58 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">📍</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Location</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Location
+              </p>
               {locationLabel && (
-                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
-                  locationType === "online"
-                    ? "bg-blue-50 text-blue-700"
-                    : locationType === "hybrid"
-                    ? "bg-purple-50 text-purple-700"
-                    : "bg-green-50 text-green-700"
-                }`}>
+                <span
+                  className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
+                    locationType === "online"
+                      ? "bg-blue-50 text-blue-700"
+                      : locationType === "hybrid"
+                        ? "bg-purple-50 text-purple-700"
+                        : "bg-green-50 text-green-700"
+                  }`}
+                >
                   {locationLabel}
                 </span>
               )}
               {venueParts && (
-                <p className="text-sm font-semibold text-gray-800">{venueParts}</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {venueParts}
+                </p>
               )}
             </div>
           </div>
         )}
 
         {/* Price */}
-        {eventData.formatted_price && eventData.formatted_price.toLowerCase() !== "free" && (
-          <div className="flex items-start gap-3">
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Tickets</p>
-              <p className="text-sm font-semibold text-gray-800">
-                {eventData.formatted_price}
-              </p>
+        {eventData.formatted_price &&
+          eventData.formatted_price.toLowerCase() !== "free" && (
+            <div className="flex items-start gap-3">
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Tickets
+                </p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {eventData.formatted_price}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Online event join link */}
-        {eventData.event_online_url && (locationType === "online" || locationType === "hybrid") && (
-          <Link
-            href={eventData.event_online_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
-          >
-            🖥️ Join Online
-          </Link>
-        )}
+        {eventData.event_online_url &&
+          (locationType === "online" || locationType === "hybrid") && (
+            <Link
+              href={eventData.event_online_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+            >
+              🖥️ Join Online
+            </Link>
+          )}
 
         {/* Ticket purchase link */}
         {eventData.event_ticket_url && (
@@ -712,7 +775,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
             rel="noreferrer"
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
           >
-             Get Tickets
+            Get Tickets
           </Link>
         )}
       </CardContent>
@@ -755,16 +818,24 @@ function SidebarInfo({
     let cancelled = false;
     const token = localStorage.getItem("authToken") || undefined;
     getClaimEligibility(provider.slug, token)
-      .then((data) => { if (!cancelled) setEligibility(data); })
-      .catch(() => { if (!cancelled) setEligibility(null); });
+      .then((data) => {
+        if (!cancelled) setEligibility(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEligibility(null);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, provider.slug]);
 
   // Logged-out visitors always see the CTA (it sends them to login first); once
   // authenticated, defer to the backend's explicit eligibility check.
   const showClaimButton = !user || eligibility?.claimable === true;
-  const claimButtonLabel = isClaimed ? "Request Ownership Review" : "Claim business";
+  const claimButtonLabel = isClaimed
+    ? "Request Ownership Review"
+    : "Claim business";
 
   const handleClaimBusiness = () => {
     if (user) {
@@ -800,7 +871,8 @@ function SidebarInfo({
         {hasHours && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
-              <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" /> Business Hours
+              <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" />{" "}
+              Business Hours
             </h5>
             <div className="space-y-2">
               {hours.map((h, idx) => (
@@ -821,72 +893,97 @@ function SidebarInfo({
           </div>
         )}
 
-
         {hasContact && (
-        <>
-        <h5 className="text-lg font-black text-black">Contact</h5>
-        <div className="mt-3 space-y-4 text-sm text-gray-600">
-          {provider.phone && (
-            <div className="flex items-center gap-10">
-              <h6 className="text-base font-medium text-black min-w-12">
-                Phone
-              </h6>
-              <Link
-                href={`tel:${provider.phone}`}
-                className="font-medium text-gray-900 hover:underline focus:underline outline-none"
-              >
-                {provider.phone}
-              </Link>
-            </div>
-          )}
-          {provider.email && (
-            <div className="flex items-center gap-10">
-              <h6 className="text-base font-medium text-black min-w-12">
-                Email
-              </h6>
-              <Link
-                href={`mailto:${provider.email}`}
-                className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
-              >
-                {provider.email}
-              </Link>
-            </div>
-          )}
+          <>
+            <h5 className="text-lg font-black text-black">Contact</h5>
+            <div className="mt-3 space-y-4 text-sm text-gray-600">
+              {provider.phone && (
+                <div className="flex items-center gap-10">
+                  <h6 className="text-base font-medium text-black min-w-12">
+                    Phone
+                  </h6>
+                  <Link
+                    href={`tel:${provider.phone}`}
+                    className="font-medium text-gray-900 hover:underline focus:underline outline-none"
+                  >
+                    {provider.phone}
+                  </Link>
+                </div>
+              )}
+              {provider.email && (
+                <div className="flex items-center gap-10">
+                  <h6 className="text-base font-medium text-black min-w-12">
+                    Email
+                  </h6>
+                  <Link
+                    href={`mailto:${provider.email}`}
+                    className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
+                  >
+                    {provider.email}
+                  </Link>
+                </div>
+              )}
 
-          {provider.socials && Object.values(socialLinks).some((v) => v) && (
-            <div className="flex flex-col gap-4 mt-2">
-              <h6 className="text-base font-medium text-black">
-                Socials:
-              </h6>
-              <div className="grid grid-cols-1 gap-2.5">
-                {socialLinks.whatsapp && (
-                  <SocialIcon
-                    href={socialLinks.whatsapp}
-                    icon={WhatsappLogo}
-                    brandColor="#25D366"
-                    name="WhatsApp"
-                  />
+              {provider.socials &&
+                Object.values(socialLinks).some((v) => v) && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <h6 className="text-base font-medium text-black">
+                      Socials:
+                    </h6>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {socialLinks.whatsapp && (
+                        <SocialIcon
+                          href={socialLinks.whatsapp}
+                          icon={WhatsappLogo}
+                          brandColor="#25D366"
+                          name="WhatsApp"
+                        />
+                      )}
+                      {socialLinks.facebook && (
+                        <SocialIcon
+                          href={socialLinks.facebook}
+                          icon={FacebookLogo}
+                          brandColor="#1877F2"
+                          name="Facebook"
+                        />
+                      )}
+                      {socialLinks.instagram && (
+                        <SocialIcon
+                          href={socialLinks.instagram}
+                          icon={InstagramLogo}
+                          brandColor="#E4405F"
+                          name="Instagram"
+                        />
+                      )}
+                      {socialLinks.twitter && (
+                        <SocialIcon
+                          href={socialLinks.twitter}
+                          icon={XLogo}
+                          brandColor="#000000"
+                          name="X (Twitter)"
+                        />
+                      )}
+                      {socialLinks.youtube && (
+                        <SocialIcon
+                          href={socialLinks.youtube}
+                          icon={YoutubeLogo}
+                          brandColor="#FF0000"
+                          name="YouTube"
+                        />
+                      )}
+                      {socialLinks.tiktok && (
+                        <SocialIcon
+                          href={socialLinks.tiktok}
+                          icon={TiktokLogo}
+                          brandColor="#010101"
+                          name="TikTok"
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-                {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
-                )}
-                {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" name="Instagram" />
-                )}
-                {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" name="X (Twitter)" />
-                )}
-                {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" name="YouTube" />
-                )}
-                {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101" name="TikTok" />
-                )}
-              </div>
             </div>
-          )}
-        </div>
-        </>
+          </>
         )}
 
         {hasContact && (provider.website || showClaimButton) && <Divider />}
@@ -950,7 +1047,13 @@ function ListingBentoGallery({
   const count = Math.min(items.length, 5);
 
   // Helper: single thumbnail cell — itemIndex is the position in `items` for lightbox
-  const thumb = (img: GalleryItem, itemIndex: number, key: number, isLast = false, extraClass = "") => (
+  const thumb = (
+    img: GalleryItem,
+    itemIndex: number,
+    key: number,
+    isLast = false,
+    extraClass = "",
+  ) => (
     <div
       key={key}
       className={cn("relative overflow-hidden cursor-pointer", extraClass)}
@@ -993,8 +1096,18 @@ function ListingBentoGallery({
     // 1 image — full width hero
     if (count === 1) {
       return (
-        <div className="relative h-full overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
-          <Image src={main.src} alt={alt} fill className="object-cover" unoptimized priority />
+        <div
+          className="relative h-full overflow-hidden cursor-pointer"
+          onClick={() => openAt(0)}
+        >
+          <Image
+            src={main.src}
+            alt={alt}
+            fill
+            className="object-cover"
+            unoptimized
+            priority
+          />
         </div>
       );
     }
@@ -1002,9 +1115,22 @@ function ListingBentoGallery({
     // 2 images — side by side
     if (count === 2) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr" }}>
-          <div className="relative overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
-            <Image src={main.src} alt={alt} fill className="object-cover transition-transform duration-700 hover:scale-[1.02]" unoptimized priority />
+        <div
+          className="grid h-full gap-[3px]"
+          style={{ gridTemplateColumns: "3fr 2fr" }}
+        >
+          <div
+            className="relative overflow-hidden cursor-pointer"
+            onClick={() => openAt(0)}
+          >
+            <Image
+              src={main.src}
+              alt={alt}
+              fill
+              className="object-cover transition-transform duration-700 hover:scale-[1.02]"
+              unoptimized
+              priority
+            />
           </div>
           {thumb(t1, 1, 1)}
         </div>
@@ -1014,7 +1140,13 @@ function ListingBentoGallery({
     // 3 images — main tall left, 2 stacked right
     if (count === 3) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr", gridTemplateRows: "1fr 1fr" }}>
+        <div
+          className="grid h-full gap-[3px]"
+          style={{
+            gridTemplateColumns: "3fr 2fr",
+            gridTemplateRows: "1fr 1fr",
+          }}
+        >
           {mainCell}
           {thumb(t1, 1, 1)}
           {thumb(t2, 2, 2)}
@@ -1025,7 +1157,13 @@ function ListingBentoGallery({
     // 4 images — main tall left, t1+t2 top row, t3 full bottom
     if (count === 4) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+        <div
+          className="grid h-full gap-[3px]"
+          style={{
+            gridTemplateColumns: "3fr 1.25fr 1.25fr",
+            gridTemplateRows: "1fr 1fr",
+          }}
+        >
           {mainCell}
           {thumb(t1, 1, 1)}
           {thumb(t2, 2, 2)}
@@ -1036,7 +1174,13 @@ function ListingBentoGallery({
 
     // 5+ images — main tall left, 2×2 right grid
     return (
-      <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+      <div
+        className="grid h-full gap-[3px]"
+        style={{
+          gridTemplateColumns: "3fr 1.25fr 1.25fr",
+          gridTemplateRows: "1fr 1fr",
+        }}
+      >
         {mainCell}
         {thumb(t1, 1, 1)}
         {thumb(t2, 2, 2)}
@@ -1058,9 +1202,7 @@ function ListingBentoGallery({
 
       {/* ── Desktop: bento ── */}
       <div className="hidden md:block relative">
-        <div className="w-full h-[500px] bg-gray-200">
-          {desktopGrid()}
-        </div>
+        <div className="w-full h-[500px] bg-gray-200">{desktopGrid()}</div>
         <div className="absolute top-4 right-4 z-20">
           <BookmarkButton slug={slug} iconOnly />
         </div>
@@ -1129,7 +1271,8 @@ export default function UniversalSlugPage({
           let socialLinks: SocialLinks = {};
           if (listingData.socials && listingData.socials.length > 0) {
             // Use the last (most recent) embedded social record as a base
-            const socialData = listingData.socials[listingData.socials.length - 1];
+            const socialData =
+              listingData.socials[listingData.socials.length - 1];
             socialLinks = {
               facebook: socialData.facebook,
               instagram: socialData.instagram,
@@ -1189,7 +1332,9 @@ export default function UniversalSlugPage({
               listingData.type === "event"
                 ? listingData.event?.event_country || listingData.country
                 : listingData.country,
-            verified: !!(listingData.listing_verified ?? listingData.is_verified),
+            verified: !!(
+              listingData.listing_verified ?? listingData.is_verified
+            ),
             claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()
@@ -1201,7 +1346,8 @@ export default function UniversalSlugPage({
             socials: socialLinks,
             latitude: listingData.latitude,
             longitude: listingData.longitude,
-            eventData: listingData.type === "event" ? listingData.event : undefined,
+            eventData:
+              listingData.type === "event" ? listingData.event : undefined,
           };
 
           const rawImages = listingData.images || [];
@@ -1236,27 +1382,29 @@ export default function UniversalSlugPage({
             });
           }
 
-          const mappedReviews: ReviewItem[] = ratingsData.filter((r) => r.status !== "hidden").map((rating) => ({
-            id: rating.id,
-            slug: rating.slug,
-            author: extractUserName(rating.user),
-            rating: rating.rating,
-            date: rating.created_at
-              ? new Date(rating.created_at).toLocaleDateString()
-              : "Recent",
-            comment: rating.comment,
-            avatar: rating.user?.avatar || "",
-            vendor_reply: rating.vendor_reply ?? null,
-            vendor_reply_at: rating.vendor_reply_at ?? null,
-            replies:
-              rating.replies?.map((r) => ({
-                id: r.id,
-                author: r.user?.name || "User",
-                comment: r.comment,
-                date: new Date(r.created_at).toLocaleDateString(),
-                avatar: r.user?.avatar || "",
-              })) || [],
-          }));
+          const mappedReviews: ReviewItem[] = ratingsData
+            .filter((r) => r.status !== "hidden")
+            .map((rating) => ({
+              id: rating.id,
+              slug: rating.slug,
+              author: extractUserName(rating.user),
+              rating: rating.rating,
+              date: rating.created_at
+                ? new Date(rating.created_at).toLocaleDateString()
+                : "Recent",
+              comment: rating.comment,
+              avatar: rating.user?.avatar || "",
+              vendor_reply: rating.vendor_reply ?? null,
+              vendor_reply_at: rating.vendor_reply_at ?? null,
+              replies:
+                rating.replies?.map((r) => ({
+                  id: r.id,
+                  author: r.user?.name || "User",
+                  comment: r.comment,
+                  date: new Date(r.created_at).toLocaleDateString(),
+                  avatar: r.user?.avatar || "",
+                })) || [],
+            }));
 
           const servicesList =
             listingData.services?.map((s: any) =>
@@ -1300,18 +1448,27 @@ export default function UniversalSlugPage({
 
   const resolvedType = providerData.listingType || type;
   const sectionLink =
-    resolvedType === "event" ? "/events" :
-    resolvedType === "community" ? "/communities" :
-    resolvedType === "business" ? "/businesses" :
-    "/discover";
+    resolvedType === "event"
+      ? "/events"
+      : resolvedType === "community"
+        ? "/communities"
+        : resolvedType === "business"
+          ? "/businesses"
+          : "/discover";
   const sectionLabel =
-    resolvedType === "event" ? "Events" :
-    resolvedType === "community" ? "Communities" :
-    resolvedType === "business" ? "Businesses" :
-    "Discover";
+    resolvedType === "event"
+      ? "Events"
+      : resolvedType === "community"
+        ? "Communities"
+        : resolvedType === "business"
+          ? "Businesses"
+          : "Discover";
 
   const formatCategoryLabel = (slug: string) =>
-    slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
 
   return (
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
@@ -1370,7 +1527,9 @@ export default function UniversalSlugPage({
           {template.services.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">What We Do</CardTitle>
+                <CardTitle className="text-lg font-semibold">
+                  What We Do
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
