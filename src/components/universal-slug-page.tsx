@@ -833,6 +833,11 @@ function SidebarInfo({
   // Logged-out visitors always see the CTA (it sends them to login first); once
   // authenticated, defer to the backend's explicit eligibility check.
   const showClaimButton = !user || eligibility?.claimable === true;
+  // Already-claimed listings always get the CTA too — even if the live
+  // eligibility check hasn't resolved yet (or says not-claimable for some
+  // other reason), the destination page has its own eligibility gate and
+  // explains why if it genuinely can't be challenged.
+  const showClaimSection = showClaimButton || isClaimed;
   const claimButtonLabel = isClaimed
     ? "Request Ownership Review"
     : "Claim business";
@@ -851,7 +856,7 @@ function SidebarInfo({
     !hasHours &&
     !hasContact &&
     !provider.website &&
-    !showClaimButton
+    !showClaimSection
   ) {
     return null;
   }
@@ -986,7 +991,7 @@ function SidebarInfo({
           </>
         )}
 
-        {hasContact && (provider.website || showClaimButton) && <Divider />}
+        {hasContact && (provider.website || showClaimSection) && <Divider />}
 
         {provider.website && (
           <>
@@ -1001,11 +1006,11 @@ function SidebarInfo({
                 {provider.website}
               </Link>
             </div>
-            {showClaimButton && <Divider />}
+            {showClaimSection && <Divider />}
           </>
         )}
 
-        {showClaimButton && (
+        {showClaimSection && (
           <div className="mt-4">
             <Button
               onClick={handleClaimBusiness}
@@ -1015,6 +1020,21 @@ function SidebarInfo({
             </Button>
           </div>
         )}
+
+        {/* Always shown, independent of eligibility — this is a quiet, permanent
+            "is this listing wrong / not yours?" affordance (same as Google/Yelp
+            always showing an "Own this business?" link regardless of claim
+            status). The actual eligibility gate lives on the destination page. */}
+        <p className="text-xs text-gray-400 mt-5 text-center">
+          Own this listing?{" "}
+          <button
+            type="button"
+            onClick={handleClaimBusiness}
+            className="text-[#93C01F] font-medium hover:underline"
+          >
+            Claim your listing
+          </button>
+        </p>
       </CardContent>
     </Card>
   );
