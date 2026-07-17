@@ -776,3 +776,325 @@ export async function search(params: SearchParams = {}, token?: string): Promise
 
   return response.json();
 }
+
+// ============================================================================
+// CLAIM FLOW API
+// ============================================================================
+
+export type ClaimCaseType = 'ordinary' | 'rectification';
+export type ClaimMethod = 'email' | 'document' | 'email_plus_document';
+export type ClaimStatus =
+  | 'awaiting_email_verification'
+  | 'under_review'
+  | 'more_evidence_requested'
+  | 'approved'
+  | 'rejected'
+  | 'withdrawn'
+  | 'closed_other_claim_approved'
+  | 'expired';
+
+export interface ClaimEligibility {
+  claimable: boolean;
+  claim_type: ClaimCaseType | null;
+  available_methods: ('email' | 'document')[];
+  reason: string | null;
+  masked_email: string | null;
+}
+
+export interface ClaimEvidenceItem {
+  id: number;
+  original_filename: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+}
+
+export interface ClaimCaseSummary {
+  id: number;
+  listing: {
+    id: number;
+    name: string;
+    slug: string;
+    type: string;
+    image?: string | null;
+  };
+  case_type: ClaimCaseType;
+  method: ClaimMethod;
+  status: ClaimStatus;
+  email_verified_at: string | null;
+  evidence_instructions: string | null;
+  rejection_reason: string | null;
+  rejection_recommendation: string | null;
+  evidence: ClaimEvidenceItem[];
+  available_actions: string[];
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  withdrawn_at: string | null;
+}
+
+export interface ClaimCaseAdmin {
+  id: number;
+  listing: {
+    id: number;
+    name: string;
+    slug: string;
+    type: string;
+    status: string;
+    claim_status: string;
+  };
+  claimant: { id: number; name: string; email: string; role: string };
+  current_owner: { id: number; name: string } | null;
+  case_type: ClaimCaseType;
+  method: ClaimMethod;
+  status: ClaimStatus;
+  email_verified_at: string | null;
+  evidence_instructions: string | null;
+  rejection_reason: string | null;
+  rejection_recommendation: string | null;
+  evidence: ClaimEvidenceItem[];
+  competing_active_claims: { id: number; claimant_name: string; method: ClaimMethod; status: ClaimStatus }[];
+  events: { id: number; actor_id: number | null; event_type: string; metadata: Record<string, unknown> | null; created_at: string }[];
+  resolved_by: string | null;
+  resolved_at: string | null;
+  withdrawn_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Explicit claim eligibility — never infer claimability from raw listing fields.
+ */
+export async function getClaimEligibility(listingSlug: string, token?: string): Promise<ClaimEligibility> {
+  const response = await fetch(`/api/listing/${listingSlug}/claim_eligibility`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to check claim eligibility');
+  }
+
+  return response.json();
+}
+
+export async function initiateEmailClaim(listingSlug: string, token?: string): Promise<{ message: string; claim_id: number; email_preview: string }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to start email verification');
+  }
+
+  return data;
+}
+
+export async function resendEmailClaimOtp(listingSlug: string, token?: string): Promise<{ message: string }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email/resend`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to resend code');
+  }
+
+  return data;
+}
+
+export async function verifyEmailClaimOtp(listingSlug: string, otp: string, token?: string): Promise<{ message: string; claim_id: number; status: ClaimStatus }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email/verify`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ otp }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Invalid or expired code');
+  }
+
+  return data;
+}
+
+export async function submitDocumentClaim(
+  listingSlug: string,
+  files: File[],
+  token?: string,
+): Promise<{ message: string; claim_id: number; status: ClaimStatus; case_type: ClaimCaseType }> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('documents[]', file));
+
+  const response = await fetch(`/api/listing/${listingSlug}/claims/document`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to submit claim');
+  }
+
+  return data;
+}
+
+export async function getMyClaims(token?: string, params: SearchParams = {}): Promise<ApiResponse<ClaimCaseSummary>> {
+  const queryString = buildQueryString(params);
+  const response = await fetch(`/api/my_claims?${queryString}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch your claims');
+  }
+
+  return response.json();
+}
+
+export async function getClaim(claimId: number | string, token?: string): Promise<ClaimCaseSummary> {
+  const response = await fetch(`/api/claims/${claimId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claim');
+  }
+
+  return response.json();
+}
+
+export async function addClaimEvidence(claimId: number | string, files: File[], token?: string): Promise<{ message: string; status: ClaimStatus }> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('documents[]', file));
+
+  const response = await fetch(`/api/claims/${claimId}/evidence`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to submit evidence');
+  }
+
+  return data;
+}
+
+export async function withdrawClaim(claimId: number | string, token?: string): Promise<{ message: string; status: ClaimStatus }> {
+  const response = await fetch(`/api/claims/${claimId}/withdraw`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to withdraw claim');
+  }
+
+  return data;
+}
+
+export async function adminListClaims(token?: string, params: SearchParams = {}): Promise<ApiResponse<ClaimCaseAdmin>> {
+  const queryString = buildQueryString(params);
+  const response = await fetch(`/api/admin/claims?${queryString}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claims');
+  }
+
+  return response.json();
+}
+
+export async function adminGetClaim(claimId: number | string, token?: string): Promise<ClaimCaseAdmin> {
+  const response = await fetch(`/api/admin/claims/${claimId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claim');
+  }
+
+  return response.json();
+}
+
+export async function adminApproveClaim(claimId: number | string, token?: string): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/approve`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to approve claim');
+  }
+
+  return data;
+}
+
+export async function adminRejectClaim(
+  claimId: number | string,
+  reason: string,
+  recommendation: string | undefined,
+  token?: string,
+): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/reject`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ reason, recommendation }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to reject claim');
+  }
+
+  return data;
+}
+
+export async function adminRequestMoreEvidence(
+  claimId: number | string,
+  instructions: string,
+  token?: string,
+): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/request_evidence`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ instructions }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to request evidence');
+  }
+
+  return data;
+}
+
+export async function adminGetEvidenceSignedUrl(
+  claimId: number | string,
+  evidenceId: number | string,
+  token?: string,
+): Promise<{ url: string; expires_in_minutes: number }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/evidence/${evidenceId}/signed_url`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get evidence link');
+  }
+
+  return response.json();
+}

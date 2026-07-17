@@ -44,6 +44,7 @@ import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
+import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -737,10 +738,33 @@ function SidebarInfo({
     Object.values(socialLinks).some((v) => v)
   );
   const hasHours = !!(hours && hours.length > 0);
-  const showClaimButton = !provider.claim_status;
+  // Explicit status comparison — claim_status is always a non-empty string
+  // ("unclaimed", "claimed", ...), so `!provider.claim_status` was always false
+  // and silently hid the claim CTA on every listing, regardless of status.
+  const isClaimed = provider.claim_status === "claimed";
 
   const { user } = useAuth();
   const router = useRouter();
+  const [eligibility, setEligibility] = useState<ClaimEligibility | null>(null);
+
+  useEffect(() => {
+    // Nothing to check while logged out — showClaimButton already short-circuits
+    // on `!user` in that case, so there's no need to reset state here.
+    if (!user || !provider.slug) return;
+
+    let cancelled = false;
+    const token = localStorage.getItem("authToken") || undefined;
+    getClaimEligibility(provider.slug, token)
+      .then((data) => { if (!cancelled) setEligibility(data); })
+      .catch(() => { if (!cancelled) setEligibility(null); });
+
+    return () => { cancelled = true; };
+  }, [user, provider.slug]);
+
+  // Logged-out visitors always see the CTA (it sends them to login first); once
+  // authenticated, defer to the backend's explicit eligibility check.
+  const showClaimButton = !user || eligibility?.claimable === true;
+  const claimButtonLabel = isClaimed ? "Request Ownership Review" : "Claim business";
 
   const handleClaimBusiness = () => {
     if (user) {
@@ -880,17 +904,17 @@ function SidebarInfo({
                 {provider.website}
               </Link>
             </div>
-            {!provider.claim_status && <Divider />}
+            {showClaimButton && <Divider />}
           </>
         )}
 
-        {!provider.claim_status && (
+        {showClaimButton && (
           <div className="mt-4">
             <Button
               onClick={handleClaimBusiness}
               className="w-full bg-[#93C01F] hover:bg-[#82ab1b] text-white"
             >
-              Claim business
+              {claimButtonLabel}
             </Button>
           </div>
         )}
