@@ -799,6 +799,13 @@ export interface ClaimEligibility {
   available_methods: ('email' | 'document')[];
   reason: string | null;
   masked_email: string | null;
+  /** The caller's own in-progress case, so the UI can resume instead of dead-ending. */
+  active_case: {
+    id: number;
+    status: ClaimStatus;
+    method: ClaimMethod;
+    case_type: ClaimCaseType;
+  } | null;
 }
 
 export interface ClaimEvidenceItem {
@@ -807,6 +814,8 @@ export interface ClaimEvidenceItem {
   mime_type: string;
   file_size: number;
   created_at: string;
+  /** Admin view only: uploaded after the most recent evidence request. */
+  is_new?: boolean;
 }
 
 export interface ClaimCaseSummary {
@@ -925,9 +934,12 @@ export async function submitDocumentClaim(
   listingSlug: string,
   files: File[],
   token?: string,
+  extras?: { role?: string; notes?: string },
 ): Promise<{ message: string; claim_id: number; status: ClaimStatus; case_type: ClaimCaseType }> {
   const formData = new FormData();
   files.forEach((file) => formData.append('documents[]', file));
+  if (extras?.role) formData.append('role', extras.role);
+  if (extras?.notes) formData.append('notes', extras.notes);
 
   const response = await fetch(`/api/listing/${listingSlug}/claims/document`, {
     method: 'POST',
