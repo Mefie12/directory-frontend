@@ -830,17 +830,26 @@ function SidebarInfo({
     };
   }, [user, provider.slug]);
 
+  // An email claim awaiting its OTP can be resumed — the verify page jumps
+  // straight to the code-entry step for this case.
+  const hasResumableClaim =
+    eligibility?.active_case?.status === "awaiting_email_verification" &&
+    eligibility?.active_case?.method === "email";
+
   // Logged-out visitors always see the CTA (it sends them to login first); once
   // authenticated, defer to the backend's explicit eligibility check.
-  const showClaimButton = !user || eligibility?.claimable === true;
+  const showClaimButton =
+    !user || eligibility?.claimable === true || hasResumableClaim;
   // Already-claimed listings always get the CTA too — even if the live
   // eligibility check hasn't resolved yet (or says not-claimable for some
   // other reason), the destination page has its own eligibility gate and
   // explains why if it genuinely can't be challenged.
   const showClaimSection = showClaimButton || isClaimed;
-  const claimButtonLabel = isClaimed
-    ? "Request Ownership Review"
-    : "Claim business";
+  const claimButtonLabel = hasResumableClaim
+    ? "Continue claim verification"
+    : isClaimed
+      ? "Request Ownership Review"
+      : "Claim business";
 
   const handleClaimBusiness = () => {
     if (user) {
