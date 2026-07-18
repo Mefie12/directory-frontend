@@ -61,6 +61,8 @@ interface ApiListingData {
   type: string;
   primary_image: string | null;
   images?: { original: string; thumb: string; webp: string }[];
+  cover?: { original: string; kind: "image" } | null;
+  gallery?: { original: string; kind: "image" | "video"; poster?: string | null }[];
   categories: { name: string }[];
   address: string | null;
   city: string | null;
@@ -145,13 +147,31 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
-          // Show success toast
-          toast.success("Listing Submitted Successfully!");
+          const token = localStorage.getItem("authToken");
+          const response = await fetch(
+            `/api/listing/${listingSlug}/new_listing_mail`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            },
+          );
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(
+              result.error || result.message || "Failed to submit listing",
+            );
+          }
 
+          toast.success("Listing Submitted Successfully!");
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to submit listing");
+          toast.error(
+            error instanceof Error ? error.message : "Failed to submit listing",
+          );
           return false;
         }
       },
@@ -181,12 +201,13 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     // Prepare Display Data (Prefer API data, fallback to local upload state)
     const displayImage = resolveCoverSrc(
-      listingData?.primary_image,
+      listingData?.cover?.original,
       media.coverPhoto,
     );
 
-    // Process additional images for gallery
-    const galleryImages = listingData?.images?.slice(0, 3) || [];
+    const galleryImages = listingData?.gallery
+      ?.filter((item) => item.kind === "image")
+      .slice(0, 3) || [];
 
     const locationStr =
       [listingData?.city, listingData?.country].filter(Boolean).join(", ") ||
