@@ -62,6 +62,8 @@ interface ApiListingData {
   type: string;
   primary_image: string | null;
   images?: Array<{ original?: string; media?: string }>;
+  cover?: { original: string; kind: "image" } | null;
+  gallery?: Array<{ original?: string; media?: string; kind: "image" | "video" }>;
   categories: { name: string }[];
   address: string | null;
   city: string | null;
@@ -149,14 +151,19 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
         try {
           const token = localStorage.getItem("authToken");
 
-          // Send new listing notification email (non-blocking)
-          fetch(`/api/listing/${listingSlug}/new_listing_mail`, {
+          const response = await fetch(`/api/listing/${listingSlug}/new_listing_mail`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
             },
-          }).catch((err) => console.error("Failed to send listing mail:", err));
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(
+              result.error || result.message || "Failed to submit listing",
+            );
+          }
 
           toast.success("Listing Submitted Successfully!");
           await refreshUser();
@@ -164,7 +171,9 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           return true;
         } catch (error) {
           console.error(error);
-          toast.error("Failed to submit listing");
+          toast.error(
+            error instanceof Error ? error.message : "Failed to submit listing",
+          );
           return false;
         }
       },
@@ -194,12 +203,13 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     // Prepare Display Data (Prefer API data, fallback to local upload state)
     const displayImage = resolveCoverSrc(
-      listingData?.primary_image,
+      listingData?.cover?.original,
       media.coverPhoto,
     );
 
-    // Process additional images for gallery
-    const galleryImages = listingData?.images?.slice(0, 3) || [];
+    const galleryImages = listingData?.gallery
+      ?.filter((item) => item.kind === "image")
+      .slice(0, 3) || [];
 
     const locationStr =
       [listingData?.city, listingData?.country].filter(Boolean).join(", ") ||

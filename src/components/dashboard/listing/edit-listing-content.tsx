@@ -36,11 +36,15 @@ interface ApiHour {
   close_time: string;
 }
 
-interface ApiImage {
+interface ApiMedia {
   id?: number;
   original: string;
-  thumb: string;
-  webp: string;
+  thumb?: string;
+  webp?: string;
+  kind: "image" | "video";
+  role: "cover" | "gallery";
+  position: number | null;
+  mime_type?: string;
 }
 
 const EDIT_STORAGE_KEY = "listing-edit-step";
@@ -210,30 +214,30 @@ export default function EditListingContent() {
           });
         }
 
-        // 4. Media
-        if (data.images) {
-          const validImages = data.images.filter(
-            (img: ApiImage) => !!img.original
-          );
+        // 4. Media — use explicit roles from the canonical response. Cover
+        // status must never be inferred from the compatibility image array.
+        const mapMedia = (item: ApiMedia) => ({
+          id: item.id,
+          original: item.original,
+          url: item.original,
+          name: item.original.split("/").pop() || "existing-media",
+          kind: item.kind,
+          role: item.role,
+          position: item.position,
+          mime_type: item.mime_type,
+        });
 
-          if (validImages.length > 0) {
-            const mappedImages = validImages.map((img: ApiImage) => ({
-              url: img.original,
-              name: img.original.split('/').pop() || 'existing-image',
-              id: img.id
-            }));
-            
-            // First image is cover, rest are gallery
-            const coverPhoto = mappedImages.length > 0 ? mappedImages[0] : null;
-            const galleryImages = mappedImages.slice(1);
-            
-            (setMedia as any)((prev: any) => ({
-              ...prev,
-              coverPhoto: coverPhoto,
-              images: galleryImages, 
-            }));
-          }
-        }
+        const coverPhoto = data.cover?.original
+          ? mapMedia(data.cover as ApiMedia)
+          : null;
+        const galleryItems = Array.isArray(data.gallery)
+          ? (data.gallery as ApiMedia[])
+              .filter((item) => !!item.original)
+              .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+              .map(mapMedia)
+          : [];
+
+        setMedia({ coverPhoto, images: galleryItems });
       } catch (error) {
         console.error("Fetch error:", error);
         toast.error("Could not load listing details");

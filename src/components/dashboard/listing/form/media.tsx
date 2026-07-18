@@ -8,6 +8,10 @@ import { useListing } from "@/context/listing-form-context";
 import { FileUploader } from "@/components/dashboard/listing/media-uploader";
 import { z } from "zod";
 import { handleSessionExpired } from "@/lib/session";
+import { MediaSlotInput, saveListingMediaAtomic } from "@/lib/media-revision";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -16,7 +20,12 @@ interface Props {
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_VIDEO_DURATION_SECONDS = 30;
 const MAX_GALLERY_IMAGES = 3;
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
 
 const gallerySchema = z
   .array(z.any())
@@ -25,11 +34,42 @@ const gallerySchema = z
   })
   .refine(
     (files) =>
-      files.every((file) => !file.size || file.size <= MAX_FILE_SIZE_BYTES),
-    { message: `Each file must be less than ${MAX_FILE_SIZE_MB}MB.` },
+      files.every((file) =>
+        !file.size || file.size <= (file.type?.startsWith("video/") ? MAX_VIDEO_SIZE_BYTES : MAX_FILE_SIZE_BYTES),
+      ),
+    { message: "Images must be 5MB or less and videos 20MB or less." },
+  )
+  .refine(
+    (files) =>
+      files.every(
+        (file) =>
+          !(file instanceof File) || [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES].includes(file.type),
+      ),
+    { message: "Gallery media must be JPEG, WebP, PNG, MP4, or MOV." },
+  )
+  .refine(
+    (files) => files.filter((file) =>
+      file instanceof File ? file.type.startsWith("video/") : file?.kind === "video",
+    ).length <= 1,
+    { message: "Only one gallery video is allowed." },
   );
 
-const COVER_ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
+const readVideoDuration = (file: File): Promise<number> =>
+  new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      URL.revokeObjectURL(url);
+      resolve(duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`"${file.name}" is not a playable video.`));
+    };
+    video.src = url;
+  });
 
 const coverSchema = z
   .any()
@@ -37,7 +77,8 @@ const coverSchema = z
     message: `Cover photo must be less than ${MAX_FILE_SIZE_MB}MB.`,
   })
   .refine(
-    (file) => !file || !(file instanceof File) || COVER_ALLOWED_TYPES.includes(file.type),
+    (file) =>
+      !file || !(file instanceof File) || ALLOWED_IMAGE_TYPES.includes(file.type),
     { message: "Cover photo must be a JPEG, WebP, or PNG image." },
   );
 
@@ -106,27 +147,20 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
     const { media, setMedia } = useListing();
     const [isUploading, setIsUploading] = useState(false);
+    const activeSave = useRef<AbortController | null>(null);
+    const [altTexts, setAltTexts] = useState<Record<string, string>>({});
 
-    // Maps a new File → the server image ID it is replacing (populated when the
-    // user picks a new file while an existing server image is still in the slot).
-    const replaceIdMap = useRef<Map<File, number>>(new Map());
+    const mediaKey = (item: any): string => {
+      if (item instanceof File) return `file:${item.name}:${item.size}:${item.lastModified}`;
+      return `media:${item?.id ?? item?.original ?? "unknown"}`;
+    };
 
-    // Server image IDs that have been explicitly removed by the user.
-    const removedIdQueue = useRef<number[]>([]);
+    const accessibilityText = (item: any): string =>
+      altTexts[mediaKey(item)] ?? (item instanceof File ? "" : item?.alt_text ?? "");
 
-    // Server image IDs that were present when this step first mounted.
-    // Used to recover the replace-mapping when the component remounts (step
-    // navigation resets refs) but the media context still holds a File object
-    // from a previous, in-progress replacement.
-    const loadedServerIds = useRef<number[]>([]);
-
-    // Populate once on mount via useState lazy initialiser (runs synchronously)
-    useState(() => {
-      const allMedia = [media.coverPhoto, ...media.images];
-      loadedServerIds.current = allMedia
-        .map((item) => getExistingId(item))
-        .filter((id): id is number => id !== null);
-    });
+    const updateAccessibilityText = (item: any, value: string) => {
+      setAltTexts((current) => ({ ...current, [mediaKey(item)]: value }));
+    };
 
     const validateMediaState = () => {
       const galleryResult = gallerySchema.safeParse(media.images);
@@ -139,185 +173,81 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         toast.error(coverResult.error.issues[0].message);
         return false;
       }
+      // Gallery without a cover is not a valid state — the backend commit
+      // requires an explicit cover (media PRD §6.2).
+      if (!media.coverPhoto && media.images.length > 0) {
+        toast.error("Please add a cover photo before adding gallery images.");
+        return false;
+      }
       return true;
     };
 
-    const uploadWithChunking = async () => {
+    /**
+     * One atomic save: every change (add, replace, remove, reorder) is expressed
+     * as a single desired state and committed in one operation — the previous
+     * collection stays live if anything fails (media PRD §11).
+     */
+    const saveMedia = async () => {
+      // A draft may be left without media entirely.
       if (!media.coverPhoto && media.images.length === 0) return true;
-      if (!validateMediaState()) return false;
 
       try {
         setIsUploading(true);
-        const token = localStorage.getItem("authToken");
+        const controller = new AbortController();
+        activeSave.current = controller;
+        const token = localStorage.getItem("authToken") || undefined;
 
-        // Positional array: [cover, gallery0, gallery1, …]
-        const positions: any[] = [media.coverPhoto, ...media.images];
-        const toUpdate: { id: number; file: File; pos: number }[] = [];
-        const toCreate: { file: File; pos: number }[] = [];
-
-        // --- Categorise each file ---
-        positions.forEach((item, pos) => {
-          if (!item || !(item instanceof File)) return;
-
-          // 1. Explicit replace mapping (user picked file while old image was there)
-          const replaceId = replaceIdMap.current.get(item);
-          if (replaceId) {
-            toUpdate.push({ id: replaceId, file: item, pos });
-            return;
+        for (const item of media.images) {
+          if (item instanceof File && item.type.startsWith("video/")) {
+            const duration = await readVideoDuration(item);
+            if (duration > MAX_VIDEO_DURATION_SECONDS) {
+              throw new Error(`"${item.name}" is longer than the 30 second limit.`);
+            }
           }
-
-          // 2. Freed-up slot from a user-initiated remove
-          const removedId = removedIdQueue.current.shift();
-          if (removedId) {
-            toUpdate.push({ id: removedId, file: item, pos });
-            return;
-          }
-
-          // 3. No tracking info — treat as new
-          toCreate.push({ file: item, pos });
-        });
-
-        // --- Recover orphaned IDs (replaceIdMap lost on component remount) ---
-        // Any server ID that was loaded at mount but is no longer present as a
-        // server-object in positions and hasn't been explicitly tracked is
-        // "orphaned": the slot was visually replaced but the ref was wiped.
-        const activeServerIds = positions
-          .filter((item) => item && !(item instanceof File))
-          .map((item) => getExistingId(item))
-          .filter((id): id is number => id !== null);
-
-        const trackedIds = new Set<number>([
-          ...replaceIdMap.current.values(),
-          ...removedIdQueue.current,
-        ]);
-
-        const orphanedIds = loadedServerIds.current.filter(
-          (id) => !activeServerIds.includes(id) && !trackedIds.has(id),
-        );
-
-        // Convert toCreate → toUpdate using recovered orphaned IDs
-        const trueCreate: { file: File; pos: number }[] = [];
-        toCreate.forEach((item) => {
-          const orphanId = orphanedIds.shift();
-          if (orphanId !== undefined) {
-            toUpdate.push({ id: orphanId, file: item.file, pos: item.pos });
-          } else {
-            trueCreate.push(item);
-          }
-        });
-
-        // --- Guard: prevent exceeding the 4-file backend limit ---
-        const existingServerCount = positions.filter(
-          (item) => item && !(item instanceof File),
-        ).length;
-        const totalAfterUpload =
-          existingServerCount + toUpdate.length + trueCreate.length;
-
-        if (totalAfterUpload > 4) {
-          toast.error(
-            "This listing already has 4 media files. Remove an existing image first, then add a new one.",
-          );
-          return false;
         }
 
-        if (toUpdate.length === 0 && trueCreate.length === 0) return true;
-
-        toast.loading("Preparing files...");
-        const newPositions = [...positions];
-
-        // 1. PATCH — replace existing media records
-        for (let i = 0; i < toUpdate.length; i++) {
-          const { id, file, pos } = toUpdate[i];
-          toast.loading(`Updating media ${i + 1} of ${toUpdate.length}…`);
-          const optimized = await smartCompressImage(file);
-          const formData = new FormData();
-          // PHP doesn't populate $_FILES for PATCH — use method spoofing
-          formData.append("_method", "PATCH");
-          formData.append("media_id", id.toString());
-          formData.append("media", optimized);
-          formData.append("sort_order", pos.toString());
-
-          const response = await fetch(
-            `/api/listing/${listingSlug}/media_update`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-              },
-              body: formData,
-            },
-          );
-
-          if (!response.ok) {
-            if (handleSessionExpired(response.status)) return false;
-            const errorData = await response.json();
-            throw new Error(
-              errorData.message || `Update failed for media ${i + 1}`,
-            );
-          }
-
-          const result = await response.json();
-          const serverItem = result?.data || result;
-          if (serverItem?.id) newPositions[pos] = serverItem;
-        }
-
-        // 2. POST — upload genuinely new files
-        for (let i = 0; i < trueCreate.length; i++) {
-          const { file, pos } = trueCreate[i];
-          toast.loading(`Uploading file ${i + 1} of ${trueCreate.length}…`);
-          const optimized = await smartCompressImage(file);
-          const formData = new FormData();
-          formData.append("media[]", optimized);
-          formData.append("sort_order", pos.toString());
-          formData.append("upload_strategy", "chunked");
-          formData.append("chunk_index", (i + 1).toString());
-          formData.append("total_chunks", trueCreate.length.toString());
-
-          const response = await fetch(`/api/listing/${listingSlug}/media`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-            body: formData,
-          });
-
-          if (!response.ok) {
-            if (handleSessionExpired(response.status)) return false;
-            const errorData = await response.json();
-            throw new Error(
-              errorData.message || `File ${i + 1} failed to upload`,
-            );
-          }
-
-          const result = await response.json();
-          const serverItem = result?.data?.[0] || result?.data || result;
-          if (serverItem?.id) newPositions[pos] = serverItem;
-        }
-
-        // Persist server objects so step-navigation doesn't lose them
-        replaceIdMap.current.clear();
-        removedIdQueue.current = [];
-        const updatedMedia = {
-          coverPhoto: newPositions[0] || null,
-          images: newPositions.slice(1).filter(Boolean),
+        const toSlot = async (item: any): Promise<MediaSlotInput> => {
+          if (item instanceof File) return smartCompressImage(item);
+          return { id: getExistingId(item) as number };
         };
-        // Refresh loadedServerIds from the fresh server state
-        loadedServerIds.current = [
-          updatedMedia.coverPhoto,
-          ...updatedMedia.images,
-        ]
-          .map((item) => getExistingId(item))
-          .filter((id): id is number => id !== null);
 
-        setMedia(updatedMedia);
-        toast.success("Media synced successfully!");
+        toast.loading("Saving media…");
+        const cover = await toSlot(media.coverPhoto);
+        const gallery = await Promise.all(media.images.map(toSlot));
+
+        const active = await saveListingMediaAtomic({
+          listingSlug,
+          cover,
+          gallery,
+          coverAltText: accessibilityText(media.coverPhoto),
+          galleryAltTexts: media.images.map(accessibilityText),
+          token,
+          onFileProgress: (name, pct) =>
+            toast.loading(`Uploading ${name}… ${pct}%`),
+          signal: controller.signal,
+        });
+
+        // Sync context with the committed canonical state so step navigation
+        // shows server objects, not stale Files.
+        setMedia({
+          coverPhoto: active.cover ?? null,
+          images: active.gallery,
+        });
+
+        toast.success("Media saved!");
         return true;
       } catch (error: any) {
-        toast.error(error.message || "Media upload failed");
+        if (error?.name === "AbortError") {
+          toast.info("Media save cancelled. Your current public media was not changed.");
+          return false;
+        }
+        if (typeof error?.status === "number" && handleSessionExpired(error.status)) {
+          return false;
+        }
+        toast.error(error.message || "Media save failed");
         return false;
       } finally {
+        activeSave.current = null;
         setIsUploading(false);
         toast.dismiss();
       }
@@ -326,11 +256,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         if (!validateMediaState()) return false;
-        if (media.coverPhoto || media.images.length > 0) {
-          const success = await uploadWithChunking();
-          if (!success) return false;
-        }
-        return true;
+        return saveMedia();
       },
     }));
 
@@ -339,7 +265,8 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         <div>
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Cover photo must be an image (JPEG, WebP, PNG). Gallery supports images and videos. Max 5 MB each.
+            The cover must be an image. Gallery media supports images up to 5MB
+            and one MP4 or MOV video up to 20MB and 30 seconds.
           </p>
         </div>
 
@@ -347,7 +274,9 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <div>
             <h3 className="font-medium text-gray-900 mb-2">
               Cover Photo{" "}
-              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+              <span className="text-gray-400 font-normal text-sm">
+                (required before publishing)
+              </span>
             </h3>
             <FileUploader
               label=""
@@ -361,43 +290,38 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                     toast.error(result.error.issues[0].message);
                     return;
                   }
-                  const previousId = getExistingId(media.coverPhoto);
-                  if (previousId) replaceIdMap.current.set(newItem, previousId);
-                }
-                if (!newItem) {
-                  const previousId = getExistingId(media.coverPhoto);
-                  if (previousId) removedIdQueue.current.push(previousId);
                 }
                 setMedia({ ...media, coverPhoto: newItem });
               }}
               accept="image/jpeg,image/jpg,image/webp,image/png"
               maxSize={MAX_FILE_SIZE_BYTES}
+              allowPersistedRemoval={false}
             />
+            {media.coverPhoto && (
+              <div className="mt-3 space-y-1.5">
+                <Label htmlFor="cover-alt-text">Cover image description (optional)</Label>
+                <Input
+                  id="cover-alt-text"
+                  value={accessibilityText(media.coverPhoto)}
+                  maxLength={500}
+                  placeholder="Defaults to the listing name"
+                  onChange={(event) => updateAccessibilityText(media.coverPhoto, event.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div>
             <h3 className="font-medium text-gray-900 mb-2">
               Gallery Media{" "}
-              <span className="text-gray-400 font-normal text-sm">(Optional)</span>
+              <span className="text-gray-400 font-normal text-sm">
+                (optional, up to {MAX_GALLERY_IMAGES})
+              </span>
             </h3>
             <FileUploader
               label=""
               files={media.images}
               onChange={(files) => {
-                const prevExistingIds = media.images
-                  .map((item) => getExistingId(item))
-                  .filter((id): id is number => id !== null);
-                const nextExistingIds = files
-                  .map((item) => getExistingId(item))
-                  .filter((id): id is number => id !== null);
-
-                const removedExistingIds = prevExistingIds.filter(
-                  (id) => !nextExistingIds.includes(id),
-                );
-                if (removedExistingIds.length > 0) {
-                  removedIdQueue.current.push(...removedExistingIds);
-                }
-
                 const result = gallerySchema.safeParse(files);
                 if (!result.success) {
                   toast.error(result.error.issues[0].message);
@@ -406,16 +330,40 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                       ...media,
                       images: files.slice(0, MAX_GALLERY_IMAGES),
                     });
-                    return;
                   }
+                  return;
                 }
                 setMedia({ ...media, images: files });
               }}
               multiple={true}
               maxFiles={3}
-              accept="image/jpeg,image/jpg,image/webp,video/mp4,video/quicktime"
-              maxSize={MAX_FILE_SIZE_BYTES}
+              accept="image/jpeg,image/jpg,image/webp,image/png,video/mp4,video/quicktime"
+              sortable
+              confirmPersistedRemoval
             />
+            {media.images.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {media.images.map((item: any, index: number) => {
+                  const video = item instanceof File
+                    ? item.type.startsWith("video/")
+                    : item?.kind === "video" || item?.mime_type?.startsWith("video/");
+                  return (
+                    <div key={mediaKey(item)} className="space-y-1.5">
+                      <Label htmlFor={`gallery-alt-${index}`}>
+                        {video ? "Video title" : `Gallery image ${index + 1} description`} (optional)
+                      </Label>
+                      <Input
+                        id={`gallery-alt-${index}`}
+                        value={accessibilityText(item)}
+                        maxLength={500}
+                        placeholder={video ? "Describe the video" : "Describe what is shown"}
+                        onChange={(event) => updateAccessibilityText(item, event.target.value)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-gray-100">
@@ -427,12 +375,22 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 }
               >
                 {[media.coverPhoto, ...media.images].filter(Boolean).length}/4
-                {isUploading ? " Uploading…" : " Ready to upload"}
+                {isUploading ? " Saving…" : " Ready"}
               </span>
             </div>
             {isUploading && (
-              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                <div className="bg-blue-600 h-1.5 rounded-full animate-progress w-full origin-left" />
+              <div className="mt-3 space-y-3" aria-live="polite">
+                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-blue-600 h-1.5 rounded-full animate-progress w-full origin-left" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => activeSave.current?.abort()}
+                >
+                  Cancel media save
+                </Button>
               </div>
             )}
           </div>

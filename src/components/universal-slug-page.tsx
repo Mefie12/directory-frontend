@@ -222,6 +222,7 @@ interface Provider {
 interface GalleryItem {
   type: "image" | "video";
   src: string;
+  poster?: string;
   alt?: string;
 }
 
@@ -1403,6 +1404,22 @@ export default function UniversalSlugPage({
               alt: "Placeholder",
             };
           });
+
+          // The canonical media shape excludes videos from `images` (they must
+          // never reach image components) — surface gallery videos explicitly.
+          const canonicalGallery = (listingData as {
+            gallery?: { kind?: string; original?: string; poster?: string; alt_text?: string }[];
+          }).gallery;
+          (canonicalGallery ?? [])
+            .filter((m) => m.kind === "video" && m.original)
+            .forEach((m) => {
+              gallery.push({
+                type: "video",
+                src: getImageUrl(m.original as string),
+                poster: m.poster ? getImageUrl(m.poster) : undefined,
+                alt: m.alt_text || provider.name,
+              });
+            });
           if (gallery.length === 0) {
             gallery.push({
               type: "image",

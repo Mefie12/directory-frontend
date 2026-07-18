@@ -103,10 +103,12 @@ function ListingContent() {
     if (currentStep === 5) {
       if (formRef.current) {
         setIsSaving(true);
-        await formRef.current.submit();
+        const submitted = await formRef.current.submit();
         setIsSaving(false);
-        sessionStorage.removeItem(STORAGE_KEY);
-        router.push("/dashboard/my-listing");
+        if (submitted) {
+          sessionStorage.removeItem(STORAGE_KEY);
+          router.push("/dashboard/my-listing");
+        }
       }
       return;
     }

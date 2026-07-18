@@ -1110,3 +1110,283 @@ export async function adminGetEvidenceSignedUrl(
 
   return response.json();
 }
+
+// ============================================================================
+// LISTING MEDIA REVISIONS (atomic image/video saves)
+// ============================================================================
+
+export type MediaRole = 'cover' | 'gallery';
+export type MediaKind = 'image' | 'video';
+export type MediaItemStatus =
+  | 'pending_upload'
+  | 'uploaded'
+  | 'processing'
+  | 'ready'
+  | 'failed'
+  | 'cancelled';
+export type MediaRevisionStatus =
+  | 'draft'
+  | 'uploading'
+  | 'processing'
+  | 'ready'
+  | 'committing'
+  | 'committed'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
+
+export interface MediaRevisionItem {
+  id: number;
+  role: MediaRole;
+  kind: MediaKind;
+  original_filename: string;
+  mime_type: string;
+  file_size: number | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  position: number | null;
+  replaces_media_id: number | null;
+  status: MediaItemStatus;
+  failure_code: string | null;
+  alt_text: string | null;
+}
+
+export interface MediaRevision {
+  id: number;
+  listing_id: number;
+  status: MediaRevisionStatus;
+  base_media_version: number;
+  desired_state: MediaDesiredState | null;
+  failure_code: string | null;
+  expires_at: string | null;
+  items: MediaRevisionItem[];
+}
+
+export interface MediaRef {
+  type: 'item' | 'media';
+  id: number;
+}
+
+export interface MediaDesiredState {
+  cover: MediaRef;
+  gallery?: MediaRef[];
+  removals?: number[];
+  alt_texts?: Record<string, string>;
+}
+
+export interface ActiveMediaItem {
+  id: number;
+  kind: MediaKind;
+  role: MediaRole;
+  position: number | null;
+  original: string;
+  thumb: string;
+  webp: string;
+  poster: string | null;
+  mime_type: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  alt_text: string;
+  processing_status: 'ready';
+}
+
+export interface ListingActiveMedia {
+  cover: ActiveMediaItem | null;
+  cover_is_explicit: boolean;
+  gallery: ActiveMediaItem[];
+  media_version: number;
+}
+
+interface StageItemResponse {
+  item_id: number;
+  upload_mode: 'presigned' | 'direct';
+  presigned_url: string | null;
+  headers: Record<string, string> | null;
+}
+
+export class ApiRateLimitError extends Error {
+  readonly status = 429;
+
+  constructor(
+    message: string,
+    readonly retryAfterSeconds: number,
+  ) {
+    super(message);
+    this.name = 'ApiRateLimitError';
+  }
+}
+
+async function mediaApiError(response: Response, fallback: string): Promise<Error> {
+  const data = await response.json().catch(() => ({})) as {
+    message?: string;
+    retry_after?: number | string;
+  };
+
+  if (response.status === 429) {
+    const headerRetryAfter = Number(response.headers.get('Retry-After'));
+    const bodyRetryAfter = Number(data.retry_after);
+    const retryAfter = Number.isFinite(headerRetryAfter) && headerRetryAfter > 0
+      ? headerRetryAfter
+      : Number.isFinite(bodyRetryAfter) && bodyRetryAfter > 0
+        ? bodyRetryAfter
+        : 60;
+
+    return new ApiRateLimitError(data.message || fallback, retryAfter);
+  }
+
+  return new Error(data.message || fallback);
+}
+
+function unwrap<T>(json: unknown): T {
+  const obj = json as { data?: T };
+  return (obj?.data ?? json) as T;
+}
+
+export async function createMediaRevision(listingSlug: string, token?: string): Promise<MediaRevision> {
+  const response = await fetch(`/api/listing/${listingSlug}/media_revisions`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to start media edit');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function getMediaRevision(revisionId: number, token?: string): Promise<MediaRevision> {
+  const response = await fetch(`/api/media_revisions/${revisionId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to load media state');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function stageRevisionItem(
+  revisionId: number,
+  meta: { role: MediaRole; kind: MediaKind; original_filename: string; mime_type: string; file_size: number; replaces_media_id?: number },
+  token?: string,
+): Promise<StageItemResponse> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/items`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(meta),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to stage upload');
+  const data = await response.json().catch(() => ({}));
+  return data as StageItemResponse;
+}
+
+/**
+ * Delivers a staged file. Presigned mode PUTs straight to S3 (bypasses the BFF
+ * body limit) then confirms with the backend; direct mode posts multipart via
+ * the BFF (local/dev). onProgress receives 0–100.
+ */
+export async function uploadRevisionItemFile(
+  revisionId: number,
+  stage: StageItemResponse,
+  file: File,
+  token?: string,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (stage.upload_mode === 'presigned' && stage.presigned_url) {
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const abortUpload = () => xhr.abort();
+      signal?.addEventListener('abort', abortUpload, { once: true });
+      xhr.open('PUT', stage.presigned_url as string);
+      Object.entries(stage.headers ?? {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Upload failed')));
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.onabort = () => reject(new DOMException('Upload cancelled.', 'AbortError'));
+      xhr.onloadend = () => signal?.removeEventListener('abort', abortUpload);
+      xhr.send(file);
+    });
+
+    const confirm = await fetch(`/api/media_revisions/${revisionId}/items/${stage.item_id}/confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      signal,
+    });
+    if (!confirm.ok) {
+      throw await mediaApiError(confirm, 'Failed to confirm upload');
+    }
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const xhr = new XMLHttpRequest();
+    const abortUpload = () => xhr.abort();
+    signal?.addEventListener('abort', abortUpload, { once: true });
+    xhr.open('POST', `/api/media_revisions/${revisionId}/items/${stage.item_id}/upload`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      try {
+        const data = JSON.parse(xhr.responseText) as { message?: string; retry_after?: number };
+        if (xhr.status === 429) {
+          const retryAfter = Number(xhr.getResponseHeader('Retry-After') ?? data.retry_after ?? 60);
+          reject(new ApiRateLimitError(data.message || 'Upload rate limited', retryAfter));
+          return;
+        }
+        reject(new Error(data.message || 'Upload failed'));
+      } catch {
+        reject(new Error('Upload failed'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Upload failed'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled.', 'AbortError'));
+    xhr.onloadend = () => signal?.removeEventListener('abort', abortUpload);
+    xhr.send(formData);
+  });
+}
+
+export async function updateRevisionDesiredState(
+  revisionId: number,
+  state: MediaDesiredState,
+  token?: string,
+): Promise<MediaRevision> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/desired_state`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(state),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to save media layout');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function commitMediaRevision(
+  revisionId: number,
+  token?: string,
+): Promise<{ message: string; media: ListingActiveMedia }> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/commit`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to save media');
+  const data = await response.json().catch(() => ({}));
+  return data as { message: string; media: ListingActiveMedia };
+}
+
+export async function cancelMediaRevision(revisionId: number, token?: string): Promise<void> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) {
+    throw await mediaApiError(response, 'Failed to discard media changes');
+  }
+}

@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 // Define a local type if the imported one is causing issues or is too strict
-type GalleryItem = string | { type: "image" | "video"; src: string; poster?: string };
+type GalleryItem = string | { type: "image" | "video"; src: string; poster?: string; alt?: string };
 
 export function MediaGallery({
   items = [], // Default to empty array
@@ -40,7 +40,7 @@ export function MediaGallery({
           <GalleryThumb
             key={index}
             media={media}
-            alt={`${providerName} gallery ${index + 1}`}
+            alt={typeof media === "string" ? `${providerName} gallery ${index + 1}` : media.alt || `${providerName} gallery ${index + 1}`}
             onClick={() => openAt(index)}
           />
         ))}
@@ -75,6 +75,7 @@ function GalleryThumb({
   return (
     <button
       onClick={onClick}
+      aria-label={isVideo ? `Play ${alt}` : `View ${alt}`}
       className="group relative h-28 w-full overflow-hidden rounded-2xl md:h-40 bg-gray-100"
     >
       {isVideo ? (
@@ -223,6 +224,8 @@ export function Lightbox({
               poster={poster}
               controls
               autoPlay
+              muted
+              aria-label={typeof currentItem === "string" ? `Gallery video ${currentIndex + 1}` : currentItem.alt}
               className="max-h-[85vh] max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl"
             />
           ) : (
