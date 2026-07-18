@@ -59,6 +59,15 @@ export default function VerifyBusinessPage() {
         }
 
         setEligibility(eligibilityData);
+
+        // Resume an in-progress email claim: the case is waiting on its OTP, so
+        // jump straight to the verify step instead of the (blocked) submission form.
+        if (
+          eligibilityData.active_case?.status === "awaiting_email_verification" &&
+          eligibilityData.active_case?.method === "email"
+        ) {
+          setCurrentView("otp");
+        }
       } catch (error) {
         console.error("Initialization error:", error);
         toast.error("Failed to initialize page");
@@ -69,8 +78,13 @@ export default function VerifyBusinessPage() {
     initializePage();
   }, [API_URL, listingSlug, router]);
 
+  const isResumingOtp =
+    eligibility?.active_case?.status === "awaiting_email_verification" &&
+    eligibility?.active_case?.method === "email";
+
   const handleBack = () => {
-    if (currentView === "otp") { setCurrentView("submission"); return; }
+    // When resuming, there's no valid submission step to go back to.
+    if (currentView === "otp" && !isResumingOtp) { setCurrentView("submission"); return; }
     router.back();
   };
 
@@ -87,7 +101,7 @@ export default function VerifyBusinessPage() {
     );
   }
 
-  if (eligibility && !eligibility.claimable) {
+  if (eligibility && !eligibility.claimable && !isResumingOtp) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-6 text-center">
         <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
@@ -95,9 +109,20 @@ export default function VerifyBusinessPage() {
         </div>
         <h2 className="text-xl font-bold text-[#1F3A4C]">This listing can&apos;t be claimed right now</h2>
         <p className="text-sm text-gray-500 max-w-sm">{eligibility.reason}</p>
-        <Button onClick={() => router.push("/claim")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white">
-          Back to directory
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          {eligibility.active_case && (
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard/my-claims")}
+              className="border-[#93C01F] text-[#93C01F] hover:bg-[#93C01F]/5"
+            >
+              View my claims
+            </Button>
+          )}
+          <Button onClick={() => router.push("/claim")} className="bg-[#93C01F] hover:bg-[#7ea919] text-white">
+            Back to directory
+          </Button>
+        </div>
       </div>
     );
   }

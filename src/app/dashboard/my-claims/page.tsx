@@ -7,6 +7,16 @@ import { useRouter } from "next/navigation";
 import { Loader2, Upload, X, ExternalLink, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import {
@@ -47,17 +57,18 @@ const listingPath: Record<string, string> = {
 
 function ClaimCard({ claim, onChanged }: { claim: ClaimCaseSummary; onChanged: () => void }) {
   const [isBusy, setIsBusy] = useState(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const token = () => localStorage.getItem("authToken") || undefined;
 
   const handleWithdraw = async () => {
-    if (!confirm("Withdraw this claim? You can submit a new one later.")) return;
     setIsBusy(true);
     try {
       await withdrawClaim(claim.id, token());
       toast.success("Claim withdrawn.");
+      setIsWithdrawDialogOpen(false);
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to withdraw claim.");
@@ -203,13 +214,43 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimCaseSummary; onChanged: (
             size="sm"
             variant="ghost"
             disabled={isBusy}
-            onClick={handleWithdraw}
+            onClick={() => setIsWithdrawDialogOpen(true)}
             className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 ml-auto"
           >
             Withdraw claim
           </Button>
         )}
       </div>
+      <AlertDialog
+        open={isWithdrawDialogOpen}
+        onOpenChange={(open) => {
+          if (!isBusy) setIsWithdrawDialogOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Withdraw this claim?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your claim for <span className="font-semibold text-gray-700">{claim.listing.name}</span> will be
+              closed and cannot be reopened. You can submit a new claim later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBusy}>Keep claim</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBusy}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleWithdraw();
+              }}
+              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600"
+            >
+              {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isBusy ? "Withdrawing..." : "Withdraw claim"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

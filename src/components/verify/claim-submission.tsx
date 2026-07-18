@@ -116,7 +116,10 @@ export default function ClaimSubmission({
         toast.success("Verification code sent!");
         onNext("otp");
       } else {
-        await submitDocumentClaim(listingSlug, files, token);
+        await submitDocumentClaim(listingSlug, files, token, {
+          role: isRectification ? undefined : role,
+          notes: notes || undefined,
+        });
         toast.success("Evidence submitted for review.");
         onNext("success");
       }

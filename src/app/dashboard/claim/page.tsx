@@ -73,6 +73,7 @@ const STATUS_COLOR: Record<ClaimStatus, string> = {
 };
 
 type DialogState =
+  | { type: "approve"; claim: ClaimCaseAdmin }
   | { type: "reject"; claim: ClaimCaseAdmin }
   | { type: "request_evidence"; claim: ClaimCaseAdmin }
   | { type: "view"; claim: ClaimCaseAdmin }
@@ -114,11 +115,15 @@ export default function AdminClaimsPage() {
     fetchClaims();
   }, [fetchClaims]);
 
-  const handleApprove = async (claim: ClaimCaseAdmin) => {
+  const handleApprove = async () => {
+    if (dialog?.type !== "approve") return;
+    const claim = dialog.claim;
+
     setProcessingId(claim.id);
     try {
       const data = await adminApproveClaim(claim.id, getToken());
       toast.success(data.message || `Claim #${claim.id} approved.`);
+      setDialog(null);
       await fetchClaims();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to approve claim.");
@@ -278,7 +283,12 @@ export default function AdminClaimsPage() {
                 </TableRow>
               ) : (
                 filteredClaims.map((claim) => {
-                  const canDecide = claim.status === "under_review";
+                  // Decisions are allowed while awaiting evidence too — the admin can
+                  // approve on existing evidence, reject, or revise the request.
+                  const canDecide =
+                    claim.status === "under_review" ||
+                    claim.status === "more_evidence_requested";
+                  const isAwaitingEvidence = claim.status === "more_evidence_requested";
                   const isProcessing = processingId === claim.id;
 
                   return (
@@ -321,6 +331,11 @@ export default function AdminClaimsPage() {
                               >
                                 <FileText className="w-3.5 h-3.5" /> {e.original_filename}
                                 <ExternalLink className="w-3 h-3" />
+                                {e.is_new && (
+                                  <Badge className="bg-[#93C01F]/15 text-[#5c7a12] border-none rounded-full px-2 py-0 text-[9px] font-bold uppercase">
+                                    New
+                                  </Badge>
+                                )}
                               </button>
                             ))}
                           </div>
@@ -340,7 +355,7 @@ export default function AdminClaimsPage() {
                             <Button
                               size="sm"
                               disabled={isProcessing}
-                              onClick={() => handleApprove(claim)}
+                              onClick={() => setDialog({ type: "approve", claim })}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve
@@ -349,10 +364,16 @@ export default function AdminClaimsPage() {
                               size="sm"
                               variant="outline"
                               disabled={isProcessing}
-                              onClick={() => setDialog({ type: "request_evidence", claim })}
+                              onClick={() => {
+                                setInstructionsInput(
+                                  isAwaitingEvidence ? claim.evidence_instructions || "" : "",
+                                );
+                                setDialog({ type: "request_evidence", claim });
+                              }}
                               className="text-xs border-orange-200 text-orange-700 hover:bg-orange-50"
                             >
-                              <MessageSquareWarning className="w-3.5 h-3.5 mr-1" /> Request Info
+                              <MessageSquareWarning className="w-3.5 h-3.5 mr-1" />
+                              {isAwaitingEvidence ? "Edit Request" : "Request Info"}
                             </Button>
                             <Button
                               size="sm"
@@ -376,6 +397,43 @@ export default function AdminClaimsPage() {
       </div>
 
       {/* Reject dialog */}
+      {/* Approve confirmation dialog — prevents accidental one-click transfers */}
+      <Dialog open={dialog?.type === "approve"} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent>
+          {dialog?.type === "approve" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Approve claim #{dialog.claim.id}?</DialogTitle>
+                <DialogDescription>
+                  This will transfer management of{" "}
+                  <span className="font-semibold text-[#1F3A4C]">{dialog.claim.listing.name}</span>{" "}
+                  to <span className="font-semibold text-[#1F3A4C]">{dialog.claim.claimant.name || dialog.claim.claimant.email}</span>
+                  {dialog.claim.current_owner && (
+                    <> and remove access for the current manager, {dialog.claim.current_owner.name}</>
+                  )}
+                  . Any competing active claims on this listing will be closed and their
+                  claimants notified. This cannot be undone from this screen.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+                <Button
+                  onClick={handleApprove}
+                  disabled={processingId === dialog.claim.id}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {processingId === dialog.claim.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Yes, Approve Claim"
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={dialog?.type === "reject"} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -411,11 +469,15 @@ export default function AdminClaimsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Request evidence dialog */}
+      {/* Request evidence dialog (also used to revise an outstanding request) */}
       <Dialog open={dialog?.type === "request_evidence"} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request more evidence</DialogTitle>
+            <DialogTitle>
+              {dialog?.type === "request_evidence" && dialog.claim.status === "more_evidence_requested"
+                ? "Edit evidence request"
+                : "Request more evidence"}
+            </DialogTitle>
             <DialogDescription>
               Tell the claimant exactly what&apos;s missing — they can add documents without losing what they already submitted.
             </DialogDescription>
@@ -428,8 +490,16 @@ export default function AdminClaimsPage() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-            <Button onClick={handleRequestEvidence} className="bg-[#93C01F] hover:bg-[#7ea919] text-white">
-              Send Request
+            <Button
+              onClick={handleRequestEvidence}
+              disabled={processingId === (dialog?.type === "request_evidence" ? dialog.claim.id : -1)}
+              className="bg-[#93C01F] hover:bg-[#7ea919] text-white"
+            >
+              {dialog?.type === "request_evidence" && processingId === dialog.claim.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Send Request"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
