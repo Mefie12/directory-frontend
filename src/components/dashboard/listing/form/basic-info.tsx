@@ -73,6 +73,7 @@ interface Category {
   name: string;
   type: string;
   parent_slug: string | null;
+  parent_id?: number | null;
 }
 
 interface Props {
@@ -112,6 +113,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
     const [subCategories, setSubCategories] = useState<Category[]>([]);
+    const [savedCategories, setSavedCategories] = useState<Category[] | null>(null);
 
     const [selectedMainCategoryId, setSelectedMainCategoryId] =
       useState<string>("");
@@ -236,6 +238,43 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
 
       setValue("category_ids", [idStr], { shouldValidate: true });
     };
+
+    useEffect(() => {
+      if (categories.length === 0 || savedCategories === null) return;
+
+      const savedMain = savedCategories.find(
+        (category) => category.parent_id == null && (category.parent_slug === null || category.type === "mainCategory"),
+      );
+      const savedSubcategory = savedCategories.find(
+        (category) => category.parent_id != null || category.parent_slug !== null || category.type === "subCategory",
+      );
+      const main = savedMain
+        ?? categories.find((category) => category.slug === savedSubcategory?.parent_slug)
+        ?? null;
+
+      if (!main) {
+        setSelectedMainCategoryId("");
+        setSelectedMainCategory(null);
+        setSubCategories([]);
+        return;
+      }
+
+      const children = categories.filter((category) =>
+        category.parent_id === main.id || category.parent_slug === main.slug,
+      );
+      const savedChild = savedCategories.find((saved) =>
+        children.some((child) => child.id === saved.id),
+      );
+
+      setSelectedMainCategoryId(String(main.id));
+      setSelectedMainCategory(main);
+      setSubCategories(children);
+      setValue(
+        "category_ids",
+        [String(main.id), ...(savedChild ? [String(savedChild.id)] : [])],
+        { shouldValidate: true },
+      );
+    }, [categories, savedCategories, setValue]);
 
     // --- 3. Submit Handler ---
     useImperativeHandle(ref, () => ({
@@ -382,23 +421,12 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
               primary_country_code: d.primary_country_code || "+44",
               secondary_phone: fullSecondaryPhone,
               secondary_country_code: d.secondary_country_code || "+44",
-              category_ids: d.categories?.map((c: any) => String(c.id)) || [],
+              category_ids: d.categories?.map((category: Category) => String(category.id)) || [],
               business_reg_num: d.business_reg_num || "",
               type: listingType,
             });
 
-            // If categories exist, set the main category ID for the UI logic
-            if (d.categories?.[0]) {
-              const firstCat = d.categories[0];
-              // If it's a subcategory, find the parent in our loaded categories
-              const parentSlug = firstCat.parent_slug;
-              if (parentSlug) {
-                const parentCat = categories.find((c) => c.slug === parentSlug);
-                if (parentCat) setSelectedMainCategoryId(String(parentCat.id));
-              } else {
-                setSelectedMainCategoryId(String(firstCat.id));
-              }
-            }
+            setSavedCategories(Array.isArray(d.categories) ? d.categories : []);
           }
         } catch (error) {
           console.error("Back navigation load failed", error);
@@ -448,6 +476,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           )}
         </div>
 
+        {listingType !== "event" && <>
         {/* Email */}
         <div className="space-y-1">
           <label className="font-medium text-sm">
@@ -541,6 +570,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             />
           </div>
         </div>
+        </>}
 
         {/* Category Selection - With Updated Text */}
         <div className="space-y-4">
@@ -660,6 +690,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           )}
         </div>
 
+        {listingType !== "event" && <>
         {/* Website & Reg */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
@@ -697,6 +728,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             </div>
           )}
         </div>
+        </>}
 
         {/* Description */}
         <div className="space-y-1">

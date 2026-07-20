@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SpinnerGap, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
@@ -13,16 +12,18 @@ import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useRolePath } from "@/hooks/useRolePath";
+import { LISTING_JOURNEYS } from "@/lib/listing-form-v2";
+import { updateListingFormProgress } from "@/lib/api";
 
 // Child Forms
 import { BasicInformationForm } from "@/components/dashboard/listing/form/basic-info";
-const BusinessDetailsForm = dynamic(
-  () => import("@/components/dashboard/listing/form/business-details").then(mod => mod.BusinessDetailsForm),
-  { ssr: false }
-);
 import { MediaUploadStep } from "@/components/dashboard/listing/form/media";
 import { SocialMediaForm } from "@/components/dashboard/listing/form/social-media";
 import { ReviewSubmitStep } from "@/components/dashboard/listing/form/review";
+import { ListingExperienceForm } from "@/components/dashboard/listing/form/listing-experience";
+import { EventStepForm } from "@/components/dashboard/listing/form/event-step";
+import { EventContactSocialStep } from "@/components/dashboard/listing/form/event-contact-social";
+import { ListingDirtyGuard, useBeforeUnloadWhenDirty } from "@/components/dashboard/listing/listing-dirty-guard";
 
 // --- Local Interfaces to fix 'any' errors ---
 interface ApiCategory {
@@ -71,6 +72,11 @@ export default function EditListingContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [stepIsValid, setStepIsValid] = useState(true);
+  const [dirty, setDirty] = useState(false);
+  const [pendingStep, setPendingStep] = useState<number | null>(null);
+  const [pendingSkip, setPendingSkip] = useState(false);
+  const [lastSaveFailed, setLastSaveFailed] = useState(false);
+  useBeforeUnloadWhenDirty(dirty);
 
   const formRef = useRef<ListingFormHandle>(null);
   const initialized = useRef(false);
@@ -209,6 +215,7 @@ export default function EditListingContent() {
             twitter: data.socials.twitter || "",
             instagram: data.socials.instagram || "",
             linkedin: data.socials.linkedin || "",
+            youtube: data.socials.youtube || "",
             tiktok: data.socials.tiktok || "",
             whatsapp: data.socials.whatsapp || "",
           });
@@ -250,17 +257,21 @@ export default function EditListingContent() {
     initPage();
   }, [searchParams, router, setListingType, setCurrentStep, setBasicInfo, setBusinessDetails, setMedia, setSocials, myListings]);
 
+  const totalSteps = LISTING_JOURNEYS[listingType].length;
+
   // --- 2. Navigation Handlers ---
 
   const handleNext = async () => {
     // If on Review Step (Final Step)
-    if (currentStep === 5) {
+    if (currentStep === totalSteps) {
       if (formRef.current) {
         setIsSaving(true);
         try {
-          await formRef.current.submit();
-          toast.success("Listing published successfully!");
-          router.push(myListings);
+          const completed = await formRef.current.submit();
+          if (completed) {
+            setDirty(false);
+            router.push(myListings);
+          }
         } catch (e) {
           console.error(e);
         } finally {
@@ -277,6 +288,8 @@ export default function EditListingContent() {
       const result = await formRef.current.submit();
 
       if (result) {
+        setLastSaveFailed(false);
+        setDirty(false);
         if (
           currentStep === 1 &&
           typeof result === "object" &&
@@ -285,10 +298,17 @@ export default function EditListingContent() {
         ) {
           setListingSlug((result as { slug: string }).slug);
         }
+        const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+        if (step) {
+          await updateListingFormProgress(listingSlug, step.key, "complete", localStorage.getItem("authToken") ?? undefined).catch(() => undefined);
+        }
         setCurrentStep(currentStep + 1);
+      } else {
+        setLastSaveFailed(true);
       }
     } catch (error) {
       console.error("Step submission failed", error);
+      setLastSaveFailed(true);
     } finally {
       setIsSaving(false);
     }
@@ -296,13 +316,53 @@ export default function EditListingContent() {
 
   const handleBack = () => {
     const prev = Math.max(1, currentStep - 1);
-    if (prev > 2) setStepIsValid(true);
-    setCurrentStep(prev);
+    handleStepClick(prev);
   };
 
   const handleStepClick = (step: number) => {
+    if (dirty) {
+      setPendingStep(step);
+      return;
+    }
     if (step > 2) setStepIsValid(true);
     setCurrentStep(step);
+  };
+
+  const skipOptionalStep = async () => {
+    const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+    if (!step?.optional || !listingSlug) return;
+
+    if (dirty) {
+      setPendingSkip(true);
+      setPendingStep(currentStep + 1);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateListingFormProgress(listingSlug, step.key, "optional", localStorage.getItem("authToken") ?? undefined);
+      setCurrentStep(currentStep + 1);
+    } catch {
+      toast.error("Could not skip this step. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const stayAndSave = async () => {
+    if (!formRef.current) return;
+    setIsSaving(true);
+    try {
+      const saved = await formRef.current.submit();
+      if (saved) {
+        setDirty(false);
+        setPendingStep(null);
+        setPendingSkip(false);
+        toast.success("Changes saved. You can continue editing this step.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // --- 3. Render Helpers ---
@@ -323,18 +383,39 @@ export default function EditListingContent() {
           />
         );
       case 2:
-        return (
-          <BusinessDetailsForm
-            {...commonProps}
-            onValidityChange={setStepIsValid}
-          />
+        return listingType === "event" ? (
+          <EventStepForm ref={formRef} listingSlug={listingSlug} section="schedule" />
+        ) : listingType === "community" ? (
+          <ListingExperienceForm {...commonProps} />
+        ) : (
+          <ListingExperienceForm {...commonProps} />
         );
       case 3:
-        return <MediaUploadStep {...commonProps} />;
+        return listingType === "event"
+          ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="access" />
+          : listingType === "community"
+            ? <SocialMediaForm {...commonProps} />
+            : <MediaUploadStep {...commonProps} />;
       case 4:
-        return <SocialMediaForm {...commonProps} />;
+        return listingType === "event"
+          ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="tickets" />
+          : listingType === "community"
+            ? <MediaUploadStep {...commonProps} />
+            : <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />;
       case 5:
-        return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
+        return listingType === "event"
+          ? <MediaUploadStep {...commonProps} />
+          : listingType === "community"
+            ? <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />
+            : null;
+      case 6:
+        return listingType === "event"
+          ? <EventContactSocialStep listingSlug={listingSlug} ref={formRef} />
+          : null;
+      case 7:
+        return listingType === "event"
+          ? <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />
+          : null;
       default:
         return null;
     }
@@ -355,7 +436,7 @@ export default function EditListingContent() {
     <>
       <StepHeader
         currentStep={currentStep}
-        totalSteps={5}
+        totalSteps={totalSteps}
         title={`Edit ${
           listingType
             ? listingType.charAt(0).toUpperCase() + listingType.slice(1)
@@ -373,12 +454,13 @@ export default function EditListingContent() {
                 currentStep={currentStep}
                 onStepClick={handleStepClick}
                 listingType={listingType}
+                unlockedStep={totalSteps}
               />
             </div>
           </div>
         </aside>
 
-        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24 pt-6">
+        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24 pt-6" onInputCapture={() => setDirty(true)} onChangeCapture={() => setDirty(true)}>
           {renderStep()}
         </div>
       </div>
@@ -398,6 +480,14 @@ export default function EditListingContent() {
             )}
           </div>
 
+          <div className="flex items-center gap-2">
+            {LISTING_JOURNEYS[listingType][currentStep - 1]?.optional && (
+              <Button variant="outline" onClick={skipOptionalStep} disabled={isSaving}>
+                Skip for now
+              </Button>
+            )}
+          </div>
+
           <Button
             onClick={handleNext}
             disabled={isSaving || (currentStep === 1 && !stepIsValid)}
@@ -408,16 +498,43 @@ export default function EditListingContent() {
                 <SpinnerGap className="w-4 h-4 animate-spin mr-2" />
                 Saving...
               </>
-            ) : currentStep === 5 ? (
+            ) : currentStep === totalSteps ? (
               "Update Listing"
             ) : (
               <>
-                Save & Continue <CaretRight className="w-4 h-4 ml-1" />
+                {lastSaveFailed ? "Retry save" : "Save & Continue"} <CaretRight className="w-4 h-4 ml-1" />
               </>
             )}
           </Button>
         </div>
       </div>
+      <ListingDirtyGuard
+        open={pendingStep !== null}
+        saving={isSaving}
+        onCancel={() => { setPendingStep(null); setPendingSkip(false); }}
+        onStayAndSave={stayAndSave}
+        onDiscard={() => window.location.reload()}
+        onLeave={async () => {
+          const next = pendingStep;
+          const shouldSkip = pendingSkip;
+          setDirty(false);
+          setPendingStep(null);
+          setPendingSkip(false);
+          if (shouldSkip) {
+            const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+            if (!step || !listingSlug) return;
+            setIsSaving(true);
+            try {
+              await updateListingFormProgress(listingSlug, step.key, "optional", localStorage.getItem("authToken") ?? undefined);
+              if (next !== null) setCurrentStep(next);
+            } catch {
+              toast.error("Could not skip this step. Please try again.");
+            } finally {
+              setIsSaving(false);
+            }
+          } else if (next !== null) setCurrentStep(next);
+        }}
+      />
     </>
   );
 }

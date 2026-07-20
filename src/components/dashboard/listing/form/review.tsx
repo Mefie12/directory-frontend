@@ -16,7 +16,7 @@ import {
   FacebookLogo,
   InstagramLogo,
   TwitterLogo,
-  LinkedinLogo,
+  YoutubeLogo,
   TiktokLogo,
   WhatsappLogo,
 } from "@phosphor-icons/react";
@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { getImageUrl } from "@/lib/directory/image-utils";
 import { stripHtml } from "@/lib/utils";
+import { LISTING_JOURNEYS, ListingReadiness, ListingType } from "@/lib/listing-form-v2";
 
 /**
  * Resolve the cover image src from either the API `primary_image` field or
@@ -73,7 +74,7 @@ interface ApiListingData {
     facebook: string | null;
     twitter: string | null;
     instagram: string | null;
-    linkedin: string | null;
+    youtube: string | null;
     tiktok: string | null;
     whatsapp: string | null;
   };
@@ -87,15 +88,19 @@ interface ApiListingData {
   event_end_date: string | null;
   event_start_time: string | null;
   event_end_time: string | null;
+  submission_readiness?: ListingReadiness;
+  status?: string;
+  status_reason?: string | null;
 }
 
 export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
-  ({ listingSlug }, ref) => {
+  ({ listingSlug, onEditStep }, ref) => {
     const { media } = useListing(); // Fallback for local media if API hasn't processed it yet
     const [listingData, setListingData] = useState<ApiListingData | null>(null);
     const [loading, setLoading] = useState(true);
     const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
     const [openingHours, setOpeningHours] = useState<ApiListingData["opening_hours"] | null>(null);
+    const [submissionReadiness, setSubmissionReadiness] = useState<ListingReadiness | null>(null);
 
     // Fetch listing data, opening hours, and socials in parallel
     useEffect(() => {
@@ -117,7 +122,9 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
           if (showRes.status === "fulfilled" && showRes.value.ok) {
             const json = await showRes.value.json();
-            setListingData(json.data || json);
+            const data = json.data || json;
+            setListingData(data);
+            setSubmissionReadiness(data.submission_readiness ?? null);
           }
 
           if (hoursRes.status === "fulfilled" && hoursRes.value.ok) {
@@ -147,9 +154,24 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     useImperativeHandle(ref, () => ({
       async submit() {
         try {
+          if (listingData?.status === "pending" || listingData?.status === "approved" || listingData?.status === "suspended") {
+            toast.success(listingData.status === "pending" ? "Changes saved; listing remains in review" : "Listing changes are saved");
+            return true;
+          }
+          if (submissionReadiness && !submissionReadiness.can_submit && listingData?.status !== "rejected") {
+            const first = submissionReadiness.blockers[0]?.message ?? "Required listing information is missing.";
+            toast.error(first, {
+              description: submissionReadiness.blockers.length > 1
+                ? `${submissionReadiness.blockers.length - 1} more required item(s) are listed below.`
+                : "Use Fix this to return to the relevant step.",
+            });
+            return false;
+          }
           const token = localStorage.getItem("authToken");
           const response = await fetch(
-            `/api/listing/${listingSlug}/new_listing_mail`,
+            listingData?.status === "rejected"
+              ? `/api/listing/${listingSlug}/resubmit`
+              : `/api/listing/${listingSlug}/submit`,
             {
               method: "POST",
               headers: {
@@ -160,12 +182,17 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
           );
           const result = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(
-              result.error || result.message || "Failed to submit listing",
-            );
+            if (result.readiness) setSubmissionReadiness(result.readiness as ListingReadiness);
+            const messages = result.errors && typeof result.errors === "object"
+              ? Object.values(result.errors as Record<string, string[]>).flat()
+              : [];
+            toast.error(messages[0] || result.error || result.message || "Failed to submit listing", {
+              description: messages.length > 1 ? `${messages.length - 1} more required item(s) are listed below.` : undefined,
+            });
+            return false;
           }
 
-          toast.success("Listing Submitted Successfully!");
+          toast.success(listingData?.status === "rejected" ? "Listing resubmitted for review" : "Listing submitted for review");
           return true;
         } catch (error) {
           console.error(error);
@@ -186,6 +213,11 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     }
 
     const isEvent = listingData?.type === "event";
+    const readiness = submissionReadiness ?? listingData?.submission_readiness;
+    const journey = listingData?.type && listingData.type in LISTING_JOURNEYS
+      ? LISTING_JOURNEYS[listingData.type as ListingType]
+      : [];
+    const stepFor = (key: string) => journey.find((step) => step.key === key);
 
     const displayWebsite = listingData?.website;
 
@@ -218,11 +250,52 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     return (
       <div className="space-y-6 py-2">
         <div>
-          <h2 className="text-xl font-semibold mb-1">Preview & Publish</h2>
+          <h2 className="text-xl font-semibold mb-1">Preview & Submit for review</h2>
           <p className="text-sm text-muted-foreground">
-            Review your details before publishing
+            Review your public listing and resolve required items before sending it to the moderation team.
           </p>
         </div>
+
+        {listingData?.status === "rejected" && listingData.status_reason && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            <p className="font-semibold">Changes requested</p>
+            <p className="mt-1">{listingData.status_reason}</p>
+          </div>
+        )}
+
+        {readiness && (
+          <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="font-semibold">
+                {readiness.is_complete ? "Ready to submit" : "Needs attention"}
+              </h3>
+              <span className="text-sm text-muted-foreground">
+                {readiness.missing_count} required item(s)
+              </span>
+            </div>
+            {readiness.blockers.length > 0 && (
+              <ul className="mt-3 space-y-2 text-sm text-amber-900">
+                {readiness.blockers.map((blocker) => {
+                  const owningStep = stepFor(blocker.step);
+                  return <li key={blocker.code} className="flex items-start justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <span>{blocker.message}</span>
+                    {owningStep && onEditStep && <Button type="button" size="sm" variant="outline" onClick={() => onEditStep(owningStep.id)} className="shrink-0">Fix this</Button>}
+                  </li>;
+                })}
+              </ul>
+            )}
+            {readiness.recommendations.length > 0 && (
+              <div className="mt-4 border-t pt-3">
+                <p className="text-sm font-medium">Optional improvements</p>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  {readiness.recommendations.map((item) => (
+                    <li key={item.code}>• {item.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Cover Photo Section */}
         <div className="space-y-3">
@@ -419,10 +492,10 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
                     <p className="text-sm text-gray-600 truncate">{socials.twitter}</p>
                   </div>
                 )}
-                {socials?.linkedin && (
+                {socials?.youtube && (
                   <div className="flex items-center gap-3">
-                    <LinkedinLogo className="w-4 h-4 text-blue-700 shrink-0" />
-                    <p className="text-sm text-gray-600 truncate">{socials.linkedin}</p>
+                    <YoutubeLogo className="w-4 h-4 text-red-600 shrink-0" />
+                    <p className="text-sm text-gray-600 truncate">{socials.youtube}</p>
                   </div>
                 )}
                 {socials?.tiktok && (

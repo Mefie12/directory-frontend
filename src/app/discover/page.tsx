@@ -29,6 +29,7 @@ interface ApiCategory {
 }
 
 interface ApiListing {
+  reach_badge?: string | null;
   id: number;
   name: string;
   slug: string;
@@ -220,6 +221,7 @@ function DiscoverContent() {
             category: categoryName,
             rating: Number(item.rating) || 0,
             reviewCount: Number(item.ratings_count) || 0,
+            reachBadge: item.reach_badge,
           });
         }
       });

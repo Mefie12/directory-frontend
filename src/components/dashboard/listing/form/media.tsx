@@ -2,6 +2,7 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useListing } from "@/context/listing-form-context";
@@ -53,6 +54,78 @@ const gallerySchema = z
     ).length <= 1,
     { message: "Only one gallery video is allowed." },
   );
+
+// Dimension policy (mirrors config/listing-media.php):
+// - HARD floor 200×200 — blocks only icon/thumbnail-sized files that would
+//   render visibly broken. Rejected at selection with a clear message.
+// - SOFT quality mark 600px — smaller images are accepted with a non-blocking
+//   "may look blurry" nudge so the vendor stays in control.
+const HARD_MIN = { width: 200, height: 200 };
+const QUALITY_MARK = { width: 600, height: 600 };
+
+const readImageDimensions = (
+  file: File,
+): Promise<{ width: number; height: number }> =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`"${file.name}" could not be read as an image.`));
+    };
+    img.src = url;
+  });
+
+/** Blocking error for absurdly small files, soft warning for smallish ones. */
+const checkImageDimensions = async (
+  file: File,
+): Promise<{ error?: string; warning?: string }> => {
+  if (!file.type.startsWith("image/")) return {};
+  try {
+    const { width, height } = await readImageDimensions(file);
+    if (width < HARD_MIN.width || height < HARD_MIN.height) {
+      return {
+        error: `"${file.name}" is only ${width}×${height}px — images need to be at least ${HARD_MIN.width}×${HARD_MIN.height}px.`,
+      };
+    }
+    if (width < QUALITY_MARK.width || height < QUALITY_MARK.height) {
+      return {
+        warning: `"${file.name}" is ${width}×${height}px and may look blurry on your listing — a larger photo will look sharper.`,
+      };
+    }
+    return {};
+  } catch {
+    return { error: `"${file.name}" could not be read as an image.` };
+  }
+};
+
+/**
+ * Persistent quality nudge — the project-standard amber notice (matches the
+ * claims UI and this form's capacity hints) instead of a transient toast.
+ */
+const QualityNotice = ({ messages }: { messages: string[] }) => {
+  if (messages.length === 0) return null;
+  return (
+    <div
+      className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
+      role="status"
+      aria-live="polite"
+    >
+      <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+      <div className="space-y-1">
+        {messages.map((message, index) => (
+          <p key={index} className="leading-relaxed">
+            {message}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const readVideoDuration = (file: File): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -149,6 +222,12 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     const [isUploading, setIsUploading] = useState(false);
     const activeSave = useRef<AbortController | null>(null);
     const [altTexts, setAltTexts] = useState<Record<string, string>>({});
+    const [failedFiles, setFailedFiles] = useState<File[]>([]);
+    // Persistent quality nudges for smallish (but accepted) images, keyed by
+    // mediaKey — shown inline under the relevant uploader so they stay visible
+    // for as long as the file is selected, unlike a transient toast.
+    const [qualityNotes, setQualityNotes] = useState<Record<string, string>>({});
+    const persistedCoverId = useRef<number | null>(getExistingId(media.coverPhoto));
 
     const mediaKey = (item: any): string => {
       if (item instanceof File) return `file:${item.name}:${item.size}:${item.lastModified}`;
@@ -191,10 +270,19 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
       // A draft may be left without media entirely.
       if (!media.coverPhoto && media.images.length === 0) return true;
 
+      // React state does not update synchronously, so a rapid second submit can
+      // otherwise create a new revision while the first upload is in flight.
+      // Creating that second revision cancels the first on the backend and makes
+      // its staged item upload target disappear from the active flow.
+      if (activeSave.current) {
+        toast.info("Your media is already being saved.");
+        return false;
+      }
+
       try {
-        setIsUploading(true);
         const controller = new AbortController();
         activeSave.current = controller;
+        setIsUploading(true);
         const token = localStorage.getItem("authToken") || undefined;
 
         for (const item of media.images) {
@@ -215,9 +303,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         const cover = await toSlot(media.coverPhoto);
         const gallery = await Promise.all(media.images.map(toSlot));
 
-        const active = await saveListingMediaAtomic({
+        const result = await saveListingMediaAtomic({
           listingSlug,
           cover,
+          fallbackCover: persistedCoverId.current ? { id: persistedCoverId.current } : undefined,
           gallery,
           coverAltText: accessibilityText(media.coverPhoto),
           galleryAltTexts: media.images.map(accessibilityText),
@@ -229,12 +318,27 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
 
         // Sync context with the committed canonical state so step navigation
         // shows server objects, not stale Files.
+        persistedCoverId.current = result.media.cover?.id ?? null;
+        const failedGalleryFiles = result.failures
+          .map((failure) => failure.file)
+          .filter((file) => media.images.includes(file));
+        setFailedFiles(result.failures.map((failure) => failure.file));
+        // Saved files become server objects, so their quality-note keys are
+        // stale; failed files get explicit error markers instead.
+        setQualityNotes({});
         setMedia({
-          coverPhoto: active.cover ?? null,
-          images: active.gallery,
+          coverPhoto: result.media.cover ?? null,
+          images: [...result.media.gallery, ...failedGalleryFiles],
         });
 
-        toast.success("Media saved!");
+        if (result.failures.length > 0) {
+          result.failures.forEach((failure) =>
+            toast.error(`"${failure.file.name}" ${failure.message}`),
+          );
+          toast.success("The media that worked was saved. Retry only the marked files.");
+        } else {
+          toast.success("Media saved!");
+        }
         return true;
       } catch (error: any) {
         if (error?.name === "AbortError") {
@@ -282,7 +386,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
               label=""
               multiple={false}
               files={media.coverPhoto ? [media.coverPhoto] : []}
-              onChange={(files) => {
+              onChange={async (files) => {
                 const newItem = files[0] || null;
                 if (newItem instanceof File) {
                   const result = coverSchema.safeParse(newItem);
@@ -290,12 +394,37 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                     toast.error(result.error.issues[0].message);
                     return;
                   }
+                  const { error, warning } = await checkImageDimensions(newItem);
+                  if (error) {
+                    toast.error(error);
+                    return;
+                  }
+                  setQualityNotes((notes) => {
+                    const next = { ...notes };
+                    if (media.coverPhoto) delete next[mediaKey(media.coverPhoto)];
+                    if (warning) next[mediaKey(newItem)] = warning;
+                    return next;
+                  });
+                } else if (media.coverPhoto) {
+                  const previousKey = mediaKey(media.coverPhoto);
+                  setQualityNotes((notes) =>
+                    Object.fromEntries(
+                      Object.entries(notes).filter(([key]) => key !== previousKey),
+                    ),
+                  );
                 }
                 setMedia({ ...media, coverPhoto: newItem });
               }}
               accept="image/jpeg,image/jpg,image/webp,image/png"
               maxSize={MAX_FILE_SIZE_BYTES}
               allowPersistedRemoval={false}
+            />
+            <QualityNotice
+              messages={
+                media.coverPhoto && qualityNotes[mediaKey(media.coverPhoto)]
+                  ? [qualityNotes[mediaKey(media.coverPhoto)]]
+                  : []
+              }
             />
             {media.coverPhoto && (
               <div className="mt-3 space-y-1.5">
@@ -321,7 +450,8 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             <FileUploader
               label=""
               files={media.images}
-              onChange={(files) => {
+              onChange={async (files) => {
+                setFailedFiles((current) => current.filter((file) => files.includes(file)));
                 const result = gallerySchema.safeParse(files);
                 if (!result.success) {
                   toast.error(result.error.issues[0].message);
@@ -333,14 +463,52 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                   }
                   return;
                 }
-                setMedia({ ...media, images: files });
+
+                // Hard-reject only icon-sized files; smallish images are accepted
+                // with a persistent, non-blocking quality nudge below the uploader
+                // (product decision 2026-07-19).
+                const accepted: typeof files = [];
+                const galleryNotes: Record<string, string> = {};
+                for (const item of files) {
+                  if (!(item instanceof File)) {
+                    accepted.push(item);
+                    continue;
+                  }
+                  const { error, warning } = await checkImageDimensions(item);
+                  if (error) {
+                    toast.error(error);
+                    continue;
+                  }
+                  if (warning) galleryNotes[mediaKey(item)] = warning;
+                  accepted.push(item);
+                }
+                setQualityNotes((notes) => {
+                  // Rebuild gallery-file notes from this selection; keep the cover's.
+                  const next: Record<string, string> = { ...galleryNotes };
+                  if (media.coverPhoto && notes[mediaKey(media.coverPhoto)]) {
+                    next[mediaKey(media.coverPhoto)] = notes[mediaKey(media.coverPhoto)];
+                  }
+                  return next;
+                });
+                setMedia({ ...media, images: accepted });
               }}
               multiple={true}
               maxFiles={3}
               accept="image/jpeg,image/jpg,image/webp,image/png,video/mp4,video/quicktime"
               sortable
               confirmPersistedRemoval
+              failedFiles={failedFiles}
             />
+            <QualityNotice
+              messages={media.images
+                .map((item) => qualityNotes[mediaKey(item)])
+                .filter((message): message is string => Boolean(message))}
+            />
+            {media.images.length >= MAX_GALLERY_IMAGES && (
+              <p className="mt-2 text-sm text-amber-700" role="status">
+                Gallery full. Mark an existing item for removal before adding another.
+              </p>
+            )}
             {media.images.length > 0 && (
               <div className="mt-4 space-y-3">
                 {media.images.map((item: any, index: number) => {

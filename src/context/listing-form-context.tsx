@@ -47,6 +47,7 @@ export interface Socials {
   twitter: string;
   instagram: string;
   linkedin: string;
+  youtube: string;
   tiktok: string;
   whatsapp: string;
 }
@@ -108,6 +109,7 @@ export function ListingProvider({ children }: { children: ReactNode }) {
     twitter: "",
     instagram: "",
     linkedin: "",
+    youtube: "",
     tiktok: "",
     whatsapp: "",
   });
@@ -141,6 +143,7 @@ export function ListingProvider({ children }: { children: ReactNode }) {
       twitter: "",
       instagram: "",
       linkedin: "",
+      youtube: "",
       tiktok: "",
       whatsapp: "",
     });
