@@ -159,6 +159,14 @@ interface ApiListing {
   event_price?: string | number | null;
   event_currency?: string | null;
   event_location_type?: string | null;
+  business_presence_type?: string | null;
+  business_service_reach?: string | null;
+  service_countries?: Array<{ code: string; name: string }>;
+  submission_readiness?: {
+    changed_since_review_began: boolean;
+    review_content_updated_at: string | null;
+    missing_count: number;
+  };
 }
 
 interface Service {
@@ -210,6 +218,12 @@ interface ListingDetail {
   bookmarks: number;
   rating: number;
   ratingsCount: number;
+  businessPresence?: string | null;
+  businessReach?: string | null;
+  serviceCountries: Array<{ code: string; name: string }>;
+  reviewChanged: boolean;
+  reviewChangedAt?: string | null;
+  missingCount: number;
 }
 
 interface ApiReview {
@@ -244,7 +258,7 @@ const getStatusColor = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   if (status === "published") return "Published";
-  if (status === "pending") return "Pending Review";
+  if (status === "pending") return "In review";
   return "Draft";
 };
 
@@ -475,6 +489,12 @@ export default function ListingDetailPage({ params }: PageProps) {
         bookmarks: data.bookmarks_count || 0,
         rating: Number(data.rating) || 0,
         ratingsCount: data.ratings_count || 0,
+        businessPresence: data.business_presence_type,
+        businessReach: data.business_service_reach,
+        serviceCountries: data.service_countries ?? [],
+        reviewChanged: Boolean(data.submission_readiness?.changed_since_review_began),
+        reviewChangedAt: data.submission_readiness?.review_content_updated_at,
+        missingCount: data.submission_readiness?.missing_count ?? 0,
       });
     } catch (err) {
       console.error(err);
@@ -1313,6 +1333,16 @@ export default function ListingDetailPage({ params }: PageProps) {
           >
             {getStatusLabel(listing.status)}
           </span>
+          {listing.reviewChanged && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+              Changed since review began{listing.reviewChangedAt ? ` · ${new Date(listing.reviewChangedAt).toLocaleDateString()}` : ""}
+            </span>
+          )}
+          {listing.status === "pending" && listing.missingCount > 0 && (
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+              Needs attention · {listing.missingCount}
+            </span>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -1430,6 +1460,15 @@ export default function ListingDetailPage({ params }: PageProps) {
       >
         {listing.location}
       </InfoRow>
+
+      {listing.type === "business" && listing.businessPresence && (
+        <InfoRow icon={Globe} label="Operating presence">{formatSnakeCase(listing.businessPresence)}</InfoRow>
+      )}
+      {listing.type === "business" && listing.businessReach && (
+        <InfoRow icon={MapPin} label="Service reach">
+          {listing.businessReach === "worldwide" ? "Worldwide" : listing.businessReach === "selected_countries" ? listing.serviceCountries.map((country) => country.name).join(", ") || "Selected countries" : "Headquarters country"}
+        </InfoRow>
+      )}
 
       {listing.type === "event" && ev?.location_type && (
         <InfoRow icon={Globe} label="Format">

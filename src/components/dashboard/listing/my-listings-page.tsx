@@ -59,6 +59,7 @@ interface ApiListing {
   event_city?: string | null;
   event_location_type?: string | null;
   status: string;
+  creator_status?: string;
   type?: string;
   images: ListingImage[];
   categories: Category[];
@@ -96,7 +97,7 @@ interface ListingsTableItem {
   allImages: string[];
   category: string;
   location: string;
-  status: "published" | "pending" | "drafted";
+  status: "published" | "pending" | "drafted" | "rejected" | "suspended" | "ended";
   type: string;
   verified: boolean;
   views: number;
@@ -304,13 +305,17 @@ export default function MyListingsPage() {
           );
           const location = formatListingLocation(listing);
 
-          let status: "published" | "pending" | "drafted" = "drafted";
-          const backendStatus = (listing.status || "").toLowerCase();
+          let status: "published" | "pending" | "drafted" | "rejected" | "suspended" | "ended" = "drafted";
+          const backendStatus = (listing.creator_status || listing.status || "").toLowerCase();
 
           if (["published", "active", "approved"].includes(backendStatus)) {
             status = "published";
           } else if (backendStatus === "pending") {
             status = "pending";
+          } else if (backendStatus === "in_review") {
+            status = "pending";
+          } else if (["rejected", "suspended", "ended"].includes(backendStatus)) {
+            status = backendStatus as "rejected" | "suspended" | "ended";
           }
 
           let resolvedType = listing.type;

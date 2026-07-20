@@ -18,6 +18,7 @@ export interface ProcessedBusiness {
   type: "business";
   country: string;
   createdAt: Date;
+  reachBadge?: string | null;
 }
 
 export function mapBusiness(item: ApiListing): ProcessedBusiness {
@@ -45,5 +46,6 @@ export function mapBusiness(item: ApiListing): ProcessedBusiness {
     type: "business",
     country: item.country || "Ghana",
     createdAt: item.created_at ? new Date(item.created_at) : new Date(),
+    reachBadge: item.reach_badge,
   };
 }

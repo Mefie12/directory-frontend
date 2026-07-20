@@ -1,57 +1,29 @@
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-
-interface Step {
-  id: number;
-  title: string;
-  description: string;
-}
+import { LISTING_JOURNEYS, ListingStepState } from "@/lib/listing-form-v2";
 
 interface StepNavigationProps {
   currentStep: number;
   onStepClick: (step: number) => void;
   listingType: "business" | "event" | "community";
+  unlockedStep?: number;
+  stepStates?: Record<string, ListingStepState>;
 }
-
-const steps: Step[] = [
-  {
-    id: 1,
-    title: "Listing Information",
-    description: "Name, category, and description",
-  },
-  {
-    id: 2,
-    title: "Listing Details",
-    description: "Location and contact info",
-  },
-  {
-    id: 3,
-    title: "Media Upload",
-    description: "Images and cover photo",
-  },
-  {
-    id: 4,
-    title: "Social Media",
-    description: "Links to social profiles",
-  },
-  {
-    id: 5,
-    title: "Preview & Submit",
-    description: "Final review",
-  },
-];
 
 export function StepNavigation({
   currentStep,
   onStepClick,
   listingType,
+  unlockedStep = currentStep,
+  stepStates = {},
 }: StepNavigationProps) {
+  const steps = LISTING_JOURNEYS[listingType];
   return (
     <aside className="w-80 shrink-0">
       <div className="sticky top-6 space-y-3">
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">
-            {listingType === "business" ? "Business Listing" : "Event Listing"}
+            {listingType.charAt(0).toUpperCase() + listingType.slice(1)} Listing
           </h2>
           <p className="text-sm text-muted-foreground">
             Navigate through the form steps
@@ -61,16 +33,21 @@ export function StepNavigation({
         {steps.map((step) => {
           const isActive = currentStep === step.id;
           const isCompleted = currentStep > step.id;
+          const isLocked = step.id > unlockedStep;
+          const state = stepStates[step.key];
 
           return (
             <button
               key={step.id}
               onClick={() => onStepClick(step.id)}
+              disabled={isLocked}
               className={cn(
                 "w-full text-left p-4 rounded-lg border-2 transition-all hover:border-[#93C01F]/50",
                 isActive && "bg-[#93C01F]/10 border-[#93C01F]",
                 !isActive && !isCompleted && "bg-card border-border",
-                isCompleted && "bg-[#93C01F]/10 border-[#93C01F]"
+                isCompleted && "bg-[#93C01F]/10 border-[#93C01F]",
+                isLocked && "cursor-not-allowed opacity-50",
+                state === "needs_attention" && "border-amber-400 bg-amber-50"
               )}
             >
               <div className="flex items-start gap-3">

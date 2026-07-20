@@ -50,10 +50,11 @@ import type { Feature, Point, GeoJsonProperties } from "geojson";
 
 export const DetailsFormSchema = z
   .object({
-    address: z.string().min(1, "Address is required"),
-    event_venue: z.string().min(1, "Venue name is required"),
-    country: z.string().min(1, "Country is required"),
-    city: z.string().min(1, "City is required"),
+    listing_type: z.enum(["business", "event", "community"]),
+    address: z.string().optional(),
+    event_venue: z.string().optional(),
+    country: z.string().optional(),
+    city: z.string().optional(),
     google_plus_code: z.string().optional(),
     businessHours: z
       .array(
@@ -88,12 +89,54 @@ export const DetailsFormSchema = z
         message:
           "URL must start with https:// (e.g., https://zoom.us/j/123...)",
       }),
-    event_start_date: z.string().min(1, "Start date is required"),
-    event_end_date: z.string().min(1, "End date is required"),
-    event_start_time: z.string().min(1, "Start time is required"),
-    event_end_time: z.string().min(1, "End time is required"),
-    event_location: z.string().min(1, "Event format is required"),
+    event_start_date: z.string().optional(),
+    event_end_date: z.string().optional(),
+    event_start_time: z.string().optional(),
+    event_end_time: z.string().optional(),
+    event_location: z.string().optional(),
     event_type: z.string().optional(),
+    timezone: z.string().optional(),
+    is_all_day: z.boolean().optional(),
+    online_access_policy: z.string().optional(),
+    attendance_type: z.string().optional(),
+    registration_url: z.string().optional().or(z.literal("")),
+    ticket_availability_message: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const requireField = (field: keyof typeof data, message: string) => {
+      if (!String(data[field] ?? "").trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
+      }
+    };
+
+    if (data.listing_type === "business") {
+      requireField("address", "Headquarters address is required");
+      requireField("city", "Headquarters city is required");
+      requireField("country", "Headquarters country is required");
+    }
+
+    if (data.listing_type === "event") {
+      requireField("event_start_date", "Start date is required");
+      requireField("event_end_date", "End date is required");
+      requireField("event_start_time", "Start time is required");
+      requireField("event_end_time", "End time is required");
+      requireField("event_location", "Event format is required");
+      requireField("timezone", "Timezone is required");
+      if (data.event_location === "in_person" || data.event_location === "hybrid") {
+        requireField("event_venue", "Venue name is required");
+        requireField("address", "Venue address is required");
+        requireField("city", "Event city is required");
+        requireField("country", "Event country is required");
+      }
+      if (data.event_location === "online" || data.event_location === "hybrid") {
+        requireField("online_access_policy", "Choose an online access plan");
+        if (data.online_access_policy === "public_link") requireField("event_online_url", "Public online URL is required");
+      }
+      requireField("attendance_type", "Choose a registration or ticket option");
+      if (data.attendance_type === "free_registration_required") requireField("registration_url", "Registration URL is required");
+      if (data.attendance_type === "paid") requireField("event_ticket_url", "Ticket URL is required");
+      if (data.attendance_type === "tickets_coming_soon") requireField("ticket_availability_message", "Availability message is required");
+    }
   })
   .refine(
     (data) => {
@@ -159,10 +202,11 @@ type Props = {
   listingType: "business" | "event" | "community";
   listingSlug: string;
   onValidityChange?: (isValid: boolean) => void;
+  showBusinessHours?: boolean;
 };
 
 export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug, onValidityChange }, ref) => {
+  ({ listingType, listingSlug, onValidityChange, showBusinessHours = false }, ref) => {
     const searchParams = useSearchParams();
     const [mounted, setMounted] = useState(false);
     const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -187,6 +231,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       resolver: zodResolver(DetailsFormSchema),
       mode: "onChange",
       defaultValues: {
+        listing_type: listingType,
         address: "",
         country: "",
         city: "",
@@ -246,6 +291,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         event_end_time: "",
         event_location: "",
         event_type: "",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Accra",
+        is_all_day: false,
+        online_access_policy: "",
+        attendance_type: "",
+        registration_url: "",
+        ticket_availability_message: "",
       },
     });
 
@@ -263,7 +314,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     useEffect(() => {
       onValidityChange?.(isValid);
     }, [isValid, onValidityChange]);
-    const [isSaving, setIsSaving] = useState(false);
     // Tracks the backend event record slug so we can use the update endpoint on subsequent saves.
     const [eventSlug, setEventSlug] = useState<string | null>(null);
     const currentHours =
@@ -271,6 +321,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
     const text = formTextConfig[listingType];
 
     const eventLocationType = watch("event_location");
+    const onlineAccessPolicy = watch("online_access_policy");
+    const attendanceType = watch("attendance_type");
     const selectedCountryName = watch("country");
     const startDateValue = watch("event_start_date");
 
@@ -302,7 +354,8 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
               .map((defaultDay) => {
                 const defaultDayLower = defaultDay.day_of_week.toLowerCase();
                 const apiDay = d.opening_hours?.find(
-                  (h: any) => h.day_of_week?.toLowerCase() === defaultDayLower,
+                  (h: { day_of_week?: string; id?: number; slug?: string; open_time: string; close_time: string }) =>
+                    h.day_of_week?.toLowerCase() === defaultDayLower,
                 );
                 return apiDay
                   ? {
@@ -323,6 +376,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             }
 
             reset({
+              listing_type: listingType,
               // Event listings use event_* keys from API; non-events use normal address keys.
               address: isEvent
                 ? d.event_venue_address ||
@@ -376,6 +430,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                 d.event?.event_location_type ?? d.event_location_type ?? "",
               // Duration type — only on the nested event object
               event_type: d.event?.event_type ?? "",
+              timezone: d.event?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "Africa/Accra",
+              is_all_day: Boolean(d.event?.is_all_day),
+              online_access_policy: d.event?.online_access_policy ?? "",
+              attendance_type: d.event?.attendance_type ?? "",
+              registration_url: d.event?.registration_url ?? "",
+              ticket_availability_message: d.event?.ticket_availability_message ?? "",
             });
           }
         } catch (err) {
@@ -405,13 +465,14 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         }));
         setValue("businessHours", sanitized);
 
-        const isValid = await trigger([
+        const fields: Array<keyof DetailsFormValues> = [
           "address",
           "country",
           "city",
           "google_plus_code",
-          "businessHours",
-        ]);
+        ];
+        if (showBusinessHours) fields.push("businessHours");
+        const isValid = await trigger(fields);
         if (!isValid) {
           if (errors.businessHours) toast.error("Check time formats (HH:mm)");
           return false;
@@ -427,6 +488,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           "event_start_time",
           "event_end_time",
           "event_location",
+          "timezone",
+          "online_access_policy",
+          "attendance_type",
+          "registration_url",
+          "event_ticket_url",
+          "ticket_availability_message",
         ]);
         if (!isValid) {
           return false;
@@ -440,7 +507,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       const token = localStorage.getItem("authToken");
 
       try {
-        setIsSaving(true);
         const data = form.getValues();
         // Build payload based on listing type - events need different field names
         const detailsPayload: Record<string, unknown> = {};
@@ -472,6 +538,12 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           detailsPayload.event_location = data.event_location;
           // event_type = duration (1_day/2_days/multi_days, nullable)
           detailsPayload.event_type = data.event_type || null;
+          detailsPayload.timezone = data.timezone;
+          detailsPayload.is_all_day = Boolean(data.is_all_day);
+          detailsPayload.online_access_policy = data.online_access_policy || null;
+          detailsPayload.attendance_type = data.attendance_type || null;
+          detailsPayload.registration_url = data.registration_url ? normalizeUrl(data.registration_url) : null;
+          detailsPayload.ticket_availability_message = data.ticket_availability_message || null;
         } else {
           // For business/community: use standard field names including google_plus_code
           detailsPayload.address = data.address;
@@ -484,7 +556,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         // Only prepare business hours for non-event listings
         const enabledHours =
-          listingType !== "event"
+          listingType !== "event" && showBusinessHours
             ? data.businessHours
                 .filter((h: DaySchedule) => h.enabled)
                 .map((h: DaySchedule) => ({
@@ -498,7 +570,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         // Days that were loaded from the server (have a slug) but user has since unchecked
         const hoursToDelete =
-          listingType !== "event"
+          listingType !== "event" && showBusinessHours
             ? data.businessHours
                 .filter((h: DaySchedule) => !h.enabled && !!h.slug)
                 .map((h: DaySchedule) => h.slug as string)
@@ -533,7 +605,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
 
         // Only send business hours for non-event listings
         let hoursResults: Response[] = [];
-        if (listingType !== "event") {
+        if (listingType !== "event" && showBusinessHours) {
           // DELETE hours for days the user has unchecked (use slug per API)
           if (hoursToDelete.length > 0) {
             await Promise.all(
@@ -665,7 +737,6 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         toast.error(msg);
         return false;
       } finally {
-        setIsSaving(false);
       }
     };
 
@@ -929,7 +1000,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           </div>
         </div>
 
-        {listingType !== "event" && (
+        {listingType !== "event" && showBusinessHours && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="font-medium text-sm mb-2 block">
@@ -954,6 +1025,17 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   Please check time format (HH:mm)
                 </p>
               )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-medium text-sm">Timezone <span className="text-red-500">*</span></label>
+                <Input {...register("timezone")} placeholder="Africa/Accra" className={cn(errors.timezone && "border-red-500")} />
+                {errors.timezone && <p className="text-red-500 text-xs">{errors.timezone.message}</p>}
+              </div>
+              <label className="flex items-center gap-2 pt-7 text-sm">
+                <input type="checkbox" {...register("is_all_day")} /> All-day event
+              </label>
             </div>
           </div>
         )}
@@ -1097,10 +1179,17 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
             {/* Row 2: Online URL (only for online/hybrid) */}
             {(eventLocationType === "online" ||
               eventLocationType === "hybrid") && (
-              <div className="space-y-1">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="font-medium text-sm">Online access plan <span className="text-red-500">*</span></label>
+                  <Controller name="online_access_policy" control={control} render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value ?? ""}><SelectTrigger><SelectValue placeholder="Choose how access is shared" /></SelectTrigger><SelectContent><SelectItem value="public_link">Public link</SelectItem><SelectItem value="sent_after_registration">Sent after registration</SelectItem><SelectItem value="shared_later">Shared later</SelectItem></SelectContent></Select>
+                  )} />
+                  {errors.online_access_policy && <p className="text-red-500 text-xs">{errors.online_access_policy.message}</p>}
+                </div>
+                {onlineAccessPolicy === "public_link" && <div className="space-y-1">
                 <label className="font-medium text-sm">
-                  Event Online URL{" "}
-                  <span className="text-gray-400 font-normal">(Optional)</span>
+                  Public event URL <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Input
@@ -1121,6 +1210,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                     {errors.event_online_url.message}
                   </p>
                 )}
+                </div>}
               </div>
             )}
           </div>
@@ -1131,8 +1221,19 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
           <div className="space-y-6 pt-4 border-t">
             <h3 className="text-lg font-semibold">Event Ticketing</h3>
 
+            <div className="space-y-1">
+              <label className="font-medium text-sm">Attendance <span className="text-red-500">*</span></label>
+              <Controller name="attendance_type" control={control} render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value ?? ""}><SelectTrigger><SelectValue placeholder="Choose registration or ticket option" /></SelectTrigger><SelectContent><SelectItem value="free_no_registration">Free — no registration</SelectItem><SelectItem value="free_registration_required">Free — registration required</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="tickets_coming_soon">Tickets coming soon</SelectItem></SelectContent></Select>
+              )} />
+              {errors.attendance_type && <p className="text-red-500 text-xs">{errors.attendance_type.message}</p>}
+            </div>
+
+            {attendanceType === "free_registration_required" && <div className="space-y-1"><label className="font-medium text-sm">Registration URL <span className="text-red-500">*</span></label><Input {...register("registration_url")} placeholder="https://..." />{errors.registration_url && <p className="text-red-500 text-xs">{errors.registration_url.message}</p>}</div>}
+            {attendanceType === "tickets_coming_soon" && <div className="space-y-1"><label className="font-medium text-sm">Public ticket availability message <span className="text-red-500">*</span></label><textarea {...register("ticket_availability_message")} className="min-h-24 w-full rounded-md border p-3 text-sm" placeholder="Tickets will be released in September." />{errors.ticket_availability_message && <p className="text-red-500 text-xs">{errors.ticket_availability_message.message}</p>}</div>}
+
             {/* Event Price & Currency */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {attendanceType === "paid" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="font-medium text-sm">
                   Ticket Price{" "}
@@ -1195,7 +1296,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
                   </p>
                 )}
               </div>
-            </div>
+            </div>}
           </div>
         )}
       </form>

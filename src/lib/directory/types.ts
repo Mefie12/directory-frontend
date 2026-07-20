@@ -59,6 +59,7 @@ export interface ApiListing {
   verified?: boolean;
   isVerified?: boolean;
   badge?: string;
+  reach_badge?: string | null;
   // Event-only fields (flat — populated by ListingResource when events relation is loaded)
   event_start_date?: string;
   event_end_date?: string;

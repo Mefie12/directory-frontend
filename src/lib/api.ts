@@ -28,6 +28,7 @@ export interface Business extends Listing {
   category: string;
   verified?: boolean;
   discount?: string;
+  reachBadge?: string | null;
 }
 
 export interface Event extends Listing {
@@ -1219,6 +1220,17 @@ export class ApiRateLimitError extends Error {
   }
 }
 
+/** Non-429 media API failure carrying the HTTP status for retry decisions. */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 async function mediaApiError(response: Response, fallback: string): Promise<Error> {
   const data = await response.json().catch(() => ({})) as {
     message?: string;
@@ -1237,7 +1249,7 @@ async function mediaApiError(response: Response, fallback: string): Promise<Erro
     return new ApiRateLimitError(data.message || fallback, retryAfter);
   }
 
-  return new Error(data.message || fallback);
+  return new ApiRequestError(data.message || fallback, response.status);
 }
 
 function unwrap<T>(json: unknown): T {
@@ -1389,4 +1401,71 @@ export async function cancelMediaRevision(revisionId: number, token?: string): P
   if (!response.ok) {
     throw await mediaApiError(response, 'Failed to discard media changes');
   }
+}
+
+export interface ListingExperienceInput {
+  business_presence_type?: "physical" | "online" | "hybrid" | null;
+  business_service_reach?: "single_country" | "selected_countries" | "worldwide" | null;
+  service_countries?: Array<{ code: string; name: string }>;
+  business_hours_mode?: "scheduled" | "always_open" | "appointment_only" | "contact_for_hours" | null;
+  community_location_scope?: "physical" | "online" | "hybrid" | "global" | null;
+  community_participation_method?: string | null;
+  has_base_location?: boolean;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  opening_hours?: Array<{ day_of_week: string; open_time: string; close_time: string }>;
+}
+
+export class ListingExperienceValidationError extends Error {
+  constructor(readonly errors: Record<string, string[]>, message = "Check the highlighted fields") {
+    super(message);
+    this.name = "ListingExperienceValidationError";
+  }
+}
+
+export async function updateListingExperience(
+  slug: string,
+  input: ListingExperienceInput,
+  token?: string,
+): Promise<unknown> {
+  const response = await fetch(`/api/listing/${slug}/experience`, {
+    method: "PATCH",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { message?: string; errors?: Record<string, string[]> };
+    if (response.status === 422 && payload.errors) {
+      throw new ListingExperienceValidationError(payload.errors, payload.message);
+    }
+    throw new ApiRequestError(payload.message || "Failed to save listing step", response.status);
+  }
+  return response.json();
+}
+
+export async function submitListingForReview(slug: string, token?: string): Promise<unknown> {
+  const response = await fetch(`/api/listing/${slug}/submit`, {
+    method: "POST",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) throw await mediaApiError(response, "Listing is not ready to submit");
+  return response.json();
+}
+
+export async function updateListingFormProgress(
+  slug: string,
+  step: string,
+  state: "complete" | "optional",
+  token?: string,
+): Promise<void> {
+  const response = await fetch(`/api/listing/${slug}/form_progress`, {
+    method: "PATCH",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ step, state }),
+  });
+  if (!response.ok) throw await mediaApiError(response, "Could not save form progress");
 }

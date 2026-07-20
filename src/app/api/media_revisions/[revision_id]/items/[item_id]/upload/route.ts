@@ -11,8 +11,7 @@ export async function POST(
   try {
     const { revision_id, item_id } = await params;
     const authHeader = request.headers.get("Authorization");
-    const contentType = request.headers.get("Content-Type") || "";
-    const body = await request.arrayBuffer();
+    const body = await request.formData();
 
     const response = await fetch(
       `${API_BASE_URL}/api/media_revisions/${revision_id}/items/${item_id}/upload`,
@@ -20,14 +19,23 @@ export async function POST(
         method: "POST",
         headers: {
           Accept: "application/json",
-          "Content-Type": contentType,
           ...(authHeader && { Authorization: authHeader }),
         },
         body,
       },
     );
 
-    const data = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    let data: unknown;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = {
+        message: response.ok
+          ? "Upload completed."
+          : `Media upload failed with status ${response.status}.`,
+      };
+    }
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error("media_revisions item upload POST error:", error);

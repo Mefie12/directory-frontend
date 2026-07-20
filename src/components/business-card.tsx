@@ -17,6 +17,7 @@ export type Business = {
   verified?: boolean;
   slug: string;
   discount?: string;
+  reachBadge?: string | null;
 };
 
 type BusinessCardProps = {
@@ -128,9 +129,10 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
       {/* Content Section */}
       <div className="p-4 space-y-2">
         {/* Category tag */}
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-          {business.category}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">{business.category}</span>
+          {business.reachBadge && <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{business.reachBadge}</span>}
+        </div>
         <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
           {business.name}
         </h3>

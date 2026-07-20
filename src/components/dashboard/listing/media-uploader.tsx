@@ -64,6 +64,7 @@ interface FileUploaderProps {
   sortable?: boolean;
   confirmPersistedRemoval?: boolean;
   allowPersistedRemoval?: boolean;
+  failedFiles?: File[];
 }
 
 interface PendingRemoval {
@@ -163,11 +164,13 @@ function SortableMediaCard({
   itemKey,
   sortable,
   onRemove,
+  failed,
 }: {
   item: FileOrMedia;
   itemKey: string;
   sortable: boolean;
   onRemove: () => void;
+  failed: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: itemKey,
@@ -202,6 +205,11 @@ function SortableMediaCard({
         <X className="h-4 w-4" />
       </button>
       <p className="mt-1 truncate text-xs text-muted-foreground">{name}</p>
+      {failed && (
+        <p className="mt-1 text-xs font-medium text-destructive" role="status">
+          Failed — remove or save again to retry
+        </p>
+      )}
     </div>
   );
 }
@@ -218,6 +226,7 @@ export function FileUploader({
   sortable = false,
   confirmPersistedRemoval = false,
   allowPersistedRemoval = true,
+  failedFiles = [],
 }: FileUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [localKeys] = useState(() => new WeakMap<File, string>());
@@ -251,7 +260,9 @@ export function FileUploader({
 
     const combined = multiple ? [...files, ...selected] : selected.slice(0, 1);
     if (maxFiles && combined.length > maxFiles) {
-      toast.error(`You can add no more than ${maxFiles} item${maxFiles === 1 ? "" : "s"}.`);
+      toast.error(
+        `All ${maxFiles} slots are in use. Mark an existing item for removal before adding another.`,
+      );
       return;
     }
     onChange(combined);
@@ -341,7 +352,13 @@ export function FileUploader({
             <div className={cn("grid gap-3", multiple ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1")}>
               {files.map((item, index) => (
                 <div className="group" key={keys[index]}>
-                  <SortableMediaCard item={item} itemKey={keys[index]} sortable={sortable && files.length > 1} onRemove={() => removeFile(index)} />
+                  <SortableMediaCard
+                    item={item}
+                    itemKey={keys[index]}
+                    sortable={sortable && files.length > 1}
+                    onRemove={() => removeFile(index)}
+                    failed={item instanceof File && failedFiles.includes(item)}
+                  />
                 </div>
               ))}
             </div>

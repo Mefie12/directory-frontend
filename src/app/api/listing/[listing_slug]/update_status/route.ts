@@ -24,10 +24,10 @@ async function handleUpdateStatus(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    return NextResponse.json(
-      { error: errorData.message || 'Failed to update listing status' },
-      { status: response.status }
-    );
+    return NextResponse.json({
+      ...errorData,
+      message: errorData.message || 'Failed to update listing status',
+    }, { status: response.status });
   }
 
   const data = await response.json();
