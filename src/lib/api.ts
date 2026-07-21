@@ -807,6 +807,30 @@ export interface ClaimEligibility {
     method: ClaimMethod;
     case_type: ClaimCaseType;
   } | null;
+  evidence_constraints: ClaimEvidenceConstraints;
+  prior_claims: ClaimCaseSummary[];
+}
+
+export interface ClaimEvidenceConstraints {
+  max_files_per_submission: number;
+  max_file_size_bytes: number;
+  accepted_extensions: string[];
+  accepted_mime_types: string[];
+}
+
+export interface ClaimCaseEvent {
+  id: number;
+  event_type: string;
+  metadata: {
+    instructions?: string;
+    reason?: string;
+    recommendation?: string;
+    evidence_ids?: number[];
+    evidence_count?: number;
+    method?: string;
+    case_type?: string;
+  };
+  created_at: string;
 }
 
 export interface ClaimEvidenceItem {
@@ -815,6 +839,7 @@ export interface ClaimEvidenceItem {
   mime_type: string;
   file_size: number;
   created_at: string;
+  submission_round?: number;
   /** Admin view only: uploaded after the most recent evidence request. */
   is_new?: boolean;
 }
@@ -836,11 +861,38 @@ export interface ClaimCaseSummary {
   rejection_reason: string | null;
   rejection_recommendation: string | null;
   evidence: ClaimEvidenceItem[];
+  events: ClaimCaseEvent[];
+  evidence_constraints: ClaimEvidenceConstraints;
   available_actions: string[];
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
   withdrawn_at: string | null;
+}
+
+export class ClaimEvidenceValidationError extends Error {
+  constructor(readonly errors: Record<string, string[]>, message = 'Check the selected evidence files.') {
+    super(message);
+    this.name = 'ClaimEvidenceValidationError';
+  }
+}
+
+async function claimUploadError(response: Response, fallback: string): Promise<Error> {
+  const data = await response.json().catch(() => ({})) as {
+    message?: string;
+    errors?: Record<string, string[]>;
+  };
+  if (response.status === 422 && data.errors) {
+    const firstFieldMessage = Object.values(data.errors).flat()[0];
+    return new ClaimEvidenceValidationError(
+      data.errors,
+      firstFieldMessage || data.message || fallback,
+    );
+  }
+  if (response.status === 413) {
+    return new Error('The selected evidence is too large for one request. Upload no more than five files of 5 MB each.');
+  }
+  return new Error(data.message || fallback);
 }
 
 export interface ClaimCaseAdmin {
@@ -948,10 +1000,8 @@ export async function submitDocumentClaim(
     body: formData,
   });
 
+  if (!response.ok) throw await claimUploadError(response, 'Failed to submit claim');
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to submit claim');
-  }
 
   return data;
 }
@@ -993,10 +1043,8 @@ export async function addClaimEvidence(claimId: number | string, files: File[], 
     body: formData,
   });
 
+  if (!response.ok) throw await claimUploadError(response, 'Failed to submit evidence');
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to submit evidence');
-  }
 
   return data;
 }
@@ -1110,6 +1158,22 @@ export async function adminGetEvidenceSignedUrl(
   }
 
   return response.json();
+}
+
+export async function getClaimEvidenceSignedUrl(
+  claimId: number | string,
+  evidenceId: number | string,
+  token?: string,
+): Promise<{ url: string; expires_in_minutes: number }> {
+  const response = await fetch(`/api/claims/${claimId}/evidence/${evidenceId}/signed_url`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({})) as { url?: string; expires_in_minutes?: number; message?: string };
+  if (!response.ok || !data.url) {
+    throw new Error(data.message || 'Failed to open evidence');
+  }
+  return { url: data.url, expires_in_minutes: data.expires_in_minutes ?? 5 };
 }
 
 // ============================================================================
