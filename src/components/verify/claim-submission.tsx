@@ -1,15 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import {
   FileText,
   Mail,
-  Upload,
-  CheckCircle2,
   ArrowRight,
-  X,
   MapPin,
   Shield,
   Info,
@@ -27,10 +24,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ClaimEligibility, initiateEmailClaim, submitDocumentClaim } from "@/lib/api";
-
-const MAX_FILES = 5;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+import { ClaimEvidencePicker } from "@/components/claims/claim-evidence-picker";
 
 const getImageUrl = (imageEntry: any): string => {
   if (!imageEntry) return "/images/no-image.jpg";
@@ -66,40 +60,13 @@ export default function ClaimSubmission({
   const [role, setRole] = useState("Owner");
   const [notes, setNotes] = useState("");
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const isRectification = eligibility.claim_type === "rectification";
-
-  const handleUploadClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    if (selected.length === 0) return;
-
-    const combined = [...files, ...selected].slice(0, MAX_FILES);
-    const rejected = [...files, ...selected].length > MAX_FILES;
-
-    for (const file of combined) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} is too large. Max 5MB per file.`);
-        return;
-      }
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        toast.error(`${file.name} must be a PDF, JPEG, PNG, or WebP file.`);
-        return;
-      }
-    }
-
-    if (rejected) {
-      toast.error(`You can attach up to ${MAX_FILES} files.`);
-    }
-
-    setFiles(combined);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleRemoveFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
+  const previousEvidence = useMemo(
+    () => (eligibility.prior_claims ?? []).flatMap((claim) =>
+      claim.evidence.map((evidence) => ({ claimId: claim.id, evidence })),
+    ),
+    [eligibility.prior_claims],
+  );
 
   const handleSubmit = async () => {
     const token = localStorage.getItem("authToken") || undefined;
@@ -253,51 +220,12 @@ export default function ClaimSubmission({
 
           {method === "document" ? (
             <>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                multiple
+              <ClaimEvidencePicker
+                files={files}
+                onChange={setFiles}
+                constraints={eligibility.evidence_constraints}
+                previousEvidence={previousEvidence}
               />
-              <div
-                onClick={files.length < MAX_FILES ? handleUploadClick : undefined}
-                className={cn(
-                  "border-2 border-dashed border-gray-200 rounded-xl bg-white p-6 flex flex-col items-center justify-center text-center transition-all group mb-3",
-                  files.length < MAX_FILES && "cursor-pointer hover:border-[#93C01F]/50 hover:bg-[#93C01F]/3",
-                )}
-              >
-                <div className="w-12 h-12 rounded-full bg-gray-50 shadow-sm border border-gray-100 flex items-center justify-center mb-3 group-hover:border-[#93C01F]/30 transition-colors">
-                  <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#93C01F] transition-colors" />
-                </div>
-                <p className="text-sm font-bold text-gray-800">Tap to upload</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  PDF, JPG, PNG or WebP — max 5MB each, up to {MAX_FILES} files
-                </p>
-              </div>
-
-              {files.length > 0 && (
-                <div className="space-y-2">
-                  {files.map((file, i) => (
-                    <div
-                      key={`${file.name}-${i}`}
-                      className="flex items-center justify-between bg-[#93C01F]/5 border border-[#93C01F]/25 rounded-xl px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <CheckCircle2 className="w-5 h-5 text-[#93C01F] shrink-0" />
-                        <p className="text-sm font-semibold text-[#1F3A4C] truncate">{file.name}</p>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveFile(i)}
-                        className="text-gray-400 hover:text-red-500 transition-colors ml-3 shrink-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
 
               <p className="text-[11px] text-gray-400 mt-2 flex items-start gap-1.5">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" />
