@@ -1,6 +1,7 @@
 import { slugifyCategory } from "@/components/scrollable-category-tabs";
 import { ApiListing, pickDisplayCategory } from "@/lib/directory/types";
 import { processImages, formatDateTime } from "@/lib/directory/image-utils";
+import { format12Hour } from "@/lib/directory/event-formatting";
 import type { ProcessedEvent } from "@/types/event";
 
 /**
@@ -61,6 +62,9 @@ export function createEventMapper(filterCountry?: string | null) {
       reviewCount: Number(item.ratings_count) || 0,
       type: "event",
       ticketUrl: (item as ApiListing & { event?: { event_ticket_url?: string | null } }).event?.event_ticket_url || item.event_ticket_url || undefined,
+      time: item.event_start_time ? format12Hour(item.event_start_time) : undefined,
+      startTimeRaw: item.event_start_time,
+      timezoneLabel: item.event_timezone_label ?? undefined,
     };
   };
 }

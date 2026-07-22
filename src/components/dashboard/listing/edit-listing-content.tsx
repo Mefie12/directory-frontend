@@ -393,21 +393,15 @@ export default function EditListingContent() {
       case 3:
         return listingType === "event"
           ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="access" />
-          : listingType === "community"
-            ? <SocialMediaForm {...commonProps} />
-            : <MediaUploadStep {...commonProps} />;
+          : <SocialMediaForm {...commonProps} />;
       case 4:
         return listingType === "event"
           ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="tickets" />
-          : listingType === "community"
-            ? <MediaUploadStep {...commonProps} />
-            : <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />;
+          : <MediaUploadStep {...commonProps} />;
       case 5:
         return listingType === "event"
           ? <MediaUploadStep {...commonProps} />
-          : listingType === "community"
-            ? <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />
-            : null;
+          : <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={handleStepClick} />;
       case 6:
         return listingType === "event"
           ? <EventContactSocialStep listingSlug={listingSlug} ref={formRef} />

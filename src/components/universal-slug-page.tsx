@@ -6,7 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import {
   MapPin,
@@ -45,6 +45,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
+import { format12Hour, formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -147,6 +148,11 @@ interface ApiEventData {
   event_online_url?: string;
   starts_at?: string;
   ends_at?: string;
+  timezone?: string;
+  timezone_label?: string;
+  starts_at_utc?: string;
+  ends_at_utc?: string;
+  spans_multiple_days?: boolean;
 }
 
 interface ApiListingData {
@@ -451,11 +457,13 @@ function ProviderTabs({
   providerName,
   galleryItems,
   listingSlug,
+  previewMode = false,
 }: {
   template: TemplateContent;
   providerName: string;
   galleryItems: GalleryItem[];
   listingSlug: string;
+  previewMode?: boolean;
 }) {
   const { reviews } = {
     reviews: template.reviews || [],
@@ -493,6 +501,7 @@ function ProviderTabs({
               <ReviewsSection
                 reviews={reviews as any}
                 listingSlug={listingSlug}
+                readOnly={previewMode}
               />
             </div>
           </Card>
@@ -628,29 +637,6 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   );
 }
 
-const format12Hour = (time?: string) => {
-  if (!time) return "";
-  const [h, m] = time.split(":");
-  let hours = parseInt(h, 10);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
-};
-
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "";
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(dateStr));
-  } catch {
-    return dateStr;
-  }
-};
-
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
   const locationType = eventData.event_location_type;
   const locationLabel =
@@ -670,10 +656,19 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
     .filter(Boolean)
     .join(", ");
 
-  const sameDay = eventData.event_start_date === eventData.event_end_date;
-  const dateRange = sameDay
-    ? formatDate(eventData.event_start_date)
-    : `${formatDate(eventData.event_start_date)} – ${formatDate(eventData.event_end_date)}`;
+  const dateRange = formatEventDateRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    spansMultipleDays: eventData.spans_multiple_days,
+  });
+  const timeRange = formatEventTimeRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    startTime: eventData.event_start_time,
+    endTime: eventData.event_end_time,
+    spansMultipleDays: eventData.spans_multiple_days,
+    timezoneLabel: eventData.timezone_label,
+  });
 
   return (
     <Card>
@@ -701,11 +696,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
                 Time
               </p>
-              <p className="text-sm font-semibold text-gray-800">
-                {format12Hour(eventData.event_start_time)}
-                {eventData.event_end_time &&
-                  ` – ${format12Hour(eventData.event_end_time)}`}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{timeRange}</p>
             </div>
           </div>
         )}
@@ -789,11 +780,13 @@ function SidebarInfo({
   pricing,
   // services,
   hours,
+  previewMode = false,
 }: {
   provider: Provider;
   pricing: PricingItem[];
   // services: string[];
   hours: OpeningHour[];
+  previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
   const hasContact = !!(
@@ -813,8 +806,10 @@ function SidebarInfo({
 
   useEffect(() => {
     // Nothing to check while logged out — showClaimButton already short-circuits
-    // on `!user` in that case, so there's no need to reset state here.
-    if (!user || !provider.slug) return;
+    // on `!user` in that case, so there's no need to reset state here. Also
+    // skipped entirely in preview mode — there's no claim state to check for
+    // a listing manager looking at their own not-yet-published listing.
+    if (previewMode || !user || !provider.slug) return;
 
     let cancelled = false;
     const token = localStorage.getItem("authToken") || undefined;
@@ -829,7 +824,7 @@ function SidebarInfo({
     return () => {
       cancelled = true;
     };
-  }, [user, provider.slug]);
+  }, [user, provider.slug, previewMode]);
 
   // An email claim awaiting its OTP can be resumed — the verify page jumps
   // straight to the code-entry step for this case.
@@ -845,7 +840,7 @@ function SidebarInfo({
   // eligibility check hasn't resolved yet (or says not-claimable for some
   // other reason), the destination page has its own eligibility gate and
   // explains why if it genuinely can't be challenged.
-  const showClaimSection = showClaimButton || isClaimed;
+  const showClaimSection = !previewMode && (showClaimButton || isClaimed);
   const claimButtonLabel = hasResumableClaim
     ? "Continue claim verification"
     : isClaimed
@@ -1034,17 +1029,21 @@ function SidebarInfo({
         {/* Always shown, independent of eligibility — this is a quiet, permanent
             "is this listing wrong / not yours?" affordance (same as Google/Yelp
             always showing an "Own this business?" link regardless of claim
-            status). The actual eligibility gate lives on the destination page. */}
-        <p className="text-xs text-gray-400 mt-5 text-center">
-          Own this listing?{" "}
-          <button
-            type="button"
-            onClick={handleClaimBusiness}
-            className="text-[#93C01F] font-medium hover:underline"
-          >
-            Claim your listing
-          </button>
-        </p>
+            status). The actual eligibility gate lives on the destination page.
+            Hidden in preview mode — meaningless for a vendor previewing their
+            own listing. */}
+        {!previewMode && (
+          <p className="text-xs text-gray-400 mt-5 text-center">
+            Own this listing?{" "}
+            <button
+              type="button"
+              onClick={handleClaimBusiness}
+              className="text-[#93C01F] font-medium hover:underline"
+            >
+              Claim your listing
+            </button>
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -1056,10 +1055,12 @@ function ListingBentoGallery({
   images,
   alt,
   slug,
+  previewMode = false,
 }: {
   images: GalleryItem[];
   alt: string;
   slug: string;
+  previewMode?: boolean;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -1225,17 +1226,21 @@ function ListingBentoGallery({
       {/* ── Mobile: carousel ── */}
       <div className="relative md:hidden">
         <HeroCarousel items={items} alt={alt} />
-        <div className="absolute top-3 right-3 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        {!previewMode && (
+          <div className="absolute top-3 right-3 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Desktop: bento ── */}
       <div className="hidden md:block relative">
         <div className="w-full h-[500px] bg-gray-200">{desktopGrid()}</div>
-        <div className="absolute top-4 right-4 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        {!previewMode && (
+          <div className="absolute top-4 right-4 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Lightbox ── */}
@@ -1258,6 +1263,11 @@ export default function UniversalSlugPage({
 }: PageProps) {
   const resolvedParams = React.use(params);
   const { categorySlug, slug } = resolvedParams;
+  // Set by the dashboard wizard's "Preview as visitor" dialog (an iframe onto
+  // this exact route) to suppress interactions that don't make sense for a
+  // listing manager looking at their own not-yet-published listing. Purely
+  // cosmetic — /show has no access control, so this isn't a security gate.
+  const previewMode = useSearchParams().get("preview") === "1";
 
   const [loading, setLoading] = useState(true);
   const [providerData, setProviderData] = useState<Provider | null>(null);
@@ -1522,19 +1532,23 @@ export default function UniversalSlugPage({
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>Home</BreadcrumbPage> : <BreadcrumbLink href="/">Home</BreadcrumbLink>}
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>{sectionLabel}</BreadcrumbPage> : <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>}
             </BreadcrumbItem>
             {categorySlug && (
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbLink href={`/categories/${categorySlug}`}>
-                    {formatCategoryLabel(categorySlug)}
-                  </BreadcrumbLink>
+                  {previewMode ? (
+                    <BreadcrumbPage>{formatCategoryLabel(categorySlug)}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={`/categories/${categorySlug}`}>
+                      {formatCategoryLabel(categorySlug)}
+                    </BreadcrumbLink>
+                  )}
                 </BreadcrumbItem>
               </>
             )}
@@ -1553,6 +1567,7 @@ export default function UniversalSlugPage({
               images={template.gallery}
               alt={providerData.name}
               slug={providerData.slug}
+              previewMode={previewMode}
             />
 
             <ProviderHeader
@@ -1566,6 +1581,7 @@ export default function UniversalSlugPage({
               providerName={providerData.name}
               galleryItems={template.gallery}
               listingSlug={providerData.slug}
+              previewMode={previewMode}
             />
           </div>
 
@@ -1608,6 +1624,7 @@ export default function UniversalSlugPage({
             pricing={template.pricing}
             // services={template.services}
             hours={template.hours}
+            previewMode={previewMode}
           />
         </aside>
       </div>

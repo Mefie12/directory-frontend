@@ -74,6 +74,8 @@ export interface ApiListing {
   event_location_type?: string | null;
   event_ticket_url?: string | null;
   event_online_url?: string | null;
+  event_timezone?: string | null;
+  event_timezone_label?: string | null;
 }
 
 export interface ApiListingsResponse<T = ApiListing> {

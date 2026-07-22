@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
+import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
 
 // --- Types ---
 
@@ -101,6 +102,9 @@ interface EventInfo {
   price?: string | number | null;
   currency?: string | null;
   location_type?: string | null;
+  timezone?: string | null;
+  timezone_label?: string | null;
+  spans_multiple_days?: boolean;
 }
 
 interface ApiOpeningHour {
@@ -159,6 +163,8 @@ interface ApiListing {
   event_price?: string | number | null;
   event_currency?: string | null;
   event_location_type?: string | null;
+  event_timezone?: string | null;
+  event_timezone_label?: string | null;
   business_presence_type?: string | null;
   business_service_reach?: string | null;
   service_countries?: Array<{ code: string; name: string }>;
@@ -452,6 +458,9 @@ export default function ListingDetailPage({ params }: PageProps) {
               price: data.event_price,
               currency: data.event_currency,
               location_type: data.event_location_type,
+              timezone: data.event_timezone,
+              timezone_label: data.event_timezone_label,
+              spans_multiple_days: !!(data.event_start_date && data.event_end_date && data.event_start_date !== data.event_end_date),
             }
           : undefined;
 
@@ -1443,14 +1452,19 @@ export default function ListingDetailPage({ params }: PageProps) {
 
       {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
         <InfoRow icon={Calendar} label="Date">
-          {ev.start_date}
-          {ev.end_date ? ` – ${ev.end_date}` : ""}
+          {formatEventDateRange({ startDate: ev.start_date, endDate: ev.end_date, spansMultipleDays: ev.spans_multiple_days })}
         </InfoRow>
       )}
       {listing.type === "event" && ev && (ev.start_time || ev.end_time) && (
         <InfoRow icon={Clock} label="Time">
-          {ev.start_time}
-          {ev.end_time ? ` – ${ev.end_time}` : ""}
+          {formatEventTimeRange({
+            startDate: ev.start_date,
+            endDate: ev.end_date,
+            startTime: ev.start_time,
+            endTime: ev.end_time,
+            spansMultipleDays: ev.spans_multiple_days,
+            timezoneLabel: ev.timezone_label,
+          })}
         </InfoRow>
       )}
 
