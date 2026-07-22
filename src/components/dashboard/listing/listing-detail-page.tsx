@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
+import { TicketTypeEditor } from "@/components/dashboard/listing/form/ticket-type-editor";
 import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
 
 // --- Types ---
@@ -90,7 +91,52 @@ interface Category {
   type?: string;
 }
 
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+interface ApiEventPayload {
+  slug?: string;
+  event_start_date?: string | null;
+  event_end_date?: string | null;
+  event_start_time?: string | null;
+  event_end_time?: string | null;
+  event_venue?: string | null;
+  event_venue_address?: string | null;
+  event_city?: string | null;
+  event_country?: string | null;
+  event_price?: string | number | null;
+  event_currency?: string | null;
+  event_location_type?: string | null;
+  timezone?: string | null;
+  timezone_label?: string | null;
+  spans_multiple_days?: boolean;
+  is_all_day?: boolean;
+  online_access_policy?: string | null;
+  online_access_instructions?: string | null;
+  event_online_url?: string | null;
+  attendance_type?: string | null;
+  admission_availability?: string | null;
+  registration_url?: string | null;
+  pricing_mode?: string | null;
+  purchase_method?: string | null;
+  purchase_instructions?: string | null;
+  event_ticket_url?: string | null;
+  ticket_provider?: string | null;
+  ticket_release_at?: string | null;
+  ticket_availability_message?: string | null;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number } | null;
+}
+
 interface EventInfo {
+  slug?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
@@ -105,6 +151,22 @@ interface EventInfo {
   timezone?: string | null;
   timezone_label?: string | null;
   spans_multiple_days?: boolean;
+  is_all_day?: boolean;
+  online_access_policy?: string | null;
+  online_access_instructions?: string | null;
+  online_url?: string | null;
+  attendance_type?: string | null;
+  admission_availability?: string | null;
+  registration_url?: string | null;
+  pricing_mode?: string | null;
+  purchase_method?: string | null;
+  purchase_instructions?: string | null;
+  ticket_url?: string | null;
+  ticket_provider?: string | null;
+  ticket_release_at?: string | null;
+  ticket_availability_message?: string | null;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number } | null;
 }
 
 interface ApiOpeningHour {
@@ -165,6 +227,7 @@ interface ApiListing {
   event_location_type?: string | null;
   event_timezone?: string | null;
   event_timezone_label?: string | null;
+  event?: ApiEventPayload;
   business_presence_type?: string | null;
   business_service_reach?: string | null;
   service_countries?: Array<{ code: string; name: string }>;
@@ -269,8 +332,8 @@ const getStatusLabel = (status: string) => {
 };
 
 // "in_person" -> "In Person"
-const formatSnakeCase = (value: string) =>
-  value
+const formatSnakeCase = (value?: string | null) =>
+  (value ?? "")
     .split("_")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -444,23 +507,41 @@ export default function ListingDetailPage({ params }: PageProps) {
       }
       location = location || "Online";
 
+      const eventData: ApiEventPayload = data.event || {};
       const event: EventInfo | undefined =
         resolvedType === "event"
           ? {
-              start_date: data.event_start_date,
-              end_date: data.event_end_date,
-              start_time: data.event_start_time,
-              end_time: data.event_end_time,
-              venue: data.event_venue,
-              venue_address: data.event_venue_address,
-              city: data.event_city,
-              country: data.event_country,
-              price: data.event_price,
-              currency: data.event_currency,
-              location_type: data.event_location_type,
-              timezone: data.event_timezone,
-              timezone_label: data.event_timezone_label,
-              spans_multiple_days: !!(data.event_start_date && data.event_end_date && data.event_start_date !== data.event_end_date),
+              slug: eventData.slug,
+              start_date: eventData.event_start_date ?? data.event_start_date,
+              end_date: eventData.event_end_date ?? data.event_end_date,
+              start_time: eventData.event_start_time ?? data.event_start_time,
+              end_time: eventData.event_end_time ?? data.event_end_time,
+              venue: eventData.event_venue ?? data.event_venue,
+              venue_address: eventData.event_venue_address ?? data.event_venue_address,
+              city: eventData.event_city ?? data.event_city,
+              country: eventData.event_country ?? data.event_country,
+              price: eventData.event_price ?? data.event_price,
+              currency: eventData.event_currency ?? data.event_currency,
+              location_type: eventData.event_location_type ?? data.event_location_type,
+              timezone: eventData.timezone ?? data.event_timezone,
+              timezone_label: eventData.timezone_label ?? data.event_timezone_label,
+              spans_multiple_days: eventData.spans_multiple_days ?? !!(data.event_start_date && data.event_end_date && data.event_start_date !== data.event_end_date),
+              is_all_day: Boolean(eventData.is_all_day),
+              online_access_policy: eventData.online_access_policy,
+              online_access_instructions: eventData.online_access_instructions,
+              online_url: eventData.event_online_url,
+              attendance_type: eventData.attendance_type,
+              admission_availability: eventData.admission_availability,
+              registration_url: eventData.registration_url,
+              pricing_mode: eventData.pricing_mode,
+              purchase_method: eventData.purchase_method,
+              purchase_instructions: eventData.purchase_instructions,
+              ticket_url: eventData.event_ticket_url,
+              ticket_provider: eventData.ticket_provider,
+              ticket_release_at: eventData.ticket_release_at,
+              ticket_availability_message: eventData.ticket_availability_message,
+              ticket_types: eventData.ticket_types,
+              price_range: eventData.price_range,
             }
           : undefined;
 
@@ -1517,15 +1598,49 @@ export default function ListingDetailPage({ params }: PageProps) {
         </InfoRow>
       )}
 
-      {listing.type === "event" &&
-        ev &&
-        ev.price != null &&
-        ev.price !== "" && (
-          <InfoRow icon={Ticket} label="Price">
-            {ev.currency ? `${ev.currency} ` : ""}
-            {ev.price}
-          </InfoRow>
-        )}
+      {listing.type === "event" && ev && (
+        <InfoRow icon={Ticket} label="Attendance">
+          {formatSnakeCase(ev.attendance_type) || "—"}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.admission_availability && (
+        <InfoRow icon={Ticket} label="Admission availability">
+          {formatSnakeCase(ev.admission_availability)}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.attendance_type === "paid" && ev.pricing_mode === "fixed" && ev.price != null && ev.price !== "" && (
+        <InfoRow icon={Ticket} label="Price">
+          {ev.currency ? `${ev.currency} ` : ""}
+          {ev.price}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.pricing_mode === "multiple" && ev.price_range && (
+        <InfoRow icon={Ticket} label="Price range">
+          {ev.currency ? `${ev.currency} ` : ""}
+          {ev.price_range.min === ev.price_range.max ? ev.price_range.min : `${ev.price_range.min} – ${ev.price_range.max}`}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.pricing_mode === "varies" && (
+        <InfoRow icon={Ticket} label="Price">Varies</InfoRow>
+      )}
+      {listing.type === "event" && ev?.attendance_type === "paid" && ev.purchase_method && (
+        <InfoRow icon={Ticket} label="Purchase method">
+          {formatSnakeCase(ev.purchase_method)}
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.purchase_method === "external_url" && ev.ticket_url && (
+        <InfoRow icon={Ticket} label="Ticket URL">
+          <a href={ev.ticket_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open tickets</a>
+        </InfoRow>
+      )}
+      {listing.type === "event" && ev?.ticket_provider && (
+        <InfoRow icon={Ticket} label="Ticket provider">{ev.ticket_provider}</InfoRow>
+      )}
+      {listing.type === "event" && ev?.registration_url && (
+        <InfoRow icon={Ticket} label="Registration">
+          <a href={ev.registration_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open registration</a>
+        </InfoRow>
+      )}
 
       {listing.businessRegNum && (
         <InfoRow icon={Briefcase} label="Business reg. no.">
@@ -1537,6 +1652,27 @@ export default function ListingDetailPage({ params }: PageProps) {
           <span className="capitalize">{listing.claimStatus}</span>
         </InfoRow>
       )}
+      {listing.type === "event" && ev?.purchase_instructions && (
+        <div className="border-t py-3">
+          <p className="text-xs text-gray-500">Purchase instructions</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{ev.purchase_instructions}</p>
+        </div>
+      )}
+      {listing.type === "event" && ev?.ticket_availability_message && (
+        <div className="border-t py-3">
+          <p className="text-xs text-gray-500">Ticket availability message</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{ev.ticket_availability_message}</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const ticketTypesBlock = listing.type === "event" && ev?.pricing_mode === "multiple" && ev.slug && (
+    <div className="rounded-xl border border-gray-100 bg-white p-4">
+      <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2 mb-2">
+        <Ticket className="w-4 h-4 text-[#93C01F]" /> Ticket types
+      </h3>
+      <TicketTypeEditor listingSlug={listing.slug} eventSlug={ev.slug} />
     </div>
   );
 
@@ -1632,6 +1768,7 @@ export default function ListingDetailPage({ params }: PageProps) {
         {socialLinksBlock}
         {openingHoursBlock}
         {servicesBlock}
+        {ticketTypesBlock}
         {reviewsBlock}
       </div>
 
@@ -1642,6 +1779,7 @@ export default function ListingDetailPage({ params }: PageProps) {
           {galleryBlock}
           {descriptionBlock}
           {servicesBlock}
+          {ticketTypesBlock}
           {reviewsBlock}
         </div>
 

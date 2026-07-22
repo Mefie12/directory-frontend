@@ -7,6 +7,7 @@ import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { countries } from "country-data-list";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
+import { TicketTypeEditor } from "@/components/dashboard/listing/form/ticket-type-editor";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,10 @@ import { cn } from "@/lib/utils";
 type Section = "schedule" | "access" | "tickets";
 type EventFormat = "in_person" | "online" | "hybrid";
 type AccessPolicy = "public_link" | "sent_after_registration" | "shared_later";
-type Attendance = "free_no_registration" | "free_registration_required" | "paid" | "tickets_coming_soon";
+type Attendance = "free_no_registration" | "free_registration_required" | "paid";
+type AdmissionAvailability = "available" | "coming_soon" | "closed" | "sold_out";
+type PricingMode = "fixed" | "multiple" | "varies";
+type PurchaseMethod = "external_url" | "pay_at_venue" | "contact_organizer";
 
 interface Props { listingSlug: string; section: Section; }
 interface EventDraft {
@@ -40,7 +44,11 @@ interface EventDraft {
   event_online_url: string;
   online_access_instructions: string;
   attendance_type: Attendance | "";
+  admission_availability: AdmissionAvailability | "";
   registration_url: string;
+  pricing_mode: PricingMode | "";
+  purchase_method: PurchaseMethod | "";
+  purchase_instructions: string;
   event_ticket_url: string;
   event_price: string;
   event_currency: string;
@@ -57,7 +65,8 @@ const EMPTY: EventDraft = {
   timezone: "", is_all_day: false, event_location: "", event_venue: "",
   event_venue_address: "", event_city: "", event_country: "", latitude: null, longitude: null,
   online_access_policy: "", event_online_url: "", online_access_instructions: "", attendance_type: "",
-  registration_url: "", event_ticket_url: "", event_price: "", event_currency: "GHS", ticket_provider: "",
+  admission_availability: "", registration_url: "", pricing_mode: "", purchase_method: "", purchase_instructions: "",
+  event_ticket_url: "", event_price: "", event_currency: "GHS", ticket_provider: "",
   ticket_release_at: "", ticket_availability_message: "",
 };
 
@@ -116,14 +125,36 @@ function errorFor(field: EventField, draft: EventDraft): string | undefined {
     case "registration_url":
       if (draft.attendance_type !== "free_registration_required") return undefined;
       return isHttpsUrl(draft.registration_url) ? undefined : "Enter a complete HTTPS registration URL.";
+    case "pricing_mode": return draft.attendance_type === "paid" ? required("Choose how pricing works for this event.") : undefined;
+    case "purchase_method": return draft.attendance_type === "paid" ? required("Choose how attendees purchase or reserve admission.") : undefined;
     case "event_ticket_url":
-      if (draft.attendance_type !== "paid") return undefined;
+      if (draft.attendance_type !== "paid" || draft.purchase_method !== "external_url") return undefined;
       return isHttpsUrl(draft.event_ticket_url) ? undefined : "Enter a public HTTPS event, ticket, or checkout URL.";
     case "event_price":
-      if (draft.attendance_type !== "paid") return undefined;
+      if (draft.pricing_mode !== "fixed") return undefined;
       return draft.event_price !== "" && Number(draft.event_price) >= 0 ? undefined : "Enter a price of zero or more.";
-    case "event_currency": return draft.attendance_type === "paid" ? required("Select the ticket currency.") : undefined;
-    case "ticket_availability_message": return draft.attendance_type === "tickets_coming_soon" ? required("Tell visitors when or how tickets will become available.") : undefined;
+    case "event_currency": return draft.pricing_mode === "fixed" || draft.pricing_mode === "multiple" ? required("Select the ticket currency.") : undefined;
+    case "ticket_availability_message": return draft.admission_availability === "coming_soon" ? required("Tell visitors when or how tickets will become available.") : undefined;
+    default: return undefined;
+  }
+}
+
+/** Non-blocking notices — surfaced immediately in the wizard, distinct from
+ *  errorFor()'s hard-blocking validation. */
+function warningFor(field: EventField, draft: EventDraft, hasContactMethod: boolean): string | undefined {
+  switch (field) {
+    case "online_access_policy":
+      return draft.attendance_type === "paid" && draft.online_access_policy === "public_link"
+        ? "This joining link will be publicly visible even though the event is paid. Anyone who can view the listing may be able to join."
+        : undefined;
+    case "purchase_method":
+      if (draft.purchase_method === "pay_at_venue" && draft.event_location === "online") {
+        return "Pay at venue isn't available for online-only events. Choose an external ticket website or contact organizer instead.";
+      }
+      if (draft.purchase_method === "contact_organizer" && !hasContactMethod) {
+        return "Add a public phone number, email address, or WhatsApp link so attendees can contact you.";
+      }
+      return undefined;
     default: return undefined;
   }
 }
@@ -131,7 +162,7 @@ function errorFor(field: EventField, draft: EventDraft): string | undefined {
 const SECTION_FIELDS: Record<Section, EventField[]> = {
   schedule: ["event_start_date", "event_end_date", "event_start_time", "event_end_time", "timezone"],
   access: ["event_location", "event_venue", "event_country", "event_venue_address", "event_city", "online_access_policy", "event_online_url"],
-  tickets: ["attendance_type", "registration_url", "event_ticket_url", "event_price", "event_currency", "ticket_availability_message"],
+  tickets: ["attendance_type", "admission_availability", "registration_url", "pricing_mode", "purchase_method", "event_ticket_url", "event_price", "event_currency", "ticket_availability_message"],
 };
 
 export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug, section }, ref) => {
@@ -141,6 +172,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
   const [loading, setLoading] = useState(true);
   const [minimapFeature, setMinimapFeature] = useState<Feature<Point, GeoJsonProperties>>();
   const [mapboxUnavailable, setMapboxUnavailable] = useState(false);
+  const [hasContactMethod, setHasContactMethod] = useState(true);
   const retrievedAddress = useRef("");
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
   const timezoneItems = useMemo(() => timezoneOptions(draft.timezone), [draft.timezone]);
@@ -152,11 +184,17 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
         const event = payload?.data?.event ?? payload?.event;
+        const listing = payload?.data ?? payload;
+        const socials: Array<{ whatsapp?: string | null }> = Array.isArray(listing?.socials) ? listing.socials : [];
+        setHasContactMethod(
+          Boolean(listing?.primary_phone) || Boolean(listing?.secondary_phone) ||
+          Boolean(listing?.email) || Boolean(listing?.website) ||
+          socials.some((social) => Boolean(social?.whatsapp))
+        );
         if (!event) {
           setDraft((current) => ({ ...current, timezone: detectedTimezone() }));
           return;
         }
-        const listing = payload?.data ?? payload;
         setDraft((current) => ({
           ...current,
           ...event,
@@ -257,12 +295,21 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
         online_access_instructions: draft.online_access_instructions || null,
       };
     } else {
+      const isPaid = draft.attendance_type === "paid";
+      const isComingSoon = draft.admission_availability === "coming_soon";
       payload = {
-        attendance_type: draft.attendance_type, registration_url: draft.registration_url || null,
-        event_ticket_url: draft.event_ticket_url || null, event_price: draft.event_price || null,
-        event_currency: draft.event_currency || null, ticket_provider: draft.ticket_provider || null,
-        ticket_release_at: draft.ticket_release_at || null,
-        ticket_availability_message: draft.ticket_availability_message || null,
+        attendance_type: draft.attendance_type,
+        admission_availability: draft.admission_availability || null,
+        registration_url: draft.registration_url || null,
+        pricing_mode: isPaid ? (draft.pricing_mode || null) : null,
+        purchase_method: isPaid ? (draft.purchase_method || null) : null,
+        purchase_instructions: draft.purchase_method === "pay_at_venue" || draft.purchase_method === "contact_organizer" ? (draft.purchase_instructions || null) : null,
+        event_ticket_url: draft.purchase_method === "external_url" ? (draft.event_ticket_url || null) : null,
+        event_price: draft.pricing_mode === "fixed" ? (draft.event_price || null) : null,
+        event_currency: draft.pricing_mode === "fixed" || draft.pricing_mode === "multiple" ? (draft.event_currency || null) : null,
+        ticket_provider: draft.purchase_method === "external_url" ? (draft.ticket_provider || null) : null,
+        ticket_release_at: isComingSoon ? (draft.ticket_release_at || null) : null,
+        ticket_availability_message: isComingSoon ? (draft.ticket_availability_message || null) : null,
       };
     }
 
@@ -385,7 +432,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
         {mapboxToken && minimapFeature && <div className="h-40 overflow-hidden rounded-xl border"><AddressMinimap show feature={minimapFeature} accessToken={mapboxToken} /></div>}
       </div>}
       {(draft.event_location === "online" || draft.event_location === "hybrid") && <div className="space-y-4 rounded-xl border p-4">
-        <Field label="Online access plan" error={errors.online_access_policy}><Select value={draft.online_access_policy} onValueChange={(value) => selectField("online_access_policy", value as AccessPolicy)}><SelectTrigger data-event-field="online_access_policy" aria-invalid={!!errors.online_access_policy} className={cn(errors.online_access_policy && "border-red-500")}><SelectValue placeholder="Choose access plan" /></SelectTrigger><SelectContent><SelectItem value="public_link">Public link</SelectItem><SelectItem value="sent_after_registration">Sent after registration</SelectItem><SelectItem value="shared_later">Shared later</SelectItem></SelectContent></Select></Field>
+        <Field label="Online access plan" error={errors.online_access_policy} warning={warningFor("online_access_policy", draft, hasContactMethod)}><Select value={draft.online_access_policy} onValueChange={(value) => selectField("online_access_policy", value as AccessPolicy)}><SelectTrigger data-event-field="online_access_policy" aria-invalid={!!errors.online_access_policy} className={cn(errors.online_access_policy && "border-red-500")}><SelectValue placeholder="Choose access plan" /></SelectTrigger><SelectContent><SelectItem value="public_link">Public link</SelectItem><SelectItem value="sent_after_registration">Sent after registration</SelectItem><SelectItem value="shared_later">Shared later</SelectItem></SelectContent></Select></Field>
         {draft.online_access_policy === "public_link" && <Field label="Public online URL" error={errors.event_online_url} hint="Use a complete HTTPS link."><Input data-event-field="event_online_url" type="url" maxLength={2048} aria-invalid={!!errors.event_online_url} className={cn(errors.event_online_url && "border-red-500")} value={draft.event_online_url} onBlur={() => touch("event_online_url")} onChange={(event) => update("event_online_url", event.target.value)} placeholder="https://…" /></Field>}
         <Field label="Access instructions (optional)"><textarea className="min-h-24 w-full rounded-md border p-3 text-sm" value={draft.online_access_instructions} onChange={(event) => update("online_access_instructions", event.target.value)} /></Field>
       </div>}
@@ -393,23 +440,68 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
 
     {section === "tickets" && <>
       <div><h2 className="text-2xl font-semibold">Registration & tickets</h2><p className="text-sm text-muted-foreground">Choose the visitor experience that applies now.</p></div>
-      <Field label="Attendance" error={errors.attendance_type}><Select value={draft.attendance_type} onValueChange={(value) => selectField("attendance_type", value as Attendance)}><SelectTrigger data-event-field="attendance_type" aria-invalid={!!errors.attendance_type} className={cn(errors.attendance_type && "border-red-500")}><SelectValue placeholder="Choose attendance type" /></SelectTrigger><SelectContent><SelectItem value="free_no_registration">Free — no registration</SelectItem><SelectItem value="free_registration_required">Free — registration required</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="tickets_coming_soon">Tickets coming soon</SelectItem></SelectContent></Select></Field>
+      <Field label="Attendance" error={errors.attendance_type}><Select value={draft.attendance_type} onValueChange={(value) => selectField("attendance_type", value as Attendance)}><SelectTrigger data-event-field="attendance_type" aria-invalid={!!errors.attendance_type} className={cn(errors.attendance_type && "border-red-500")}><SelectValue placeholder="Choose attendance type" /></SelectTrigger><SelectContent><SelectItem value="free_no_registration">Free — no registration</SelectItem><SelectItem value="free_registration_required">Free — registration required</SelectItem><SelectItem value="paid">Paid</SelectItem></SelectContent></Select></Field>
+
+      <Field label="Admission availability" error={errors.admission_availability} hint="Lets visitors know whether admission is open right now.">
+        <Select value={draft.admission_availability} onValueChange={(value) => selectField("admission_availability", value as AdmissionAvailability)}>
+          <SelectTrigger data-event-field="admission_availability" aria-invalid={!!errors.admission_availability} className={cn(errors.admission_availability && "border-red-500")}><SelectValue placeholder="Choose current availability" /></SelectTrigger>
+          <SelectContent><SelectItem value="available">Available</SelectItem><SelectItem value="coming_soon">Coming soon</SelectItem><SelectItem value="closed">Closed</SelectItem><SelectItem value="sold_out">Sold out</SelectItem></SelectContent>
+        </Select>
+      </Field>
+
       {draft.attendance_type === "free_registration_required" && <Field label="Registration URL" error={errors.registration_url} hint="Use a complete HTTPS registration link."><Input data-event-field="registration_url" type="url" maxLength={2048} aria-invalid={!!errors.registration_url} className={cn(errors.registration_url && "border-red-500")} value={draft.registration_url} onBlur={() => touch("registration_url")} onChange={(event) => update("registration_url", event.target.value)} placeholder="https://…" /></Field>}
+
       {draft.attendance_type === "paid" && <div className="space-y-4">
-        <Field label="Ticket URL" error={errors.event_ticket_url} hint="Link directly to a public HTTPS event, ticket, or checkout page."><Input data-event-field="event_ticket_url" type="url" maxLength={2048} aria-invalid={!!errors.event_ticket_url} className={cn(errors.event_ticket_url && "border-red-500")} value={draft.event_ticket_url} onBlur={() => touch("event_ticket_url")} onChange={(event) => update("event_ticket_url", event.target.value)} placeholder="https://…" /></Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Pricing mode" error={errors.pricing_mode}>
+          <Select value={draft.pricing_mode} onValueChange={(value) => selectField("pricing_mode", value as PricingMode)}>
+            <SelectTrigger data-event-field="pricing_mode" aria-invalid={!!errors.pricing_mode} className={cn(errors.pricing_mode && "border-red-500")}><SelectValue placeholder="Choose pricing mode" /></SelectTrigger>
+            <SelectContent><SelectItem value="fixed">Fixed price</SelectItem><SelectItem value="multiple">Multiple ticket types</SelectItem><SelectItem value="varies">Prices vary</SelectItem></SelectContent>
+          </Select>
+        </Field>
+
+        {draft.pricing_mode === "fixed" && <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Price" error={errors.event_price}><Input data-event-field="event_price" type="number" min="0" step="0.01" aria-invalid={!!errors.event_price} className={cn(errors.event_price && "border-red-500")} value={draft.event_price} onBlur={() => touch("event_price")} onChange={(event) => update("event_price", event.target.value)} /></Field>
           <Field label="Currency" error={errors.event_currency}><SearchableSelect fieldName="event_currency" value={draft.event_currency} options={CURRENCIES} onChange={(value) => selectField("event_currency", value)} placeholder="Select currency" searchPlaceholder="Search code or currency…" invalid={!!errors.event_currency} /></Field>
-        </div>
-        <Field label="Ticket provider (optional)"><Input value={draft.ticket_provider} onChange={(event) => update("ticket_provider", event.target.value)} /></Field>
+        </div>}
+
+        {draft.pricing_mode === "multiple" && <>
+          <Field label="Currency" error={errors.event_currency} hint="Applies to every ticket type below."><SearchableSelect fieldName="event_currency" value={draft.event_currency} options={CURRENCIES} onChange={(value) => selectField("event_currency", value)} placeholder="Select currency" searchPlaceholder="Search code or currency…" invalid={!!errors.event_currency} /></Field>
+          {draft.slug
+            ? <TicketTypeEditor listingSlug={listingSlug} eventSlug={draft.slug} />
+            : <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Save this step once to start adding ticket types.</p>}
+        </>}
+
+        <Field label="Purchase method" error={errors.purchase_method} warning={warningFor("purchase_method", draft, hasContactMethod)}>
+          <Select value={draft.purchase_method} onValueChange={(value) => selectField("purchase_method", value as PurchaseMethod)}>
+            <SelectTrigger data-event-field="purchase_method" aria-invalid={!!errors.purchase_method} className={cn(errors.purchase_method && "border-red-500")}><SelectValue placeholder="Choose purchase method" /></SelectTrigger>
+            <SelectContent><SelectItem value="external_url">External ticket website</SelectItem><SelectItem value="pay_at_venue">Pay at venue</SelectItem><SelectItem value="contact_organizer">Contact organizer</SelectItem></SelectContent>
+          </Select>
+        </Field>
+
+        {draft.purchase_method === "external_url" && <>
+          <Field label="Ticket URL" error={errors.event_ticket_url} hint="Link directly to a public HTTPS event, ticket, or checkout page."><Input data-event-field="event_ticket_url" type="url" maxLength={2048} aria-invalid={!!errors.event_ticket_url} className={cn(errors.event_ticket_url && "border-red-500")} value={draft.event_ticket_url} onBlur={() => touch("event_ticket_url")} onChange={(event) => update("event_ticket_url", event.target.value)} placeholder="https://…" /></Field>
+          <Field label="Ticket provider (optional)"><Input value={draft.ticket_provider} onChange={(event) => update("ticket_provider", event.target.value)} /></Field>
+        </>}
+
+        {draft.purchase_method === "pay_at_venue" && <Field label="Purchase instructions (optional)" hint="Let attendees know how payment works at the venue.">
+          <textarea className="min-h-24 w-full rounded-md border p-3 text-sm" value={draft.purchase_instructions} onChange={(event) => update("purchase_instructions", event.target.value)} />
+        </Field>}
+
+        {draft.purchase_method === "contact_organizer" && <Field label="Purchase instructions (optional)" hint="Explain how attendees should reach you to purchase or reserve admission.">
+          <textarea className="min-h-24 w-full rounded-md border p-3 text-sm" value={draft.purchase_instructions} onChange={(event) => update("purchase_instructions", event.target.value)} />
+        </Field>}
       </div>}
-      {draft.attendance_type === "tickets_coming_soon" && <div className="space-y-4"><Field label="Release time (optional)"><Input type="datetime-local" value={draft.ticket_release_at} onChange={(event) => update("ticket_release_at", event.target.value)} /></Field><Field label="Public availability message" error={errors.ticket_availability_message}><textarea data-event-field="ticket_availability_message" aria-invalid={!!errors.ticket_availability_message} className={cn("min-h-24 w-full rounded-md border p-3 text-sm", errors.ticket_availability_message && "border-red-500")} value={draft.ticket_availability_message} onBlur={() => touch("ticket_availability_message")} onChange={(event) => update("ticket_availability_message", event.target.value)} /></Field></div>}
+
+      {draft.admission_availability === "coming_soon" && <div className="space-y-4">
+        <Field label="Release time (optional)"><Input type="datetime-local" value={draft.ticket_release_at} onChange={(event) => update("ticket_release_at", event.target.value)} /></Field>
+        <Field label="Public availability message" error={errors.ticket_availability_message}><textarea data-event-field="ticket_availability_message" aria-invalid={!!errors.ticket_availability_message} className={cn("min-h-24 w-full rounded-md border p-3 text-sm", errors.ticket_availability_message && "border-red-500")} value={draft.ticket_availability_message} onBlur={() => touch("ticket_availability_message")} onChange={(event) => update("ticket_availability_message", event.target.value)} /></Field>
+      </div>}
     </>}
   </div>;
 });
 
 EventStepForm.displayName = "EventStepForm";
 
-function Field({ label, children, error, hint }: { label: string; children: React.ReactNode; error?: string; hint?: string }) {
-  return <div className="space-y-1.5"><Label>{label}</Label>{children}{error ? <p className="text-xs text-red-600" role="alert">{error}</p> : hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}</div>;
+function Field({ label, children, error, warning, hint }: { label: string; children: React.ReactNode; error?: string; warning?: string; hint?: string }) {
+  return <div className="space-y-1.5"><Label>{label}</Label>{children}{error ? <p className="text-xs text-red-600" role="alert">{error}</p> : warning ? <p className="text-xs text-amber-700" role="status">{warning}</p> : hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}</div>;
 }

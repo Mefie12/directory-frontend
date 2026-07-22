@@ -45,7 +45,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
-import { format12Hour, formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
+import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -153,6 +153,29 @@ interface ApiEventData {
   starts_at_utc?: string;
   ends_at_utc?: string;
   spans_multiple_days?: boolean;
+  online_access_policy?: string;
+  online_access_instructions?: string;
+  attendance_type?: string;
+  admission_availability?: string;
+  registration_url?: string;
+  pricing_mode?: string;
+  purchase_method?: string;
+  purchase_instructions?: string;
+  ticket_provider?: string;
+  ticket_release_at?: string;
+  ticket_availability_message?: string;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number };
+}
+
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
 }
 
 interface ApiListingData {
@@ -278,6 +301,14 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+const formatMoney = (price: string | number | undefined, currency?: string): string => {
+  if (price === undefined || price === null || price === "") return "";
+  const amount = Number(price);
+  if (Number.isNaN(amount)) return "";
+  const code = (currency || "").toUpperCase();
+  return code ? `${code} ${amount.toFixed(2)}` : amount.toFixed(2);
 };
 
 const formatDateTime = (dateString?: string) => {
@@ -670,6 +701,11 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
     timezoneLabel: eventData.timezone_label,
   });
 
+  const activeTicketTypes = (eventData.ticket_types ?? []).filter((ticketType) => ticketType.is_active !== false);
+  const isAvailabilityBlocked = eventData.admission_availability === "coming_soon"
+    || eventData.admission_availability === "closed"
+    || eventData.admission_availability === "sold_out";
+
   return (
     <Card>
       <CardContent className="pt-4 space-y-4">
@@ -731,44 +767,141 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           </div>
         )}
 
-        {/* Price */}
-        {eventData.formatted_price &&
-          eventData.formatted_price.toLowerCase() !== "free" && (
-            <div className="flex items-start gap-3">
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                  Tickets
-                </p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {eventData.formatted_price}
+        {/* Price — shown regardless of availability so visitors know what admission costs/cost */}
+        {eventData.attendance_type === "paid" && (
+          <div className="flex items-start gap-3">
+            <div className="w-full">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Tickets
+              </p>
+              {eventData.pricing_mode === "multiple" ? (
+                <>
+                  {eventData.price_range && (
+                    <p className="text-sm font-semibold text-gray-800">
+                      From {formatMoney(eventData.price_range.min, eventData.event_currency)}
+                    </p>
+                  )}
+                  {activeTicketTypes.length > 0 && (
+                    <ul className="mt-1.5 space-y-1">
+                      {activeTicketTypes.map((ticketType) => (
+                        <li key={ticketType.slug} className="flex items-center justify-between gap-3 text-xs text-gray-600">
+                          <span>{ticketType.name}</span>
+                          <span className="font-medium text-gray-800">{formatMoney(ticketType.price, eventData.event_currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : eventData.pricing_mode === "varies" ? (
+                <p className="text-sm font-semibold text-gray-800">Prices vary</p>
+              ) : (
+                eventData.formatted_price &&
+                eventData.formatted_price.toLowerCase() !== "free" && (
+                  <p className="text-sm font-semibold text-gray-800">
+                    {eventData.formatted_price}
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Availability state — informational, suppresses the admission action below */}
+        {isAvailabilityBlocked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-800">
+              {eventData.admission_availability === "coming_soon"
+                ? "Tickets Coming Soon"
+                : eventData.admission_availability === "sold_out"
+                  ? "Sold Out"
+                  : "Registration Closed"}
+            </p>
+            {eventData.ticket_availability_message && (
+              <p className="text-xs text-amber-700 mt-1">{eventData.ticket_availability_message}</p>
+            )}
+            {eventData.admission_availability === "coming_soon" && eventData.ticket_release_at && (
+              <p className="text-xs text-amber-700 mt-1">Available {formatShortDate(eventData.ticket_release_at)}</p>
+            )}
+          </div>
+        )}
+
+        {/* Admission action — how to actually register, buy, or reserve a spot */}
+        {!isAvailabilityBlocked && (
+          <>
+            {eventData.attendance_type === "free_registration_required" && eventData.registration_url && (
+              <Link
+                href={eventData.registration_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+              >
+                Register
+              </Link>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "external_url" && eventData.event_ticket_url && (
+              <div className="space-y-1">
+                <Link
+                  href={eventData.event_ticket_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+                >
+                  Get Tickets
+                </Link>
+                {eventData.ticket_provider && (
+                  <p className="text-xs text-gray-400 text-center">via {eventData.ticket_provider}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "pay_at_venue" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Pay at Venue</p>
+                {eventData.purchase_instructions && (
+                  <p className="text-xs text-gray-600 mt-1">{eventData.purchase_instructions}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "contact_organizer" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Contact the Organizer to Purchase</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {eventData.purchase_instructions || "Use the contact details below to reserve or purchase admission."}
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </>
+        )}
 
-        {/* Online event join link */}
-        {eventData.event_online_url &&
-          (locationType === "online" || locationType === "hybrid") && (
-            <Link
-              href={eventData.event_online_url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
-            >
-              🖥️ Join Online
-            </Link>
-          )}
-
-        {/* Ticket purchase link */}
-        {eventData.event_ticket_url && (
-          <Link
-            href={eventData.event_ticket_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
-          >
-            Get Tickets
-          </Link>
+        {/* Online access — how attendees actually receive the joining details */}
+        {(locationType === "online" || locationType === "hybrid") && (
+          <>
+            {eventData.online_access_policy === "public_link" && eventData.event_online_url && (
+              <Link
+                href={eventData.event_online_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+              >
+                🖥️ Join Online
+              </Link>
+            )}
+            {eventData.online_access_policy === "sent_after_registration" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                Online access details will be provided by the organizer or ticket provider after registration or ticket purchase.
+              </p>
+            )}
+            {eventData.online_access_policy === "shared_later" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                {eventData.online_access_instructions || "The online joining link will be shared closer to the event."}
+              </p>
+            )}
+            {eventData.online_access_policy === "public_link" && eventData.online_access_instructions && (
+              <p className="text-xs text-gray-500">{eventData.online_access_instructions}</p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
