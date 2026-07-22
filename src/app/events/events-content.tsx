@@ -135,6 +135,8 @@ export default function EventsContent() {
             startDate: e.startDate,
             endDate: e.endDate,
             verified: e.verified,
+            time: e.time,
+            timezoneLabel: e.timezoneLabel,
           }}
         />
       )}

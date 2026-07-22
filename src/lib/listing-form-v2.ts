@@ -34,8 +34,9 @@ export const LISTING_JOURNEYS: Record<ListingType, ListingFormStep[]> = {
   business: [
     { id: 1, key: "basic_information", title: "Basics", description: "Name, category and description" },
     { id: 2, key: "location_operations", title: "Location & operations", description: "Headquarters, reach and availability" },
-    { id: 3, key: "media", title: "Media", description: "Cover and gallery" },
-    { id: 4, key: "preview", title: "Preview", description: "Readiness and submission" },
+    { id: 3, key: "contact_links", title: "Social media & links", description: "Optional ways for customers to connect", optional: true },
+    { id: 4, key: "media", title: "Media", description: "Cover and gallery" },
+    { id: 5, key: "preview", title: "Preview", description: "Readiness and submission" },
   ],
   community: [
     { id: 1, key: "basic_information", title: "Basics", description: "Name, category and description" },

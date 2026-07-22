@@ -24,4 +24,6 @@ export interface ProcessedEvent {
   reviewCount: number;
   time?: string;
   ticketUrl?: string;
+  startTimeRaw?: string;
+  timezoneLabel?: string;
 }

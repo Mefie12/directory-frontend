@@ -6,7 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import {
   MapPin,
@@ -45,6 +45,7 @@ import { BookmarkButton } from "@/components/bookmark-button";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
+import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -147,6 +148,34 @@ interface ApiEventData {
   event_online_url?: string;
   starts_at?: string;
   ends_at?: string;
+  timezone?: string;
+  timezone_label?: string;
+  starts_at_utc?: string;
+  ends_at_utc?: string;
+  spans_multiple_days?: boolean;
+  online_access_policy?: string;
+  online_access_instructions?: string;
+  attendance_type?: string;
+  admission_availability?: string;
+  registration_url?: string;
+  pricing_mode?: string;
+  purchase_method?: string;
+  purchase_instructions?: string;
+  ticket_provider?: string;
+  ticket_release_at?: string;
+  ticket_availability_message?: string;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number };
+}
+
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
 }
 
 interface ApiListingData {
@@ -272,6 +301,14 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+const formatMoney = (price: string | number | undefined, currency?: string): string => {
+  if (price === undefined || price === null || price === "") return "";
+  const amount = Number(price);
+  if (Number.isNaN(amount)) return "";
+  const code = (currency || "").toUpperCase();
+  return code ? `${code} ${amount.toFixed(2)}` : amount.toFixed(2);
 };
 
 const formatDateTime = (dateString?: string) => {
@@ -451,11 +488,13 @@ function ProviderTabs({
   providerName,
   galleryItems,
   listingSlug,
+  previewMode = false,
 }: {
   template: TemplateContent;
   providerName: string;
   galleryItems: GalleryItem[];
   listingSlug: string;
+  previewMode?: boolean;
 }) {
   const { reviews } = {
     reviews: template.reviews || [],
@@ -493,6 +532,7 @@ function ProviderTabs({
               <ReviewsSection
                 reviews={reviews as any}
                 listingSlug={listingSlug}
+                readOnly={previewMode}
               />
             </div>
           </Card>
@@ -628,29 +668,6 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   );
 }
 
-const format12Hour = (time?: string) => {
-  if (!time) return "";
-  const [h, m] = time.split(":");
-  let hours = parseInt(h, 10);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
-};
-
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "";
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(dateStr));
-  } catch {
-    return dateStr;
-  }
-};
-
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
   const locationType = eventData.event_location_type;
   const locationLabel =
@@ -670,10 +687,24 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
     .filter(Boolean)
     .join(", ");
 
-  const sameDay = eventData.event_start_date === eventData.event_end_date;
-  const dateRange = sameDay
-    ? formatDate(eventData.event_start_date)
-    : `${formatDate(eventData.event_start_date)} – ${formatDate(eventData.event_end_date)}`;
+  const dateRange = formatEventDateRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    spansMultipleDays: eventData.spans_multiple_days,
+  });
+  const timeRange = formatEventTimeRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    startTime: eventData.event_start_time,
+    endTime: eventData.event_end_time,
+    spansMultipleDays: eventData.spans_multiple_days,
+    timezoneLabel: eventData.timezone_label,
+  });
+
+  const activeTicketTypes = (eventData.ticket_types ?? []).filter((ticketType) => ticketType.is_active !== false);
+  const isAvailabilityBlocked = eventData.admission_availability === "coming_soon"
+    || eventData.admission_availability === "closed"
+    || eventData.admission_availability === "sold_out";
 
   return (
     <Card>
@@ -701,11 +732,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
                 Time
               </p>
-              <p className="text-sm font-semibold text-gray-800">
-                {format12Hour(eventData.event_start_time)}
-                {eventData.event_end_time &&
-                  ` – ${format12Hour(eventData.event_end_time)}`}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{timeRange}</p>
             </div>
           </div>
         )}
@@ -740,44 +767,141 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           </div>
         )}
 
-        {/* Price */}
-        {eventData.formatted_price &&
-          eventData.formatted_price.toLowerCase() !== "free" && (
-            <div className="flex items-start gap-3">
-              <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                  Tickets
-                </p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {eventData.formatted_price}
+        {/* Price — shown regardless of availability so visitors know what admission costs/cost */}
+        {eventData.attendance_type === "paid" && (
+          <div className="flex items-start gap-3">
+            <div className="w-full">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Tickets
+              </p>
+              {eventData.pricing_mode === "multiple" ? (
+                <>
+                  {eventData.price_range && (
+                    <p className="text-sm font-semibold text-gray-800">
+                      From {formatMoney(eventData.price_range.min, eventData.event_currency)}
+                    </p>
+                  )}
+                  {activeTicketTypes.length > 0 && (
+                    <ul className="mt-1.5 space-y-1">
+                      {activeTicketTypes.map((ticketType) => (
+                        <li key={ticketType.slug} className="flex items-center justify-between gap-3 text-xs text-gray-600">
+                          <span>{ticketType.name}</span>
+                          <span className="font-medium text-gray-800">{formatMoney(ticketType.price, eventData.event_currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : eventData.pricing_mode === "varies" ? (
+                <p className="text-sm font-semibold text-gray-800">Prices vary</p>
+              ) : (
+                eventData.formatted_price &&
+                eventData.formatted_price.toLowerCase() !== "free" && (
+                  <p className="text-sm font-semibold text-gray-800">
+                    {eventData.formatted_price}
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Availability state — informational, suppresses the admission action below */}
+        {isAvailabilityBlocked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-800">
+              {eventData.admission_availability === "coming_soon"
+                ? "Tickets Coming Soon"
+                : eventData.admission_availability === "sold_out"
+                  ? "Sold Out"
+                  : "Registration Closed"}
+            </p>
+            {eventData.ticket_availability_message && (
+              <p className="text-xs text-amber-700 mt-1">{eventData.ticket_availability_message}</p>
+            )}
+            {eventData.admission_availability === "coming_soon" && eventData.ticket_release_at && (
+              <p className="text-xs text-amber-700 mt-1">Available {formatShortDate(eventData.ticket_release_at)}</p>
+            )}
+          </div>
+        )}
+
+        {/* Admission action — how to actually register, buy, or reserve a spot */}
+        {!isAvailabilityBlocked && (
+          <>
+            {eventData.attendance_type === "free_registration_required" && eventData.registration_url && (
+              <Link
+                href={eventData.registration_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+              >
+                Register
+              </Link>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "external_url" && eventData.event_ticket_url && (
+              <div className="space-y-1">
+                <Link
+                  href={eventData.event_ticket_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+                >
+                  Get Tickets
+                </Link>
+                {eventData.ticket_provider && (
+                  <p className="text-xs text-gray-400 text-center">via {eventData.ticket_provider}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "pay_at_venue" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Pay at Venue</p>
+                {eventData.purchase_instructions && (
+                  <p className="text-xs text-gray-600 mt-1">{eventData.purchase_instructions}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "contact_organizer" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Contact the Organizer to Purchase</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {eventData.purchase_instructions || "Use the contact details below to reserve or purchase admission."}
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </>
+        )}
 
-        {/* Online event join link */}
-        {eventData.event_online_url &&
-          (locationType === "online" || locationType === "hybrid") && (
-            <Link
-              href={eventData.event_online_url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
-            >
-              🖥️ Join Online
-            </Link>
-          )}
-
-        {/* Ticket purchase link */}
-        {eventData.event_ticket_url && (
-          <Link
-            href={eventData.event_ticket_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
-          >
-            Get Tickets
-          </Link>
+        {/* Online access — how attendees actually receive the joining details */}
+        {(locationType === "online" || locationType === "hybrid") && (
+          <>
+            {eventData.online_access_policy === "public_link" && eventData.event_online_url && (
+              <Link
+                href={eventData.event_online_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+              >
+                🖥️ Join Online
+              </Link>
+            )}
+            {eventData.online_access_policy === "sent_after_registration" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                Online access details will be provided by the organizer or ticket provider after registration or ticket purchase.
+              </p>
+            )}
+            {eventData.online_access_policy === "shared_later" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                {eventData.online_access_instructions || "The online joining link will be shared closer to the event."}
+              </p>
+            )}
+            {eventData.online_access_policy === "public_link" && eventData.online_access_instructions && (
+              <p className="text-xs text-gray-500">{eventData.online_access_instructions}</p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -789,11 +913,13 @@ function SidebarInfo({
   pricing,
   // services,
   hours,
+  previewMode = false,
 }: {
   provider: Provider;
   pricing: PricingItem[];
   // services: string[];
   hours: OpeningHour[];
+  previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
   const hasContact = !!(
@@ -813,8 +939,10 @@ function SidebarInfo({
 
   useEffect(() => {
     // Nothing to check while logged out — showClaimButton already short-circuits
-    // on `!user` in that case, so there's no need to reset state here.
-    if (!user || !provider.slug) return;
+    // on `!user` in that case, so there's no need to reset state here. Also
+    // skipped entirely in preview mode — there's no claim state to check for
+    // a listing manager looking at their own not-yet-published listing.
+    if (previewMode || !user || !provider.slug) return;
 
     let cancelled = false;
     const token = localStorage.getItem("authToken") || undefined;
@@ -829,7 +957,7 @@ function SidebarInfo({
     return () => {
       cancelled = true;
     };
-  }, [user, provider.slug]);
+  }, [user, provider.slug, previewMode]);
 
   // An email claim awaiting its OTP can be resumed — the verify page jumps
   // straight to the code-entry step for this case.
@@ -845,7 +973,7 @@ function SidebarInfo({
   // eligibility check hasn't resolved yet (or says not-claimable for some
   // other reason), the destination page has its own eligibility gate and
   // explains why if it genuinely can't be challenged.
-  const showClaimSection = showClaimButton || isClaimed;
+  const showClaimSection = !previewMode && (showClaimButton || isClaimed);
   const claimButtonLabel = hasResumableClaim
     ? "Continue claim verification"
     : isClaimed
@@ -1034,17 +1162,21 @@ function SidebarInfo({
         {/* Always shown, independent of eligibility — this is a quiet, permanent
             "is this listing wrong / not yours?" affordance (same as Google/Yelp
             always showing an "Own this business?" link regardless of claim
-            status). The actual eligibility gate lives on the destination page. */}
-        <p className="text-xs text-gray-400 mt-5 text-center">
-          Own this listing?{" "}
-          <button
-            type="button"
-            onClick={handleClaimBusiness}
-            className="text-[#93C01F] font-medium hover:underline"
-          >
-            Claim your listing
-          </button>
-        </p>
+            status). The actual eligibility gate lives on the destination page.
+            Hidden in preview mode — meaningless for a vendor previewing their
+            own listing. */}
+        {!previewMode && (
+          <p className="text-xs text-gray-400 mt-5 text-center">
+            Own this listing?{" "}
+            <button
+              type="button"
+              onClick={handleClaimBusiness}
+              className="text-[#93C01F] font-medium hover:underline"
+            >
+              Claim your listing
+            </button>
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -1056,10 +1188,12 @@ function ListingBentoGallery({
   images,
   alt,
   slug,
+  previewMode = false,
 }: {
   images: GalleryItem[];
   alt: string;
   slug: string;
+  previewMode?: boolean;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -1225,17 +1359,21 @@ function ListingBentoGallery({
       {/* ── Mobile: carousel ── */}
       <div className="relative md:hidden">
         <HeroCarousel items={items} alt={alt} />
-        <div className="absolute top-3 right-3 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        {!previewMode && (
+          <div className="absolute top-3 right-3 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Desktop: bento ── */}
       <div className="hidden md:block relative">
         <div className="w-full h-[500px] bg-gray-200">{desktopGrid()}</div>
-        <div className="absolute top-4 right-4 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        {!previewMode && (
+          <div className="absolute top-4 right-4 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Lightbox ── */}
@@ -1258,6 +1396,11 @@ export default function UniversalSlugPage({
 }: PageProps) {
   const resolvedParams = React.use(params);
   const { categorySlug, slug } = resolvedParams;
+  // Set by the dashboard wizard's "Preview as visitor" dialog (an iframe onto
+  // this exact route) to suppress interactions that don't make sense for a
+  // listing manager looking at their own not-yet-published listing. Purely
+  // cosmetic — /show has no access control, so this isn't a security gate.
+  const previewMode = useSearchParams().get("preview") === "1";
 
   const [loading, setLoading] = useState(true);
   const [providerData, setProviderData] = useState<Provider | null>(null);
@@ -1522,19 +1665,23 @@ export default function UniversalSlugPage({
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>Home</BreadcrumbPage> : <BreadcrumbLink href="/">Home</BreadcrumbLink>}
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>{sectionLabel}</BreadcrumbPage> : <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>}
             </BreadcrumbItem>
             {categorySlug && (
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbLink href={`/categories/${categorySlug}`}>
-                    {formatCategoryLabel(categorySlug)}
-                  </BreadcrumbLink>
+                  {previewMode ? (
+                    <BreadcrumbPage>{formatCategoryLabel(categorySlug)}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={`/categories/${categorySlug}`}>
+                      {formatCategoryLabel(categorySlug)}
+                    </BreadcrumbLink>
+                  )}
                 </BreadcrumbItem>
               </>
             )}
@@ -1553,6 +1700,7 @@ export default function UniversalSlugPage({
               images={template.gallery}
               alt={providerData.name}
               slug={providerData.slug}
+              previewMode={previewMode}
             />
 
             <ProviderHeader
@@ -1566,6 +1714,7 @@ export default function UniversalSlugPage({
               providerName={providerData.name}
               galleryItems={template.gallery}
               listingSlug={providerData.slug}
+              previewMode={previewMode}
             />
           </div>
 
@@ -1608,6 +1757,7 @@ export default function UniversalSlugPage({
             pricing={template.pricing}
             // services={template.services}
             hours={template.hours}
+            previewMode={previewMode}
           />
         </aside>
       </div>

@@ -48,6 +48,8 @@ interface ReviewsSectionProps {
   listingSlug: string;
   /** Pass true when the authenticated user owns the listing (vendor/creator). */
   isOwner?: boolean;
+  /** Hides the "Leave Review" action — for previewing a not-yet-published listing. */
+  readOnly?: boolean;
 }
 
 function ReviewItem({
@@ -244,7 +246,7 @@ function ReviewItem({
   );
 }
 
-export function ReviewsSection({ reviews, listingSlug, isOwner = false }: ReviewsSectionProps) {
+export function ReviewsSection({ reviews, listingSlug, isOwner = false, readOnly = false }: ReviewsSectionProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -345,7 +347,7 @@ export function ReviewsSection({ reviews, listingSlug, isOwner = false }: Review
         <h3 className="text-xl font-bold text-gray-900">
           Reviews ({reviewsList.length})
         </h3>
-        <Dialog open={open} onOpenChange={setOpen}>
+        {!readOnly && <Dialog open={open} onOpenChange={setOpen}>
           <Button
             onClick={handleLeaveReview}
             className="bg-[#93C01F] hover:bg-[#84ad1b] text-white font-medium"
@@ -410,7 +412,7 @@ export function ReviewsSection({ reviews, listingSlug, isOwner = false }: Review
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       <div className="space-y-4">
@@ -421,7 +423,7 @@ export function ReviewsSection({ reviews, listingSlug, isOwner = false }: Review
               review={r}
               onReply={handleReply}
               listingSlug={listingSlug}
-              isOwner={isOwner}
+              isOwner={!readOnly && isOwner}
             />
           ))
         ) : (

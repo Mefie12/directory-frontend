@@ -19,6 +19,7 @@ import {
   YoutubeLogo,
   TiktokLogo,
   WhatsappLogo,
+  Eye,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { useListing } from "@/context/listing-form-context";
 import { getImageUrl } from "@/lib/directory/image-utils";
 import { stripHtml } from "@/lib/utils";
 import { LISTING_JOURNEYS, ListingReadiness, ListingType } from "@/lib/listing-form-v2";
+import { ListingPreviewDialog } from "@/components/dashboard/listing/listing-preview-dialog";
 
 /**
  * Resolve the cover image src from either the API `primary_image` field or
@@ -101,6 +103,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     const [socialLinks, setSocialLinks] = useState<Record<string, string | null> | null>(null);
     const [openingHours, setOpeningHours] = useState<ApiListingData["opening_hours"] | null>(null);
     const [submissionReadiness, setSubmissionReadiness] = useState<ListingReadiness | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
 
     // Fetch listing data, opening hours, and socials in parallel
     useEffect(() => {
@@ -249,11 +252,23 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
 
     return (
       <div className="space-y-6 py-2">
-        <div>
-          <h2 className="text-xl font-semibold mb-1">Preview & Submit for review</h2>
-          <p className="text-sm text-muted-foreground">
-            Review your public listing and resolve required items before sending it to the moderation team.
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold mb-1">Preview & Submit for review</h2>
+            <p className="text-sm text-muted-foreground">
+              Review your public listing and resolve required items before sending it to the moderation team.
+            </p>
+          </div>
+          {listingData && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPreviewOpen(true)}
+              className="shrink-0"
+            >
+              <Eye className="h-4 w-4" /> Preview as visitor
+            </Button>
+          )}
         </div>
 
         {listingData?.status === "rejected" && listingData.status_reason && (
@@ -516,6 +531,15 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
             )}
           </CardContent>
         </Card>
+
+        {listingData && (
+          <ListingPreviewDialog
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+            listingSlug={listingSlug}
+            listingType={listingData.type as ListingType}
+          />
+        )}
       </div>
     );
   },

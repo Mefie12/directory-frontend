@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
 import { ListingReadiness } from "@/lib/listing-form-v2";
+import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
 import { AddressMinimap } from "@mapbox/search-js-react";
 import type { Feature, GeoJsonProperties, Point } from "geojson";
 import {
@@ -66,7 +67,18 @@ interface ServiceItem {
   image?: string | null;
   description?: string | null;
 }
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 interface EventInfo {
+  slug?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
@@ -79,15 +91,24 @@ interface EventInfo {
   currency?: string | null;
   location_type?: string | null;
   timezone?: string | null;
+  timezone_label?: string | null;
+  spans_multiple_days?: boolean;
   is_all_day?: boolean;
   online_access_policy?: string | null;
   online_access_instructions?: string | null;
   online_url?: string | null;
   attendance_type?: string | null;
+  admission_availability?: string | null;
   registration_url?: string | null;
+  pricing_mode?: string | null;
+  purchase_method?: string | null;
+  purchase_instructions?: string | null;
   ticket_url?: string | null;
   ticket_provider?: string | null;
+  ticket_release_at?: string | null;
   ticket_availability_message?: string | null;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number } | null;
 }
 interface ListingDetail {
   id: string;
@@ -255,6 +276,7 @@ const mapListing = (item: any): ListingDetail => {
   const event: EventInfo | undefined =
     item.type === "event"
       ? {
+          slug: eventData.slug,
           start_date: eventData.event_start_date ?? item.event_start_date,
           end_date: eventData.event_end_date ?? item.event_end_date,
           start_time: eventData.event_start_time ?? item.event_start_time,
@@ -267,15 +289,24 @@ const mapListing = (item: any): ListingDetail => {
           currency: eventData.event_currency ?? item.event_currency,
           location_type: eventData.event_location_type ?? item.event_location_type,
           timezone: eventData.timezone,
+          timezone_label: eventData.timezone_label,
+          spans_multiple_days: eventData.spans_multiple_days,
           is_all_day: Boolean(eventData.is_all_day),
           online_access_policy: eventData.online_access_policy,
           online_access_instructions: eventData.online_access_instructions,
           online_url: eventData.event_online_url,
           attendance_type: eventData.attendance_type,
+          admission_availability: eventData.admission_availability,
           registration_url: eventData.registration_url,
+          pricing_mode: eventData.pricing_mode,
+          purchase_method: eventData.purchase_method,
+          purchase_instructions: eventData.purchase_instructions,
           ticket_url: eventData.event_ticket_url,
           ticket_provider: eventData.ticket_provider,
+          ticket_release_at: eventData.ticket_release_at,
           ticket_availability_message: eventData.ticket_availability_message,
+          ticket_types: eventData.ticket_types,
+          price_range: eventData.price_range,
         }
       : undefined;
 
@@ -885,14 +916,19 @@ export default function ListingDetailsPage() {
 
             {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
               <InfoRow icon={Calendar} label="Date">
-                {ev.start_date}
-                {ev.end_date ? ` – ${ev.end_date}` : ""}
+                {formatEventDateRange({ startDate: ev.start_date, endDate: ev.end_date, spansMultipleDays: ev.spans_multiple_days })}
               </InfoRow>
             )}
             {listing.type === "event" && ev && (ev.start_time || ev.end_time) && (
               <InfoRow icon={Clock} label="Time">
-                {ev.start_time}
-                {ev.end_time ? ` – ${ev.end_time}` : ""}
+                {formatEventTimeRange({
+                  startDate: ev.start_date,
+                  endDate: ev.end_date,
+                  startTime: ev.start_time,
+                  endTime: ev.end_time,
+                  spansMultipleDays: ev.spans_multiple_days,
+                  timezoneLabel: ev.timezone_label,
+                })}
               </InfoRow>
             )}
 
@@ -971,16 +1007,36 @@ export default function ListingDetailsPage() {
               <div className="border-t py-3"><p className="text-xs text-gray-500">Participation method</p><p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{listing.raw.community_participation_method || "—"}</p></div>
             </>}
             {listing.type === "event" && ev && <>
-              <InfoRow icon={Globe} label="Timezone">{ev.timezone || "—"}</InfoRow>
+              <InfoRow icon={Globe} label="Timezone">{ev.timezone ? `${ev.timezone}${ev.timezone_label ? ` (${ev.timezone_label})` : ""}` : "—"}</InfoRow>
               <InfoRow icon={Calendar} label="Schedule type">{ev.is_all_day ? "All-day" : "Timed"}</InfoRow>
               <InfoRow icon={Globe} label="Online access policy">{formatSnakeCase(ev.online_access_policy) || "—"}</InfoRow>
               {ev.online_url && <InfoRow icon={Globe} label="Public access URL"><a href={ev.online_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open link</a></InfoRow>}
               {ev.online_access_instructions && <div className="border-t py-3"><p className="text-xs text-gray-500">Access instructions</p><p className="mt-1 whitespace-pre-wrap text-sm">{ev.online_access_instructions}</p></div>}
               <InfoRow icon={Ticket} label="Attendance">{formatSnakeCase(ev.attendance_type) || "—"}</InfoRow>
+              {ev.admission_availability && <InfoRow icon={Ticket} label="Admission availability">{formatSnakeCase(ev.admission_availability)}</InfoRow>}
+              {ev.attendance_type === "paid" && ev.pricing_mode === "fixed" && ev.price != null && ev.price !== "" && <InfoRow icon={Ticket} label="Price">{ev.currency ? `${ev.currency} ` : ""}{ev.price}</InfoRow>}
+              {ev.pricing_mode === "multiple" && ev.price_range && <InfoRow icon={Ticket} label="Price range">{ev.currency ? `${ev.currency} ` : ""}{ev.price_range.min === ev.price_range.max ? ev.price_range.min : `${ev.price_range.min} – ${ev.price_range.max}`}</InfoRow>}
+              {ev.pricing_mode === "multiple" && ev.ticket_types && ev.ticket_types.filter((t) => t.is_active !== false).length > 0 && (
+                <div className="border-t py-3">
+                  <p className="text-xs text-gray-500 mb-1.5">Ticket types</p>
+                  <div className="space-y-1">
+                    {ev.ticket_types.filter((t) => t.is_active !== false).map((t) => (
+                      <div key={t.slug} className="flex items-center justify-between text-sm">
+                        <span>{t.name}</span>
+                        <span className="font-medium text-gray-900">{ev.currency ? `${ev.currency} ` : ""}{t.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {ev.pricing_mode === "varies" && <InfoRow icon={Ticket} label="Price">Varies</InfoRow>}
+              {ev.attendance_type === "paid" && ev.purchase_method && <InfoRow icon={Ticket} label="Purchase method">{formatSnakeCase(ev.purchase_method)}</InfoRow>}
               {ev.registration_url && <InfoRow icon={Ticket} label="Registration"><a href={ev.registration_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open registration</a></InfoRow>}
-              {ev.ticket_url && <InfoRow icon={Ticket} label="Ticket URL"><a href={ev.ticket_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open tickets</a></InfoRow>}
+              {ev.purchase_method === "external_url" && ev.ticket_url && <InfoRow icon={Ticket} label="Ticket URL"><a href={ev.ticket_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open tickets</a></InfoRow>}
               {ev.ticket_provider && <InfoRow icon={Ticket} label="Ticket provider">{ev.ticket_provider}</InfoRow>}
+              {ev.purchase_instructions && <div className="border-t py-3"><p className="text-xs text-gray-500">Purchase instructions</p><p className="mt-1 whitespace-pre-wrap text-sm">{ev.purchase_instructions}</p></div>}
               {ev.ticket_availability_message && <div className="border-t py-3"><p className="text-xs text-gray-500">Ticket availability message</p><p className="mt-1 text-sm">{ev.ticket_availability_message}</p></div>}
+              {ev.admission_availability === "coming_soon" && ev.ticket_release_at && <InfoRow icon={Ticket} label="Release time">{new Date(ev.ticket_release_at).toLocaleString()}</InfoRow>}
             </>}
             {mapFeature && mapboxToken && <div className="mt-3 h-40 overflow-hidden rounded-lg border"><AddressMinimap show feature={mapFeature} accessToken={mapboxToken} /></div>}
           </div>

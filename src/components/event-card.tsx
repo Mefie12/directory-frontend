@@ -16,6 +16,8 @@ export type Event = {
   startDate: string;
   endDate: string;
   verified: boolean;
+  time?: string;
+  timezoneLabel?: string;
 };
 
 type EventCardProps = {
@@ -148,6 +150,8 @@ export function EventCard({ event, href }: EventCardProps) {
               {event.startDate}
               {event.startDate && event.endDate ? " - " : ""}
               {event.endDate}
+              {event.time && ` · ${event.time}`}
+              {event.timezoneLabel && ` ${event.timezoneLabel}`}
             </span>
           </div>
         )}

@@ -12,6 +12,7 @@ import type {
   CuratedCollection,
   CuratedCollectionListing,
 } from "@/types/curated-collections";
+import { parseLocalDate } from "@/lib/directory/event-formatting";
 
 function toBusinessCard(listing: CuratedCollectionListing) {
   return {
@@ -30,8 +31,12 @@ function toBusinessCard(listing: CuratedCollectionListing) {
 }
 
 function toEventCard(listing: CuratedCollectionListing) {
-  const formattedDate = listing.event_start_date
-    ? new Date(listing.event_start_date).toLocaleDateString("en-GB", {
+  // Parsed via parseLocalDate rather than `new Date(dateString)` directly —
+  // a date-only string is otherwise interpreted as UTC midnight, shifting
+  // the displayed date back a day for viewers west of UTC.
+  const parsedDate = parseLocalDate(listing.event_start_date);
+  const formattedDate = parsedDate
+    ? parsedDate.toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
         year: "numeric",
