@@ -30,6 +30,7 @@ const gilroy = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.mefiedirectory.com"),
   title: {
     template: "%s | Me-fie Directory",
     default: "Me-fie Directory",
@@ -97,14 +98,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://mefiedirectory.com",
+    url: "https://www.mefiedirectory.com",
     siteName: "Me-fie Directory",
     title: "Me-fie Directory",
     description:
       "Mefie Directory | Discover Ghanaian Businesses, Events & Services Worldwide Discover trusted Ghanaian businesses, cultural events, communities, and services across the diaspora and beyond. Connect, promote, and grow with Mefie Directory.",
     images: [
       {
-        url: "https://mefiedirectory.com/og-image.jpg",
+        url: "https://www.mefiedirectory.com/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Me-fie Directory",
@@ -116,14 +117,14 @@ export const metadata: Metadata = {
     title: "Me-fie",
     description:
       "Mefie Directory | Discover Ghanaian Businesses, Events & Services Worldwide Discover trusted Ghanaian businesses, cultural events, communities, and services across the diaspora and beyond. Connect, promote, and grow with Mefie Directory.",
-    images: ["https://mefiedirectory.com/og-image.jpg"],
+    images: ["https://www.mefiedirectory.com/og-image.jpg"],
     creator: "@mefie",
   },
   verification: {
     google: "your-google-verification-code",
   },
   alternates: {
-    canonical: "https://mefiedirectory.com",
+    canonical: "https://www.mefiedirectory.com",
   },
 };
 
