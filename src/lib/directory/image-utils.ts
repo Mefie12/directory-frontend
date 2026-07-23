@@ -32,7 +32,7 @@ export function processImages(
       return !!(img && typeof img === "object" && img.original);
     })
     .map((img) =>
-      getImageUrl(typeof img === "string" ? img : (img.webp || img.original)),
+      getImageUrl(typeof img === "string" ? img : (img.card || img.webp || img.original)),
     );
 
   if (valid.length > 0) return valid;

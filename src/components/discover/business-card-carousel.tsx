@@ -72,11 +72,14 @@ export default function BusinessCardCarousel({
         images = raw.images as string[];
       } else if (
         raw.images.every(
-          (img: { original?: string }) =>
+          (img: { original?: string; card?: string; webp?: string }) =>
             img && typeof img === "object" && "original" in img
         )
       ) {
-        images = raw.images.map((img: { original?: string }) => img.original || "");
+        images = raw.images.map(
+          (img: { original?: string; card?: string; webp?: string }) =>
+            img.card || img.webp || img.original || "",
+        );
       }
     } else if (business.image && typeof business.image === "string") {
       images = [business.image];

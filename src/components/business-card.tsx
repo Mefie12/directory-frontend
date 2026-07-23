@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
+import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
 export type Business = {
   id: string;
@@ -68,34 +68,16 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
       ? business.images[0]
       : "/images/no-image.jpg";
 
-  // 2. Use State to hold the image source.
-  // This is the cure for the "looping" issue.
-  const [imageSrc, setImageSrc] = useState(initialImage);
-
-  useEffect(() => {
-    setImageSrc(initialImage);
-  }, [initialImage]);
-
   return (
     <Link
       href={getBusinessLink()}
       className="group block bg-white rounded-2xl overflow-hidden hover:shadow-sm transition-all duration-300 border border-[#E2E8F0]"
     >
       <div className="relative w-full aspect-4/3 overflow-hidden">
-        <Image
-          src={imageSrc}
+        <ListingCoverMedia
+          src={initialImage}
           alt={business.name}
-          fill
-          // 3. 'unoptimized' is key if the server is external (me-fie.co.uk)
-          unoptimized={true}
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={() => {
-            // 4. If it fails, switch state to placeholder ONE TIME only.
-            // This stops the infinite loop.
-            if (imageSrc !== "/images/no-image.jpg") {
-              setImageSrc("/images/no-image.jpg");
-            }
-          }}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
 
 

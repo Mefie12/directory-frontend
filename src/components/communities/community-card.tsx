@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Bookmark } from "lucide-react";
 import Link from "next/link";
@@ -8,6 +7,7 @@ import type { CommunityCard } from "@/lib/data";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn, stripHtml } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
 interface CommunityCardProps {
   community: CommunityCard & { image?: string }; // Extend type to allow 'image'
@@ -55,14 +55,6 @@ export default function CommunityCard({ community, href }: CommunityCardProps) {
   const initialImage =
     community.image || community.imageUrl || "/images/no-image.jpg";
 
-  // 2. Use State to hold the image source (Prevents looping)
-  const [imageSrc, setImageSrc] = useState(initialImage);
-
-  // 3. Sync state if the prop changes
-  useEffect(() => {
-    setImageSrc(initialImage);
-  }, [initialImage]);
-
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -78,19 +70,10 @@ export default function CommunityCard({ community, href }: CommunityCardProps) {
       <div className="relative p-3 w-full overflow-hidden">
         {/* Image with fixed aspect ratio */}
         <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-gray-100">
-          <Image
-            src={imageSrc}
+          <ListingCoverMedia
+            src={initialImage}
             alt={community.name}
-            fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            unoptimized={true} // Bypass Next.js optimization for external URLs
-            onError={() => {
-              // 4. Safety check to prevent infinite loops
-              if (imageSrc !== "/images/no-image.jpg") {
-                setImageSrc("/images/no-image.jpg");
-              }
-            }}
           />
 
           {/* Bookmark Icon */}

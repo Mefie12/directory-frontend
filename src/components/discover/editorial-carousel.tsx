@@ -21,7 +21,7 @@ function toBusinessCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     category: listing.categories[0]?.name || "",
     images: listing.images
-      .map((img) => img.original || img.thumb)
+      .map((img) => img.card || img.webp || img.original || img.thumb)
       .filter(Boolean),
     rating: listing.rating ?? 0,
     reviewCount: listing.ratings_count ?? 0,
@@ -49,6 +49,8 @@ function toEventCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     category: listing.categories[0]?.name || "",
     image:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",
@@ -67,10 +69,14 @@ function toCommunityCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     description: listing.bio || listing.description || "",
     imageUrl:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",
     image:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",
