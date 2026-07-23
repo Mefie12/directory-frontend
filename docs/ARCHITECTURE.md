@@ -78,6 +78,11 @@ Every call to the Laravel backend goes through a server-side route under `src/ap
 
 `NEXT_PUBLIC_*` env vars are inlined into the client bundle. If the frontend called the backend directly, the backend host would leak into shipped JS and could not be swapped per environment without a rebuild. The `API_URL` used by proxies is a **private** (non-`NEXT_PUBLIC_`) variable that can be changed in Vercel without touching a single client file.
 
+`NEXT_PUBLIC_UNCROPPED_LISTING_CARDS` controls the live-safe listing cover
+rollout. Keep it `false` for the legacy `object-cover` renderer; set it to
+`true` to show the complete cover over the decorative blurred fill. Because it
+is public/build-time configuration, changing it requires a frontend rebuild.
+
 ### 3.2 Avoid CORS headaches
 
 Browser → `same-origin/api/events` → no CORS preflight.

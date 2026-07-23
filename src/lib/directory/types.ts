@@ -10,6 +10,8 @@ export interface ApiImage {
   thumb: string;
   /** Spatie V2: WebP version URL (falls back to original while conversion is pending) */
   webp: string;
+  /** Uncropped, bounded WebP intended for listing cards. */
+  card?: string;
   mime_type?: string;
   file_size?: number;
   size?: string;

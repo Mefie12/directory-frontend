@@ -75,11 +75,14 @@ export default function BusinessBestCarousel({
       // FIX: Typed 'img' to { media: string } to allow access without 'any' error
       else if (
         raw.images.every(
-          (img: { original?: string }) =>
+          (img: { original?: string; card?: string; webp?: string }) =>
             img && typeof img === "object" && "original" in img
         )
       ) {
-        images = raw.images.map((img: { original?: string }) => img.original || "");
+        images = raw.images.map(
+          (img: { original?: string; card?: string; webp?: string }) =>
+            img.card || img.webp || img.original || "",
+        );
       }
     } else if (business.image && typeof business.image === "string") {
       images = [business.image];

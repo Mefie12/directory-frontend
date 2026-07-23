@@ -16,6 +16,7 @@ import { useAuth } from "@/context/auth-context";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries as allCountries } from "country-data-list";
 import { stripHtml } from "@/lib/utils";
+import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
 // Types
 export type Business = (typeof BusinessCard)["prototype"]["props"]["business"];
@@ -45,6 +46,7 @@ interface ApiImage {
   original: string;
   thumb: string;
   webp: string;
+  card?: string;
   mime_type?: string;
 }
 
@@ -258,7 +260,10 @@ export default function HomeContent() {
               return !!(img && typeof img === "object" && img.original);
             })
             .map((img: string | ApiImage) => {
-              const mediaPath = typeof img === "string" ? img : img.original;
+              const mediaPath =
+                typeof img === "string"
+                  ? img
+                  : img.card || img.webp || img.original;
               return getImageUrl(mediaPath);
             });
 
@@ -557,12 +562,10 @@ export default function HomeContent() {
                 >
                   <div className="relative w-32 sm:w-48 h-auto p-3 shrink-0">
                     <div className="relative w-full h-full rounded-xl overflow-hidden bg-gray-100">
-                      <Image
+                      <ListingCoverMedia
                         src={item.image}
                         alt={item.title}
-                        fill
-                        className="object-cover"
-                        unoptimized={true}
+                        sizes="(max-width: 640px) 128px, 192px"
                       />
                     </div>
                   </div>

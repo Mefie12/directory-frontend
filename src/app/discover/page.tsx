@@ -21,6 +21,7 @@ interface ApiImage {
   original: string;
   thumb: string;
   webp: string;
+  card?: string;
   mime_type?: string;
 }
 
@@ -161,7 +162,10 @@ function DiscoverContent() {
             return !!(img && typeof img === "object" && img.original);
           })
           .map((img: any) => {
-            const mediaPath = typeof img === "string" ? img : img.original;
+            const mediaPath =
+              typeof img === "string"
+                ? img
+                : img.card || img.webp || img.original;
             return getImageUrl(mediaPath);
           });
 
