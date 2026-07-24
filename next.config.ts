@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   },
   /* config options here */
   images: {
+    // Next.js 16 blocks the image optimizer from fetching private/loopback IPs
+    // (SSRF guard) even when the hostname is in remotePatterns. Local dev serves
+    // media from http://localhost:8000, so opt in for dev only.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== "production",
     remotePatterns: [
       {
         protocol: "https",

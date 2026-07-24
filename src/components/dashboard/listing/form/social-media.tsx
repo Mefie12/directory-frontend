@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 import {
   FacebookLogo,
   InstagramLogo,
-  LinkedinLogo,
   TwitterLogo,
   TiktokLogo,
   WhatsappLogo,
+  YoutubeLogo,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
@@ -41,9 +41,9 @@ const platformPatterns: Record<string, { patterns: RegExp[]; hint: string }> = {
     patterns: [/^twitter\.com\//, /^x\.com\//],
     hint: "Must be a Twitter/X URL (e.g. twitter.com/handle or x.com/handle)",
   },
-  linkedin: {
-    patterns: [/^linkedin\.com\//],
-    hint: "Must be a LinkedIn URL (e.g. linkedin.com/company/yourcompany)",
+  youtube: {
+    patterns: [/^youtube\.com\//, /^youtu\.be\//],
+    hint: "Must be a YouTube URL (e.g. youtube.com/@yourchannel)",
   },
   tiktok: {
     patterns: [/^tiktok\.com\//],
@@ -106,12 +106,12 @@ export const socialMediaSchema = z.object({
     .refine((val) => validatePlatform(val, "twitter"), {
       message: platformPatterns.twitter.hint,
     }),
-  linkedin: z
+  youtube: z
     .string()
     .optional()
     .or(z.literal(""))
-    .refine((val) => validatePlatform(val, "linkedin"), {
-      message: platformPatterns.linkedin.hint,
+    .refine((val) => validatePlatform(val, "youtube"), {
+      message: platformPatterns.youtube.hint,
     }),
   tiktok: z
     .string()
@@ -161,11 +161,11 @@ const socialPlatforms = [
     color: "text-blue-400",
   },
   {
-    id: "linkedin",
-    name: "LinkedIn",
-    icon: LinkedinLogo,
-    placeholder: "linkedin.com/company/yourcompany",
-    color: "text-blue-700",
+    id: "youtube",
+    name: "YouTube",
+    icon: YoutubeLogo,
+    placeholder: "youtube.com/@yourchannel",
+    color: "text-red-600",
   },
   {
     id: "tiktok",
@@ -210,7 +210,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
         facebook: "",
         instagram: "",
         twitter: "",
-        linkedin: "",
+        youtube: "",
         tiktok: "",
         whatsapp: "",
       },
@@ -245,7 +245,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               facebook: s.facebook || contextSocials.facebook || "",
               instagram: s.instagram || contextSocials.instagram || "",
               twitter: s.twitter || contextSocials.twitter || "",
-              linkedin: s.linkedin || contextSocials.linkedin || "",
+              youtube: s.youtube || contextSocials.youtube || "",
               tiktok: s.tiktok || contextSocials.tiktok || "",
               whatsapp: s.whatsapp || contextSocials.whatsapp || "",
             });
@@ -254,7 +254,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               facebook: contextSocials.facebook || "",
               instagram: contextSocials.instagram || "",
               twitter: contextSocials.twitter || "",
-              linkedin: contextSocials.linkedin || "",
+              youtube: contextSocials.youtube || "",
               tiktok: contextSocials.tiktok || "",
               whatsapp: contextSocials.whatsapp || "",
             });
@@ -266,7 +266,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
               facebook: contextSocials.facebook || "",
               instagram: contextSocials.instagram || "",
               twitter: contextSocials.twitter || "",
-              linkedin: contextSocials.linkedin || "",
+              youtube: contextSocials.youtube || "",
               tiktok: contextSocials.tiktok || "",
               whatsapp: contextSocials.whatsapp || "",
             });
@@ -288,16 +288,14 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
         // Normalize URLs — send empty string explicitly so backend clears the field
         const socialData = Object.fromEntries(
-          Object.entries(data)
-            .map(([key, value]) => [
-              key,
-              value?.trim()
-                ? key === "whatsapp"
-                  ? normalizeWhatsApp(value)
-                  : normalizeUrl(value)
-                : null,
-            ])
-            .filter(([, value]) => value !== null),
+          Object.entries(data).map(([key, value]) => [
+            key,
+            value?.trim()
+              ? key === "whatsapp"
+                ? normalizeWhatsApp(value)
+                : normalizeUrl(value)
+              : null,
+          ]),
         );
 
         const existingSlug = existingSocialSlug.current;

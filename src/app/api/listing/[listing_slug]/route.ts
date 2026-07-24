@@ -9,6 +9,7 @@ export async function DELETE(
   try {
     const { listing_slug } = await params;
     const authHeader = request.headers.get('Authorization');
+    const body = await request.json().catch(() => ({}));
 
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}`,
@@ -19,15 +20,13 @@ export async function DELETE(
           'Accept': 'application/json',
           ...(authHeader && { Authorization: authHeader }),
         },
+        body: JSON.stringify(body),
       }
     );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: errorData.message || 'Failed to delete listing' },
-        { status: response.status }
-      );
+      return NextResponse.json({ ...errorData, message: errorData.message || 'Failed to archive listing' }, { status: response.status });
     }
 
     const data = await response.json().catch(() => ({}));

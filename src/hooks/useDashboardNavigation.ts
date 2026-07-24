@@ -108,6 +108,14 @@ const MENU_CONFIG: MenuItem[] = [
     roles: ["vendor"],
   },
 
+  // ─── My Claims (Customer + Vendor) ───
+  {
+    title: "My Claims",
+    url: "/dashboard/my-claims",
+    icon: Files,
+    roles: ["customer", "vendor"],
+  },
+
   // ─── Bookmarks (Customer) ───
   {
     title: "Bookmarks",

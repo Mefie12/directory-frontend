@@ -4,6 +4,7 @@ import { Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn, stripHtml } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
 export type Event = {
   id: string;
@@ -16,6 +17,8 @@ export type Event = {
   startDate: string;
   endDate: string;
   verified: boolean;
+  time?: string;
+  timezoneLabel?: string;
 };
 
 type EventCardProps = {
@@ -73,13 +76,10 @@ export function EventCard({ event, href }: EventCardProps) {
     >
       {/* Image Container */}
       <div className="relative w-full h-[220px] overflow-hidden">
-        <Image
+        <ListingCoverMedia
           src={event.image}
           alt={event.name}
-          fill
-          unoptimized
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
         {/* Bookmark Icon - Always visible on mobile, hover on desktop */}
@@ -148,6 +148,8 @@ export function EventCard({ event, href }: EventCardProps) {
               {event.startDate}
               {event.startDate && event.endDate ? " - " : ""}
               {event.endDate}
+              {event.time && ` · ${event.time}`}
+              {event.timezoneLabel && ` ${event.timezoneLabel}`}
             </span>
           </div>
         )}

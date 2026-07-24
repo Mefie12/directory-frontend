@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 
 .vercel
@@ -41,8 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 
-/plans
+/plans/*
+!/plans/canonical-listing-creation-prd.md
 
 # accidental duplicate — not a real route
 src/app/api/listings copy/
-

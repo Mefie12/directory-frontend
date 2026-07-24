@@ -8,7 +8,6 @@ import { EventCard } from "@/components/event-card";
 import { Button } from "@/components/ui/button";
 import { DirectoryPageShell } from "@/components/directory/directory-page-shell";
 import { useDirectoryListings } from "@/lib/directory/use-directory-listings";
-import { useAuth } from "@/context/auth-context";
 import type { ProcessedEvent } from "@/types/event";
 import { createEventMapper } from "./map-event";
 
@@ -16,7 +15,6 @@ const PAGE_LOAD_TIME = Date.now();
 
 export default function EventsContent() {
   const router = useRouter();
-  const { user } = useAuth();
   const searchParams = useSearchParams();
 
   const filterCountry = searchParams.get("country");
@@ -74,7 +72,7 @@ export default function EventsContent() {
   }, [items]);
 
   const handleCtaClick = () => {
-    router.push(user ? "/claim" : "/auth/login?redirect=/claim");
+    router.push("/claim");
   };
 
   return (
@@ -135,6 +133,8 @@ export default function EventsContent() {
             startDate: e.startDate,
             endDate: e.endDate,
             verified: e.verified,
+            time: e.time,
+            timezoneLabel: e.timezoneLabel,
           }}
         />
       )}

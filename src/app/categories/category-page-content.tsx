@@ -130,6 +130,7 @@ function ListingCard({ item }: { item: ApiListing }) {
         location: listingLocation(item),
         verified,
         slug: item.slug,
+        reachBadge: item.reach_badge,
       }}
     />
   );

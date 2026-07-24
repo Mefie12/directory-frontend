@@ -5,41 +5,48 @@ import { useState, useRef, useEffect } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { resendEmailClaimOtp, verifyEmailClaimOtp } from "@/lib/api";
+
+const OTP_EXPIRY_SECONDS = 15 * 60;
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function VerifyOtp({
   business,
-  claimedEmail,
+  listingSlug,
   onNext,
 }: {
   business: any;
-  claimedEmail: string;
+  listingSlug: string;
   onNext: () => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
-  const [timer, setTimer] = useState(165);
+  const [isResending, setIsResending] = useState(false);
+  const [expiresIn, setExpiresIn] = useState(OTP_EXPIRY_SECONDS);
+  const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN_SECONDS);
   const [otpValue, setOtpValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-  const listingIdentifier = business?.slug || business?.id;
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
     setOtpValue(digits);
   };
 
-  const focusInput = () => {
-    inputRef.current?.focus();
-  };
+  useEffect(() => {
+    if (expiresIn <= 0) return;
+    const interval = setInterval(() => setExpiresIn((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(interval);
+  }, [expiresIn]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timer > 0) {
-      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
-    }
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => setResendCooldown((prev) => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(interval);
-  }, [timer]);
+  }, [resendCooldown]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -53,38 +60,11 @@ export default function VerifyOtp({
       return;
     }
 
-    if (!listingIdentifier) {
-      toast.error("Listing identifier not found. Please restart the claim.");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("authToken");
-
-      const response = await fetch(
-        `${API_URL}/api/listing/${listingIdentifier}/verify_claim_by_email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            otp: otpValue,
-            email: claimedEmail,
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Invalid verification code");
-      }
-
-      toast.success("Listing verified successfully!");
+      const token = localStorage.getItem("authToken") || undefined;
+      await verifyEmailClaimOtp(listingSlug, otpValue, token);
+      toast.success("Email verified — your case is now under admin review.");
       onNext();
     } catch (error: any) {
       toast.error(error.message || "Verification failed. Please try again.");
@@ -94,32 +74,19 @@ export default function VerifyOtp({
   };
 
   const handleResendCode = async () => {
-    if (!listingIdentifier) return;
+    if (resendCooldown > 0 || isResending) return;
 
+    setIsResending(true);
     try {
-      const token = localStorage.getItem("authToken");
-
-      const response = await fetch(
-        `${API_URL}/api/listing/${listingIdentifier}/resend_otp`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            email: claimedEmail,
-          }),
-        },
-      );
-
-      if (!response.ok) throw new Error("Failed to resend code");
-
-      setTimer(60);
-      toast.success("Code resent successfully.");
+      const token = localStorage.getItem("authToken") || undefined;
+      await resendEmailClaimOtp(listingSlug, token);
+      setExpiresIn(OTP_EXPIRY_SECONDS);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      toast.success("A new code has been sent.");
     } catch (error: any) {
       toast.error(error.message || "Failed to resend code");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -132,9 +99,8 @@ export default function VerifyOtp({
           Enter 6-Digit Code
         </h2>
         <p className="text-gray-500 text-lg">
-          We&apos;ve sent a 6-digit verification code to{" "}
-          <span className="font-bold text-[#1F3A4C]">{claimedEmail}</span>.
-          Please enter it below.
+          We&apos;ve sent a 6-digit verification code to {business?.name}&apos;s
+          registered email address. Please enter it below.
         </p>
       </div>
 
@@ -143,7 +109,6 @@ export default function VerifyOtp({
         className="relative flex justify-between gap-2 mb-8 cursor-text"
         onClick={focusInput}
       >
-        {/* Real input overlaid transparently — receives all keyboard/paste events natively */}
         <input
           ref={inputRef}
           type="text"
@@ -157,7 +122,6 @@ export default function VerifyOtp({
           aria-label="OTP input"
         />
 
-        {/* Visual digit boxes */}
         {Array.from({ length: 6 }).map((_, index) => {
           const isActiveSlot = isFocused && index === otpValue.length;
           const isFilled = index < digits.length;
@@ -186,15 +150,16 @@ export default function VerifyOtp({
       <div className="flex flex-col items-center gap-2 mb-12">
         <div className="flex items-center gap-2 text-gray-500 font-medium">
           Code expires in{" "}
-          <span className="text-[#1F3A4C]">{formatTime(timer)}</span>
+          <span className="text-[#1F3A4C]">{formatTime(expiresIn)}</span>
         </div>
         <p className="text-gray-500">
           Didn&apos;t receive a code?{" "}
           <button
             onClick={handleResendCode}
-            className="text-[#93C01F] font-bold hover:underline"
+            disabled={resendCooldown > 0 || isResending}
+            className="text-[#93C01F] font-bold hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
           >
-            Resend Code
+            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
           </button>
         </p>
       </div>

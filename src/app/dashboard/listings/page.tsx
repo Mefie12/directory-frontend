@@ -67,9 +67,10 @@ import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
+import { ListingReadiness } from "@/lib/listing-form-v2";
 
 // --- Types ---
-type TabType = "all" | "approved" | "pending" | "suspended" | "rejected" | "categories";
+type TabType = "all" | "approved" | "pending" | "draft" | "suspended" | "rejected" | "archived" | "categories";
 
 interface Listing {
   id: string;
@@ -80,7 +81,7 @@ interface Listing {
   category: string;
   location: string;
   type: string;
-  approval: "Approved" | "Pending" | "Rejected" | "Suspended";
+  approval: "Approved" | "Pending" | "Draft" | "Rejected" | "Suspended" | "Archived";
   image: string;
   images?: string[];
   plan?: "Basic" | "Pro" | "Premium";
@@ -103,6 +104,8 @@ interface Listing {
     };
   };
   verified: boolean;
+  readiness?: ListingReadiness;
+  reviewSubmittedAt?: string | null;
 }
 
 interface RawListing {
@@ -156,6 +159,8 @@ interface RawListing {
   }>;
   city?: string;
   country?: string;
+  submission_readiness?: ListingReadiness;
+  archived?: boolean;
 }
 
 interface ApiResponse {
@@ -403,13 +408,15 @@ export default function Listings() {
       }
 
       const rawStatus = item.status?.toLowerCase() || "pending";
-      let approval: "Approved" | "Pending" | "Rejected" | "Suspended" =
+      let approval: "Approved" | "Pending" | "Draft" | "Rejected" | "Suspended" | "Archived" =
         "Pending";
 
-      if (rawStatus === "approved" || rawStatus === "published")
+      if (item.archived) approval = "Archived";
+      else if (rawStatus === "approved" || rawStatus === "published")
         approval = "Approved";
       else if (rawStatus === "rejected") approval = "Rejected";
       else if (rawStatus === "suspended") approval = "Suspended";
+      else if (rawStatus === "draft") approval = "Draft";
 
       const socialsData = Array.isArray(item.socials)
         ? item.socials[0]
@@ -450,6 +457,8 @@ export default function Listings() {
           },
         },
         verified: !!(item.listing_verified ?? item.is_verified),
+        readiness: item.submission_readiness,
+        reviewSubmittedAt: item.submission_readiness?.review_submitted_at ?? null,
       };
     });
   };
@@ -617,10 +626,14 @@ export default function Listings() {
         all: "admin/all_listings",
         approved: "admin/approved_listings",
         pending: "admin/pending_listings",
+        draft: "admin/drafted_listings",
+        archived: "admin/archived_listings",
         suspended: "admin/suspended_listings",
         rejected: "admin/rejected_listings",
       };
-      const endpoint = endpointMap[activeTab] || "admin/all_listings";
+      const endpoint = activeTab === "all" && statusFilter === "archived"
+        ? "admin/archived_listings"
+        : endpointMap[activeTab] || "admin/all_listings";
       if (activeTab === "approved") params.set("status", "approved");
 
       const response = await fetch(
@@ -706,10 +719,19 @@ export default function Listings() {
 
     if (activeTab === "pending") {
       filteredData = safeAllData.filter((item) => item.approval === "Pending");
+      filteredData = [...filteredData].sort((a, b) => {
+        const aTime = a.reviewSubmittedAt ? new Date(a.reviewSubmittedAt).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = b.reviewSubmittedAt ? new Date(b.reviewSubmittedAt).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    } else if (activeTab === "draft") {
+      filteredData = safeAllData.filter((item) => item.approval === "Draft");
     } else if (activeTab === "suspended") {
       filteredData = safeAllData.filter((item) => item.approval === "Suspended");
     } else if (activeTab === "rejected") {
       filteredData = safeAllData.filter((item) => item.approval === "Rejected");
+    } else if (activeTab === "archived") {
+      filteredData = safeAllData.filter((item) => item.approval === "Archived");
     } else {
       if (statusFilter !== "all") {
         const status = statusFilter.toLowerCase();
@@ -725,6 +747,12 @@ export default function Listings() {
           filteredData = filteredData.filter(
             (item) => item.approval === "Rejected",
           );
+        } else if (status === "draft") {
+          filteredData = filteredData.filter((item) => item.approval === "Draft");
+        } else if (status === "suspended") {
+          filteredData = filteredData.filter((item) => item.approval === "Suspended");
+        } else if (status === "archived") {
+          filteredData = filteredData.filter((item) => item.approval === "Archived");
         }
       }
 
@@ -847,8 +875,10 @@ export default function Listings() {
           { key: "all", label: "All" },
           { key: "approved", label: "Approved" },
           { key: "pending", label: "Pending" },
+          { key: "draft", label: "Draft" },
           { key: "suspended", label: "Suspended" },
           { key: "rejected", label: "Rejected" },
+          { key: "archived", label: "Archived" },
         ].map((tab) => (
           <Button
             key={tab.key}
@@ -996,6 +1026,8 @@ export default function Listings() {
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -1004,10 +1036,9 @@ export default function Listings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="venue">Venue</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="product">Product</SelectItem>
-                    <SelectItem value="package">Package</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="community">Community</SelectItem>
+                    <SelectItem value="event">Event</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1106,6 +1137,7 @@ export default function Listings() {
                           >
                             {item.approval}
                           </Badge>
+                          {item.approval === "Pending" && item.readiness && <div className="mt-2 space-y-1"><p className={`text-xs ${item.readiness.is_complete ? "text-green-700" : "text-amber-700"}`}>{item.readiness.is_complete ? "Ready" : `${item.readiness.missing_count} blocker(s)`}</p>{item.readiness.changed_since_review_began && <p className="text-xs font-medium text-blue-700">Changed since review began{item.readiness.review_content_updated_at ? ` · ${new Date(item.readiness.review_content_updated_at).toLocaleString()}` : ""}</p>}{item.reviewSubmittedAt && <p className="text-[11px] text-gray-400">Submitted {new Date(item.reviewSubmittedAt).toLocaleString()}</p>}</div>}
                         </TableCell>
 
                         {/* --- ACTIONS MENU: View Details → details page --- */}

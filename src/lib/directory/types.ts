@@ -10,6 +10,8 @@ export interface ApiImage {
   thumb: string;
   /** Spatie V2: WebP version URL (falls back to original while conversion is pending) */
   webp: string;
+  /** Uncropped, bounded WebP intended for listing cards. */
+  card?: string;
   mime_type?: string;
   file_size?: number;
   size?: string;
@@ -46,6 +48,7 @@ export interface ApiListing {
   city?: string;
   country?: string;
   status?: string;
+  claim_status?: "unclaimed" | "appealed" | "claimed" | string;
   images: (ApiImage | string)[];
   cover_image?: string;
   image?: string;
@@ -59,6 +62,7 @@ export interface ApiListing {
   verified?: boolean;
   isVerified?: boolean;
   badge?: string;
+  reach_badge?: string | null;
   // Event-only fields (flat — populated by ListingResource when events relation is loaded)
   event_start_date?: string;
   event_end_date?: string;
@@ -73,6 +77,8 @@ export interface ApiListing {
   event_location_type?: string | null;
   event_ticket_url?: string | null;
   event_online_url?: string | null;
+  event_timezone?: string | null;
+  event_timezone_label?: string | null;
 }
 
 export interface ApiListingsResponse<T = ApiListing> {

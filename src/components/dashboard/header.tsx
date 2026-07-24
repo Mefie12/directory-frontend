@@ -31,11 +31,9 @@ interface Notification {
 
 interface RawNotification {
   id: string;
-  data: {
-    title: string;
-    message: string;
-    link?: string;
-  };
+  title: string;
+  message: string;
+  link?: string;
   created_at: string;
   read_at: string | null;
 }
@@ -104,9 +102,7 @@ export default function Header() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      const response = await fetch(`${API_URL}/api/notifications`, {
+      const response = await fetch(`/api/notifications`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -121,11 +117,11 @@ export default function Header() {
 
       const mappedData: Notification[] = rawData.map((item) => ({
         id: item.id,
-        title: item.data.title || "New Notification",
-        message: item.data.message || "",
+        title: item.title || "New Notification",
+        message: item.message || "",
         time: formatNotificationTime(item.created_at),
         isRead: !!item.read_at,
-        link: item.data.link || "",
+        link: item.link || "",
       }));
 
       setNotifications(mappedData);
@@ -143,9 +139,7 @@ export default function Header() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      await fetch(`${API_URL}/api/notifications/mark-all-read`, {
+      await fetch(`/api/notifications/mark-all-read`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -165,9 +159,7 @@ export default function Header() {
 
     try {
       const token = getAuthToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-      await fetch(`${API_URL}/api/notifications/${id}/read`, {
+      await fetch(`/api/notifications/${id}/read`, {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -178,7 +170,7 @@ export default function Header() {
       if (link) {
         router.push(link);
       } else {
-        router.push("/dashboard/inquiries");
+        router.push("/dashboard");
       }
     } catch (error) {
       console.error("Failed to mark notification as read", error);
@@ -284,7 +276,7 @@ export default function Header() {
                               handleViewInquiry(item.id, item.link);
                             }}
                           >
-                            View Inquiry
+                            View update
                           </button>
                         </div>
                       </DropdownMenuItem>

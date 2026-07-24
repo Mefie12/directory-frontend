@@ -11,6 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
+import { ListingReadiness } from "@/lib/listing-form-v2";
+import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
+import { AddressMinimap } from "@mapbox/search-js-react";
+import type { Feature, GeoJsonProperties, Point } from "geojson";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,7 +67,18 @@ interface ServiceItem {
   image?: string | null;
   description?: string | null;
 }
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 interface EventInfo {
+  slug?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
@@ -75,6 +90,25 @@ interface EventInfo {
   price?: string | number | null;
   currency?: string | null;
   location_type?: string | null;
+  timezone?: string | null;
+  timezone_label?: string | null;
+  spans_multiple_days?: boolean;
+  is_all_day?: boolean;
+  online_access_policy?: string | null;
+  online_access_instructions?: string | null;
+  online_url?: string | null;
+  attendance_type?: string | null;
+  admission_availability?: string | null;
+  registration_url?: string | null;
+  pricing_mode?: string | null;
+  purchase_method?: string | null;
+  purchase_instructions?: string | null;
+  ticket_url?: string | null;
+  ticket_provider?: string | null;
+  ticket_release_at?: string | null;
+  ticket_availability_message?: string | null;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number } | null;
 }
 interface ListingDetail {
   id: string;
@@ -86,7 +120,8 @@ interface ListingDetail {
   subcategory?: string;
   location: string;
   type: string;
-  approval: "Approved" | "Pending" | "Rejected" | "Suspended";
+  approval: "Approved" | "Pending" | "Draft" | "Rejected" | "Suspended" | "Archived";
+  status: string;
   image: string;
   images: string[];
   plan: string;
@@ -120,6 +155,10 @@ interface ListingDetail {
       whatsapp?: string;
     };
   };
+  readiness?: ListingReadiness;
+  reviewSubmittedAt?: string | null;
+  raw: any;
+  archived: boolean;
 }
 
 const getInitials = (name: string) =>
@@ -205,8 +244,10 @@ const mapListing = (item: any): ListingDetail => {
 
   const rawStatus = (item.status || "pending").toLowerCase();
   let approval: ListingDetail["approval"] = "Pending";
-  if (rawStatus === "approved" || rawStatus === "published")
+  if (item.archived) approval = "Archived";
+  else if (rawStatus === "approved" || rawStatus === "published")
     approval = "Approved";
+  else if (rawStatus === "draft") approval = "Draft";
   else if (rawStatus === "rejected") approval = "Rejected";
   else if (rawStatus === "suspended") approval = "Suspended";
 
@@ -231,20 +272,41 @@ const mapListing = (item: any): ListingDetail => {
       }))
     : [];
 
+  const eventData = item.event || {};
   const event: EventInfo | undefined =
     item.type === "event"
       ? {
-          start_date: item.event_start_date,
-          end_date: item.event_end_date,
-          start_time: item.event_start_time,
-          end_time: item.event_end_time,
-          venue: item.event_venue,
-          venue_address: item.event_venue_address,
-          city: item.event_city,
-          country: item.event_country,
-          price: item.event_price,
-          currency: item.event_currency,
-          location_type: item.event_location_type,
+          slug: eventData.slug,
+          start_date: eventData.event_start_date ?? item.event_start_date,
+          end_date: eventData.event_end_date ?? item.event_end_date,
+          start_time: eventData.event_start_time ?? item.event_start_time,
+          end_time: eventData.event_end_time ?? item.event_end_time,
+          venue: eventData.event_venue ?? item.event_venue,
+          venue_address: eventData.event_venue_address ?? item.event_venue_address,
+          city: eventData.event_city ?? item.event_city,
+          country: eventData.event_country ?? item.event_country,
+          price: eventData.event_price ?? item.event_price,
+          currency: eventData.event_currency ?? item.event_currency,
+          location_type: eventData.event_location_type ?? item.event_location_type,
+          timezone: eventData.timezone,
+          timezone_label: eventData.timezone_label,
+          spans_multiple_days: eventData.spans_multiple_days,
+          is_all_day: Boolean(eventData.is_all_day),
+          online_access_policy: eventData.online_access_policy,
+          online_access_instructions: eventData.online_access_instructions,
+          online_url: eventData.event_online_url,
+          attendance_type: eventData.attendance_type,
+          admission_availability: eventData.admission_availability,
+          registration_url: eventData.registration_url,
+          pricing_mode: eventData.pricing_mode,
+          purchase_method: eventData.purchase_method,
+          purchase_instructions: eventData.purchase_instructions,
+          ticket_url: eventData.event_ticket_url,
+          ticket_provider: eventData.ticket_provider,
+          ticket_release_at: eventData.ticket_release_at,
+          ticket_availability_message: eventData.ticket_availability_message,
+          ticket_types: eventData.ticket_types,
+          price_range: eventData.price_range,
         }
       : undefined;
 
@@ -259,6 +321,7 @@ const mapListing = (item: any): ListingDetail => {
     location,
     type: item.type || "business",
     approval,
+    status: rawStatus,
     image,
     images: images.length > 0 ? images : image ? [image] : [],
     plan: item.plan || "Basic",
@@ -292,6 +355,10 @@ const mapListing = (item: any): ListingDetail => {
         whatsapp: socials?.whatsapp,
       },
     },
+    readiness: item.submission_readiness,
+    reviewSubmittedAt: item.submission_readiness?.review_submitted_at ?? null,
+    raw: item,
+    archived: Boolean(item.archived),
   };
 };
 
@@ -303,8 +370,8 @@ const mapListing = (item: any): ListingDetail => {
 // };
 
 // "in_person" -> "In Person"
-const formatSnakeCase = (value: string) =>
-  value
+const formatSnakeCase = (value?: string | null) =>
+  (value ?? "")
     .split("_")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -372,13 +439,18 @@ export default function ListingDetailsPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [pendingVerify, setPendingVerify] = useState<boolean | null>(null);
+  const [moderationAction, setModerationAction] = useState<"approved" | "rejected" | "suspended" | "pending" | null>(null);
+  const [moderationReason, setModerationReason] = useState("");
+  const [pastEventOverride, setPastEventOverride] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [statusHistory, setStatusHistory] = useState<Array<{ id: number; from_status: string; to_status: string; reason?: string | null; source: string; past_event_override?: boolean; created_at: string; changed_by?: { name?: string } }>>([]);
 
   const loadListing = useCallback(async () => {
     if (authLoading) return;
     setIsLoading(true);
     try {
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`/api/listing/${slug}/show`, {
+      const res = await fetch(`/api/admin/listings/${slug}`, {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
@@ -390,6 +462,7 @@ export default function ListingDetailsPage() {
       const mapped = mapListing(raw);
       setListing(mapped);
       setIsVerified(mapped.verified);
+      setStatusHistory(json.status_history?.data ?? json.status_history ?? []);
     } catch {
       setNotFound(true);
     } finally {
@@ -402,7 +475,8 @@ export default function ListingDetailsPage() {
   }, [loadListing]);
 
   const handleStatusUpdate = async (
-    newStatus: "approved" | "rejected" | "suspended",
+    newStatus: "approved" | "rejected" | "suspended" | "pending",
+    reason?: string,
   ) => {
     if (!listing) return;
     setIsUpdatingStatus(true);
@@ -415,20 +489,26 @@ export default function ListingDetailsPage() {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, status_reason: reason || null, admin_past_event_override: pastEventOverride }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to update status");
+        if (err.readiness) setListing((current) => current ? { ...current, readiness: err.readiness, raw: { ...current.raw, submission_readiness: err.readiness } } : current);
+        const messages = err.errors ? Object.values(err.errors as Record<string, string[]>).flat() : [];
+        throw new Error(messages[0] || err.message || "Failed to update status");
       }
       const uiStatus =
         newStatus === "approved"
           ? "Approved"
           : newStatus === "rejected"
             ? "Rejected"
-            : "Suspended";
+            : newStatus === "suspended" ? "Suspended" : "Pending";
       setListing((prev) => (prev ? { ...prev, approval: uiStatus } : prev));
       toast.success(`Listing ${newStatus}`);
+      setModerationAction(null);
+      setModerationReason("");
+      setPastEventOverride(false);
+      await loadListing();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to update status",
@@ -436,6 +516,15 @@ export default function ListingDetailsPage() {
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleModerationConfirm = async () => {
+    if (!moderationAction) return;
+    if (["rejected", "suspended", "pending"].includes(moderationAction) && !moderationReason.trim()) {
+      toast.error("A reason is required for this moderation action.");
+      return;
+    }
+    await handleStatusUpdate(moderationAction, moderationReason.trim());
   };
 
   const handleDelete = async () => {
@@ -447,19 +536,44 @@ export default function ListingDetailsPage() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
           Accept: "application/json",
         },
+        body: JSON.stringify({ reason: archiveReason.trim() }),
       });
-      if (!res.ok && res.status !== 204)
-        throw new Error("Failed to delete listing");
-      toast.success("Listing deleted successfully");
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.message || "Failed to archive listing");
+      toast.success("Listing archived successfully");
       router.push("/dashboard/listings");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete listing",
+        error instanceof Error ? error.message : "Failed to archive listing",
       );
       setIsDeleting(false);
       setShowDelete(false);
+    }
+  };
+
+  const handleRestoreArchive = async () => {
+    if (!listing || !archiveReason.trim()) return;
+    setIsDeleting(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`/api/admin/listings/${listing.slug}/restore`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ reason: archiveReason.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || "Failed to restore listing");
+      toast.success("Listing restored successfully");
+      setShowDelete(false);
+      setArchiveReason("");
+      await loadListing();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to restore listing");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -540,6 +654,13 @@ export default function ListingDetailsPage() {
     ? website.replace(/^https?:\/\//, "").replace(/\/$/, "")
     : "";
   const ev = listing.event;
+  const hasPastEventBlocker = listing.readiness?.blockers.some((blocker) => blocker.code === "past_event_submission_blocked") ?? false;
+  const latitude = Number(listing.raw.latitude);
+  const longitude = Number(listing.raw.longitude);
+  const mapFeature: Feature<Point, GeoJsonProperties> | null = Number.isFinite(latitude) && Number.isFinite(longitude)
+    ? { type: "Feature", geometry: { type: "Point", coordinates: [longitude, latitude] }, properties: { name: listing.location || listing.name } }
+    : null;
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
 
   const TypeIcon =
     listing.type === "event"
@@ -708,70 +829,49 @@ export default function ListingDetailsPage() {
 
           {/* Sidebar slot: moderation actions + verify toggle */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 space-y-5">
+            <div className="rounded-xl border bg-gray-50 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><p className="text-xs text-gray-500">Moderation status</p><p className="font-semibold">{listing.approval}{listing.approval === "Approved" ? " · Published" : ""}</p></div>
+                {listing.readiness?.changed_since_review_began && <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">Changed since review began</span>}
+              </div>
+              {listing.reviewSubmittedAt && <p className="text-xs text-gray-500">Submitted {new Date(listing.reviewSubmittedAt).toLocaleString()}</p>}
+              {listing.readiness && <div><p className="text-sm font-medium">{listing.readiness.is_complete ? "Ready for approval" : `${listing.readiness.missing_count} required item(s) need attention`}</p>
+                {listing.readiness.blockers.length > 0 && <div className="mt-2 space-y-2">{listing.readiness.blockers.map((blocker) => <div key={blocker.code} className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900"><span className="font-medium capitalize">{blocker.step.replaceAll("_", " ")}:</span> {blocker.message}</div>)}</div>}
+                {listing.readiness.recommendations.length > 0 && <div className="mt-3 border-t pt-2"><p className="text-xs font-medium text-gray-600">Optional recommendations</p>{listing.readiness.recommendations.map((item) => <p key={item.code} className="mt-1 text-xs text-gray-500">• {item.message}</p>)}</div>}
+              </div>}
+            </div>
             <div>
               <h3 className="font-semibold text-gray-900 text-sm mb-3">
                 Manage Listing
               </h3>
               <div className="flex flex-wrap items-center gap-2">
-                {/* Status actions — neutral by default, filled with its
-                    semantic color only when it matches the current status */}
-                <Button
-                  onClick={() => handleStatusUpdate("approved")}
-                  disabled={isUpdatingStatus}
-                  variant={
-                    listing.approval === "Approved" ? "default" : "outline"
-                  }
-                  className={
-                    listing.approval === "Approved"
-                      ? "bg-[#93C01F] hover:bg-[#7ea919] text-white border-[#93C01F] gap-1.5"
-                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
-                  }
+                {listing.status === "pending" && <Button
+                  onClick={() => setModerationAction("approved")}
+                  disabled={isUpdatingStatus || (!listing.readiness?.is_complete && !(hasPastEventBlocker && listing.readiness?.missing_count === 1))}
+                  className="bg-[#93C01F] hover:bg-[#7ea919] text-white gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  {listing.approval === "Approved" ? "Approved" : "Approve"}
-                </Button>
-                <Button
-                  onClick={() => handleStatusUpdate("suspended")}
+                  Approve & publish
+                </Button>}
+                {listing.status === "approved" && <Button
+                  onClick={() => setModerationAction("suspended")}
                   disabled={isUpdatingStatus}
-                  variant={
-                    listing.approval === "Suspended" ? "default" : "outline"
-                  }
-                  className={
-                    listing.approval === "Suspended"
-                      ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500 gap-1.5"
-                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
-                  }
+                  variant="outline" className="text-orange-700 gap-1.5"
                 >
                   <AlertTriangle className="w-4 h-4" />
-                  {listing.approval === "Suspended" ? "Suspended" : "Suspend"}
-                </Button>
-                <Button
-                  onClick={() => handleStatusUpdate("rejected")}
+                  Suspend
+                </Button>}
+                {listing.status === "pending" && <Button
+                  onClick={() => setModerationAction("rejected")}
                   disabled={isUpdatingStatus}
-                  variant={
-                    listing.approval === "Rejected" ? "default" : "outline"
-                  }
-                  className={
-                    listing.approval === "Rejected"
-                      ? "bg-red-600 hover:bg-red-700 text-white border-red-600 gap-1.5"
-                      : "text-gray-600 border-gray-200 hover:bg-gray-50 gap-1.5"
-                  }
+                  variant="outline" className="text-red-700 gap-1.5"
                 >
                   <XCircle className="w-4 h-4" />
-                  {listing.approval === "Rejected" ? "Rejected" : "Reject"}
-                </Button>
+                  Reject
+                </Button>}
+                {listing.status === "suspended" && <Button onClick={() => setModerationAction("pending")} disabled={isUpdatingStatus} className="gap-1.5"><CheckCircle2 className="h-4 w-4" />Restore to review</Button>}
+                {(listing.status === "draft" || listing.status === "rejected") && <p className="text-sm text-gray-500">{listing.status === "draft" ? "Awaiting creator submission." : "Awaiting creator corrections and resubmission."}</p>}
 
-                <div className="w-px h-6 bg-gray-200 mx-1" />
-
-                {/* Delete — always a distinct, separated destructive action */}
-                <Button
-                  onClick={() => setShowDelete(true)}
-                  disabled={isUpdatingStatus}
-                  variant="outline"
-                  className="text-gray-500 border-gray-200 hover:text-red-600 hover:border-red-300 hover:bg-red-50 gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
-                </Button>
               </div>
             </div>
 
@@ -787,9 +887,19 @@ export default function ListingDetailsPage() {
               <Switch
                 checked={pendingVerify !== null ? pendingVerify : isVerified}
                 onCheckedChange={(checked) => setPendingVerify(checked)}
-                disabled={isVerifying}
+                disabled={isVerifying || listing.status !== "approved" || listing.archived}
                 className="data-[state=checked]:bg-[#93C01F]"
               />
+            </div>
+            <div className="border-t border-gray-100 pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Archive administration</p>
+              {listing.archived ? (
+                <Button onClick={() => { setArchiveReason(""); setShowDelete(true); }} variant="outline">Restore archived listing</Button>
+              ) : ["draft", "rejected"].includes(listing.status) ? (
+                <Button onClick={() => { setArchiveReason(""); setShowDelete(true); }} variant="outline" className="text-red-600"><Trash2 className="mr-2 h-4 w-4" />Archive listing</Button>
+              ) : (
+                <p className="text-sm text-gray-500">Only Draft or Rejected listings can be archived.</p>
+              )}
             </div>
           </div>
 
@@ -806,14 +916,19 @@ export default function ListingDetailsPage() {
 
             {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
               <InfoRow icon={Calendar} label="Date">
-                {ev.start_date}
-                {ev.end_date ? ` – ${ev.end_date}` : ""}
+                {formatEventDateRange({ startDate: ev.start_date, endDate: ev.end_date, spansMultipleDays: ev.spans_multiple_days })}
               </InfoRow>
             )}
             {listing.type === "event" && ev && (ev.start_time || ev.end_time) && (
               <InfoRow icon={Clock} label="Time">
-                {ev.start_time}
-                {ev.end_time ? ` – ${ev.end_time}` : ""}
+                {formatEventTimeRange({
+                  startDate: ev.start_date,
+                  endDate: ev.end_date,
+                  startTime: ev.start_time,
+                  endTime: ev.end_time,
+                  spansMultipleDays: ev.spans_multiple_days,
+                  timezoneLabel: ev.timezone_label,
+                })}
               </InfoRow>
             )}
 
@@ -877,6 +992,56 @@ export default function ListingDetailsPage() {
               </InfoRow>
             )}
           </div>
+
+          {/* Type-specific V2 moderation details */}
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-2">{listing.type === "business" ? "Business operations" : listing.type === "community" ? "Community participation" : "Event access & ticketing"}</h3>
+            {listing.type === "business" && <>
+              <InfoRow icon={Briefcase} label="Operating presence">{formatSnakeCase(listing.raw.business_presence_type) || "—"}</InfoRow>
+              <InfoRow icon={Globe} label="Service reach">{formatSnakeCase(listing.raw.business_service_reach) || "—"}</InfoRow>
+              {Array.isArray(listing.raw.service_countries) && <InfoRow icon={Globe} label="Service countries">{listing.raw.service_countries.map((country: { name: string }) => country.name).join(", ") || "—"}</InfoRow>}
+              <InfoRow icon={Clock} label="Availability">{formatSnakeCase(listing.raw.business_hours_mode) || "—"}</InfoRow>
+            </>}
+            {listing.type === "community" && <>
+              <InfoRow icon={Users} label="Location scope">{formatSnakeCase(listing.raw.community_location_scope) || "—"}</InfoRow>
+              <div className="border-t py-3"><p className="text-xs text-gray-500">Participation method</p><p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{listing.raw.community_participation_method || "—"}</p></div>
+            </>}
+            {listing.type === "event" && ev && <>
+              <InfoRow icon={Globe} label="Timezone">{ev.timezone ? `${ev.timezone}${ev.timezone_label ? ` (${ev.timezone_label})` : ""}` : "—"}</InfoRow>
+              <InfoRow icon={Calendar} label="Schedule type">{ev.is_all_day ? "All-day" : "Timed"}</InfoRow>
+              <InfoRow icon={Globe} label="Online access policy">{formatSnakeCase(ev.online_access_policy) || "—"}</InfoRow>
+              {ev.online_url && <InfoRow icon={Globe} label="Public access URL"><a href={ev.online_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open link</a></InfoRow>}
+              {ev.online_access_instructions && <div className="border-t py-3"><p className="text-xs text-gray-500">Access instructions</p><p className="mt-1 whitespace-pre-wrap text-sm">{ev.online_access_instructions}</p></div>}
+              <InfoRow icon={Ticket} label="Attendance">{formatSnakeCase(ev.attendance_type) || "—"}</InfoRow>
+              {ev.admission_availability && <InfoRow icon={Ticket} label="Admission availability">{formatSnakeCase(ev.admission_availability)}</InfoRow>}
+              {ev.attendance_type === "paid" && ev.pricing_mode === "fixed" && ev.price != null && ev.price !== "" && <InfoRow icon={Ticket} label="Price">{ev.currency ? `${ev.currency} ` : ""}{ev.price}</InfoRow>}
+              {ev.pricing_mode === "multiple" && ev.price_range && <InfoRow icon={Ticket} label="Price range">{ev.currency ? `${ev.currency} ` : ""}{ev.price_range.min === ev.price_range.max ? ev.price_range.min : `${ev.price_range.min} – ${ev.price_range.max}`}</InfoRow>}
+              {ev.pricing_mode === "multiple" && ev.ticket_types && ev.ticket_types.filter((t) => t.is_active !== false).length > 0 && (
+                <div className="border-t py-3">
+                  <p className="text-xs text-gray-500 mb-1.5">Ticket types</p>
+                  <div className="space-y-1">
+                    {ev.ticket_types.filter((t) => t.is_active !== false).map((t) => (
+                      <div key={t.slug} className="flex items-center justify-between text-sm">
+                        <span>{t.name}</span>
+                        <span className="font-medium text-gray-900">{ev.currency ? `${ev.currency} ` : ""}{t.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {ev.pricing_mode === "varies" && <InfoRow icon={Ticket} label="Price">Varies</InfoRow>}
+              {ev.attendance_type === "paid" && ev.purchase_method && <InfoRow icon={Ticket} label="Purchase method">{formatSnakeCase(ev.purchase_method)}</InfoRow>}
+              {ev.registration_url && <InfoRow icon={Ticket} label="Registration"><a href={ev.registration_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open registration</a></InfoRow>}
+              {ev.purchase_method === "external_url" && ev.ticket_url && <InfoRow icon={Ticket} label="Ticket URL"><a href={ev.ticket_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Open tickets</a></InfoRow>}
+              {ev.ticket_provider && <InfoRow icon={Ticket} label="Ticket provider">{ev.ticket_provider}</InfoRow>}
+              {ev.purchase_instructions && <div className="border-t py-3"><p className="text-xs text-gray-500">Purchase instructions</p><p className="mt-1 whitespace-pre-wrap text-sm">{ev.purchase_instructions}</p></div>}
+              {ev.ticket_availability_message && <div className="border-t py-3"><p className="text-xs text-gray-500">Ticket availability message</p><p className="mt-1 text-sm">{ev.ticket_availability_message}</p></div>}
+              {ev.admission_availability === "coming_soon" && ev.ticket_release_at && <InfoRow icon={Ticket} label="Release time">{new Date(ev.ticket_release_at).toLocaleString()}</InfoRow>}
+            </>}
+            {mapFeature && mapboxToken && <div className="mt-3 h-40 overflow-hidden rounded-lg border"><AddressMinimap show feature={mapFeature} accessToken={mapboxToken} /></div>}
+          </div>
+
+          {statusHistory.length > 0 && <div className="rounded-xl border border-gray-100 bg-white p-4"><h3 className="font-semibold text-gray-900 text-sm mb-3">Status history</h3><div className="space-y-3">{statusHistory.map((entry) => <div key={entry.id} className="border-l-2 border-gray-200 pl-3 text-sm"><p className="font-medium capitalize">{entry.from_status} → {entry.to_status}</p>{entry.past_event_override && <p className="text-xs font-medium text-amber-700">Past-event exception used</p>}{entry.reason && <p className="text-gray-600">{entry.reason}</p>}<p className="text-xs text-gray-400">{entry.changed_by?.name ? `${entry.changed_by.name} · ` : ""}{formatSnakeCase(entry.source)} · {new Date(entry.created_at).toLocaleString()}</p></div>)}</div></div>}
 
           {/* Social Links */}
           {hasSocials && (
@@ -972,31 +1137,44 @@ export default function ListingDetailsPage() {
         </div>
       </div>
 
-      {/* Delete confirmation */}
+      {/* Moderation confirmation */}
+      <AlertDialog open={moderationAction !== null} onOpenChange={(open) => { if (!open) { setModerationAction(null); setModerationReason(""); setPastEventOverride(false); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{moderationAction === "approved" ? "Approve and publish this listing?" : moderationAction === "rejected" ? "Reject this listing?" : moderationAction === "suspended" ? "Suspend this listing?" : "Restore this listing to review?"}</AlertDialogTitle>
+            <AlertDialogDescription>{moderationAction === "approved" ? "The listing is complete and will become publicly discoverable." : moderationAction === "pending" ? "The listing will return to Pending review and will not be republished automatically." : "The creator will see this reason and receive a notification."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {moderationAction && moderationAction !== "approved" && <div className="space-y-2"><Label htmlFor="moderation-reason">Reason</Label><textarea id="moderation-reason" value={moderationReason} onChange={(event) => setModerationReason(event.target.value)} maxLength={1000} className="min-h-28 w-full rounded-md border p-3 text-sm" placeholder={moderationAction === "rejected" ? "Explain exactly what the creator must correct." : moderationAction === "pending" ? "Record why the suspension can be lifted." : "Explain why the listing is being suspended."} /><p className="text-right text-xs text-gray-400">{moderationReason.length}/1000</p></div>}
+          {moderationAction === "approved" && hasPastEventBlocker && <label className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><input type="checkbox" checked={pastEventOverride} onChange={(event) => setPastEventOverride(event.target.checked)} className="mt-1" /><span><strong>Use past-event publication exception.</strong><br />This exception is audited and bypasses only the past-event blocker. Every other requirement must still be complete.</span></label>}
+          <AlertDialogFooter><AlertDialogCancel disabled={isUpdatingStatus}>Cancel</AlertDialogCancel><AlertDialogAction onClick={(event) => { event.preventDefault(); handleModerationConfirm(); }} disabled={isUpdatingStatus || (moderationAction !== "approved" && !moderationReason.trim())} className={moderationAction === "rejected" ? "bg-red-600 hover:bg-red-700" : moderationAction === "suspended" ? "bg-orange-600 hover:bg-orange-700" : "bg-[#93C01F] hover:bg-[#7ea919]"}>{isUpdatingStatus ? "Saving…" : moderationAction === "approved" ? "Approve & publish" : moderationAction === "pending" ? "Restore to review" : moderationAction === "rejected" ? "Reject listing" : "Suspend listing"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive / restore confirmation */}
       <AlertDialog
         open={showDelete}
         onOpenChange={(o) => !o && setShowDelete(false)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>{listing.archived ? "Restore this archived listing?" : "Archive this listing?"}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete{" "}
-              <strong>{listing.name}</strong> and remove its data from the
-              servers.
+              {listing.archived ? "The listing will return to its previous Draft or Rejected status." : "The listing will be hidden but its media and audit history will be preserved."} <strong>{listing.name}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2"><Label htmlFor="archive-reason">Administrative reason</Label><textarea id="archive-reason" value={archiveReason} onChange={(event) => setArchiveReason(event.target.value)} maxLength={1000} className="min-h-24 w-full rounded-md border p-3 text-sm" /><p className="text-right text-xs text-gray-400">{archiveReason.length}/1000</p></div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                handleDelete();
+                if (listing.archived) handleRestoreArchive();
+                else handleDelete();
               }}
               className="bg-red-600 hover:bg-red-700"
-              disabled={isDeleting}
+              disabled={isDeleting || !archiveReason.trim()}
             >
-              {isDeleting ? "Deleting..." : "Delete Listing"}
+              {isDeleting ? "Saving..." : listing.archived ? "Restore listing" : "Archive listing"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

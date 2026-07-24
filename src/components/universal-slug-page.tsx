@@ -6,7 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import {
   MapPin,
@@ -44,6 +44,8 @@ import { HeroCarousel } from "@/components/hero-slide";
 import { BookmarkButton } from "@/components/bookmark-button";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { useAuth } from "@/context/auth-context";
+import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
+import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -146,6 +148,34 @@ interface ApiEventData {
   event_online_url?: string;
   starts_at?: string;
   ends_at?: string;
+  timezone?: string;
+  timezone_label?: string;
+  starts_at_utc?: string;
+  ends_at_utc?: string;
+  spans_multiple_days?: boolean;
+  online_access_policy?: string;
+  online_access_instructions?: string;
+  attendance_type?: string;
+  admission_availability?: string;
+  registration_url?: string;
+  pricing_mode?: string;
+  purchase_method?: string;
+  purchase_instructions?: string;
+  ticket_provider?: string;
+  ticket_release_at?: string;
+  ticket_availability_message?: string;
+  ticket_types?: ApiEventTicketType[];
+  price_range?: { min: number; max: number };
+}
+
+interface ApiEventTicketType {
+  id?: number;
+  slug: string;
+  name: string;
+  description?: string | null;
+  price: string | number;
+  sort_order?: number;
+  is_active?: boolean;
 }
 
 interface ApiListingData {
@@ -221,6 +251,7 @@ interface Provider {
 interface GalleryItem {
   type: "image" | "video";
   src: string;
+  poster?: string;
   alt?: string;
 }
 
@@ -270,6 +301,14 @@ const getImageUrl = (url: string | undefined | null): string => {
   }
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
   return `${API_URL}/${url.replace(/^\//, "")}`;
+};
+
+const formatMoney = (price: string | number | undefined, currency?: string): string => {
+  if (price === undefined || price === null || price === "") return "";
+  const amount = Number(price);
+  if (Number.isNaN(amount)) return "";
+  const code = (currency || "").toUpperCase();
+  return code ? `${code} ${amount.toFixed(2)}` : amount.toFixed(2);
 };
 
 const formatDateTime = (dateString?: string) => {
@@ -334,7 +373,7 @@ const SocialIcon = ({
     className="group flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 transition-all hover:shadow-sm"
   >
     <div className="flex items-center gap-3">
-      <div 
+      <div
         className="flex items-center justify-center w-9 h-9 rounded-lg bg-white shadow-sm group-hover:scale-110 transition-transform"
         style={{ color: brandColor }}
       >
@@ -344,7 +383,11 @@ const SocialIcon = ({
         {name}
       </span>
     </div>
-    <CaretRight size={14} weight="bold" className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all" />
+    <CaretRight
+      size={14}
+      weight="bold"
+      className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all"
+    />
   </Link>
 );
 
@@ -417,11 +460,11 @@ function ProviderHeader({
             className="overflow-hidden transition-all duration-500 ease-linear"
             style={{ maxHeight: expanded ? "2000px" : "4.5rem" }}
           >
-            <div
-              ref={textRef}
-              className={expanded ? "" : "line-clamp-3"}
-            >
-              <RichTextDisplay html={provider.description} className="text-base" />
+            <div ref={textRef} className={expanded ? "" : "line-clamp-3"}>
+              <RichTextDisplay
+                html={provider.description}
+                className="text-base"
+              />
             </div>
           </div>
           {(isClamped || expanded) && (
@@ -445,15 +488,15 @@ function ProviderTabs({
   providerName,
   galleryItems,
   listingSlug,
+  previewMode = false,
 }: {
   template: TemplateContent;
   providerName: string;
   galleryItems: GalleryItem[];
   listingSlug: string;
+  previewMode?: boolean;
 }) {
-  const {
-    reviews,
-  } = {
+  const { reviews } = {
     reviews: template.reviews || [],
   };
 
@@ -461,10 +504,7 @@ function ProviderTabs({
     <div className="mt-6 px-4 pb-4">
       <Tabs defaultValue="portfolio" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto rounded-full no-scrollbar">
-          {[
-            "Portfolio",
-            "Reviews",
-          ].map((tab) => (
+          {["Portfolio", "Reviews"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -492,12 +532,12 @@ function ProviderTabs({
               <ReviewsSection
                 reviews={reviews as any}
                 listingSlug={listingSlug}
+                readOnly={previewMode}
               />
             </div>
           </Card>
         </TabsContent>
       </Tabs>
-
     </div>
   );
 }
@@ -513,11 +553,12 @@ function SidebarLocation({ provider }: { provider: Provider }) {
 
   // --- ADD THIS LOGIC HERE ---
   // Generate Google Maps Directions URL
-  const directionsUrl = provider.latitude && provider.longitude
-    ? `https://www.google.com/maps/dir/?api=1&destination=${provider.latitude},${provider.longitude}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-        provider.name + " " + (provider.location || provider.country || "")
-      )}`;
+  const directionsUrl =
+    provider.latitude && provider.longitude
+      ? `https://www.google.com/maps/dir/?api=1&destination=${provider.latitude},${provider.longitude}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+          provider.name + " " + (provider.location || provider.country || ""),
+        )}`;
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -527,18 +568,31 @@ function SidebarLocation({ provider }: { provider: Provider }) {
 
     const initMap = async () => {
       try {
-        let lng: number; let lat: number;
+        let lng: number;
+        let lat: number;
         if (provider.latitude && provider.longitude) {
-          lng = provider.longitude; lat = provider.latitude;
+          lng = provider.longitude;
+          lat = provider.latitude;
         } else {
-          const query = encodeURIComponent(provider.name + " " + (provider.location || provider.country || ""));
-          const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`);
+          const query = encodeURIComponent(
+            provider.name + " " + (provider.location || provider.country || ""),
+          );
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&limit=1`,
+          );
           const data = await res.json();
-          if (data.features?.[0]) { [lng, lat] = data.features[0].center; } 
-          else { setError("Location not found"); setIsLoading(false); return; }
+          if (data.features?.[0]) {
+            [lng, lat] = data.features[0].center;
+          } else {
+            setError("Location not found");
+            setIsLoading(false);
+            return;
+          }
         }
 
-        if (map.current) { map.current.remove(); }
+        if (map.current) {
+          map.current.remove();
+        }
         map.current = new mapboxgl.Map({
           container: mapContainer.current!,
           style: "mapbox://styles/mapbox/streets-v12",
@@ -546,22 +600,50 @@ function SidebarLocation({ provider }: { provider: Provider }) {
           zoom: 14,
           interactive: false,
         });
-        new mapboxgl.Marker({ color: "#93C01F" }).setLngLat([lng, lat]).addTo(map.current);
-        map.current.on("load", () => { setIsLoading(false); });
-      } catch { setError("Failed to load map"); setIsLoading(false); }
+        new mapboxgl.Marker({ color: "#93C01F" })
+          .setLngLat([lng, lat])
+          .addTo(map.current);
+        map.current.on("load", () => {
+          setIsLoading(false);
+        });
+      } catch {
+        setError("Failed to load map");
+        setIsLoading(false);
+      }
     };
     initMap();
-    return () => { map.current?.remove(); map.current = null; };
-  }, [provider.latitude, provider.longitude, provider.name, provider.location, provider.country]);
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [
+    provider.latitude,
+    provider.longitude,
+    provider.name,
+    provider.location,
+    provider.country,
+  ]);
 
   return (
     <Card>
       <CardContent className="pt-0.5">
         <h4 className="text-lg font-black text-gray-900">Location</h4>
         <div className="mt-3 relative h-40 w-full overflow-hidden rounded-xl bg-gray-100">
-          {isLoading && !error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}
-          {error && <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">{error}</div>}
-          <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: "160px" }} />
+          {isLoading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              Loading...
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+              {error}
+            </div>
+          )}
+          <div
+            ref={mapContainer}
+            className="absolute inset-0 w-full h-full"
+            style={{ minHeight: "160px" }}
+          />
         </div>
         <p className="mt-3 text-xs text-gray-500">
           {provider.location ?? provider.country ?? "Available internationally"}
@@ -574,7 +656,11 @@ function SidebarLocation({ provider }: { provider: Provider }) {
           rel="noreferrer"
           className="mt-5 flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-[#93C01F] text-[#93C01F] text-sm font-bold hover:bg-[#93C01F] hover:text-white transition-all group"
         >
-          <NavigationArrow size={18} weight="fill" className="group-hover:rotate-12 transition-transform" />
+          <NavigationArrow
+            size={18}
+            weight="fill"
+            className="group-hover:rotate-12 transition-transform"
+          />
           Get Directions
         </Link>
       </CardContent>
@@ -582,48 +668,43 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   );
 }
 
-const format12Hour = (time?: string) => {
-  if (!time) return "";
-  const [h, m] = time.split(":");
-  let hours = parseInt(h, 10);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
-};
-
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "";
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(dateStr));
-  } catch {
-    return dateStr;
-  }
-};
-
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
   const locationType = eventData.event_location_type;
   const locationLabel =
     locationType === "in_person"
       ? "In Person"
       : locationType === "online"
-      ? "Online"
-      : locationType === "hybrid"
-      ? "Hybrid"
-      : null;
+        ? "Online"
+        : locationType === "hybrid"
+          ? "Hybrid"
+          : null;
 
-  const venueParts = [eventData.event_venue, eventData.event_city, eventData.event_country]
+  const venueParts = [
+    eventData.event_venue,
+    eventData.event_city,
+    eventData.event_country,
+  ]
     .filter(Boolean)
     .join(", ");
 
-  const sameDay = eventData.event_start_date === eventData.event_end_date;
-  const dateRange = sameDay
-    ? formatDate(eventData.event_start_date)
-    : `${formatDate(eventData.event_start_date)} – ${formatDate(eventData.event_end_date)}`;
+  const dateRange = formatEventDateRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    spansMultipleDays: eventData.spans_multiple_days,
+  });
+  const timeRange = formatEventTimeRange({
+    startDate: eventData.event_start_date,
+    endDate: eventData.event_end_date,
+    startTime: eventData.event_start_time,
+    endTime: eventData.event_end_time,
+    spansMultipleDays: eventData.spans_multiple_days,
+    timezoneLabel: eventData.timezone_label,
+  });
+
+  const activeTicketTypes = (eventData.ticket_types ?? []).filter((ticketType) => ticketType.is_active !== false);
+  const isAvailabilityBlocked = eventData.admission_availability === "coming_soon"
+    || eventData.admission_availability === "closed"
+    || eventData.admission_availability === "sold_out";
 
   return (
     <Card>
@@ -635,7 +716,9 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">📅</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Date</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Date
+              </p>
               <p className="text-sm font-semibold text-gray-800">{dateRange}</p>
             </div>
           </div>
@@ -646,11 +729,10 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">🕐</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Time</p>
-              <p className="text-sm font-semibold text-gray-800">
-                {format12Hour(eventData.event_start_time)}
-                {eventData.event_end_time && ` – ${format12Hour(eventData.event_end_time)}`}
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Time
               </p>
+              <p className="text-sm font-semibold text-gray-800">{timeRange}</p>
             </div>
           </div>
         )}
@@ -660,59 +742,166 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
           <div className="flex items-start gap-3">
             {/* <span className="text-xl">📍</span> */}
             <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Location</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Location
+              </p>
               {locationLabel && (
-                <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
-                  locationType === "online"
-                    ? "bg-blue-50 text-blue-700"
-                    : locationType === "hybrid"
-                    ? "bg-purple-50 text-purple-700"
-                    : "bg-green-50 text-green-700"
-                }`}>
+                <span
+                  className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-1 ${
+                    locationType === "online"
+                      ? "bg-blue-50 text-blue-700"
+                      : locationType === "hybrid"
+                        ? "bg-purple-50 text-purple-700"
+                        : "bg-green-50 text-green-700"
+                  }`}
+                >
                   {locationLabel}
                 </span>
               )}
               {venueParts && (
-                <p className="text-sm font-semibold text-gray-800">{venueParts}</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {venueParts}
+                </p>
               )}
             </div>
           </div>
         )}
 
-        {/* Price */}
-        {eventData.formatted_price && eventData.formatted_price.toLowerCase() !== "free" && (
+        {/* Price — shown regardless of availability so visitors know what admission costs/cost */}
+        {eventData.attendance_type === "paid" && (
           <div className="flex items-start gap-3">
-            <div>
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Tickets</p>
-              <p className="text-sm font-semibold text-gray-800">
-                {eventData.formatted_price}
+            <div className="w-full">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                Tickets
               </p>
+              {eventData.pricing_mode === "multiple" ? (
+                <>
+                  {eventData.price_range && (
+                    <p className="text-sm font-semibold text-gray-800">
+                      From {formatMoney(eventData.price_range.min, eventData.event_currency)}
+                    </p>
+                  )}
+                  {activeTicketTypes.length > 0 && (
+                    <ul className="mt-1.5 space-y-1">
+                      {activeTicketTypes.map((ticketType) => (
+                        <li key={ticketType.slug} className="flex items-center justify-between gap-3 text-xs text-gray-600">
+                          <span>{ticketType.name}</span>
+                          <span className="font-medium text-gray-800">{formatMoney(ticketType.price, eventData.event_currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : eventData.pricing_mode === "varies" ? (
+                <p className="text-sm font-semibold text-gray-800">Prices vary</p>
+              ) : (
+                eventData.formatted_price &&
+                eventData.formatted_price.toLowerCase() !== "free" && (
+                  <p className="text-sm font-semibold text-gray-800">
+                    {eventData.formatted_price}
+                  </p>
+                )
+              )}
             </div>
           </div>
         )}
 
-        {/* Online event join link */}
-        {eventData.event_online_url && (locationType === "online" || locationType === "hybrid") && (
-          <Link
-            href={eventData.event_online_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
-          >
-            🖥️ Join Online
-          </Link>
+        {/* Availability state — informational, suppresses the admission action below */}
+        {isAvailabilityBlocked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-800">
+              {eventData.admission_availability === "coming_soon"
+                ? "Tickets Coming Soon"
+                : eventData.admission_availability === "sold_out"
+                  ? "Sold Out"
+                  : "Registration Closed"}
+            </p>
+            {eventData.ticket_availability_message && (
+              <p className="text-xs text-amber-700 mt-1">{eventData.ticket_availability_message}</p>
+            )}
+            {eventData.admission_availability === "coming_soon" && eventData.ticket_release_at && (
+              <p className="text-xs text-amber-700 mt-1">Available {formatShortDate(eventData.ticket_release_at)}</p>
+            )}
+          </div>
         )}
 
-        {/* Ticket purchase link */}
-        {eventData.event_ticket_url && (
-          <Link
-            href={eventData.event_ticket_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
-          >
-             Get Tickets
-          </Link>
+        {/* Admission action — how to actually register, buy, or reserve a spot */}
+        {!isAvailabilityBlocked && (
+          <>
+            {eventData.attendance_type === "free_registration_required" && eventData.registration_url && (
+              <Link
+                href={eventData.registration_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+              >
+                Register
+              </Link>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "external_url" && eventData.event_ticket_url && (
+              <div className="space-y-1">
+                <Link
+                  href={eventData.event_ticket_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
+                >
+                  Get Tickets
+                </Link>
+                {eventData.ticket_provider && (
+                  <p className="text-xs text-gray-400 text-center">via {eventData.ticket_provider}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "pay_at_venue" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Pay at Venue</p>
+                {eventData.purchase_instructions && (
+                  <p className="text-xs text-gray-600 mt-1">{eventData.purchase_instructions}</p>
+                )}
+              </div>
+            )}
+
+            {eventData.attendance_type === "paid" && eventData.purchase_method === "contact_organizer" && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-800">Contact the Organizer to Purchase</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {eventData.purchase_instructions || "Use the contact details below to reserve or purchase admission."}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Online access — how attendees actually receive the joining details */}
+        {(locationType === "online" || locationType === "hybrid") && (
+          <>
+            {eventData.online_access_policy === "public_link" && eventData.event_online_url && (
+              <Link
+                href={eventData.event_online_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
+              >
+                🖥️ Join Online
+              </Link>
+            )}
+            {eventData.online_access_policy === "sent_after_registration" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                Online access details will be provided by the organizer or ticket provider after registration or ticket purchase.
+              </p>
+            )}
+            {eventData.online_access_policy === "shared_later" && (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                {eventData.online_access_instructions || "The online joining link will be shared closer to the event."}
+              </p>
+            )}
+            {eventData.online_access_policy === "public_link" && eventData.online_access_instructions && (
+              <p className="text-xs text-gray-500">{eventData.online_access_instructions}</p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -724,11 +913,13 @@ function SidebarInfo({
   pricing,
   // services,
   hours,
+  previewMode = false,
 }: {
   provider: Provider;
   pricing: PricingItem[];
   // services: string[];
   hours: OpeningHour[];
+  previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
   const hasContact = !!(
@@ -737,10 +928,57 @@ function SidebarInfo({
     Object.values(socialLinks).some((v) => v)
   );
   const hasHours = !!(hours && hours.length > 0);
-  const showClaimButton = !provider.claim_status;
+  // Explicit status comparison — claim_status is always a non-empty string
+  // ("unclaimed", "claimed", ...), so `!provider.claim_status` was always false
+  // and silently hid the claim CTA on every listing, regardless of status.
+  const isClaimed = provider.claim_status === "claimed";
 
   const { user } = useAuth();
   const router = useRouter();
+  const [eligibility, setEligibility] = useState<ClaimEligibility | null>(null);
+
+  useEffect(() => {
+    // Nothing to check while logged out — showClaimButton already short-circuits
+    // on `!user` in that case, so there's no need to reset state here. Also
+    // skipped entirely in preview mode — there's no claim state to check for
+    // a listing manager looking at their own not-yet-published listing.
+    if (previewMode || !user || !provider.slug) return;
+
+    let cancelled = false;
+    const token = localStorage.getItem("authToken") || undefined;
+    getClaimEligibility(provider.slug, token)
+      .then((data) => {
+        if (!cancelled) setEligibility(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEligibility(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, provider.slug, previewMode]);
+
+  // An email claim awaiting its OTP can be resumed — the verify page jumps
+  // straight to the code-entry step for this case.
+  const hasResumableClaim =
+    eligibility?.active_case?.status === "awaiting_email_verification" &&
+    eligibility?.active_case?.method === "email";
+
+  // Logged-out visitors always see the CTA (it sends them to login first); once
+  // authenticated, defer to the backend's explicit eligibility check.
+  const showClaimButton =
+    !user || eligibility?.claimable === true || hasResumableClaim;
+  // Already-claimed listings always get the CTA too — even if the live
+  // eligibility check hasn't resolved yet (or says not-claimable for some
+  // other reason), the destination page has its own eligibility gate and
+  // explains why if it genuinely can't be challenged.
+  const showClaimSection = !previewMode && (showClaimButton || isClaimed);
+  const claimButtonLabel = hasResumableClaim
+    ? "Continue claim verification"
+    : isClaimed
+      ? "Request Ownership Review"
+      : "Claim business";
 
   const handleClaimBusiness = () => {
     if (user) {
@@ -756,7 +994,7 @@ function SidebarInfo({
     !hasHours &&
     !hasContact &&
     !provider.website &&
-    !showClaimButton
+    !showClaimSection
   ) {
     return null;
   }
@@ -776,7 +1014,8 @@ function SidebarInfo({
         {hasHours && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
-              <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" /> Business Hours
+              <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" />{" "}
+              Business Hours
             </h5>
             <div className="space-y-2">
               {hours.map((h, idx) => (
@@ -797,75 +1036,100 @@ function SidebarInfo({
           </div>
         )}
 
-
         {hasContact && (
-        <>
-        <h5 className="text-lg font-black text-black">Contact</h5>
-        <div className="mt-3 space-y-4 text-sm text-gray-600">
-          {provider.phone && (
-            <div className="flex items-center gap-10">
-              <h6 className="text-base font-medium text-black min-w-12">
-                Phone
-              </h6>
-              <Link
-                href={`tel:${provider.phone}`}
-                className="font-medium text-gray-900 hover:underline focus:underline outline-none"
-              >
-                {provider.phone}
-              </Link>
-            </div>
-          )}
-          {provider.email && (
-            <div className="flex items-center gap-10">
-              <h6 className="text-base font-medium text-black min-w-12">
-                Email
-              </h6>
-              <Link
-                href={`mailto:${provider.email}`}
-                className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
-              >
-                {provider.email}
-              </Link>
-            </div>
-          )}
+          <>
+            <h5 className="text-lg font-black text-black">Contact</h5>
+            <div className="mt-3 space-y-4 text-sm text-gray-600">
+              {provider.phone && (
+                <div className="flex items-center gap-10">
+                  <h6 className="text-base font-medium text-black min-w-12">
+                    Phone
+                  </h6>
+                  <Link
+                    href={`tel:${provider.phone}`}
+                    className="font-medium text-gray-900 hover:underline focus:underline outline-none"
+                  >
+                    {provider.phone}
+                  </Link>
+                </div>
+              )}
+              {provider.email && (
+                <div className="flex items-center gap-10">
+                  <h6 className="text-base font-medium text-black min-w-12">
+                    Email
+                  </h6>
+                  <Link
+                    href={`mailto:${provider.email}`}
+                    className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
+                  >
+                    {provider.email}
+                  </Link>
+                </div>
+              )}
 
-          {provider.socials && Object.values(socialLinks).some((v) => v) && (
-            <div className="flex flex-col gap-4 mt-2">
-              <h6 className="text-base font-medium text-black">
-                Socials:
-              </h6>
-              <div className="grid grid-cols-1 gap-2.5">
-                {socialLinks.whatsapp && (
-                  <SocialIcon
-                    href={socialLinks.whatsapp}
-                    icon={WhatsappLogo}
-                    brandColor="#25D366"
-                    name="WhatsApp"
-                  />
+              {provider.socials &&
+                Object.values(socialLinks).some((v) => v) && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <h6 className="text-base font-medium text-black">
+                      Socials:
+                    </h6>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {socialLinks.whatsapp && (
+                        <SocialIcon
+                          href={socialLinks.whatsapp}
+                          icon={WhatsappLogo}
+                          brandColor="#25D366"
+                          name="WhatsApp"
+                        />
+                      )}
+                      {socialLinks.facebook && (
+                        <SocialIcon
+                          href={socialLinks.facebook}
+                          icon={FacebookLogo}
+                          brandColor="#1877F2"
+                          name="Facebook"
+                        />
+                      )}
+                      {socialLinks.instagram && (
+                        <SocialIcon
+                          href={socialLinks.instagram}
+                          icon={InstagramLogo}
+                          brandColor="#E4405F"
+                          name="Instagram"
+                        />
+                      )}
+                      {socialLinks.twitter && (
+                        <SocialIcon
+                          href={socialLinks.twitter}
+                          icon={XLogo}
+                          brandColor="#000000"
+                          name="X (Twitter)"
+                        />
+                      )}
+                      {socialLinks.youtube && (
+                        <SocialIcon
+                          href={socialLinks.youtube}
+                          icon={YoutubeLogo}
+                          brandColor="#FF0000"
+                          name="YouTube"
+                        />
+                      )}
+                      {socialLinks.tiktok && (
+                        <SocialIcon
+                          href={socialLinks.tiktok}
+                          icon={TiktokLogo}
+                          brandColor="#010101"
+                          name="TikTok"
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-                {socialLinks.facebook && (
-                  <SocialIcon href={socialLinks.facebook} icon={FacebookLogo} brandColor="#1877F2" name="Facebook" />
-                )}
-                {socialLinks.instagram && (
-                  <SocialIcon href={socialLinks.instagram} icon={InstagramLogo} brandColor="#E4405F" name="Instagram" />
-                )}
-                {socialLinks.twitter && (
-                  <SocialIcon href={socialLinks.twitter} icon={XLogo} brandColor="#000000" name="X (Twitter)" />
-                )}
-                {socialLinks.youtube && (
-                  <SocialIcon href={socialLinks.youtube} icon={YoutubeLogo} brandColor="#FF0000" name="YouTube" />
-                )}
-                {socialLinks.tiktok && (
-                  <SocialIcon href={socialLinks.tiktok} icon={TiktokLogo} brandColor="#010101" name="TikTok" />
-                )}
-              </div>
             </div>
-          )}
-        </div>
-        </>
+          </>
         )}
 
-        {hasContact && (provider.website || showClaimButton) && <Divider />}
+        {hasContact && (provider.website || showClaimSection) && <Divider />}
 
         {provider.website && (
           <>
@@ -880,19 +1144,38 @@ function SidebarInfo({
                 {provider.website}
               </Link>
             </div>
-            {!provider.claim_status && <Divider />}
+            {showClaimSection && <Divider />}
           </>
         )}
 
-        {!provider.claim_status && (
+        {showClaimSection && (
           <div className="mt-4">
             <Button
               onClick={handleClaimBusiness}
               className="w-full bg-[#93C01F] hover:bg-[#82ab1b] text-white"
             >
-              Claim business
+              {claimButtonLabel}
             </Button>
           </div>
+        )}
+
+        {/* Always shown, independent of eligibility — this is a quiet, permanent
+            "is this listing wrong / not yours?" affordance (same as Google/Yelp
+            always showing an "Own this business?" link regardless of claim
+            status). The actual eligibility gate lives on the destination page.
+            Hidden in preview mode — meaningless for a vendor previewing their
+            own listing. */}
+        {!previewMode && (
+          <p className="text-xs text-gray-400 mt-5 text-center">
+            Own this listing?{" "}
+            <button
+              type="button"
+              onClick={handleClaimBusiness}
+              className="text-[#93C01F] font-medium hover:underline"
+            >
+              Claim your listing
+            </button>
+          </p>
         )}
       </CardContent>
     </Card>
@@ -905,10 +1188,12 @@ function ListingBentoGallery({
   images,
   alt,
   slug,
+  previewMode = false,
 }: {
   images: GalleryItem[];
   alt: string;
   slug: string;
+  previewMode?: boolean;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -926,7 +1211,13 @@ function ListingBentoGallery({
   const count = Math.min(items.length, 5);
 
   // Helper: single thumbnail cell — itemIndex is the position in `items` for lightbox
-  const thumb = (img: GalleryItem, itemIndex: number, key: number, isLast = false, extraClass = "") => (
+  const thumb = (
+    img: GalleryItem,
+    itemIndex: number,
+    key: number,
+    isLast = false,
+    extraClass = "",
+  ) => (
     <div
       key={key}
       className={cn("relative overflow-hidden cursor-pointer", extraClass)}
@@ -969,8 +1260,18 @@ function ListingBentoGallery({
     // 1 image — full width hero
     if (count === 1) {
       return (
-        <div className="relative h-full overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
-          <Image src={main.src} alt={alt} fill className="object-cover" unoptimized priority />
+        <div
+          className="relative h-full overflow-hidden cursor-pointer"
+          onClick={() => openAt(0)}
+        >
+          <Image
+            src={main.src}
+            alt={alt}
+            fill
+            className="object-cover"
+            unoptimized
+            priority
+          />
         </div>
       );
     }
@@ -978,9 +1279,22 @@ function ListingBentoGallery({
     // 2 images — side by side
     if (count === 2) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr" }}>
-          <div className="relative overflow-hidden cursor-pointer" onClick={() => openAt(0)}>
-            <Image src={main.src} alt={alt} fill className="object-cover transition-transform duration-700 hover:scale-[1.02]" unoptimized priority />
+        <div
+          className="grid h-full gap-[3px]"
+          style={{ gridTemplateColumns: "3fr 2fr" }}
+        >
+          <div
+            className="relative overflow-hidden cursor-pointer"
+            onClick={() => openAt(0)}
+          >
+            <Image
+              src={main.src}
+              alt={alt}
+              fill
+              className="object-cover transition-transform duration-700 hover:scale-[1.02]"
+              unoptimized
+              priority
+            />
           </div>
           {thumb(t1, 1, 1)}
         </div>
@@ -990,7 +1304,13 @@ function ListingBentoGallery({
     // 3 images — main tall left, 2 stacked right
     if (count === 3) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 2fr", gridTemplateRows: "1fr 1fr" }}>
+        <div
+          className="grid h-full gap-[3px]"
+          style={{
+            gridTemplateColumns: "3fr 2fr",
+            gridTemplateRows: "1fr 1fr",
+          }}
+        >
           {mainCell}
           {thumb(t1, 1, 1)}
           {thumb(t2, 2, 2)}
@@ -1001,7 +1321,13 @@ function ListingBentoGallery({
     // 4 images — main tall left, t1+t2 top row, t3 full bottom
     if (count === 4) {
       return (
-        <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+        <div
+          className="grid h-full gap-[3px]"
+          style={{
+            gridTemplateColumns: "3fr 1.25fr 1.25fr",
+            gridTemplateRows: "1fr 1fr",
+          }}
+        >
           {mainCell}
           {thumb(t1, 1, 1)}
           {thumb(t2, 2, 2)}
@@ -1012,7 +1338,13 @@ function ListingBentoGallery({
 
     // 5+ images — main tall left, 2×2 right grid
     return (
-      <div className="grid h-full gap-[3px]" style={{ gridTemplateColumns: "3fr 1.25fr 1.25fr", gridTemplateRows: "1fr 1fr" }}>
+      <div
+        className="grid h-full gap-[3px]"
+        style={{
+          gridTemplateColumns: "3fr 1.25fr 1.25fr",
+          gridTemplateRows: "1fr 1fr",
+        }}
+      >
         {mainCell}
         {thumb(t1, 1, 1)}
         {thumb(t2, 2, 2)}
@@ -1027,19 +1359,21 @@ function ListingBentoGallery({
       {/* ── Mobile: carousel ── */}
       <div className="relative md:hidden">
         <HeroCarousel items={items} alt={alt} />
-        <div className="absolute top-3 right-3 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        {!previewMode && (
+          <div className="absolute top-3 right-3 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Desktop: bento ── */}
       <div className="hidden md:block relative">
-        <div className="w-full h-[500px] bg-gray-200">
-          {desktopGrid()}
-        </div>
-        <div className="absolute top-4 right-4 z-20">
-          <BookmarkButton slug={slug} iconOnly />
-        </div>
+        <div className="w-full h-[500px] bg-gray-200">{desktopGrid()}</div>
+        {!previewMode && (
+          <div className="absolute top-4 right-4 z-20">
+            <BookmarkButton slug={slug} iconOnly />
+          </div>
+        )}
       </div>
 
       {/* ── Lightbox ── */}
@@ -1062,6 +1396,11 @@ export default function UniversalSlugPage({
 }: PageProps) {
   const resolvedParams = React.use(params);
   const { categorySlug, slug } = resolvedParams;
+  // Set by the dashboard wizard's "Preview as visitor" dialog (an iframe onto
+  // this exact route) to suppress interactions that don't make sense for a
+  // listing manager looking at their own not-yet-published listing. Purely
+  // cosmetic — /show has no access control, so this isn't a security gate.
+  const previewMode = useSearchParams().get("preview") === "1";
 
   const [loading, setLoading] = useState(true);
   const [providerData, setProviderData] = useState<Provider | null>(null);
@@ -1105,7 +1444,8 @@ export default function UniversalSlugPage({
           let socialLinks: SocialLinks = {};
           if (listingData.socials && listingData.socials.length > 0) {
             // Use the last (most recent) embedded social record as a base
-            const socialData = listingData.socials[listingData.socials.length - 1];
+            const socialData =
+              listingData.socials[listingData.socials.length - 1];
             socialLinks = {
               facebook: socialData.facebook,
               instagram: socialData.instagram,
@@ -1165,7 +1505,9 @@ export default function UniversalSlugPage({
               listingData.type === "event"
                 ? listingData.event?.event_country || listingData.country
                 : listingData.country,
-            verified: !!(listingData.listing_verified ?? listingData.is_verified),
+            verified: !!(
+              listingData.listing_verified ?? listingData.is_verified
+            ),
             claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()
@@ -1177,7 +1519,8 @@ export default function UniversalSlugPage({
             socials: socialLinks,
             latitude: listingData.latitude,
             longitude: listingData.longitude,
-            eventData: listingData.type === "event" ? listingData.event : undefined,
+            eventData:
+              listingData.type === "event" ? listingData.event : undefined,
           };
 
           const rawImages = listingData.images || [];
@@ -1204,6 +1547,22 @@ export default function UniversalSlugPage({
               alt: "Placeholder",
             };
           });
+
+          // The canonical media shape excludes videos from `images` (they must
+          // never reach image components) — surface gallery videos explicitly.
+          const canonicalGallery = (listingData as {
+            gallery?: { kind?: string; original?: string; poster?: string; alt_text?: string }[];
+          }).gallery;
+          (canonicalGallery ?? [])
+            .filter((m) => m.kind === "video" && m.original)
+            .forEach((m) => {
+              gallery.push({
+                type: "video",
+                src: getImageUrl(m.original as string),
+                poster: m.poster ? getImageUrl(m.poster) : undefined,
+                alt: m.alt_text || provider.name,
+              });
+            });
           if (gallery.length === 0) {
             gallery.push({
               type: "image",
@@ -1212,27 +1571,29 @@ export default function UniversalSlugPage({
             });
           }
 
-          const mappedReviews: ReviewItem[] = ratingsData.filter((r) => r.status !== "hidden").map((rating) => ({
-            id: rating.id,
-            slug: rating.slug,
-            author: extractUserName(rating.user),
-            rating: rating.rating,
-            date: rating.created_at
-              ? new Date(rating.created_at).toLocaleDateString()
-              : "Recent",
-            comment: rating.comment,
-            avatar: rating.user?.avatar || "",
-            vendor_reply: rating.vendor_reply ?? null,
-            vendor_reply_at: rating.vendor_reply_at ?? null,
-            replies:
-              rating.replies?.map((r) => ({
-                id: r.id,
-                author: r.user?.name || "User",
-                comment: r.comment,
-                date: new Date(r.created_at).toLocaleDateString(),
-                avatar: r.user?.avatar || "",
-              })) || [],
-          }));
+          const mappedReviews: ReviewItem[] = ratingsData
+            .filter((r) => r.status !== "hidden")
+            .map((rating) => ({
+              id: rating.id,
+              slug: rating.slug,
+              author: extractUserName(rating.user),
+              rating: rating.rating,
+              date: rating.created_at
+                ? new Date(rating.created_at).toLocaleDateString()
+                : "Recent",
+              comment: rating.comment,
+              avatar: rating.user?.avatar || "",
+              vendor_reply: rating.vendor_reply ?? null,
+              vendor_reply_at: rating.vendor_reply_at ?? null,
+              replies:
+                rating.replies?.map((r) => ({
+                  id: r.id,
+                  author: r.user?.name || "User",
+                  comment: r.comment,
+                  date: new Date(r.created_at).toLocaleDateString(),
+                  avatar: r.user?.avatar || "",
+                })) || [],
+            }));
 
           const servicesList =
             listingData.services?.map((s: any) =>
@@ -1276,18 +1637,27 @@ export default function UniversalSlugPage({
 
   const resolvedType = providerData.listingType || type;
   const sectionLink =
-    resolvedType === "event" ? "/events" :
-    resolvedType === "community" ? "/communities" :
-    resolvedType === "business" ? "/businesses" :
-    "/discover";
+    resolvedType === "event"
+      ? "/events"
+      : resolvedType === "community"
+        ? "/communities"
+        : resolvedType === "business"
+          ? "/businesses"
+          : "/discover";
   const sectionLabel =
-    resolvedType === "event" ? "Events" :
-    resolvedType === "community" ? "Communities" :
-    resolvedType === "business" ? "Businesses" :
-    "Discover";
+    resolvedType === "event"
+      ? "Events"
+      : resolvedType === "community"
+        ? "Communities"
+        : resolvedType === "business"
+          ? "Businesses"
+          : "Discover";
 
   const formatCategoryLabel = (slug: string) =>
-    slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
 
   return (
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
@@ -1295,19 +1665,23 @@ export default function UniversalSlugPage({
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>Home</BreadcrumbPage> : <BreadcrumbLink href="/">Home</BreadcrumbLink>}
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>
+              {previewMode ? <BreadcrumbPage>{sectionLabel}</BreadcrumbPage> : <BreadcrumbLink href={sectionLink}>{sectionLabel}</BreadcrumbLink>}
             </BreadcrumbItem>
             {categorySlug && (
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbLink href={`/categories/${categorySlug}`}>
-                    {formatCategoryLabel(categorySlug)}
-                  </BreadcrumbLink>
+                  {previewMode ? (
+                    <BreadcrumbPage>{formatCategoryLabel(categorySlug)}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={`/categories/${categorySlug}`}>
+                      {formatCategoryLabel(categorySlug)}
+                    </BreadcrumbLink>
+                  )}
                 </BreadcrumbItem>
               </>
             )}
@@ -1326,6 +1700,7 @@ export default function UniversalSlugPage({
               images={template.gallery}
               alt={providerData.name}
               slug={providerData.slug}
+              previewMode={previewMode}
             />
 
             <ProviderHeader
@@ -1339,6 +1714,7 @@ export default function UniversalSlugPage({
               providerName={providerData.name}
               galleryItems={template.gallery}
               listingSlug={providerData.slug}
+              previewMode={previewMode}
             />
           </div>
 
@@ -1346,7 +1722,9 @@ export default function UniversalSlugPage({
           {template.services.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-semibold">What We Do</CardTitle>
+                <CardTitle className="text-lg font-semibold">
+                  What We Do
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1379,6 +1757,7 @@ export default function UniversalSlugPage({
             pricing={template.pricing}
             // services={template.services}
             hours={template.hours}
+            previewMode={previewMode}
           />
         </aside>
       </div>

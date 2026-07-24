@@ -13,7 +13,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 import type { CuratedCollection } from "@/types/curated-collections";
 // --- Interfaces ---
 interface ApiImage {
@@ -21,6 +20,7 @@ interface ApiImage {
   original: string;
   thumb: string;
   webp: string;
+  card?: string;
   mime_type?: string;
 }
 
@@ -29,6 +29,7 @@ interface ApiCategory {
 }
 
 interface ApiListing {
+  reach_badge?: string | null;
   id: number;
   name: string;
   slug: string;
@@ -100,7 +101,6 @@ const classifyListing = (
 
 function DiscoverContent() {
   const router = useRouter();
-  const { user } = useAuth();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
   const [weekEvents, setWeekEvents] = useState<any[]>([]);
@@ -134,11 +134,7 @@ function DiscoverContent() {
   );
 
   const handleClickEvent = () => {
-    if (user) {
-      router.push("/claim");
-    } else {
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   const filterCountry = searchParams.get("country");
@@ -160,7 +156,10 @@ function DiscoverContent() {
             return !!(img && typeof img === "object" && img.original);
           })
           .map((img: any) => {
-            const mediaPath = typeof img === "string" ? img : img.original;
+            const mediaPath =
+              typeof img === "string"
+                ? img
+                : img.card || img.webp || img.original;
             return getImageUrl(mediaPath);
           });
 
@@ -220,6 +219,7 @@ function DiscoverContent() {
             category: categoryName,
             rating: Number(item.rating) || 0,
             reviewCount: Number(item.ratings_count) || 0,
+            reachBadge: item.reach_badge,
           });
         }
       });

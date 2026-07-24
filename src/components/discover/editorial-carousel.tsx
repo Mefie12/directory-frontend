@@ -12,6 +12,7 @@ import type {
   CuratedCollection,
   CuratedCollectionListing,
 } from "@/types/curated-collections";
+import { parseLocalDate } from "@/lib/directory/event-formatting";
 
 function toBusinessCard(listing: CuratedCollectionListing) {
   return {
@@ -20,7 +21,7 @@ function toBusinessCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     category: listing.categories[0]?.name || "",
     images: listing.images
-      .map((img) => img.original || img.thumb)
+      .map((img) => img.card || img.webp || img.original || img.thumb)
       .filter(Boolean),
     rating: listing.rating ?? 0,
     reviewCount: listing.ratings_count ?? 0,
@@ -30,8 +31,12 @@ function toBusinessCard(listing: CuratedCollectionListing) {
 }
 
 function toEventCard(listing: CuratedCollectionListing) {
-  const formattedDate = listing.event_start_date
-    ? new Date(listing.event_start_date).toLocaleDateString("en-GB", {
+  // Parsed via parseLocalDate rather than `new Date(dateString)` directly —
+  // a date-only string is otherwise interpreted as UTC midnight, shifting
+  // the displayed date back a day for viewers west of UTC.
+  const parsedDate = parseLocalDate(listing.event_start_date);
+  const formattedDate = parsedDate
+    ? parsedDate.toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -44,6 +49,8 @@ function toEventCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     category: listing.categories[0]?.name || "",
     image:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",
@@ -62,10 +69,14 @@ function toCommunityCard(listing: CuratedCollectionListing) {
     slug: listing.slug,
     description: listing.bio || listing.description || "",
     imageUrl:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",
     image:
+      listing.images[0]?.card ||
+      listing.images[0]?.webp ||
       listing.images[0]?.original ||
       listing.images[0]?.thumb ||
       "/images/no-image.jpg",

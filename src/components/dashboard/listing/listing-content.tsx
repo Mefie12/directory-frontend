@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { SpinnerGap, CaretLeft, CaretRight } from "@phosphor-icons/react";
-import dynamic from "next/dynamic";
 
 import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
@@ -11,16 +10,19 @@ import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useRolePath } from "@/hooks/useRolePath";
+import { LISTING_JOURNEYS, ListingReadiness, ListingStepState } from "@/lib/listing-form-v2";
+import { updateListingFormProgress } from "@/lib/api";
+import { toast } from "sonner";
 
 // Child Forms
 import { BasicInformationForm } from "@/components/dashboard/listing/form/basic-info";
-const BusinessDetailsForm = dynamic(
-  () => import("@/components/dashboard/listing/form/business-details").then(mod => mod.BusinessDetailsForm),
-  { ssr: false }
-);
 import { MediaUploadStep } from "@/components/dashboard/listing/form/media";
 import { SocialMediaForm } from "@/components/dashboard/listing/form/social-media";
 import { ReviewSubmitStep } from "@/components/dashboard/listing/form/review";
+import { ListingExperienceForm } from "@/components/dashboard/listing/form/listing-experience";
+import { EventStepForm } from "@/components/dashboard/listing/form/event-step";
+import { EventContactSocialStep } from "@/components/dashboard/listing/form/event-contact-social";
+import { ListingDirtyGuard, useBeforeUnloadWhenDirty } from "@/components/dashboard/listing/listing-dirty-guard";
 
 const STORAGE_KEY = "listing-form-draft";
 
@@ -38,6 +40,17 @@ export default function ListingContent() {
 
   const [listingSlug, setListingSlug] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [unlockedStep, setUnlockedStep] = useState(1);
+  const [stepStates, setStepStates] = useState<Record<string, ListingStepState>>({});
+  const [dirty, setDirty] = useState(false);
+  const [pendingStep, setPendingStep] = useState<number | null>(null);
+  const [pendingSkip, setPendingSkip] = useState(false);
+  const [lastSaveFailed, setLastSaveFailed] = useState(false);
+  const initialName = searchParams.get("slug")
+    ? ""
+    : (searchParams.get("name") ?? "");
+  const totalSteps = LISTING_JOURNEYS[listingType].length;
+  useBeforeUnloadWhenDirty(dirty);
 
   // ONE Ref to control whichever child form is currently active
   const formRef = useRef<ListingFormHandle>(null);
@@ -73,25 +86,42 @@ export default function ListingContent() {
         // Restore step only if the stored slug matches this listing
         if (stored.listingSlug === slug && stored.currentStep > 1) {
           setCurrentStep(stored.currentStep);
+          setUnlockedStep(stored.currentStep);
         }
       } catch {
         /* ignore parse errors */
       }
+      const token = localStorage.getItem("authToken");
+      fetch(`/api/listing/${slug}/show`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } })
+        .then((response) => response.ok ? response.json() : null)
+        .then((payload) => {
+          const readiness = (payload?.data?.submission_readiness ?? payload?.submission_readiness) as ListingReadiness | undefined;
+          if (!readiness) return;
+          const states = Object.fromEntries(readiness.step_states.map((item) => [item.step, item.state]));
+          setStepStates(states);
+          const firstIncomplete = readiness.step_states.findIndex((item) => item.state === "needs_attention" || item.state === "not_started");
+          const resumeStep = firstIncomplete >= 0 ? firstIncomplete + 1 : LISTING_JOURNEYS[listingType].length;
+          setUnlockedStep(Math.max(1, resumeStep));
+          setCurrentStep(resumeStep);
+        })
+        .catch(() => undefined);
     } else {
       // No slug in URL → brand new listing, reset everything
       sessionStorage.removeItem(STORAGE_KEY);
       resetListing();
     }
-  }, [searchParams, setListingType, setCurrentStep, resetListing]);
+  }, [searchParams, setListingType, setCurrentStep, resetListing, listingType]);
 
   const handleNext = async () => {
-    if (currentStep === 5) {
+    if (currentStep === totalSteps) {
       if (formRef.current) {
         setIsSaving(true);
-        await formRef.current.submit();
+        const submitted = await formRef.current.submit();
         setIsSaving(false);
-        sessionStorage.removeItem(STORAGE_KEY);
-        router.push(myListings);
+        if (submitted) {
+          sessionStorage.removeItem(STORAGE_KEY);
+          router.push(myListings);
+        }
       }
       return;
     }
@@ -104,6 +134,8 @@ export default function ListingContent() {
       const result = await formRef.current.submit();
 
       if (result) {
+        setLastSaveFailed(false);
+        setDirty(false);
         // Check for slug - could be in result.data or directly in result
         const resultObj = result as Record<string, unknown>;
         const slug =
@@ -117,19 +149,93 @@ export default function ListingContent() {
           router.replace(`?${params.toString()}`);
         }
 
+        const effectiveSlug = (currentStep === 1 && slug ? String(slug) : listingSlug);
+        const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+        if (effectiveSlug && step) {
+          await updateListingFormProgress(effectiveSlug, step.key, "complete", localStorage.getItem("authToken") ?? undefined).catch(() => undefined);
+          setStepStates((states) => ({ ...states, [step.key]: "complete" }));
+        }
+
         // Fixed: Pass the new number value directly instead of a callback function
         setCurrentStep(currentStep + 1);
+        setUnlockedStep((value) => Math.max(value, currentStep + 1));
+      } else {
+        setLastSaveFailed(true);
       }
     } catch (error) {
       console.error("Step submission failed", error);
+      setLastSaveFailed(true);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleBack = () => {
-    // Fixed: Pass value directly
-    setCurrentStep(Math.max(1, currentStep - 1));
+    requestStep(Math.max(1, currentStep - 1));
+  };
+
+  const handleSaveDraft = async () => {
+    if (!formRef.current || currentStep === totalSteps) return;
+    setIsSaving(true);
+    try {
+      const saved = await formRef.current.submit();
+      if (saved) {
+        const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+        if (step) await updateListingFormProgress(listingSlug, step.key, "complete", localStorage.getItem("authToken") ?? undefined).catch(() => undefined);
+        setDirty(false);
+        toast.success("Draft saved");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const requestStep = (step: number) => {
+    if (step > unlockedStep || step === currentStep) return;
+    if (dirty) {
+      setPendingStep(step);
+      return;
+    }
+    setCurrentStep(step);
+  };
+
+  const skipOptionalStep = async () => {
+    const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+    if (!step?.optional || !listingSlug) return;
+
+    if (dirty) {
+      setPendingSkip(true);
+      setPendingStep(currentStep + 1);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateListingFormProgress(listingSlug, step.key, "optional", localStorage.getItem("authToken") ?? undefined);
+      setStepStates((states) => ({ ...states, [step.key]: "optional" }));
+      setCurrentStep(currentStep + 1);
+      setUnlockedStep((value) => Math.max(value, currentStep + 1));
+    } catch {
+      toast.error("Could not skip this step. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const stayAndSave = async () => {
+    if (!formRef.current) return;
+    setIsSaving(true);
+    try {
+      const saved = await formRef.current.submit();
+      if (saved) {
+        setDirty(false);
+        setPendingStep(null);
+        setPendingSkip(false);
+        toast.success("Changes saved. You can continue editing this step.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStep = () => {
@@ -141,15 +247,33 @@ export default function ListingContent() {
 
     switch (currentStep) {
       case 1:
-        return <BasicInformationForm {...commonProps} />;
+        return <BasicInformationForm {...commonProps} initialName={initialName} />;
       case 2:
-        return <BusinessDetailsForm {...commonProps} />;
+        return listingType === "event"
+          ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="schedule" />
+          : listingType === "community"
+          ? <ListingExperienceForm {...commonProps} />
+          : <ListingExperienceForm {...commonProps} />;
       case 3:
-        return <MediaUploadStep {...commonProps} />;
+        return listingType === "event"
+          ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="access" />
+          : <SocialMediaForm {...commonProps} />;
       case 4:
-        return <SocialMediaForm {...commonProps} />;
+        return listingType === "event"
+          ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="tickets" />
+          : <MediaUploadStep {...commonProps} />;
       case 5:
-        return <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} />;
+        return listingType === "event"
+          ? <MediaUploadStep {...commonProps} />
+          : <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={requestStep} />;
+      case 6:
+        return listingType === "event"
+          ? <EventContactSocialStep listingSlug={listingSlug} ref={formRef} />
+          : null;
+      case 7:
+        return listingType === "event"
+          ? <ReviewSubmitStep listingSlug={listingSlug} ref={formRef} onEditStep={requestStep} />
+          : null;
       default:
         return null;
     }
@@ -159,7 +283,7 @@ export default function ListingContent() {
     <>
       <StepHeader
         currentStep={currentStep}
-        totalSteps={5}
+        totalSteps={totalSteps}
         title="Create Listing"
         subtitle="Follow the steps to publish"
       />
@@ -171,14 +295,16 @@ export default function ListingContent() {
             <div className="hidden lg:block">
               <StepNavigation
                 currentStep={currentStep}
-                onStepClick={() => {}}
+                onStepClick={requestStep}
                 listingType={listingType}
+                unlockedStep={unlockedStep}
+                stepStates={stepStates}
               />
             </div>
           </div>
         </aside>
 
-        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24">
+        <div className="w-full col-span-1 lg:col-span-2 px-4 lg:px-0 pb-24" onInputCapture={() => setDirty(true)} onChangeCapture={() => setDirty(true)}>
           {renderStep()}
         </div>
       </div>
@@ -198,6 +324,19 @@ export default function ListingContent() {
             )}
           </div>
 
+          <div className="flex items-center gap-2">
+            {LISTING_JOURNEYS[listingType][currentStep - 1]?.optional && (
+              <Button variant="outline" onClick={skipOptionalStep} disabled={isSaving}>
+                Skip for now
+              </Button>
+            )}
+            {currentStep < totalSteps && listingSlug && (
+              <Button variant="ghost" onClick={handleSaveDraft} disabled={isSaving}>
+                Save draft
+              </Button>
+            )}
+          </div>
+
           <Button
             onClick={handleNext}
             disabled={isSaving}
@@ -208,16 +347,47 @@ export default function ListingContent() {
                 <SpinnerGap className="w-4 h-4 animate-spin mr-2" />
                 Saving...
               </>
-            ) : currentStep === 5 ? (
-              "Submit Listing"
+            ) : currentStep === totalSteps ? (
+              "Submit for review"
             ) : (
               <>
-                Save & Continue <CaretRight className="w-4 h-4 ml-1" />
+                {lastSaveFailed ? "Retry save" : "Save & Continue"} <CaretRight className="w-4 h-4 ml-1" />
               </>
             )}
           </Button>
         </div>
       </div>
+      <ListingDirtyGuard
+        open={pendingStep !== null}
+        saving={isSaving}
+        onCancel={() => { setPendingStep(null); setPendingSkip(false); }}
+        onStayAndSave={stayAndSave}
+        onDiscard={() => window.location.reload()}
+        onLeave={async () => {
+          const next = pendingStep;
+          const shouldSkip = pendingSkip;
+          setDirty(false);
+          setPendingStep(null);
+          setPendingSkip(false);
+          if (shouldSkip) {
+            const step = LISTING_JOURNEYS[listingType][currentStep - 1];
+            if (!step || !listingSlug) return;
+            setIsSaving(true);
+            try {
+              await updateListingFormProgress(listingSlug, step.key, "optional", localStorage.getItem("authToken") ?? undefined);
+              setStepStates((states) => ({ ...states, [step.key]: "optional" }));
+              if (next !== null) {
+                setCurrentStep(next);
+                setUnlockedStep((value) => Math.max(value, next));
+              }
+            } catch {
+              toast.error("Could not skip this step. Please try again.");
+            } finally {
+              setIsSaving(false);
+            }
+          } else if (next !== null) setCurrentStep(next);
+        }}
+      />
     </>
   );
 }

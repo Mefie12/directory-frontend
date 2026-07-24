@@ -1,4 +1,5 @@
 import { ApiImage } from "./types";
+import { parseLocalDate } from "./event-formatting";
 
 const FALLBACK_IMAGE = "/images/no-image.jpg";
 
@@ -31,7 +32,7 @@ export function processImages(
       return !!(img && typeof img === "object" && img.original);
     })
     .map((img) =>
-      getImageUrl(typeof img === "string" ? img : (img.webp || img.original)),
+      getImageUrl(typeof img === "string" ? img : (img.card || img.webp || img.original)),
     );
 
   if (valid.length > 0) return valid;
@@ -48,9 +49,11 @@ export function processImages(
  * invalid / missing inputs.
  */
 export function formatDateTime(dateString?: string | null): string {
-  if (!dateString) return "TBA";
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "TBA";
+  // Parsed via parseLocalDate rather than `new Date(dateString)` directly —
+  // a date-only string ("2026-09-20") is otherwise interpreted as UTC
+  // midnight, shifting the displayed date back a day for viewers west of UTC.
+  const date = parseLocalDate(dateString);
+  if (!date) return "TBA";
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

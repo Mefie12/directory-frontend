@@ -9,7 +9,6 @@ import { BusinessCard } from "@/components/business-card";
 import { Button } from "@/components/ui/button";
 import { DirectoryPageShell } from "@/components/directory/directory-page-shell";
 import { useDirectoryListings } from "@/lib/directory/use-directory-listings";
-import { useAuth } from "@/context/auth-context";
 import { mapBusiness, ProcessedBusiness } from "./map-business";
 
 // BusinessSection expects the `Business` shape from @/lib/api where `image`
@@ -22,7 +21,6 @@ const adapt = (b: ProcessedBusiness): any => ({
 
 export default function BusinessesContent() {
   const router = useRouter();
-  const { user } = useAuth();
   const searchParams = useSearchParams();
 
   const filterCountry = searchParams.get("country");
@@ -56,7 +54,7 @@ export default function BusinessesContent() {
   );
 
   const handleJoinAsVendor = () => {
-    router.push(user ? "/claim" : "/auth/login?redirect=/claim");
+    router.push("/claim");
   };
 
   return (

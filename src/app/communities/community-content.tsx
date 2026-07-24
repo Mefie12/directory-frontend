@@ -6,12 +6,10 @@ import CommunityCard from "@/components/communities/community-card";
 import { Button } from "@/components/ui/button";
 import { DirectoryPageShell } from "@/components/directory/directory-page-shell";
 import { useDirectoryListings } from "@/lib/directory/use-directory-listings";
-import { useAuth } from "@/context/auth-context";
 import { mapCommunity, ProcessedCommunity } from "./map-community";
 
 export default function CommunityContent() {
   const router = useRouter();
-  const { user } = useAuth();
 
   const { items, isLoading, detectedCountry } =
     useDirectoryListings<ProcessedCommunity>({
@@ -21,7 +19,7 @@ export default function CommunityContent() {
     });
 
   const handleCtaClick = () => {
-    router.push(user ? "/claim" : "/auth/login?redirect=/claim");
+    router.push("/claim");
   };
 
   return (

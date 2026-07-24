@@ -28,6 +28,7 @@ export interface Business extends Listing {
   category: string;
   verified?: boolean;
   discount?: string;
+  reachBadge?: string | null;
 }
 
 export interface Event extends Listing {
@@ -763,7 +764,7 @@ export async function deleteSocial(id: string, token?: string): Promise<void> {
 /**
  * Global search across all content types
  */
-export async function search(params: SearchParams = {}, token?: string): Promise<unknown> {
+export async function search<T = unknown>(params: SearchParams = {}, token?: string): Promise<T> {
   const queryString = buildQueryString(params);
   const response = await fetch(`/api/search?${queryString}`, {
     headers: getAuthHeaders(token),
@@ -774,5 +775,761 @@ export async function search(params: SearchParams = {}, token?: string): Promise
     throw new Error('Failed to search');
   }
 
+  return response.json() as Promise<T>;
+}
+
+// ============================================================================
+// CLAIM FLOW API
+// ============================================================================
+
+export type ClaimCaseType = 'ordinary' | 'rectification';
+export type ClaimMethod = 'email' | 'document' | 'email_plus_document';
+export type ClaimStatus =
+  | 'awaiting_email_verification'
+  | 'under_review'
+  | 'more_evidence_requested'
+  | 'approved'
+  | 'rejected'
+  | 'withdrawn'
+  | 'closed_other_claim_approved'
+  | 'expired';
+
+export interface ClaimEligibility {
+  claimable: boolean;
+  claim_type: ClaimCaseType | null;
+  available_methods: ('email' | 'document')[];
+  reason: string | null;
+  masked_email: string | null;
+  /** The caller's own in-progress case, so the UI can resume instead of dead-ending. */
+  active_case: {
+    id: number;
+    status: ClaimStatus;
+    method: ClaimMethod;
+    case_type: ClaimCaseType;
+  } | null;
+  evidence_constraints: ClaimEvidenceConstraints;
+  prior_claims: ClaimCaseSummary[];
+}
+
+export interface ClaimEvidenceConstraints {
+  max_files_per_submission: number;
+  max_file_size_bytes: number;
+  accepted_extensions: string[];
+  accepted_mime_types: string[];
+}
+
+export interface ClaimCaseEvent {
+  id: number;
+  event_type: string;
+  metadata: {
+    instructions?: string;
+    reason?: string;
+    recommendation?: string;
+    evidence_ids?: number[];
+    evidence_count?: number;
+    method?: string;
+    case_type?: string;
+  };
+  created_at: string;
+}
+
+export interface ClaimEvidenceItem {
+  id: number;
+  original_filename: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+  submission_round?: number;
+  /** Admin view only: uploaded after the most recent evidence request. */
+  is_new?: boolean;
+}
+
+export interface ClaimCaseSummary {
+  id: number;
+  listing: {
+    id: number;
+    name: string;
+    slug: string;
+    type: string;
+    image?: string | null;
+  };
+  case_type: ClaimCaseType;
+  method: ClaimMethod;
+  status: ClaimStatus;
+  email_verified_at: string | null;
+  evidence_instructions: string | null;
+  rejection_reason: string | null;
+  rejection_recommendation: string | null;
+  evidence: ClaimEvidenceItem[];
+  events: ClaimCaseEvent[];
+  evidence_constraints: ClaimEvidenceConstraints;
+  available_actions: string[];
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  withdrawn_at: string | null;
+}
+
+export class ClaimEvidenceValidationError extends Error {
+  constructor(readonly errors: Record<string, string[]>, message = 'Check the selected evidence files.') {
+    super(message);
+    this.name = 'ClaimEvidenceValidationError';
+  }
+}
+
+async function claimUploadError(response: Response, fallback: string): Promise<Error> {
+  const data = await response.json().catch(() => ({})) as {
+    message?: string;
+    errors?: Record<string, string[]>;
+  };
+  if (response.status === 422 && data.errors) {
+    const firstFieldMessage = Object.values(data.errors).flat()[0];
+    return new ClaimEvidenceValidationError(
+      data.errors,
+      firstFieldMessage || data.message || fallback,
+    );
+  }
+  if (response.status === 413) {
+    return new Error('The selected evidence is too large for one request. Upload no more than five files of 5 MB each.');
+  }
+  return new Error(data.message || fallback);
+}
+
+export interface ClaimCaseAdmin {
+  id: number;
+  listing: {
+    id: number;
+    name: string;
+    slug: string;
+    type: string;
+    status: string;
+    claim_status: string;
+  };
+  claimant: { id: number; name: string; email: string; role: string };
+  current_owner: { id: number; name: string } | null;
+  case_type: ClaimCaseType;
+  method: ClaimMethod;
+  status: ClaimStatus;
+  email_verified_at: string | null;
+  evidence_instructions: string | null;
+  rejection_reason: string | null;
+  rejection_recommendation: string | null;
+  evidence: ClaimEvidenceItem[];
+  competing_active_claims: { id: number; claimant_name: string; method: ClaimMethod; status: ClaimStatus }[];
+  events: { id: number; actor_id: number | null; event_type: string; metadata: Record<string, unknown> | null; created_at: string }[];
+  resolved_by: string | null;
+  resolved_at: string | null;
+  withdrawn_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Explicit claim eligibility — never infer claimability from raw listing fields.
+ */
+export async function getClaimEligibility(listingSlug: string, token?: string): Promise<ClaimEligibility> {
+  const response = await fetch(`/api/listing/${listingSlug}/claim_eligibility`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to check claim eligibility');
+  }
+
   return response.json();
+}
+
+export async function initiateEmailClaim(listingSlug: string, token?: string): Promise<{ message: string; claim_id: number; email_preview: string }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to start email verification');
+  }
+
+  return data;
+}
+
+export async function resendEmailClaimOtp(listingSlug: string, token?: string): Promise<{ message: string }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email/resend`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to resend code');
+  }
+
+  return data;
+}
+
+export async function verifyEmailClaimOtp(listingSlug: string, otp: string, token?: string): Promise<{ message: string; claim_id: number; status: ClaimStatus }> {
+  const response = await fetch(`/api/listing/${listingSlug}/claims/email/verify`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ otp }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Invalid or expired code');
+  }
+
+  return data;
+}
+
+export async function submitDocumentClaim(
+  listingSlug: string,
+  files: File[],
+  token?: string,
+  extras?: { role?: string; notes?: string },
+): Promise<{ message: string; claim_id: number; status: ClaimStatus; case_type: ClaimCaseType }> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('documents[]', file));
+  if (extras?.role) formData.append('role', extras.role);
+  if (extras?.notes) formData.append('notes', extras.notes);
+
+  const response = await fetch(`/api/listing/${listingSlug}/claims/document`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+
+  if (!response.ok) throw await claimUploadError(response, 'Failed to submit claim');
+  const data = await response.json().catch(() => ({}));
+
+  return data;
+}
+
+export async function getMyClaims(token?: string, params: SearchParams = {}): Promise<ApiResponse<ClaimCaseSummary>> {
+  const queryString = buildQueryString(params);
+  const response = await fetch(`/api/my_claims?${queryString}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch your claims');
+  }
+
+  return response.json();
+}
+
+export async function getClaim(claimId: number | string, token?: string): Promise<ClaimCaseSummary> {
+  const response = await fetch(`/api/claims/${claimId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claim');
+  }
+
+  return response.json();
+}
+
+export async function addClaimEvidence(claimId: number | string, files: File[], token?: string): Promise<{ message: string; status: ClaimStatus }> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('documents[]', file));
+
+  const response = await fetch(`/api/claims/${claimId}/evidence`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+
+  if (!response.ok) throw await claimUploadError(response, 'Failed to submit evidence');
+  const data = await response.json().catch(() => ({}));
+
+  return data;
+}
+
+export async function withdrawClaim(claimId: number | string, token?: string): Promise<{ message: string; status: ClaimStatus }> {
+  const response = await fetch(`/api/claims/${claimId}/withdraw`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to withdraw claim');
+  }
+
+  return data;
+}
+
+export async function adminListClaims(token?: string, params: SearchParams = {}): Promise<ApiResponse<ClaimCaseAdmin>> {
+  const queryString = buildQueryString(params);
+  const response = await fetch(`/api/admin/claims?${queryString}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claims');
+  }
+
+  return response.json();
+}
+
+export async function adminGetClaim(claimId: number | string, token?: string): Promise<ClaimCaseAdmin> {
+  const response = await fetch(`/api/admin/claims/${claimId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch claim');
+  }
+
+  return response.json();
+}
+
+export async function adminApproveClaim(claimId: number | string, token?: string): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/approve`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to approve claim');
+  }
+
+  return data;
+}
+
+export async function adminRejectClaim(
+  claimId: number | string,
+  reason: string,
+  recommendation: string | undefined,
+  token?: string,
+): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/reject`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ reason, recommendation }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to reject claim');
+  }
+
+  return data;
+}
+
+export async function adminRequestMoreEvidence(
+  claimId: number | string,
+  instructions: string,
+  token?: string,
+): Promise<{ message: string }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/request_evidence`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ instructions }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to request evidence');
+  }
+
+  return data;
+}
+
+export async function adminGetEvidenceSignedUrl(
+  claimId: number | string,
+  evidenceId: number | string,
+  token?: string,
+): Promise<{ url: string; expires_in_minutes: number }> {
+  const response = await fetch(`/api/admin/claims/${claimId}/evidence/${evidenceId}/signed_url`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get evidence link');
+  }
+
+  return response.json();
+}
+
+export async function getClaimEvidenceSignedUrl(
+  claimId: number | string,
+  evidenceId: number | string,
+  token?: string,
+): Promise<{ url: string; expires_in_minutes: number }> {
+  const response = await fetch(`/api/claims/${claimId}/evidence/${evidenceId}/signed_url`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({})) as { url?: string; expires_in_minutes?: number; message?: string };
+  if (!response.ok || !data.url) {
+    throw new Error(data.message || 'Failed to open evidence');
+  }
+  return { url: data.url, expires_in_minutes: data.expires_in_minutes ?? 5 };
+}
+
+// ============================================================================
+// LISTING MEDIA REVISIONS (atomic image/video saves)
+// ============================================================================
+
+export type MediaRole = 'cover' | 'gallery';
+export type MediaKind = 'image' | 'video';
+export type MediaItemStatus =
+  | 'pending_upload'
+  | 'uploaded'
+  | 'processing'
+  | 'ready'
+  | 'failed'
+  | 'cancelled';
+export type MediaRevisionStatus =
+  | 'draft'
+  | 'uploading'
+  | 'processing'
+  | 'ready'
+  | 'committing'
+  | 'committed'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
+
+export interface MediaRevisionItem {
+  id: number;
+  role: MediaRole;
+  kind: MediaKind;
+  original_filename: string;
+  mime_type: string;
+  file_size: number | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  position: number | null;
+  replaces_media_id: number | null;
+  status: MediaItemStatus;
+  failure_code: string | null;
+  alt_text: string | null;
+}
+
+export interface MediaRevision {
+  id: number;
+  listing_id: number;
+  status: MediaRevisionStatus;
+  base_media_version: number;
+  desired_state: MediaDesiredState | null;
+  failure_code: string | null;
+  expires_at: string | null;
+  items: MediaRevisionItem[];
+}
+
+export interface MediaRef {
+  type: 'item' | 'media';
+  id: number;
+}
+
+export interface MediaDesiredState {
+  cover: MediaRef;
+  gallery?: MediaRef[];
+  removals?: number[];
+  alt_texts?: Record<string, string>;
+}
+
+export interface ActiveMediaItem {
+  id: number;
+  kind: MediaKind;
+  role: MediaRole;
+  position: number | null;
+  original: string;
+  thumb: string;
+  webp: string;
+  poster: string | null;
+  mime_type: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  alt_text: string;
+  processing_status: 'ready';
+}
+
+export interface ListingActiveMedia {
+  cover: ActiveMediaItem | null;
+  cover_is_explicit: boolean;
+  gallery: ActiveMediaItem[];
+  media_version: number;
+}
+
+interface StageItemResponse {
+  item_id: number;
+  upload_mode: 'presigned' | 'direct';
+  presigned_url: string | null;
+  headers: Record<string, string> | null;
+}
+
+export class ApiRateLimitError extends Error {
+  readonly status = 429;
+
+  constructor(
+    message: string,
+    readonly retryAfterSeconds: number,
+  ) {
+    super(message);
+    this.name = 'ApiRateLimitError';
+  }
+}
+
+/** Non-429 media API failure carrying the HTTP status for retry decisions. */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+async function mediaApiError(response: Response, fallback: string): Promise<Error> {
+  const data = await response.json().catch(() => ({})) as {
+    message?: string;
+    retry_after?: number | string;
+  };
+
+  if (response.status === 429) {
+    const headerRetryAfter = Number(response.headers.get('Retry-After'));
+    const bodyRetryAfter = Number(data.retry_after);
+    const retryAfter = Number.isFinite(headerRetryAfter) && headerRetryAfter > 0
+      ? headerRetryAfter
+      : Number.isFinite(bodyRetryAfter) && bodyRetryAfter > 0
+        ? bodyRetryAfter
+        : 60;
+
+    return new ApiRateLimitError(data.message || fallback, retryAfter);
+  }
+
+  return new ApiRequestError(data.message || fallback, response.status);
+}
+
+function unwrap<T>(json: unknown): T {
+  const obj = json as { data?: T };
+  return (obj?.data ?? json) as T;
+}
+
+export async function createMediaRevision(listingSlug: string, token?: string): Promise<MediaRevision> {
+  const response = await fetch(`/api/listing/${listingSlug}/media_revisions`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to start media edit');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function getMediaRevision(revisionId: number, token?: string): Promise<MediaRevision> {
+  const response = await fetch(`/api/media_revisions/${revisionId}`, {
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to load media state');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function stageRevisionItem(
+  revisionId: number,
+  meta: { role: MediaRole; kind: MediaKind; original_filename: string; mime_type: string; file_size: number; replaces_media_id?: number },
+  token?: string,
+): Promise<StageItemResponse> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/items`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(meta),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to stage upload');
+  const data = await response.json().catch(() => ({}));
+  return data as StageItemResponse;
+}
+
+/**
+ * Delivers a staged file. Presigned mode PUTs straight to S3 (bypasses the BFF
+ * body limit) then confirms with the backend; direct mode posts multipart via
+ * the BFF (local/dev). onProgress receives 0–100.
+ */
+export async function uploadRevisionItemFile(
+  revisionId: number,
+  stage: StageItemResponse,
+  file: File,
+  token?: string,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (stage.upload_mode === 'presigned' && stage.presigned_url) {
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const abortUpload = () => xhr.abort();
+      signal?.addEventListener('abort', abortUpload, { once: true });
+      xhr.open('PUT', stage.presigned_url as string);
+      Object.entries(stage.headers ?? {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Upload failed')));
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.onabort = () => reject(new DOMException('Upload cancelled.', 'AbortError'));
+      xhr.onloadend = () => signal?.removeEventListener('abort', abortUpload);
+      xhr.send(file);
+    });
+
+    const confirm = await fetch(`/api/media_revisions/${revisionId}/items/${stage.item_id}/confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      signal,
+    });
+    if (!confirm.ok) {
+      throw await mediaApiError(confirm, 'Failed to confirm upload');
+    }
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const xhr = new XMLHttpRequest();
+    const abortUpload = () => xhr.abort();
+    signal?.addEventListener('abort', abortUpload, { once: true });
+    xhr.open('POST', `/api/media_revisions/${revisionId}/items/${stage.item_id}/upload`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      try {
+        const data = JSON.parse(xhr.responseText) as { message?: string; retry_after?: number };
+        if (xhr.status === 429) {
+          const retryAfter = Number(xhr.getResponseHeader('Retry-After') ?? data.retry_after ?? 60);
+          reject(new ApiRateLimitError(data.message || 'Upload rate limited', retryAfter));
+          return;
+        }
+        reject(new Error(data.message || 'Upload failed'));
+      } catch {
+        reject(new Error('Upload failed'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Upload failed'));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled.', 'AbortError'));
+    xhr.onloadend = () => signal?.removeEventListener('abort', abortUpload);
+    xhr.send(formData);
+  });
+}
+
+export async function updateRevisionDesiredState(
+  revisionId: number,
+  state: MediaDesiredState,
+  token?: string,
+): Promise<MediaRevision> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/desired_state`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(state),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to save media layout');
+  const data = await response.json().catch(() => ({}));
+  return unwrap<MediaRevision>(data);
+}
+
+export async function commitMediaRevision(
+  revisionId: number,
+  token?: string,
+): Promise<{ message: string; media: ListingActiveMedia }> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/commit`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) throw await mediaApiError(response, 'Failed to save media');
+  const data = await response.json().catch(() => ({}));
+  return data as { message: string; media: ListingActiveMedia };
+}
+
+export async function cancelMediaRevision(revisionId: number, token?: string): Promise<void> {
+  const response = await fetch(`/api/media_revisions/${revisionId}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) {
+    throw await mediaApiError(response, 'Failed to discard media changes');
+  }
+}
+
+export interface ListingExperienceInput {
+  business_presence_type?: "physical" | "online" | "hybrid" | null;
+  business_service_reach?: "single_country" | "selected_countries" | "worldwide" | null;
+  service_countries?: Array<{ code: string; name: string }>;
+  business_hours_mode?: "scheduled" | "always_open" | "appointment_only" | "contact_for_hours" | null;
+  community_location_scope?: "physical" | "online" | "hybrid" | "global" | null;
+  community_participation_method?: string | null;
+  has_base_location?: boolean;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  opening_hours?: Array<{ day_of_week: string; open_time: string; close_time: string }>;
+}
+
+export class ListingExperienceValidationError extends Error {
+  constructor(readonly errors: Record<string, string[]>, message = "Check the highlighted fields") {
+    super(message);
+    this.name = "ListingExperienceValidationError";
+  }
+}
+
+export async function updateListingExperience(
+  slug: string,
+  input: ListingExperienceInput,
+  token?: string,
+): Promise<unknown> {
+  const response = await fetch(`/api/listing/${slug}/experience`, {
+    method: "PATCH",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({})) as { message?: string; errors?: Record<string, string[]> };
+    if (response.status === 422 && payload.errors) {
+      throw new ListingExperienceValidationError(payload.errors, payload.message);
+    }
+    throw new ApiRequestError(payload.message || "Failed to save listing step", response.status);
+  }
+  return response.json();
+}
+
+export async function submitListingForReview(slug: string, token?: string): Promise<unknown> {
+  const response = await fetch(`/api/listing/${slug}/submit`, {
+    method: "POST",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) throw await mediaApiError(response, "Listing is not ready to submit");
+  return response.json();
+}
+
+export async function updateListingFormProgress(
+  slug: string,
+  step: string,
+  state: "complete" | "optional",
+  token?: string,
+): Promise<void> {
+  const response = await fetch(`/api/listing/${slug}/form_progress`, {
+    method: "PATCH",
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({ step, state }),
+  });
+  if (!response.ok) throw await mediaApiError(response, "Could not save form progress");
 }

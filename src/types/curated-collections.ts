@@ -2,6 +2,7 @@ export interface CuratedCollectionImage {
   original: string;
   thumb: string;
   webp: string;
+  card?: string;
 }
 
 export interface CuratedCollectionListing {

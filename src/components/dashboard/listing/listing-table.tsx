@@ -42,7 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type ListingStatus = "published" | "pending" | "drafted";
+type ListingStatus = "published" | "pending" | "drafted" | "rejected" | "suspended" | "ended";
 
 export interface ListingsTableItem {
   id: string;
@@ -52,7 +52,7 @@ export interface ListingsTableItem {
   allImages: string[];
   category: string;
   location: string;
-  status: "published" | "pending" | "drafted";
+  status: ListingStatus;
   type: string;
   verified: boolean;
   views: number;
@@ -94,7 +94,7 @@ const getStatusConfig = (status: ListingStatus) => {
       };
     case "pending":
       return {
-        label: "Pending review",
+        label: "In review",
         className: "bg-[#2E61B4] text-white border-[#1976D2]/20",
         icon: (
           <span>
@@ -104,7 +104,7 @@ const getStatusConfig = (status: ListingStatus) => {
       };
     case "drafted":
       return {
-        label: "Drafted",
+        label: "Draft",
         className: "bg-[#F5F5F5] text-[#616161] border-[#616161]/20",
         icon: (
           <span>
@@ -112,6 +112,12 @@ const getStatusConfig = (status: ListingStatus) => {
           </span>
         ),
       };
+    case "rejected":
+      return { label: "Rejected", className: "bg-red-100 text-red-700 border-red-200", icon: <CircleDashed className="w-4 h-4" /> };
+    case "suspended":
+      return { label: "Suspended", className: "bg-orange-100 text-orange-700 border-orange-200", icon: <CircleDashed className="w-4 h-4" /> };
+    case "ended":
+      return { label: "Ended", className: "bg-slate-200 text-slate-700 border-slate-300", icon: <Clock className="w-4 h-4" /> };
   }
 };
 

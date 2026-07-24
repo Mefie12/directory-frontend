@@ -41,6 +41,7 @@ import { toast } from "sonner";
 
 // Components from your library
 import { HeroCarousel } from "@/components/hero-slide";
+import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 
 // --- Types ---
 interface ApiImage {
@@ -142,6 +143,7 @@ export default function ClaimListingDetailPage() {
   const { user, loading: authLoading } = useAuth();
 
   const [listing, setListing] = useState<ListingData | null>(null);
+  const [eligibility, setEligibility] = useState<ClaimEligibility | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -175,6 +177,16 @@ export default function ClaimListingDetailPage() {
 
         const json = await response.json();
         setListing(json.data || json);
+
+        if (token) {
+          try {
+            const eligibilityData = await getClaimEligibility(listingId, token);
+            setEligibility(eligibilityData);
+          } catch {
+            // Eligibility is a progressive enhancement here — the verify page
+            // re-checks it explicitly, so a transient failure isn't fatal.
+          }
+        }
       } catch (error) {
         console.error("Error fetching listing:", error);
         toast.error("Failed to load listing details.");
@@ -234,7 +246,10 @@ export default function ClaimListingDetailPage() {
   const rating = Number(listing.rating) || 0;
   const reviewsCount = Number(listing.reviews_count) || 0;
   const socials = listing.socials?.[0] || ({} as ApiSocialItem);
-  const isClaimed = !!listing.claim_status;
+  // Explicit status comparison — claim_status is always a non-empty string
+  // ("unclaimed", "claimed", ...), so truthiness alone would always read as claimed.
+  const isClaimed = listing.claim_status === "claimed";
+  const isClaimable = eligibility?.claimable === true;
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20 pt-24">
@@ -262,13 +277,13 @@ export default function ClaimListingDetailPage() {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          {!isClaimed && (
+          {isClaimable && (
             <Button
               onClick={handleClaim}
               size="sm"
               className="bg-[#93C01F] hover:bg-[#7ea919] text-white rounded-lg shadow-sm"
             >
-              Claim Business
+              {isClaimed ? "Request Ownership Review" : "Claim Business"}
             </Button>
           )}
         </div>
@@ -449,25 +464,29 @@ export default function ClaimListingDetailPage() {
                 <ShieldCheck className="w-5 h-5 text-[#93C01F]" />
               </div>
               <h3 className="text-lg font-bold text-gray-900">
-                {isClaimed ? "Verified Listing" : "Own this business?"}
+                {isClaimed ? "Managed listing" : "Own this business?"}
               </h3>
             </div>
             <CardContent className="p-5 text-center space-y-4">
               <p className="text-sm text-gray-500 leading-relaxed">
                 {isClaimed
-                  ? "This listing is already managed by a verified owner. You can still browse their services and contact them."
-                  : "Claim it now to update your information, respond to customer reviews, and gain a verified badge."}
+                  ? "This listing already has a manager. If that's not correct, you can request a review."
+                  : "Claim it now to update your information and respond to customer reviews."}
               </p>
               <Button
                 onClick={handleClaim}
-                disabled={isClaimed}
+                disabled={!isClaimable}
                 className={`w-full py-5 rounded-xl text-sm font-bold transition-all transform active:scale-[0.98] ${
-                  isClaimed
+                  !isClaimable
                     ? "bg-gray-100 text-gray-400"
                     : "bg-[#93C01F] hover:bg-[#7ea919] text-white shadow-md shadow-[#93C01F]/20 hover:shadow-lg hover:shadow-[#93C01F]/30"
                 }`}
               >
-                {isClaimed ? "Already Claimed" : "Start Claiming Process"}
+                {isClaimed
+                  ? "Request Ownership Review"
+                  : isClaimable
+                    ? "Start Claiming Process"
+                    : eligibility?.reason || "Not available"}
               </Button>
 
               {isClaimed && (
@@ -477,9 +496,9 @@ export default function ClaimListingDetailPage() {
                     className="text-[10px] text-gray-400 flex items-center justify-center gap-1 transition-colors capitalize font-bold tracking-tight"
                   >
                     <AlertCircle className="h-3 w-3" />
-                    Business Owner?{" "}
+                    Is this listing managed by the wrong person?{" "}
                     <span className="text-[#93C01F] hover:underline hover:underline-offset-2">
-                      Challenge this claim
+                      Request a review
                     </span>
                   </Link>
                 </div>

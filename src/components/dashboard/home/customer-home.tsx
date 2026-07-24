@@ -20,6 +20,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { InviteFriendModal } from "@/components/dashboard/invite-friend-modal";
+import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
 // --- Types ---
 interface ListingItem {
@@ -41,6 +42,9 @@ interface ApiImage {
   id?: number;
   media: string;
   media_type?: string;
+  card?: string;
+  webp?: string;
+  original?: string;
 }
 
 interface ApiRawItem {
@@ -90,19 +94,10 @@ const ListingCard = ({ item }: { item: ListingItem }) => {
     >
       {/* Image Container */}
       <div className="relative w-full aspect-4/3 overflow-hidden bg-gray-100">
-        <Image
+        <ListingCoverMedia
           src={item.image}
           alt={item.title}
-          fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={true}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (!target.src.includes("generic.jpg")) {
-              target.src = "/images/no-image.jpg";
-            }
-          }}
         />
 
         {/* Dark Gradient Overlay */}
@@ -285,7 +280,10 @@ export default function CustomerHome() {
                 return !!(img && typeof img === "object" && img.original);
               })
               .map((img: any) => {
-                const mediaPath = typeof img === "string" ? img : img.original;
+                const mediaPath =
+                  typeof img === "string"
+                    ? img
+                    : img.card || img.webp || img.original || img.media;
                 return getImageUrl(mediaPath);
               });
 
@@ -449,7 +447,7 @@ export default function CustomerHome() {
               </p>
             </div>
             <Button
-              onClick={() => router.push("/become-a-vendor")}
+              onClick={() => router.push("/claim")}
               className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm"
             >
               Join as a vendor
