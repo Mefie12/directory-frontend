@@ -447,7 +447,7 @@ export default function CustomerHome() {
               </p>
             </div>
             <Button
-              onClick={() => router.push("/become-a-vendor")}
+              onClick={() => router.push("/claim")}
               className="bg-white text-gray-900 hover:bg-gray-50 w-fit mt-10 border border-gray-200 shadow-sm"
             >
               Join as a vendor

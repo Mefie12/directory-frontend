@@ -11,7 +11,6 @@ import Link from "next/link";
 import EventSectionCarousel from "@/components/event-section-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 
 // --- Types ---
 interface ApiImage {
@@ -107,14 +106,9 @@ export default function BusinessesContent() {
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   const router = useRouter();
-  const { user } = useAuth();
 
   const handleClickEvent = () => {
-    if (user) {
-      router.push("/claim");
-    } else {
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   // --- Fetch Listings ---

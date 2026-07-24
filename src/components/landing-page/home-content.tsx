@@ -12,7 +12,6 @@ import { BusinessCard } from "../business-card";
 import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 import { CountryDropdown, Country } from "@/components/ui/country-dropdown";
 import { countries as allCountries } from "country-data-list";
 import { stripHtml } from "@/lib/utils";
@@ -119,7 +118,6 @@ const classifyListing = (
 
 export default function HomeContent() {
   const router = useRouter();
-  const { user } = useAuth();
   // const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [isTopCatsLoading, setIsTopCatsLoading] = useState(true);
@@ -136,13 +134,7 @@ export default function HomeContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const handleClickEvent = () => {
-    if (user) {
-      // Authenticated -> Go to Claim Page
-      router.push("/claim");
-    } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   useEffect(() => {

@@ -123,7 +123,7 @@ function LoginForm() {
           // Check if user is unverified
           if (isUnverified) {
             const encodedEmail = encodeURIComponent(formData.email);
-            window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${redirectPath}`;
+            window.location.href = `/auth/verify?email=${encodedEmail}&redirect=${encodeURIComponent(redirectPath)}`;
           } else {
             // If there's a specific redirect target (not just "/"), use it
             if (redirectPath && redirectPath !== "/") {
@@ -218,7 +218,7 @@ function LoginForm() {
             <p className="text-sm text-gray-500">
               Don&apos;t have an account?{" "}
               <Link
-                href={`/auth/signup?redirect=${redirectPath}`}
+                href={`/auth/signup?redirect=${encodeURIComponent(redirectPath)}`}
                 className="text-[#93C01F] font-medium hover:underline"
               >
                 Sign up

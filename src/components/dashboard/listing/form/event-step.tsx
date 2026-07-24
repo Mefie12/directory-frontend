@@ -7,7 +7,7 @@ import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { countries } from "country-data-list";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
-import { TicketTypeEditor } from "@/components/dashboard/listing/form/ticket-type-editor";
+import { TicketTypeEditor, TicketTypeEditorHandle } from "@/components/dashboard/listing/form/ticket-type-editor";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,10 +62,10 @@ type FieldErrors = Partial<Record<EventField, string>>;
 
 const EMPTY: EventDraft = {
   slug: "", event_start_date: "", event_end_date: "", event_start_time: "", event_end_time: "",
-  timezone: "", is_all_day: false, event_location: "", event_venue: "",
+  timezone: "", is_all_day: false, event_location: "in_person", event_venue: "",
   event_venue_address: "", event_city: "", event_country: "", latitude: null, longitude: null,
-  online_access_policy: "", event_online_url: "", online_access_instructions: "", attendance_type: "",
-  admission_availability: "", registration_url: "", pricing_mode: "", purchase_method: "", purchase_instructions: "",
+  online_access_policy: "", event_online_url: "", online_access_instructions: "", attendance_type: "paid",
+  admission_availability: "available", registration_url: "", pricing_mode: "fixed", purchase_method: "external_url", purchase_instructions: "",
   event_ticket_url: "", event_price: "", event_currency: "GHS", ticket_provider: "",
   ticket_release_at: "", ticket_availability_message: "",
 };
@@ -179,6 +179,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
   const [mapboxUnavailable, setMapboxUnavailable] = useState(false);
   const [hasContactMethod, setHasContactMethod] = useState(true);
   const retrievedAddress = useRef("");
+  const ticketTypeEditorRef = useRef<TicketTypeEditorHandle>(null);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
   const timezoneItems = useMemo(() => timezoneOptions(draft.timezone), [draft.timezone]);
 
@@ -207,11 +208,15 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
           timezone: event.timezone || detectedTimezone(),
           event_start_date: event.event_start_date?.slice(0, 10) ?? "",
           event_end_date: event.event_end_date?.slice(0, 10) ?? "",
-          event_location: event.event_location_type ?? "",
+          event_location: event.event_location_type ?? "in_person",
           event_price: event.event_price == null ? "" : String(event.event_price),
           ticket_release_at: event.ticket_release_at?.slice(0, 16) ?? "",
           latitude: listing.latitude == null ? null : Number(listing.latitude),
           longitude: listing.longitude == null ? null : Number(listing.longitude),
+          attendance_type: event.attendance_type ?? "paid",
+          admission_availability: event.admission_availability ?? "available",
+          pricing_mode: event.pricing_mode ?? "fixed",
+          purchase_method: event.purchase_method ?? "external_url",
         }));
       })
       .finally(() => setLoading(false));
@@ -281,6 +286,12 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
 
   const save = async (): Promise<boolean> => {
     if (!validateSection()) return false;
+
+    if (section === "tickets" && draft.pricing_mode === "multiple") {
+      const flushed = await ticketTypeEditorRef.current?.flushPendingChanges();
+      if (flushed === false) return false;
+    }
+
     let payload: Record<string, unknown>;
     if (section === "schedule") {
       payload = {
@@ -472,7 +483,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
         {draft.pricing_mode === "multiple" && <>
           <Field label="Currency" error={errors.event_currency} hint="Applies to every ticket type below."><SearchableSelect fieldName="event_currency" value={draft.event_currency} options={CURRENCIES} onChange={(value) => selectField("event_currency", value)} placeholder="Select currency" searchPlaceholder="Search code or currency…" invalid={!!errors.event_currency} /></Field>
           {draft.slug
-            ? <TicketTypeEditor listingSlug={listingSlug} eventSlug={draft.slug} />
+            ? <TicketTypeEditor ref={ticketTypeEditorRef} listingSlug={listingSlug} eventSlug={draft.slug} />
             : <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Save this step once to start adding ticket types.</p>}
         </>}
 

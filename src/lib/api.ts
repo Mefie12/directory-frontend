@@ -764,7 +764,7 @@ export async function deleteSocial(id: string, token?: string): Promise<void> {
 /**
  * Global search across all content types
  */
-export async function search(params: SearchParams = {}, token?: string): Promise<unknown> {
+export async function search<T = unknown>(params: SearchParams = {}, token?: string): Promise<T> {
   const queryString = buildQueryString(params);
   const response = await fetch(`/api/search?${queryString}`, {
     headers: getAuthHeaders(token),
@@ -775,7 +775,7 @@ export async function search(params: SearchParams = {}, token?: string): Promise
     throw new Error('Failed to search');
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 // ============================================================================

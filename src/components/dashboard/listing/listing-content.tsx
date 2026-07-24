@@ -46,6 +46,9 @@ export default function ListingContent() {
   const [pendingStep, setPendingStep] = useState<number | null>(null);
   const [pendingSkip, setPendingSkip] = useState(false);
   const [lastSaveFailed, setLastSaveFailed] = useState(false);
+  const initialName = searchParams.get("slug")
+    ? ""
+    : (searchParams.get("name") ?? "");
   const totalSteps = LISTING_JOURNEYS[listingType].length;
   useBeforeUnloadWhenDirty(dirty);
 
@@ -244,7 +247,7 @@ export default function ListingContent() {
 
     switch (currentStep) {
       case 1:
-        return <BasicInformationForm {...commonProps} />;
+        return <BasicInformationForm {...commonProps} initialName={initialName} />;
       case 2:
         return listingType === "event"
           ? <EventStepForm ref={formRef} listingSlug={listingSlug} section="schedule" />

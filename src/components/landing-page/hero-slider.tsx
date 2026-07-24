@@ -5,12 +5,10 @@ import { heroSlides } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 
 export default function HeroSlider() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
-  const { user } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -25,13 +23,7 @@ export default function HeroSlider() {
   };
 
   const handleClickEvent = () => {
-    if (user) {
-      // Authenticated -> Go to Claim Page
-      router.push("/claim");
-    } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   // Define unique colors for each slide dot

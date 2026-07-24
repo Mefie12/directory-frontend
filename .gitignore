@@ -42,7 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 
-/plans
+/plans/*
+!/plans/canonical-listing-creation-prd.md
 
 # accidental duplicate — not a real route
 src/app/api/listings copy/

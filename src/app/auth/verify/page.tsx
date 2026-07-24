@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -102,8 +101,7 @@ function VerifyForm() {
 
           // Small delay to ensure auth state updates
           setTimeout(() => {
-            // All roles go to /dashboard — the home page handles role-based rendering
-            router.replace("/dashboard");
+            router.replace(redirectPath !== "/" ? redirectPath : "/dashboard");
             router.refresh();
           }, 500);
           return;
@@ -118,7 +116,7 @@ function VerifyForm() {
           await login(storedToken);
         }
 
-        router.replace("/");
+        router.replace(redirectPath !== "/" ? redirectPath : "/");
         router.refresh();
       } catch (err: any) {
         console.error("Verification error:", err);

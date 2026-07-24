@@ -94,13 +94,7 @@ export default function Navbar() {
 
   // Routing to claim page
   const handleClickEvent = () => {
-    if (user) {
-      // Authenticated -> Go to Claim Page
-      router.push("/claim");
-    } else {
-      // Not Authenticated -> Go to Login, then redirect to Claim Page
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   // --- Helpers ---
