@@ -13,7 +13,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
 import type { CuratedCollection } from "@/types/curated-collections";
 // --- Interfaces ---
 interface ApiImage {
@@ -102,7 +101,6 @@ const classifyListing = (
 
 function DiscoverContent() {
   const router = useRouter();
-  const { user } = useAuth();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
   const [weekEvents, setWeekEvents] = useState<any[]>([]);
@@ -136,11 +134,7 @@ function DiscoverContent() {
   );
 
   const handleClickEvent = () => {
-    if (user) {
-      router.push("/claim");
-    } else {
-      router.push("/auth/login?redirect=/claim");
-    }
+    router.push("/claim");
   };
 
   const filterCountry = searchParams.get("country");

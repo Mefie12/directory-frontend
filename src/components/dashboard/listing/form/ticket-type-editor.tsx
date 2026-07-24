@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,16 @@ interface Props {
   eventSlug: string;
 }
 
+export interface TicketTypeEditorHandle {
+  /** Persists any unsaved edits to existing rows and a fully-typed pending
+   *  new row before the wizard step itself saves — otherwise both are
+   *  silently lost on navigation, since they only persist via their own
+   *  dedicated Save/Add buttons. Returns false (and blocks navigation) only
+   *  when the pending new row is partially filled and can't be safely
+   *  auto-resolved (can't guess a missing name or price). */
+  flushPendingChanges: () => Promise<boolean>;
+}
+
 const EMPTY_ROW = { name: "", description: "", price: "" };
 
 function authHeaders(): HeadersInit {
@@ -29,11 +39,12 @@ function authHeaders(): HeadersInit {
   return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" };
 }
 
-export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
+export const TicketTypeEditor = forwardRef<TicketTypeEditorHandle, Props>(({ listingSlug, eventSlug }, ref) => {
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
   const [newRow, setNewRow] = useState(EMPTY_ROW);
   const [savingRow, setSavingRow] = useState<string | null>(null);
+  const [dirtySlugs, setDirtySlugs] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -42,6 +53,7 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
       if (res.ok) {
         const json = await res.json();
         setTicketTypes(json.data || []);
+        setDirtySlugs(new Set());
       }
     } finally {
       setLoading(false);
@@ -57,12 +69,13 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
 
   const updateRow = (slug: string, patch: Partial<TicketType>) => {
     setTicketTypes((prev) => prev.map((t) => (t.slug === slug ? { ...t, ...patch } : t)));
+    setDirtySlugs((prev) => new Set(prev).add(slug));
   };
 
-  const saveRow = async (ticketType: TicketType) => {
+  const saveRow = async (ticketType: TicketType): Promise<boolean> => {
     if (!ticketType.name.trim()) {
       toast.error("Enter a name for this ticket type.");
-      return;
+      return false;
     }
     setSavingRow(ticketType.slug);
     try {
@@ -72,9 +85,16 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
         body: JSON.stringify({ name: ticketType.name, description: ticketType.description, price: ticketType.price }),
       });
       if (!res.ok) throw new Error();
+      setDirtySlugs((prev) => {
+        const next = new Set(prev);
+        next.delete(ticketType.slug);
+        return next;
+      });
       toast.success("Ticket type saved");
+      return true;
     } catch {
       toast.error("Could not save this ticket type.");
+      return false;
     } finally {
       setSavingRow(null);
     }
@@ -111,10 +131,10 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
     }
   };
 
-  const addRow = async () => {
+  const addRow = async (): Promise<boolean> => {
     if (!newRow.name.trim() || newRow.price === "") {
       toast.error("Enter a name and price for the new ticket type.");
-      return;
+      return false;
     }
     setSavingRow("new");
     try {
@@ -127,12 +147,38 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
       setNewRow(EMPTY_ROW);
       await load();
       toast.success("Ticket type added");
+      return true;
     } catch {
       toast.error("Could not add this ticket type.");
+      return false;
     } finally {
       setSavingRow(null);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    flushPendingChanges: async (): Promise<boolean> => {
+      for (const slug of dirtySlugs) {
+        const row = ticketTypes.find((t) => t.slug === slug);
+        if (row) {
+          const ok = await saveRow(row);
+          if (!ok) return false;
+        }
+      }
+
+      const hasName = newRow.name.trim() !== "";
+      const hasPrice = newRow.price !== "";
+      if (hasName && hasPrice) {
+        return addRow();
+      }
+      if (hasName || hasPrice) {
+        toast.error("Finish or clear the ticket type you started adding before continuing.");
+        return false;
+      }
+
+      return true;
+    },
+  }));
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading ticket types…</p>;
 
@@ -187,4 +233,6 @@ export function TicketTypeEditor({ listingSlug, eventSlug }: Props) {
       </div>
     </div>
   );
-}
+});
+
+TicketTypeEditor.displayName = "TicketTypeEditor";

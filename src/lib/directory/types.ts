@@ -48,6 +48,7 @@ export interface ApiListing {
   city?: string;
   country?: string;
   status?: string;
+  claim_status?: "unclaimed" | "appealed" | "claimed" | string;
   images: (ApiImage | string)[];
   cover_image?: string;
   image?: string;

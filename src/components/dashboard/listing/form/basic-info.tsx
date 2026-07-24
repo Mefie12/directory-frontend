@@ -79,6 +79,7 @@ interface Category {
 interface Props {
   listingType: "business" | "event" | "community";
   listingSlug: string;
+  initialName?: string;
   onValidityChange?: (isValid: boolean) => void;
 }
 
@@ -108,7 +109,7 @@ const basicInfoConfig = {
 };
 
 export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
-  ({ listingType, listingSlug, onValidityChange }, ref) => {
+  ({ listingType, listingSlug, initialName = "", onValidityChange }, ref) => {
     // --- State ---
     const [categories, setCategories] = useState<Category[]>([]);
     const [mainCategories, setMainCategories] = useState<Category[]>([]);
@@ -164,6 +165,17 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         setValue("type", listingType);
       }
     }, [listingType, setValue]);
+
+    useEffect(() => {
+      const prefill = initialName.trim().slice(0, 255);
+      if (!listingSlug && prefill && !form.getValues("name").trim()) {
+        setValue("name", prefill, {
+          shouldDirty: false,
+          shouldTouch: false,
+          shouldValidate: true,
+        });
+      }
+    }, [form, initialName, listingSlug, setValue]);
 
     const currentCategoryIds = watch("category_ids") || [];
     const textConfig = basicInfoConfig[listingType];

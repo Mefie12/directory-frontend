@@ -17,7 +17,7 @@ export const heroSlides: HeroSlide[] = [
     image: "/images/backgroundImages/hero1.jpg",
     cta: "Apply to Be Listed",
     cta2: "Explore listing",
-    link: "/become-a-vendor",
+    link: "/claim",
   },
   {
     id: 2,
@@ -37,7 +37,7 @@ export const heroSlides: HeroSlide[] = [
     image: "/images/backgroundImages/hero3.jpg",
     cta: "Apply to Be Listed",
     cta2: "Explore listing",
-    link: "/become-a-vendor",
+    link: "/claim",
   },
 ];
 
