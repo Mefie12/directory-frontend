@@ -93,8 +93,13 @@ function timezoneOptions(current: string): SearchableSelectOption[] {
   return values.map((value) => ({ value, label: value.replaceAll("_", " ") }));
 }
 
-function isHttpsUrl(value: string): boolean {
-  if (value.length > 2048) return false;
+function isHttpsUrl(value: string | null | undefined): boolean {
+  // Draft fields are typed as `string`, but the API can genuinely return
+  // null for a URL field the server previously cleared (e.g. purchase
+  // method switched away from "external_url") — the load effect spreads
+  // that straight onto draft, so this must tolerate null/undefined here
+  // rather than assume the type holds at runtime.
+  if (!value || value.length > 2048) return false;
   try { return new URL(value).protocol === "https:"; } catch { return false; }
 }
 
