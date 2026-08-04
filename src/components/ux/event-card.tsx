@@ -121,7 +121,7 @@ export function EventCard({ event, href }: EventCardProps) {
 
         {/* Card Content */}
         <div className="p-4 space-y-2 flex-1">
-          <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+          <h3 className="font-semibold text-base line-clamp-2 group-hover:text-[#275782] transition-colors">
             {event.name}
           </h3>
 
