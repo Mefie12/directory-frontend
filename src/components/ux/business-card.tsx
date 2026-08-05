@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, Bookmark } from "lucide-react";
 import { useBookmark } from "@/context/bookmark-context";
-import { cn } from "@/lib/utils";
+import { cn, stripHtml } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
 import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
 
@@ -10,6 +10,7 @@ export type Business = {
   id: string;
   name: string;
   category: string;
+  description?: string;
   images: string[];
   rating: number;
   reviewCount: string | number;
@@ -80,6 +81,16 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
 
+        {/* Scrim so the overlaid tags stay legible over any photo */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent pointer-events-none" />
+
+        {/* Verified badge — top-left of image */}
+        {business.verified && (
+          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+            <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+            <span className="text-xs font-medium text-gray-700">Verified</span>
+          </div>
+        )}
 
         <button
           onClick={(e) => {
@@ -99,25 +110,30 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
           />
         </button>
 
-        {/* Verified badge — bottom-right of image */}
-        {business.verified && (
-          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
-            <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
-            <span className="text-xs font-medium text-gray-700">Verified</span>
-          </div>
-        )}
+        {/* Category + reach tags — bottom-left of image */}
+        <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/95 text-gray-700 text-xs font-medium">
+            {business.category}
+          </span>
+          {business.reachBadge && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50/95 text-blue-700 text-xs font-medium">
+              {business.reachBadge}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Content Section */}
       <div className="p-4 space-y-2">
-        {/* Category tag */}
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">{business.category}</span>
-          {business.reachBadge && <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{business.reachBadge}</span>}
-        </div>
-        <h3 className="font-semibold text-base md:text-lg line-clamp-2 group-hover:text-[#275782] transition-colors">
+        <h3 className="font-semibold text-base line-clamp-2 group-hover:text-[#275782] transition-colors">
           {business.name}
         </h3>
+
+        {business.description && (
+          <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
+            {stripHtml(business.description)}
+          </p>
+        )}
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <Star

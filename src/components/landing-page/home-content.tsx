@@ -294,6 +294,7 @@ export default function HomeContent() {
               id: item.id.toString(),
               name: item.name,
               slug: item.slug,
+              description: item.bio || item.description || "",
               images: validImages,
               category: categoryName,
               rating: Number(item.rating) || 0,

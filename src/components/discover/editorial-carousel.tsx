@@ -29,6 +29,7 @@ function toBusinessCard(listing: CuratedCollectionListing) {
     name: listing.name,
     slug: listing.slug,
     category: listing.categories[0]?.name || "",
+    description: listing.bio || listing.description || "",
     images: coverAwareImages(listing),
     rating: listing.rating ?? 0,
     reviewCount: listing.ratings_count ?? 0,

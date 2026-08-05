@@ -76,6 +76,17 @@ export default function CommunityCard({ community, href }: CommunityCardProps) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
 
+          {/* Scrim so the overlaid tag stays legible over any photo */}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent pointer-events-none" />
+
+          {/* Verified badge — top-left of image */}
+          {community.verified && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
+              <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
+              <span className="text-xs font-medium text-gray-700">Verified</span>
+            </div>
+          )}
+
           {/* Bookmark Icon */}
           <button
             onClick={handleBookmarkClick}
@@ -92,23 +103,16 @@ export default function CommunityCard({ community, href }: CommunityCardProps) {
             />
           </button>
 
-          {/* Verified badge — bottom-right of image */}
-          {community.verified && (
-            <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 bg-white rounded-full shadow-sm border border-gray-200">
-              <Image src="/images/icons/verify.svg" alt="Verified" width={13} height={13} />
-              <span className="text-xs font-medium text-gray-700">Verified</span>
-            </div>
-          )}
+          {/* Category tag — bottom-left of image */}
+          <span className="absolute bottom-2 left-2 z-10 inline-flex items-center px-2.5 py-1 rounded-full bg-white/95 text-gray-700 text-xs font-medium">
+            {community.tag || "Community"}
+          </span>
         </div>
       </div>
 
       {/* Content Area */}
       <div className="px-6 pb-4 space-y-2">
-        {/* Category tag */}
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
-          {community.tag || "Community"}
-        </span>
-        <h2 className="text-lg font-black leading-tight text-gray-900 line-clamp-1">
+        <h2 className="text-base font-black leading-tight text-gray-900 line-clamp-1">
           {community.name}
         </h2>
 

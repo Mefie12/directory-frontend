@@ -180,6 +180,7 @@ const mapToCard = (item: ApiRawItem): MappedItem => {
     slug,
     name,
     category,
+    description: item.bio || item.description || "",
     images: [image],
     rating: Number(item.average_rating || item.rating) || 0,
     reviewCount: (item.ratings_count ?? item.reviews_count ?? 0) as string | number,

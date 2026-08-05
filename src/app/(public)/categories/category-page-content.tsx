@@ -136,6 +136,7 @@ function ListingCard({ item }: { item: ApiListing }) {
         id: String(item.id),
         name: item.name,
         category: listingCategory(item),
+        description,
         images: [listingImage(item)],
         rating: Number(item.rating) || 0,
         reviewCount: Number(item.ratings_count) || 0,
