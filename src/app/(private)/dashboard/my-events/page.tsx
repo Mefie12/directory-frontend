@@ -55,6 +55,7 @@ interface EventItem {
   date: string;
   startTime?: string;
   isVerified?: boolean;
+  ticketUrl?: string;
 }
 
 interface ApiEventItem {
@@ -70,6 +71,9 @@ interface ApiEventItem {
   start_date?: string;
   start_time?: string;
   is_verified?: boolean;
+  event_ticket_url?: string | null;
+  /** The ticket URL is only returned nested under `event`, never flat. */
+  event?: { event_ticket_url?: string | null } | null;
 }
 
 export default function MyEvents() {
@@ -134,6 +138,8 @@ export default function MyEvents() {
             : new Date().toISOString(),
           startTime: item.start_time || "10:00 AM",
           isVerified: item.is_verified || false,
+          ticketUrl:
+            item.event?.event_ticket_url ?? item.event_ticket_url ?? undefined,
         }));
 
         setEvents(mappedEvents);

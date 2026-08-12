@@ -83,6 +83,9 @@ interface ApiListing {
   event_country?: string;
   event_price?: string | null;
   event_currency?: string | null;
+  event_ticket_url?: string | null;
+  /** The ticket URL is only returned nested under `event`, never flat. */
+  event?: { event_ticket_url?: string | null } | null;
 }
 
 // --- UPDATED: Aggressive Classifier Logic ---
@@ -288,6 +291,8 @@ export default function HomeContent() {
               description: item.description || item.bio || "",
               verified: !!(item.listing_verified ?? item.is_verified),
               price: priceLabel,
+              ticketUrl:
+                item.event?.event_ticket_url ?? item.event_ticket_url ?? undefined,
             } as unknown as Event);
           } else {
             businesses.push({

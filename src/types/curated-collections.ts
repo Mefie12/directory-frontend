@@ -21,6 +21,13 @@ export interface CuratedCollectionListing {
   event_start_date: string | null;
   event_venue: string | null;
   event_city: string | null;
+  /**
+   * Optional: the curated_collections endpoint returns neither the flat
+   * `event_ticket_url` nor a nested `event` object, so "Get tickets" stays
+   * hidden on editorial carousels until the backend includes one of them.
+   */
+  event_ticket_url?: string | null;
+  event?: { event_ticket_url?: string | null } | null;
   images: CuratedCollectionImage[];
 }
 

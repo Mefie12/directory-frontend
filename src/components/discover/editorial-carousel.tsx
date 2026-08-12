@@ -62,6 +62,8 @@ function toEventCard(listing: CuratedCollectionListing) {
     startDate: formattedDate,
     endDate: formattedDate,
     verified: listing.listing_verified,
+    ticketUrl:
+      listing.event?.event_ticket_url ?? listing.event_ticket_url ?? undefined,
   };
 }
 

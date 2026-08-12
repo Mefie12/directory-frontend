@@ -21,7 +21,11 @@ import {
   formatDateTime,
   resolveCoverUrl,
 } from "@/lib/directory/image-utils";
-import { pickDisplayCategory, type ApiListing } from "@/lib/directory/types";
+import {
+  pickDisplayCategory,
+  resolveTicketUrl,
+  type ApiListing,
+} from "@/lib/directory/types";
 import type {
   CategoryLandingListingType,
   CategoryLandingResponse,
@@ -103,7 +107,7 @@ function ListingCard({ item }: { item: ApiListing }) {
             ? formatDateTime(item.event_end_date)
             : "",
           verified,
-          ticketUrl: item.event_ticket_url ?? undefined,
+          ticketUrl: resolveTicketUrl(item),
         }}
       />
     );

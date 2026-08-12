@@ -63,6 +63,9 @@ interface ApiListing {
   event_price?: string | null;
   event_currency?: string | null;
   event_location_type?: string | null;
+  event_ticket_url?: string | null;
+  /** The ticket URL is only returned nested under `event`, never flat. */
+  event?: { event_ticket_url?: string | null } | null;
 }
 
 // --- Helper Functions ---
@@ -206,6 +209,8 @@ function DiscoverContent() {
             startDate: formatDate(item.event_start_date),
             endDate: formatDate(item.event_end_date || item.event_start_date),
             price: priceLabel,
+            ticketUrl:
+              item.event?.event_ticket_url ?? item.event_ticket_url ?? undefined,
           });
         } else {
           businessesList.push({
