@@ -11,7 +11,7 @@ import { mapCommunity, ProcessedCommunity } from "./map-community";
 export default function CommunityContent() {
   const router = useRouter();
 
-  const { items, isLoading, detectedCountry } =
+  const { items, isLoading, detectedCountry, showingGlobalFallback } =
     useDirectoryListings<ProcessedCommunity>({
       endpoint: "/api/communities",
       mapItem: mapCommunity,
@@ -29,6 +29,7 @@ export default function CommunityContent() {
       items={items}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      showingGlobalFallback={showingGlobalFallback}
       mapItem={mapCommunity}
       groupBy={(c) => c.tag}
       matchesCategory={(c, slug) => c.categorySlug === slug}

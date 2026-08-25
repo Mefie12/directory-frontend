@@ -29,6 +29,7 @@ export interface UseDirectoryListingsResult<T> {
   isLoading: boolean;
   error: string | null;
   detectedCountry: string | null;
+  showingGlobalFallback: boolean;
   refetch: () => void;
 }
 
@@ -53,6 +54,7 @@ export function useDirectoryListings<T>({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [showingGlobalFallback, setShowingGlobalFallback] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   // Keep mapItem latest without re-running the effect on every render.
@@ -79,6 +81,7 @@ export function useDirectoryListings<T>({
       try {
         setIsLoading(true);
         setError(null);
+        setShowingGlobalFallback(false);
 
         const params = new URLSearchParams({ per_page: String(perPage) });
         const categoryId = searchParams.get("category_id");
@@ -129,46 +132,44 @@ export function useDirectoryListings<T>({
             ? json.listings
             : [];
 
-        // UK fallback: if geo-detection failed (no detected_country) or the
-        // detected country has zero listings, and the user has not explicitly
-        // chosen a country via the URL, re-fetch for United Kingdom.
+        // An automatic location with no matches falls back to the same
+        // type/category globally. Explicit country choices remain authoritative.
         const hasExplicitCountry = !!country;
-        if (!hasExplicitCountry && (!geoDetectedCountry || raw.length === 0)) {
-          const ukParams = new URLSearchParams(params);
-          ukParams.set("country", "United Kingdom");
+        if (!hasExplicitCountry && geoDetectedCountry && raw.length === 0) {
+          const globalParams = new URLSearchParams(params);
+          globalParams.set("global", "1");
 
-          // When a category filter is active we must use the country+category
-          // endpoint; otherwise the base endpoint forwards country correctly.
-          const ukEndpoint = hasCategoryFilter
-            ? "/api/all_listings_by_country_and_category"
+          const globalEndpoint = hasCategoryFilter
+            ? "/api/all_listings_by_category_and_geolocation"
             : endpoint;
 
-          const ukRes = await fetch(`${ukEndpoint}?${ukParams.toString()}`, {
+          const globalRes = await fetch(`${globalEndpoint}?${globalParams.toString()}`, {
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             signal: controller.signal,
           });
 
-          if (ukRes.ok) {
-            const ukJson = (await ukRes.json()) as ApiListingsResponse & {
+          if (globalRes.ok) {
+            const globalJson = (await globalRes.json()) as ApiListingsResponse & {
               listings?: ApiListing[];
             };
             if (cancelled) return;
-            const ukRaw = Array.isArray(ukJson.data)
-              ? ukJson.data
-              : Array.isArray(ukJson.listings)
-                ? ukJson.listings
+            const globalRaw = Array.isArray(globalJson.data)
+              ? globalJson.data
+              : Array.isArray(globalJson.listings)
+                ? globalJson.listings
                 : [];
-            const ukMapped: T[] = [];
-            for (const item of ukRaw) {
+            const globalMapped: T[] = [];
+            for (const item of globalRaw) {
               const out = mapItemRef.current(item);
-              if (out !== null && out !== undefined) ukMapped.push(out);
+              if (out !== null && out !== undefined) globalMapped.push(out);
             }
-            setItems(ukMapped);
+            setItems(globalMapped);
+            setShowingGlobalFallback(true);
           } else {
             setItems([]);
           }
 
-          setDetectedCountry("United Kingdom");
+          setDetectedCountry(geoDetectedCountry);
           return;
         }
 
@@ -203,5 +204,5 @@ export function useDirectoryListings<T>({
 
   const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  return { items, isLoading, error, detectedCountry, refetch };
+  return { items, isLoading, error, detectedCountry, showingGlobalFallback, refetch };
 }
