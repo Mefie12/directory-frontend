@@ -25,7 +25,7 @@ export default function BusinessesContent() {
 
   const filterCountry = searchParams.get("country");
 
-  const { items, isLoading, detectedCountry } =
+  const { items, isLoading, detectedCountry, showingGlobalFallback } =
     useDirectoryListings<ProcessedBusiness>({
       endpoint: "/api/businesses",
       mapItem: mapBusiness,
@@ -64,6 +64,7 @@ export default function BusinessesContent() {
       items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      showingGlobalFallback={showingGlobalFallback}
       mapItem={mapBusiness}
       groupBy={(b) => b.category}
       matchesCategory={(b, slug) => b.categorySlugs.includes(slug)}

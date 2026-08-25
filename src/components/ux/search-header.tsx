@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQueryState, parseAsString, debounce } from "nuqs";
-import { Calendar, ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -126,6 +126,10 @@ export default function SearchHeader({
     "country",
     parseAsString.withDefault(""),
   );
+  const [categorySlugQ, setCategorySlugQ] = useQueryState(
+    "category_slug",
+    parseAsString.withDefault(""),
+  );
   const [, setQParam] = useQueryState(
     "q",
     parseAsString
@@ -145,6 +149,8 @@ export default function SearchHeader({
   const [countryOptions, setCountryOptions] = useState<Country[] | undefined>(
     undefined,
   );
+  const [countryLoadError, setCountryLoadError] = useState(false);
+  const [countryReloadKey, setCountryReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,14 +188,34 @@ export default function SearchHeader({
 
   // Fetch countries that have listings from the Next.js proxy
   useEffect(() => {
-    fetch(`/api/countries_dropdown`, {
+    let cancelled = false;
+    const params = new URLSearchParams();
+    const listingType = {
+      businesses: "business",
+      events: "event",
+      communities: "community",
+      discover: "",
+    }[context];
+    if (listingType) params.set("type", listingType);
+    if (categoryIdQ && categoryIdQ !== "all") {
+      if (/^\d+$/.test(categoryIdQ)) params.set("category_id", categoryIdQ);
+      else params.set("category_slug", categoryIdQ);
+    }
+    if (categorySlugQ && categorySlugQ !== "all") params.set("category_slug", categorySlugQ);
+
+    fetch(`/api/countries_dropdown?${params.toString()}`, {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Country request failed (${r.status})`);
+        return r.json();
+      })
       .then((json) => {
+        if (cancelled) return;
+        setCountryLoadError(false);
         const list: unknown[] = Array.isArray(json?.data)
           ? json.data
           : Array.isArray(json)
@@ -244,12 +270,22 @@ export default function SearchHeader({
           })
           .filter((c): c is Country => c !== null);
 
-        if (mapped.length > 0) setCountryOptions(mapped);
+        setCountryOptions(mapped);
+
+        if (
+          countryQ &&
+          !mapped.some((country) => country.name.toLowerCase() === countryQ.toLowerCase())
+        ) {
+          setCountryQ(null);
+          onCountryChange?.(null);
+        }
       })
       .catch(() => {
-        setCountryOptions([]);
+        if (!cancelled) setCountryLoadError(true);
       });
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [context, categoryIdQ, categorySlugQ, countryReloadKey, countryQ, onCountryChange, setCountryQ]);
 
   const handleSearchChange = (value: string) => {
     if (onSearchChange) {
@@ -272,7 +308,14 @@ export default function SearchHeader({
   };
 
   const handleCategoryChange = (value: string) => {
-    setCategoryIdQ(value === "all" ? null : value);
+    if (value === "all") {
+      setCategoryIdQ(null);
+      setCategorySlugQ(null);
+      return;
+    }
+
+    setCategoryIdQ(null);
+    setCategorySlugQ(value);
   };
 
   const isMobile = useIsMobile();
@@ -310,7 +353,7 @@ export default function SearchHeader({
   const showCategories = context !== "discover";
   const showDate = context === "discover" || context === "events";
 
-  const currentCategory = categoryIdQ || "all";
+  const currentCategory = categorySlugQ || categoryIdQ || "all";
   const currentCategoryLabel = useMemo(
     () =>
       categories.find((c) => c.value === currentCategory)?.label ||
@@ -343,7 +386,17 @@ export default function SearchHeader({
                 placeholder="Select country"
                 slim={false}
                 options={countryOptions}
+                disabled={countryOptions === undefined}
               />
+              {countryLoadError && (
+                <button
+                  type="button"
+                  onClick={() => setCountryReloadKey((key) => key + 1)}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3 w-3" /> Retry countries
+                </button>
+              )}
             </div>
           )}
 
