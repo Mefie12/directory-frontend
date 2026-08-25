@@ -15,6 +15,7 @@ import { SearchableSelect, SearchableSelectOption } from "@/components/ui/search
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { convertToHHmm, parseMapboxAddress } from "@/lib/directory/utils";
 import { cn } from "@/lib/utils";
+import { detectedTimezone, timezoneOptions } from "@/lib/directory/timezones";
 
 type Section = "schedule" | "access" | "tickets";
 type EventFormat = "in_person" | "online" | "hybrid";
@@ -77,21 +78,6 @@ const CURRENCIES: SearchableSelectOption[] = [
   ["JPY", "Japanese yen"], ["CNY", "Chinese yuan"], ["INR", "Indian rupee"], ["CHF", "Swiss franc"],
   ["NZD", "New Zealand dollar"], ["AED", "UAE dirham"], ["SAR", "Saudi riyal"],
 ].map(([value, name]) => ({ value, label: `${value} — ${name}`, searchTerms: name }));
-
-function detectedTimezone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Accra";
-}
-
-function timezoneOptions(current: string): SearchableSelectOption[] {
-  const intl = Intl as typeof Intl & { supportedValuesOf?: (key: "timeZone") => string[] };
-  const values = intl.supportedValuesOf?.("timeZone") ?? [
-    "Africa/Accra", "Africa/Lagos", "Africa/Nairobi", "Africa/Johannesburg", "Europe/London",
-    "Europe/Paris", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
-    "America/Toronto", "Asia/Dubai", "Asia/Kolkata", "Asia/Tokyo", "Australia/Sydney",
-  ];
-  if (current && !values.includes(current)) values.unshift(current);
-  return values.map((value) => ({ value, label: value.replaceAll("_", " ") }));
-}
 
 const TIME_FORMAT = /^([01]\d|2[0-3]):([0-5]\d)$/;
 

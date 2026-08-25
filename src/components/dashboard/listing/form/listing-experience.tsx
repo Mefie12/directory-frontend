@@ -28,12 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import {
   ListingExperienceValidationError,
   updateListingExperience,
 } from "@/lib/api";
 import { parseMapboxAddress } from "@/lib/directory/utils";
+import { detectedTimezone, timezoneOptions } from "@/lib/directory/timezones";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -71,6 +73,7 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
     const [presence, setPresence] = useState<Presence>("physical");
     const [reach, setReach] = useState<Reach>("single_country");
     const [hoursMode, setHoursMode] = useState<HoursMode>("scheduled");
+    const [businessTimezone, setBusinessTimezone] = useState("");
     const [scope, setScope] = useState<Scope>("physical");
     const [participation, setParticipation] = useState("");
     const [serviceCountries, setServiceCountries] = useState<ServiceCountry[]>(
@@ -127,6 +130,7 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
           if (data.business_service_reach)
             setReach(data.business_service_reach);
           if (data.business_hours_mode) setHoursMode(data.business_hours_mode);
+          setBusinessTimezone(data.business_timezone ?? "");
           if (data.community_location_scope)
             setScope(data.community_location_scope);
           setParticipation(data.community_participation_method ?? "");
@@ -236,6 +240,8 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
         if (enabled.length === 0)
           next.opening_hours =
             "Add at least one day of scheduled opening hours.";
+        if (!businessTimezone)
+          next.business_timezone = "Select the business timezone.";
       }
       if (listingType === "community" && !participation.trim())
         next.community_participation_method =
@@ -260,6 +266,8 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
                   business_presence_type: presence,
                   business_service_reach: reach,
                   business_hours_mode: hoursMode,
+                  business_timezone:
+                    hoursMode === "scheduled" ? businessTimezone : null,
                   service_countries:
                     reach === "selected_countries" ? serviceCountries : [],
                   address: address.trim() || null,
@@ -604,18 +612,54 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
               </Field>
             )}
             {hoursMode === "scheduled" && (
-              <Field label="Scheduled hours" error={errors.opening_hours}>
-                <div data-experience-field="opening_hours" tabIndex={-1}>
-                  <BusinessHoursSelector
-                    label=""
-                    value={hours}
-                    onChange={(value) => {
-                      setHours(value);
-                      clearError("opening_hours");
-                    }}
-                  />
-                </div>
-              </Field>
+              <>
+                <Field
+                  label="Business timezone"
+                  error={errors.business_timezone}
+                >
+                  <div data-experience-field="business_timezone" tabIndex={-1}>
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      Opening hours are shown in the business&apos;s local time.
+                    </p>
+                    <SearchableSelect
+                      fieldName="business_timezone"
+                      value={businessTimezone}
+                      options={timezoneOptions(businessTimezone)}
+                      onChange={(value) => {
+                        setBusinessTimezone(value);
+                        clearError("business_timezone");
+                      }}
+                      placeholder="Select timezone"
+                      searchPlaceholder="Search timezone…"
+                      invalid={!!errors.business_timezone}
+                    />
+                    {!businessTimezone && (
+                      <button
+                        type="button"
+                        className="mt-2 text-sm font-medium text-[#6f9215] hover:underline"
+                        onClick={() => {
+                          setBusinessTimezone(detectedTimezone());
+                          clearError("business_timezone");
+                        }}
+                      >
+                        Use my current timezone
+                      </button>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Scheduled hours" error={errors.opening_hours}>
+                  <div data-experience-field="opening_hours" tabIndex={-1}>
+                    <BusinessHoursSelector
+                      label=""
+                      value={hours}
+                      onChange={(value) => {
+                        setHours(value);
+                        clearError("opening_hours");
+                      }}
+                    />
+                  </div>
+                </Field>
+              </>
             )}
           </>
         ) : (
