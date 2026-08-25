@@ -58,16 +58,16 @@ export function getBusinessAvailability(
   hours: BusinessOpeningHour[],
   timezone: string | null | undefined,
   now = new Date(),
-): BusinessAvailability {
+): BusinessAvailability | null {
   if (mode === "always_open") return { tone: "open", label: "Open 24 hours", today: null };
   if (mode === "appointment_only") return { tone: "appointment", label: "By appointment", today: null };
   if (mode === "contact_for_hours") return { tone: "neutral", label: "Contact for hours", today: null };
   if (mode !== "scheduled" || !timezone || hours.length === 0) {
-    return { tone: "neutral", label: "Hours available", today: null };
+    return null;
   }
 
   const clock = localClock(now, timezone);
-  if (!clock) return { tone: "neutral", label: "Hours available", today: null };
+  if (!clock) return null;
   const byDay = new Map(hours.map((hour) => [hour.day_of_week, hour]));
   const interval = (day: number) => {
     const hour = byDay.get(DAYS[day]);
