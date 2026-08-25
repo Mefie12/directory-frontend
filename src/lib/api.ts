@@ -145,6 +145,7 @@ export interface ListingManagementData extends EditableListingData {
   bookmarks_count?: number;
   services?: ListingService[];
   business_presence_type?: string | null;
+  business_timezone?: string | null;
   business_service_reach?: string | null;
   service_countries?: Array<{ code: string; name: string }>;
   community_location_scope?: string | null;
@@ -1800,6 +1801,7 @@ export interface ListingExperienceInput {
   business_service_reach?: "single_country" | "selected_countries" | "worldwide" | null;
   service_countries?: Array<{ code: string; name: string }>;
   business_hours_mode?: "scheduled" | "always_open" | "appointment_only" | "contact_for_hours" | null;
+  business_timezone?: string | null;
   community_location_scope?: "physical" | "online" | "hybrid" | "global" | null;
   community_participation_method?: string | null;
   has_base_location?: boolean;
