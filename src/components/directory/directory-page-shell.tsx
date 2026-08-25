@@ -18,6 +18,7 @@ export interface DirectoryPageShellProps<T> {
   items: T[];
   isLoading: boolean;
   detectedCountry: string | null;
+  showingGlobalFallback?: boolean;
   /**
    * Map a raw API listing to the page item type.
    * Required for category-pill fetches from the geolocation endpoints.
@@ -63,6 +64,7 @@ export function DirectoryPageShell<T>({
   items,
   isLoading,
   detectedCountry,
+  showingGlobalFallback = false,
   mapItem,
   groupBy,
   matchesCategory,
@@ -118,7 +120,7 @@ export function DirectoryPageShell<T>({
   // Loading is derived from whether the current fetch key matches the last completed one —
   // no synchronous setState needed, so no cascading-render lint violation.
   const categoryFetchKey = isCategorySelected
-    ? `${categoryIdParam ?? ""}|${categorySlugParam ?? ""}|${selectedCountry}`
+    ? `${context}|${categoryIdParam ?? ""}|${categorySlugParam ?? ""}|${selectedCountry}`
     : "";
   const [fetchedKey, setFetchedKey] = useState("");
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
@@ -134,6 +136,11 @@ export function DirectoryPageShell<T>({
     const params = new URLSearchParams();
     if (categoryIdParam) params.set("category_id", categoryIdParam);
     if (categorySlugParam) params.set("category_slug", categorySlugParam);
+    params.set("type", {
+      businesses: "business",
+      events: "event",
+      communities: "community",
+    }[context]);
     const hasCountry = !!selectedCountry;
     if (hasCountry) params.set("country", selectedCountry);
 
@@ -188,7 +195,7 @@ export function DirectoryPageShell<T>({
       });
 
     return () => { cancelled = true; };
-  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem, context]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategoryTabChange = useCallback(
     (slug: string, id: number | null) => {
@@ -299,6 +306,12 @@ export function DirectoryPageShell<T>({
           onDateRangeChange={(start, end) => { setDateFrom(start); setDateTo(end); }}
         />
       </Suspense>
+
+      {showingGlobalFallback && detectedCountry && (
+        <div className="mx-4 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-16">
+          No listings were found in {detectedCountry}. Showing results from all countries instead.
+        </div>
+      )}
 
       <div className="pb-8">
         {isCategoryLoading ? (

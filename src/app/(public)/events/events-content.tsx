@@ -21,7 +21,7 @@ export default function EventsContent() {
 
   const eventMapper = useMemo(() => createEventMapper(), []);
 
-  const { items, isLoading, detectedCountry } =
+  const { items, isLoading, detectedCountry, showingGlobalFallback } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
       mapItem: eventMapper,
@@ -82,6 +82,7 @@ export default function EventsContent() {
       items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
+      showingGlobalFallback={showingGlobalFallback}
       mapItem={eventMapper}
       groupBy={(e) => e.category}
       matchesCategory={(e, slug) => e.categorySlug === slug}
