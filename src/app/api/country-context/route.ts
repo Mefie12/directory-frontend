@@ -4,6 +4,7 @@ import {
   applyCountryPreference,
   countryFromCode,
   isSameOriginMutation,
+  isSecureRequest,
   preferenceMutationRateLimited,
 } from "@/lib/bff/country-preference";
 
@@ -25,16 +26,44 @@ async function approvedCountryNames(): Promise<Set<string>> {
   );
 }
 
+async function upstreamMessage(response: Response): Promise<string | null> {
+  const payload = (await response.json().catch(() => null)) as {
+    message?: unknown;
+  } | null;
+
+  return typeof payload?.message === "string" ? payload.message : null;
+}
+
 export async function GET(request: NextRequest) {
   const backendUrl = new URL(`${API_BASE_URL}/api/country_context`);
   applyCountryPreference(request, backendUrl);
 
-  const response = await fetch(backendUrl, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(backendUrl, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("country-context upstream request failed", {
+      operation: "resolve",
+      error: error instanceof Error ? error.name : "UnknownError",
+    });
+    return NextResponse.json(
+      { message: "Country service is temporarily unavailable" },
+      { status: 502 },
+    );
+  }
   if (!response.ok) {
-    return NextResponse.json({ message: "Could not resolve country context" }, { status: 502 });
+    const message = await upstreamMessage(response);
+    console.error("country-context upstream returned an error", {
+      operation: "resolve",
+      status: response.status,
+    });
+    return NextResponse.json(
+      { message: message || "Could not resolve country context" },
+      { status: response.status >= 500 ? 502 : response.status },
+    );
   }
 
   const upstream = (await response.json()) as {
@@ -76,7 +105,11 @@ export async function POST(request: NextRequest) {
         { status: 422 },
       );
     }
-  } catch {
+  } catch (error) {
+    console.error("country-context country validation failed", {
+      operation: "validate",
+      error: error instanceof Error ? error.name : "UnknownError",
+    });
     return NextResponse.json({ message: "Country validation is temporarily unavailable" }, { status: 503 });
   }
 
@@ -87,7 +120,7 @@ export async function POST(request: NextRequest) {
   });
   response.cookies.set(MASTER_COUNTRY_COOKIE, country.alpha2.toUpperCase(), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureRequest(request),
     sameSite: "lax",
     path: "/",
   });
@@ -106,7 +139,7 @@ export async function DELETE(request: NextRequest) {
   const response = NextResponse.json({ success: true });
   response.cookies.set(MASTER_COUNTRY_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureRequest(request),
     sameSite: "lax",
     path: "/",
     maxAge: 0,

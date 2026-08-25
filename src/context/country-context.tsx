@@ -5,6 +5,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 export const COUNTRY_CHANGE_EVENT = "mefie:country-change";
 
 interface CountryValue { code: string; name: string }
+interface CountryContextResponse {
+  master_country: CountryValue | null;
+  effective_country: string | null;
+  country_source: CountryContextValue["source"];
+}
 interface CountryContextValue {
   masterCountry: CountryValue | null;
   effectiveCountry: string | null;
@@ -16,6 +21,19 @@ interface CountryContextValue {
 
 const CountryContext = createContext<CountryContextValue | null>(null);
 
+async function countryRequestError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  const payload = (await response.json().catch(() => null)) as {
+    message?: unknown;
+  } | null;
+  const message =
+    typeof payload?.message === "string" ? payload.message : fallback;
+
+  return new Error(message);
+}
+
 export function CountryProvider({ children }: { children: React.ReactNode }) {
   const [masterCountry, setMaster] = useState<CountryValue | null>(null);
   const [effectiveCountry, setEffective] = useState<string | null>(null);
@@ -25,11 +43,7 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     const response = await fetch("/api/country-context", { cache: "no-store" });
     if (!response.ok) throw new Error("Could not load country preference");
-    const json = (await response.json()) as {
-      master_country: CountryValue | null;
-      effective_country: string | null;
-      country_source: CountryContextValue["source"];
-    };
+    const json = (await response.json()) as CountryContextResponse;
     setMaster(json.master_country);
     setEffective(json.effective_country);
     setSource(json.country_source);
@@ -47,14 +61,21 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ country_code: countryCode }),
     });
-    if (!response.ok) throw new Error("Could not save country preference");
-    await refresh();
+    if (!response.ok) {
+      throw await countryRequestError(response, "Could not save country preference");
+    }
+    const json = (await response.json()) as CountryContextResponse;
+    setMaster(json.master_country);
+    setEffective(json.effective_country);
+    setSource(json.country_source);
     window.dispatchEvent(new Event(COUNTRY_CHANGE_EVENT));
-  }, [refresh]);
+  }, []);
 
   const clearMasterCountry = useCallback(async () => {
     const response = await fetch("/api/country-context", { method: "DELETE" });
-    if (!response.ok) throw new Error("Could not clear country preference");
+    if (!response.ok) {
+      throw await countryRequestError(response, "Could not clear country preference");
+    }
     await refresh();
     window.dispatchEvent(new Event(COUNTRY_CHANGE_EVENT));
   }, [refresh]);

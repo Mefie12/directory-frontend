@@ -38,8 +38,12 @@ export function MasterCountrySelector({ compact = false }: { compact?: boolean }
       setSaving(true);
       await setMasterCountry(country.alpha2);
       toast.success(`Default country set to ${country.name}`);
-    } catch {
-      toast.error("Could not update your country. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update your country. Please try again.",
+      );
     } finally {
       setSaving(false);
     }

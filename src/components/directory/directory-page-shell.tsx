@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableCategoryTabs from "@/components/ux/scrollable-category-tabs";
 import SearchHeader from "@/components/ux/search-header";
 import { Country } from "@/components/ui/country-dropdown";
-import { ApiListing } from "@/lib/directory/types";
+import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+import type { ApiListing, CountryFallbackContext } from "@/lib/directory/types";
 import { X } from "lucide-react";
 import { useCountryContext } from "@/context/country-context";
 
@@ -20,7 +21,7 @@ export interface DirectoryPageShellProps<T> {
   items: T[];
   isLoading: boolean;
   detectedCountry: string | null;
-  showingGlobalFallback?: boolean;
+  fallbackContext: CountryFallbackContext;
   /**
    * Map a raw API listing to the page item type.
    * Required for category-pill fetches from the geolocation endpoints.
@@ -66,7 +67,7 @@ export function DirectoryPageShell<T>({
   items,
   isLoading,
   detectedCountry,
-  showingGlobalFallback = false,
+  fallbackContext,
   mapItem,
   groupBy,
   matchesCategory,
@@ -128,6 +129,10 @@ export function DirectoryPageShell<T>({
   const [fetchedKey, setFetchedKey] = useState("");
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
   const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
+  const [categoryFallback, setCategoryFallback] = useState<{
+    key: string;
+    context: CountryFallbackContext;
+  } | null>(null);
   const isCategoryLoading = isCategorySelected && !!mapItem && categoryFetchKey !== fetchedKey;
 
   useEffect(() => {
@@ -170,6 +175,11 @@ export function DirectoryPageShell<T>({
       .then(async ([topJson, allJson]) => {
         if (cancelled) return;
         const mapper = mapItem;
+        let nextFallback: CountryFallbackContext = {
+          applied: false,
+          sourceCountry: null,
+          fallbackCountry: null,
+        };
         let topRaw: ApiListing[] = Array.isArray(topJson.data)
           ? topJson.data
           : Array.isArray(topJson.listings)
@@ -180,6 +190,25 @@ export function DirectoryPageShell<T>({
           : Array.isArray(allJson.listings)
             ? allJson.listings
             : [];
+
+        const responseFallbackCountry =
+          allJson.meta?.fallback_country ?? topJson.meta?.fallback_country ?? null;
+        if (
+          !hasCountry &&
+          responseFallbackCountry &&
+          (allJson.meta?.fallback_applied === true ||
+            topJson.meta?.fallback_applied === true) &&
+          (topRaw.length > 0 || allRaw.length > 0)
+        ) {
+          nextFallback = {
+            applied: true,
+            sourceCountry:
+              allJson.meta?.detected_country ??
+              topJson.meta?.detected_country ??
+              detectedCountry,
+            fallbackCountry: responseFallbackCountry,
+          };
+        }
 
         if (!hasCountry && topRaw.length === 0 && allRaw.length === 0) {
           const fallbackParams = new URLSearchParams(params);
@@ -197,16 +226,37 @@ export function DirectoryPageShell<T>({
             const fallbackAllJson = await fallbackAll.json();
             topRaw = Array.isArray(fallbackTopJson.data) ? fallbackTopJson.data : [];
             allRaw = Array.isArray(fallbackAllJson.data) ? fallbackAllJson.data : [];
+            const hasFallbackResults = topRaw.length > 0 || allRaw.length > 0;
+            nextFallback = {
+              applied: hasFallbackResults,
+              sourceCountry:
+                allJson.meta?.detected_country ??
+                topJson.meta?.detected_country ??
+                detectedCountry,
+              fallbackCountry: hasFallbackResults ? "United Kingdom" : null,
+            };
           }
         }
 
         if (cancelled) return;
-        setTopCategoryItems(
-          topRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
-        );
-        setAllCategoryItems(
-          allRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
-        );
+        const mappedTop = topRaw.flatMap((item) => {
+          const mapped = mapper(item);
+          return mapped !== null ? [mapped] : [];
+        });
+        const mappedAll = allRaw.flatMap((item) => {
+          const mapped = mapper(item);
+          return mapped !== null ? [mapped] : [];
+        });
+        if (nextFallback.applied && mappedTop.length === 0 && mappedAll.length === 0) {
+          nextFallback = {
+            applied: false,
+            sourceCountry: nextFallback.sourceCountry,
+            fallbackCountry: null,
+          };
+        }
+        setTopCategoryItems(mappedTop);
+        setAllCategoryItems(mappedAll);
+        setCategoryFallback({ key: categoryFetchKey, context: nextFallback });
       })
       .catch(() => {
         if (!cancelled) {
@@ -306,6 +356,26 @@ export function DirectoryPageShell<T>({
   }, [headerFilteredItems, selectedCategory, matchesCategory]);
 
   const usingCategoryFetch = isCategorySelected && !!mapItem;
+  const visibleFallbackContext =
+    filterCountry
+      ? { applied: false, sourceCountry: null, fallbackCountry: null }
+      : usingCategoryFetch && categoryFallback?.key === categoryFetchKey
+      ? categoryFallback.context
+      : fallbackContext;
+  const emptyState = filterCountry ? (
+    <div className="py-16 text-center">
+      <h2 className="text-xl font-semibold text-gray-900">
+        We don’t have listings in {filterCountry} yet.
+      </h2>
+      <p className="mt-2 text-sm text-gray-500">
+        Try another country or check back soon.
+      </p>
+    </div>
+  ) : (
+    <div className="py-16 text-center font-medium text-gray-500">
+      {emptyMessage}
+    </div>
+  );
 
   if (isLoading) return <DirectoryPageSkeleton />;
 
@@ -347,11 +417,11 @@ export function DirectoryPageShell<T>({
         </div>
       )}
 
-      {showingGlobalFallback && detectedCountry && (
-        <div className="mx-4 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-16">
-          No matching listings were found in {detectedCountry}. Showing results from the United Kingdom.
-        </div>
-      )}
+      <CountryFallbackNotice
+        {...visibleFallbackContext}
+        surface={context}
+        className="mx-4 mb-5 lg:mx-16"
+      />
 
       <div className="pb-8">
         {isCategoryLoading ? (
@@ -363,13 +433,9 @@ export function DirectoryPageShell<T>({
             </div>
           </div>
         ) : usingCategoryFetch && topCategoryItems.length === 0 && allCategoryItems.length === 0 ? (
-          <div className="py-16 text-center text-gray-500 font-medium">
-            {emptyMessage}
-          </div>
+          emptyState
         ) : !usingCategoryFetch && filtered.length === 0 ? (
-          <div className="py-16 text-center text-gray-500 font-medium">
-            {emptyMessage}
-          </div>
+          emptyState
         ) : selectedCategory === "all" ? (
           <>
             {renderHero(filtered.slice(0, heroSize))}
