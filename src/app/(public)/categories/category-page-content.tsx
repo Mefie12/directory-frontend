@@ -9,7 +9,7 @@ import {
   parseAsInteger,
 } from "nuqs";
 import { countries } from "country-data-list";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
@@ -28,6 +28,7 @@ import type {
   CategoryLandingSection,
   CategoryLandingTypeView,
 } from "@/types/category-landing";
+import { useCountryContext } from "@/context/country-context";
 
 const TYPES: CategoryLandingListingType[] = ["business", "community", "event"];
 
@@ -261,6 +262,7 @@ function PageSkeleton() {
 }
 
 export default function CategoryPageContent() {
+  const { masterCountry } = useCountryContext();
   const pathname = usePathname();
   const [data, setData] = useState<CategoryLandingResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -325,7 +327,36 @@ export default function CategoryPageContent() {
         );
 
         if (!response.ok) throw new Error("Failed to load category listings");
-        const json = (await response.json()) as CategoryLandingResponse;
+        let json = (await response.json()) as CategoryLandingResponse;
+        const hasResults = json.type_view
+          ? json.type_view.total > 0
+          : Object.values(json.sections ?? {}).some((section) => section.total > 0);
+
+        if (
+          !selectedCountry &&
+          !hasResults &&
+          ["master", "geo"].includes(json.meta?.country_source ?? "")
+        ) {
+          const fallbackParams = new URLSearchParams(params);
+          fallbackParams.set("country", "United Kingdom");
+          const fallbackResponse = await fetch(
+            `/api/category_landing?${fallbackParams.toString()}`,
+            { headers: { Accept: "application/json" }, signal: controller.signal },
+          );
+          if (fallbackResponse.ok) {
+            const fallbackJson = (await fallbackResponse.json()) as CategoryLandingResponse;
+            json = {
+              ...fallbackJson,
+              meta: {
+                ...fallbackJson.meta,
+                detected_country: json.meta?.detected_country,
+                country_source: json.meta?.country_source,
+                fallback_country: "United Kingdom",
+                fallback_applied: true,
+              },
+            };
+          }
+        }
         setData(json);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
@@ -351,6 +382,7 @@ export default function CategoryPageContent() {
     selectedCountry,
     selectedSubcategory,
     selectedType,
+    masterCountry?.code,
   ]);
 
   const sections = data?.sections
@@ -440,6 +472,28 @@ export default function CategoryPageContent() {
             />
           </div>
         </div>
+
+        {selectedCountry && (
+          <div className="mb-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#9ACC23]/40 bg-[#9ACC23]/10 px-3 py-1.5 text-sm font-medium text-[#52720F]">
+              Country: {selectedCountry}
+              <button
+                type="button"
+                onClick={() => setCategoryParams({ country: null, page: null })}
+                className="rounded-full p-0.5 hover:bg-[#9ACC23]/20 focus:outline-none focus:ring-2 focus:ring-[#6D9418]"
+                aria-label={`Remove ${selectedCountry} country filter`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          </div>
+        )}
+
+        {data?.meta?.fallback_applied && data.meta.detected_country && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            No matching listings were found in {data.meta.detected_country}. Showing results from the United Kingdom.
+          </div>
+        )}
 
         <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-2">
           <button

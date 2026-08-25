@@ -92,6 +92,9 @@ export interface ApiListingsResponse<T = ApiListing> {
     per_page?: number;
     total?: number;
     detected_country?: string;
+    country_source?: "local" | "master" | "geo" | "fallback" | "global";
+    fallback_country?: string | null;
+    fallback_applied?: boolean;
   };
   links?: {
     first?: string | null;

@@ -7,6 +7,7 @@ import {
   ApiListingsResponse,
   DirectoryEndpoint,
 } from "./types";
+import { COUNTRY_CHANGE_EVENT } from "@/context/country-context";
 
 export interface UseDirectoryListingsOptions<T> {
   /** Proxy endpoint to hit (e.g. "/api/businesses"). */
@@ -57,6 +58,12 @@ export function useDirectoryListings<T>({
   const [showingGlobalFallback, setShowingGlobalFallback] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  useEffect(() => {
+    const reload = () => setReloadKey((key) => key + 1);
+    window.addEventListener(COUNTRY_CHANGE_EVENT, reload);
+    return () => window.removeEventListener(COUNTRY_CHANGE_EVENT, reload);
+  }, []);
+
   // Keep mapItem latest without re-running the effect on every render.
   const mapItemRef = useRef(mapItem);
   mapItemRef.current = mapItem;
@@ -85,6 +92,7 @@ export function useDirectoryListings<T>({
 
         const params = new URLSearchParams({ per_page: String(perPage) });
         const categoryId = searchParams.get("category_id");
+        const categorySlug = searchParams.get("category_slug");
         const country = searchParams.get("country");
 
         for (const key of forwardParams) {
@@ -100,7 +108,10 @@ export function useDirectoryListings<T>({
           }
         }
 
-        const hasCategoryFilter = !!(categoryId && categoryId !== "all");
+        const hasCategoryFilter = !!(
+          (categoryId && categoryId !== "all") ||
+          (categorySlug && categorySlug !== "all")
+        );
         const targetEndpoint = hasCategoryFilter
           ? country
             ? "/api/all_listings_by_country_and_category"
@@ -132,38 +143,43 @@ export function useDirectoryListings<T>({
             ? json.listings
             : [];
 
-        // An automatic location with no matches falls back to the same
-        // type/category globally. Explicit country choices remain authoritative.
+        // Master/Geo contexts with no matches fall back to UK. Explicit URL
+        // filters remain authoritative and retain a genuine empty state.
         const hasExplicitCountry = !!country;
-        if (!hasExplicitCountry && geoDetectedCountry && raw.length === 0) {
-          const globalParams = new URLSearchParams(params);
-          globalParams.set("global", "1");
+        if (
+          !hasExplicitCountry &&
+          geoDetectedCountry &&
+          geoDetectedCountry.toLowerCase() !== "united kingdom" &&
+          raw.length === 0
+        ) {
+          const fallbackParams = new URLSearchParams(params);
+          fallbackParams.set("country", "United Kingdom");
 
-          const globalEndpoint = hasCategoryFilter
-            ? "/api/all_listings_by_category_and_geolocation"
+          const fallbackEndpoint = hasCategoryFilter
+            ? "/api/all_listings_by_country_and_category"
             : endpoint;
 
-          const globalRes = await fetch(`${globalEndpoint}?${globalParams.toString()}`, {
+          const fallbackRes = await fetch(`${fallbackEndpoint}?${fallbackParams.toString()}`, {
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             signal: controller.signal,
           });
 
-          if (globalRes.ok) {
-            const globalJson = (await globalRes.json()) as ApiListingsResponse & {
+          if (fallbackRes.ok) {
+            const fallbackJson = (await fallbackRes.json()) as ApiListingsResponse & {
               listings?: ApiListing[];
             };
             if (cancelled) return;
-            const globalRaw = Array.isArray(globalJson.data)
-              ? globalJson.data
-              : Array.isArray(globalJson.listings)
-                ? globalJson.listings
+            const fallbackRaw = Array.isArray(fallbackJson.data)
+              ? fallbackJson.data
+              : Array.isArray(fallbackJson.listings)
+                ? fallbackJson.listings
                 : [];
-            const globalMapped: T[] = [];
-            for (const item of globalRaw) {
+            const fallbackMapped: T[] = [];
+            for (const item of fallbackRaw) {
               const out = mapItemRef.current(item);
-              if (out !== null && out !== undefined) globalMapped.push(out);
+              if (out !== null && out !== undefined) fallbackMapped.push(out);
             }
-            setItems(globalMapped);
+            setItems(fallbackMapped);
             setShowingGlobalFallback(true);
           } else {
             setItems([]);

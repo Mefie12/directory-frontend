@@ -16,6 +16,7 @@ import { useAuth } from "@/context/auth-context";
 import { Separator } from "./separator";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { MasterCountrySelector } from "./master-country-selector";
 
 // --- Interfaces ---
 interface Notification {
@@ -289,6 +290,7 @@ export default function Navbar() {
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
+            <MasterCountrySelector />
             {loading ? (
               // Show a skeleton or an empty space while checking auth
               <div className="flex items-center gap-4 px-4">
@@ -527,8 +529,9 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Hamburger */}
-          <div className="lg:hidden">
+          {/* Mobile country selector and hamburger */}
+          <div className="flex shrink-0 items-center gap-1 lg:hidden">
+            <MasterCountrySelector compact />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-white"
