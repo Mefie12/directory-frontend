@@ -104,6 +104,12 @@ export interface ApiListingsResponse<T = ApiListing> {
   };
 }
 
+export interface CountryFallbackContext {
+  applied: boolean;
+  sourceCountry: string | null;
+  fallbackCountry: string | null;
+}
+
 export type DirectoryEndpoint =
   | "/api/businesses"
   | "/api/events"

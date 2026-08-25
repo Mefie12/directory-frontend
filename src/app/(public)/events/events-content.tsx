@@ -21,7 +21,7 @@ export default function EventsContent() {
 
   const eventMapper = useMemo(() => createEventMapper(), []);
 
-  const { items, isLoading, detectedCountry, showingGlobalFallback } =
+  const { items, isLoading, detectedCountry, fallbackContext } =
     useDirectoryListings<ProcessedEvent>({
       endpoint: "/api/events",
       mapItem: eventMapper,
@@ -30,6 +30,8 @@ export default function EventsContent() {
 
   const locationLabel = filterCountry
     ? `in ${filterCountry}`
+    : fallbackContext.applied && fallbackContext.fallbackCountry
+    ? `in ${fallbackContext.fallbackCountry}`
     : detectedCountry
     ? "Near You"
     : null;
@@ -82,7 +84,7 @@ export default function EventsContent() {
       items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
-      showingGlobalFallback={showingGlobalFallback}
+      fallbackContext={fallbackContext}
       mapItem={eventMapper}
       groupBy={(e) => e.category}
       matchesCategory={(e, slug) => e.categorySlug === slug}

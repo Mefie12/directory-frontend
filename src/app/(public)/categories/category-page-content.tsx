@@ -21,7 +21,11 @@ import {
   formatDateTime,
   resolveCoverUrl,
 } from "@/lib/directory/image-utils";
-import { pickDisplayCategory, type ApiListing } from "@/lib/directory/types";
+import {
+  pickDisplayCategory,
+  type ApiListing,
+  type CountryFallbackContext,
+} from "@/lib/directory/types";
 import type {
   CategoryLandingListingType,
   CategoryLandingResponse,
@@ -29,6 +33,7 @@ import type {
   CategoryLandingTypeView,
 } from "@/types/category-landing";
 import { useCountryContext } from "@/context/country-context";
+import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
 
 const TYPES: CategoryLandingListingType[] = ["business", "community", "event"];
 
@@ -345,16 +350,23 @@ export default function CategoryPageContent() {
           );
           if (fallbackResponse.ok) {
             const fallbackJson = (await fallbackResponse.json()) as CategoryLandingResponse;
-            json = {
-              ...fallbackJson,
-              meta: {
-                ...fallbackJson.meta,
-                detected_country: json.meta?.detected_country,
-                country_source: json.meta?.country_source,
-                fallback_country: "United Kingdom",
-                fallback_applied: true,
-              },
-            };
+            const fallbackHasResults = fallbackJson.type_view
+              ? fallbackJson.type_view.total > 0
+              : Object.values(fallbackJson.sections ?? {}).some(
+                  (section) => section.total > 0,
+                );
+            if (fallbackHasResults) {
+              json = {
+                ...fallbackJson,
+                meta: {
+                  ...fallbackJson.meta,
+                  detected_country: json.meta?.detected_country,
+                  country_source: json.meta?.country_source,
+                  fallback_country: "United Kingdom",
+                  fallback_applied: true,
+                },
+              };
+            }
           }
         }
         setData(json);
@@ -393,6 +405,11 @@ export default function CategoryPageContent() {
     : [];
 
   const typeView: CategoryLandingTypeView | undefined = data?.type_view;
+  const fallbackContext: CountryFallbackContext = {
+    applied: !selectedCountry && data?.meta?.fallback_applied === true,
+    sourceCountry: data?.meta?.detected_country ?? null,
+    fallbackCountry: data?.meta?.fallback_country ?? null,
+  };
   // Use the API-supplied name when available. Fall back to slug-derived text only
   // as a loading/skeleton placeholder — it loses special chars like "&" so it is
   // never used as the final display value once data is loaded.
@@ -489,12 +506,6 @@ export default function CategoryPageContent() {
           </div>
         )}
 
-        {data?.meta?.fallback_applied && data.meta.detected_country && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No matching listings were found in {data.meta.detected_country}. Showing results from the United Kingdom.
-          </div>
-        )}
-
         <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-2">
           <button
             type="button"
@@ -525,6 +536,12 @@ export default function CategoryPageContent() {
           ))}
         </div>
       </section>
+
+      <CountryFallbackNotice
+        {...fallbackContext}
+        surface={`category-${categorySlug}`}
+        className="mx-4 mb-2 mt-4 lg:mx-16"
+      />
 
       {error ? (
         <div className="px-4 py-16 text-center text-gray-500 lg:px-16">
@@ -563,7 +580,9 @@ export default function CategoryPageContent() {
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center text-gray-500">
-              No {typeLabel(typeView.type).toLowerCase()} found for this filter.
+              {selectedCountry
+                ? `We don’t have ${typeLabel(typeView.type).toLowerCase()} in ${selectedCountry} yet. Try another country or check back soon.`
+                : `No ${typeLabel(typeView.type).toLowerCase()} found for this filter.`}
             </div>
           )}
 
@@ -605,12 +624,14 @@ export default function CategoryPageContent() {
         <div className="px-4 py-20 lg:px-16">
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
             <h2 className="text-2xl font-semibold text-gray-900">
-              No listings found for this category yet.
+              {selectedCountry
+                ? `We don’t have listings in ${selectedCountry} yet.`
+                : "No listings found for this category yet."}
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-gray-500">
-              Try another subcategory or country filter. We will show matching
-              businesses, communities, and events here as soon as they are
-              approved.
+              {selectedCountry
+                ? "Try another country or check back soon."
+                : "Try another subcategory or country filter. We will show matching businesses, communities, and events here as soon as they are approved."}
             </p>
           </div>
         </div>

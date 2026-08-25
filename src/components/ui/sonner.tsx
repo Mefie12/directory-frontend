@@ -17,7 +17,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       closeButton
       theme={theme as ToasterProps["theme"]}
-      className="toaster group text-black **:text-black!"
+      className="toaster group"
       richColors
       icons={{
         success: <CircleCheckIcon className="size-5 text-green-600" />,

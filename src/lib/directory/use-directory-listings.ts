@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   ApiListing,
   ApiListingsResponse,
+  CountryFallbackContext,
   DirectoryEndpoint,
 } from "./types";
 import { COUNTRY_CHANGE_EVENT } from "@/context/country-context";
@@ -30,7 +31,7 @@ export interface UseDirectoryListingsResult<T> {
   isLoading: boolean;
   error: string | null;
   detectedCountry: string | null;
-  showingGlobalFallback: boolean;
+  fallbackContext: CountryFallbackContext;
   refetch: () => void;
 }
 
@@ -55,7 +56,11 @@ export function useDirectoryListings<T>({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
-  const [showingGlobalFallback, setShowingGlobalFallback] = useState(false);
+  const [fallbackContext, setFallbackContext] = useState<CountryFallbackContext>({
+    applied: false,
+    sourceCountry: null,
+    fallbackCountry: null,
+  });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -88,7 +93,11 @@ export function useDirectoryListings<T>({
       try {
         setIsLoading(true);
         setError(null);
-        setShowingGlobalFallback(false);
+        setFallbackContext({
+          applied: false,
+          sourceCountry: null,
+          fallbackCountry: null,
+        });
 
         const params = new URLSearchParams({ per_page: String(perPage) });
         const categoryId = searchParams.get("category_id");
@@ -143,6 +152,13 @@ export function useDirectoryListings<T>({
             ? json.listings
             : [];
 
+        const responseFallbackCountry = json.meta?.fallback_country ?? null;
+        const responseAppliedFallback =
+          !country &&
+          json.meta?.fallback_applied === true &&
+          raw.length > 0 &&
+          !!responseFallbackCountry;
+
         // Master/Geo contexts with no matches fall back to UK. Explicit URL
         // filters remain authoritative and retain a genuine empty state.
         const hasExplicitCountry = !!country;
@@ -180,7 +196,12 @@ export function useDirectoryListings<T>({
               if (out !== null && out !== undefined) fallbackMapped.push(out);
             }
             setItems(fallbackMapped);
-            setShowingGlobalFallback(true);
+            setFallbackContext({
+              applied: fallbackMapped.length > 0,
+              sourceCountry: geoDetectedCountry,
+              fallbackCountry:
+                fallbackMapped.length > 0 ? "United Kingdom" : null,
+            });
           } else {
             setItems([]);
           }
@@ -199,6 +220,13 @@ export function useDirectoryListings<T>({
           if (out !== null && out !== undefined) mapped.push(out);
         }
         setItems(mapped);
+        if (responseAppliedFallback && mapped.length > 0) {
+          setFallbackContext({
+            applied: true,
+            sourceCountry: geoDetectedCountry,
+            fallbackCountry: responseFallbackCountry,
+          });
+        }
       } catch (err) {
         if (cancelled) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -220,5 +248,5 @@ export function useDirectoryListings<T>({
 
   const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  return { items, isLoading, error, detectedCountry, showingGlobalFallback, refetch };
+  return { items, isLoading, error, detectedCountry, fallbackContext, refetch };
 }
