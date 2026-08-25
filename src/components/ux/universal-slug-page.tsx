@@ -43,6 +43,11 @@ import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 import { ListingLocationCard } from "@/components/directory/listing-location-card";
+import {
+  BusinessAvailability,
+  BusinessHoursMode,
+  getBusinessAvailability,
+} from "@/lib/directory/business-availability";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -210,6 +215,8 @@ interface ApiListingData {
   pricing?: PricingItem[];
   type?: string;
   opening_hours?: OpeningHour[];
+  business_hours_mode?: BusinessHoursMode;
+  business_timezone?: string | null;
   event?: ApiEventData;
 }
 
@@ -247,6 +254,8 @@ interface Provider {
   latitude?: number;
   longitude?: number;
   eventData?: ApiEventData;
+  businessHoursMode?: BusinessHoursMode;
+  businessTimezone?: string | null;
 }
 
 interface GalleryItem {
@@ -352,6 +361,33 @@ const isVideoFile = (url: string): boolean => {
 
 const Divider = () => <div className="w-full h-px bg-gray-200 my-6" />;
 
+function AvailabilityBadge({ availability, announce = true }: { availability: BusinessAvailability; announce?: boolean }) {
+  const colors = {
+    open: { dot: "bg-[#93C01F]", ring: "bg-[#93C01F]", text: "text-[#5f7d12]", surface: "bg-[#93C01F]/10 border-[#93C01F]/30" },
+    closed: { dot: "bg-red-500", ring: "bg-red-400", text: "text-red-700", surface: "bg-red-50 border-red-200" },
+    appointment: { dot: "bg-amber-500", ring: "", text: "text-amber-800", surface: "bg-amber-50 border-amber-200" },
+    neutral: { dot: "bg-gray-400", ring: "", text: "text-gray-700", surface: "bg-gray-50 border-gray-200" },
+  }[availability.tone];
+  const live = availability.tone === "open" || availability.tone === "closed";
+  const text = [availability.label, availability.detail].filter(Boolean).join(" · ");
+
+  return (
+    <span
+      className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold", colors.surface, colors.text)}
+      role={announce ? "status" : undefined}
+      aria-live={announce ? "polite" : undefined}
+      aria-label={text}
+    >
+      <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+        {live && <span className={cn("absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping", colors.ring)} />}
+        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", colors.dot)} />
+      </span>
+      <span>{availability.label}</span>
+      {availability.detail && <span className="font-medium opacity-80">· {availability.detail}</span>}
+    </span>
+  );
+}
+
 /**
  * REDESIGNED SOCIAL ICON COMPONENT
  * Displays a professional "link card" with brand colors, icon, and name.
@@ -397,10 +433,12 @@ const SocialIcon = ({
 function ProviderHeader({
   provider,
   rating,
+  availability,
   // type,
 }: {
   provider: Provider;
   rating: number;
+  availability?: BusinessAvailability;
   type?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -433,6 +471,7 @@ function ProviderHeader({
               height={20}
             />
           )}
+          {availability && <AvailabilityBadge availability={availability} />}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
           <span className="flex items-center gap-1">
@@ -799,12 +838,14 @@ function SidebarInfo({
   pricing,
   // services,
   hours,
+  availability,
   previewMode = false,
 }: {
   provider: Provider;
   pricing: PricingItem[];
   // services: string[];
   hours: OpeningHour[];
+  availability?: BusinessAvailability;
   previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
@@ -814,6 +855,7 @@ function SidebarInfo({
     Object.values(socialLinks).some((v) => v)
   );
   const hasHours = !!(hours && hours.length > 0);
+  const hasAvailability = !!availability;
   // Explicit status comparison — claim_status is always a non-empty string
   // ("unclaimed", "claimed", ...), so `!provider.claim_status` was always false
   // and silently hid the claim CTA on every listing, regardless of status.
@@ -878,6 +920,7 @@ function SidebarInfo({
   if (
     pricing.length === 0 &&
     !hasHours &&
+    !hasAvailability &&
     !hasContact &&
     !provider.website &&
     !showClaimSection
@@ -897,17 +940,21 @@ function SidebarInfo({
           </>
         )}
 
-        {hasHours && (
+        {(hasHours || hasAvailability) && (
           <div className="mt-6">
             <h5 className="text-lg font-black text-gray-900 flex items-center gap-2 mb-3">
               <Clock className="h-5 w-5 text-[#93C01F]" weight="bold" />{" "}
-              Business Hours
+              {hasHours ? "Business Hours" : "Availability"}
             </h5>
-            <div className="space-y-2">
+            {availability && <div className="mb-3"><AvailabilityBadge availability={availability} announce={false} /></div>}
+            {hasHours && <div className="space-y-2">
               {hours.map((h, idx) => (
                 <div
                   key={idx}
-                  className="flex justify-between text-sm py-1 border-b border-gray-50 last:border-0"
+                  className={cn(
+                    "flex justify-between rounded-md border-b border-gray-50 px-2 py-1 text-sm last:border-0",
+                    availability?.today === h.day_of_week && "bg-[#93C01F]/10",
+                  )}
                 >
                   <span className="text-gray-500 font-medium">
                     {h.day_of_week}
@@ -917,7 +964,7 @@ function SidebarInfo({
                   </span>
                 </div>
               ))}
-            </div>
+            </div>}
             <Divider />
           </div>
         )}
@@ -1291,6 +1338,27 @@ export default function UniversalSlugPage({
   const [loading, setLoading] = useState(true);
   const [providerData, setProviderData] = useState<Provider | null>(null);
   const [template, setTemplate] = useState<TemplateContent | null>(null);
+  const [availabilityNow, setAvailabilityNow] = useState(() => new Date());
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const delay = 60_000 - (Date.now() % 60_000) + 25;
+      timer = setTimeout(() => {
+        setAvailabilityNow(new Date());
+        schedule();
+      }, delay);
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") setAvailabilityNow(new Date());
+    };
+    schedule();
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1407,6 +1475,8 @@ export default function UniversalSlugPage({
             longitude: listingData.longitude,
             eventData:
               listingData.type === "event" ? listingData.event : undefined,
+            businessHoursMode: listingData.business_hours_mode,
+            businessTimezone: listingData.business_timezone,
           };
 
           const rawImages = listingData.images || [];
@@ -1549,6 +1619,19 @@ export default function UniversalSlugPage({
   const rating = Number(providerData.rating) || 0;
 
   const resolvedType = providerData.listingType || type;
+  const effectiveBusinessHoursMode =
+    providerData.businessHoursMode ??
+    (resolvedType === "business" && template.hours.length > 0
+      ? "scheduled"
+      : undefined);
+  const availability = resolvedType === "business" && effectiveBusinessHoursMode
+    ? getBusinessAvailability(
+        effectiveBusinessHoursMode,
+        template.hours,
+        providerData.businessTimezone,
+        availabilityNow,
+      )
+    : undefined;
   const sectionLink =
     resolvedType === "event"
       ? "/events"
@@ -1620,6 +1703,7 @@ export default function UniversalSlugPage({
               provider={providerData}
               rating={rating}
               type={type}
+              availability={availability}
             />
 
             <ProviderTabs
@@ -1670,6 +1754,7 @@ export default function UniversalSlugPage({
             pricing={template.pricing}
             // services={template.services}
             hours={template.hours}
+            availability={availability}
             previewMode={previewMode}
           />
         </aside>
