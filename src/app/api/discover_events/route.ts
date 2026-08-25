@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractClientIp } from "@/lib/bff/extract-client-ip";
+import { applyCountryPreference } from "@/lib/bff/country-preference";
 
 const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
-    // Forward real client IP as fallback when the discover page has not yet
-    // resolved the detected country (e.g. on first load before Phase 1 completes).
-    const clientIp = extractClientIp(request);
-    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
+    applyCountryPreference(request, backendUrl);
 
     const headers: Record<string, string> = {
       Accept: "application/json",

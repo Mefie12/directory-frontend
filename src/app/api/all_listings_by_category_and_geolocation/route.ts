@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyCountryPreference } from "@/lib/bff/country-preference";
 
 const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
@@ -15,12 +16,7 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
-    const forwarded =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      request.headers.get("cf-connecting-ip");
-    const clientIp = forwarded ? forwarded.split(",")[0].trim() : null;
-    if (clientIp) backendUrl.searchParams.set("ip_address", clientIp);
+    applyCountryPreference(request, backendUrl);
 
     const authHeader = request.headers.get("Authorization");
 

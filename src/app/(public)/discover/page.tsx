@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import type { CuratedCollection } from "@/types/curated-collections";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
+import { X } from "lucide-react";
+import { useCountryContext } from "@/context/country-context";
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
@@ -97,6 +99,7 @@ const classifyListing = (
 
 
 function DiscoverContent() {
+  const { masterCountry } = useCountryContext();
   const router = useRouter();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
@@ -106,6 +109,7 @@ function DiscoverContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [fallbackFromCountry, setFallbackFromCountry] = useState<string | null>(null);
   // Stable ref — holds the detected country full name for geo context preservation.
   // Using a ref instead of state avoids adding it to the useEffect dependency array
   // (which would cause an infinite fetch loop: fetch → set name → re-fetch → …).
@@ -134,7 +138,10 @@ function DiscoverContent() {
     router.push("/claim");
   };
 
-  const filterCountry = searchParams.get("country");
+  const [filterCountry, setFilterCountry] = useQueryState(
+    "country",
+    parseAsString,
+  );
   const filterQuery = searchParams.get("q");
   // Backed by the same "event_start_date"/"event_end_date" URL params that
   // SearchHeader writes, so the filter survives refresh/back-forward instead
@@ -279,6 +286,9 @@ function DiscoverContent() {
         // meta.detected_country is the full country name (e.g. "Ghana") returned by GeoService.
         // Both the carousel title label and the event country filter use this same value.
         const detected = bizJson?.meta?.detected_country ?? null;
+        setFallbackFromCountry(
+          bizJson?.meta?.fallback_applied && detected ? detected : null,
+        );
         if (detected) {
           setDetectedCountry(detected);
           if (!detectedCountryRef.current) {
@@ -289,7 +299,9 @@ function DiscoverContent() {
         // Phase 2 + 3 — run in parallel after Phase 1 resolves the country
         // Phase 2: events filtered by resolved country
         // Phase 3: editorial curated collections filtered by resolved country
-        const eventCountry = filterCountry || detectedCountryRef.current || null;
+        const eventCountry = bizJson?.meta?.fallback_applied
+          ? "United Kingdom"
+          : filterCountry || detectedCountryRef.current || null;
         const eventParams = new URLSearchParams({ per_page: "15" });
         if (eventCountry) eventParams.set("country", eventCountry);
 
@@ -329,7 +341,7 @@ function DiscoverContent() {
 
     fetchData();
     return () => { stale = true; };
-  }, [filterCountry, filterQuery]);
+  }, [filterCountry, filterQuery, masterCountry?.code]);
 
   // G-09 / G-14: Carousel titles reflect whether geo worked, a country was manually chosen, or we're in global fallback
   const locationLabel = filterCountry
@@ -375,6 +387,26 @@ function DiscoverContent() {
             onDateRangeChange={(start, end) => { setDateFrom(start); setDateTo(end); }}
           />
         </Suspense>
+        {filterCountry && (
+          <div className="mx-4 mb-3 flex items-center lg:mx-16">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#9ACC23]/40 bg-[#9ACC23]/10 px-3 py-1.5 text-sm font-medium text-[#52720F]">
+              Country: {filterCountry}
+              <button
+                type="button"
+                onClick={() => setFilterCountry(null)}
+                className="rounded-full p-0.5 hover:bg-[#9ACC23]/20 focus:outline-none focus:ring-2 focus:ring-[#6D9418]"
+                aria-label={`Remove ${filterCountry} country filter`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          </div>
+        )}
+        {fallbackFromCountry && (
+          <div className="mx-4 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-16">
+            No matching listings were found in {fallbackFromCountry}. Showing results from the United Kingdom.
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

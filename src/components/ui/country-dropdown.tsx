@@ -48,6 +48,8 @@ interface CountryDropdownProps {
   placeholder?: string;
   slim?: boolean;
   className?: string;
+  contentClassName?: string;
+  triggerLabel?: string;
 }
 
 const CountryDropdownComponent = (
@@ -62,6 +64,8 @@ const CountryDropdownComponent = (
     placeholder = "Select a country",
     slim = false,
     className,
+    contentClassName,
+    triggerLabel,
     ...props
   }: CountryDropdownProps,
   ref: React.ForwardedRef<HTMLButtonElement>,
@@ -109,6 +113,8 @@ const CountryDropdownComponent = (
         ref={ref}
         className={triggerClasses}
         disabled={disabled}
+        aria-label={triggerLabel}
+        title={triggerLabel}
         {...props}
       >
         {selectedCountry ? (
@@ -139,7 +145,10 @@ const CountryDropdownComponent = (
       <PopoverContent
         collisionPadding={10}
         side="bottom"
-        className="min-w-[--radix-popper-anchor-width] p-0"
+        className={cn(
+          "min-w-[--radix-popper-anchor-width] p-0",
+          contentClassName,
+        )}
       >
         <Command className="w-full max-h-[200px] sm:max-h-[270px]">
           <CommandList>

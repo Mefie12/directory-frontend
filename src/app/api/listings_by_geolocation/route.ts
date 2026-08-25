@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyCountryPreference } from "@/lib/bff/country-preference";
 
 const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
@@ -15,19 +16,7 @@ export async function GET(request: NextRequest) {
       backendUrl.searchParams.set(key, value);
     });
 
-    // Extract the client's real IP and pass it as ip_address query param
-    // so the backend can geolocate correctly.
-    // Priority: forwarded headers (behind proxy/CDN) → NextRequest.ip → skip
-    const forwarded =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      request.headers.get("cf-connecting-ip"); // Cloudflare
-
-    const clientIp = forwarded ? forwarded.split(",")[0].trim() : null;
-
-    if (clientIp) {
-      backendUrl.searchParams.set("ip_address", clientIp);
-    }
+    applyCountryPreference(request, backendUrl);
 
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -79,7 +68,8 @@ export async function GET(request: NextRequest) {
     const detectedCountry = parsed.meta?.detected_country;
     const listingsData = Array.isArray(parsed.data) ? parsed.data : [];
 
-    if (!detectedCountry || listingsData.length === 0) {
+    const hasExplicitCountry = searchParams.has("country");
+    if (!hasExplicitCountry && (!detectedCountry || listingsData.length === 0)) {
       const ukUrl = new URL(`${API_BASE_URL}/api/all_listings_by_country_and_category`);
       ukUrl.searchParams.set("country", "United Kingdom");
       // Forward non-IP params (per_page, type, etc.) from the original request
@@ -101,8 +91,9 @@ export async function GET(request: NextRequest) {
             ...ukData,
             meta: {
               ...(typeof ukData.meta === "object" && ukData.meta !== null ? ukData.meta : {}),
-              detected_country: "United Kingdom",
-              fallback: true,
+              detected_country: detectedCountry ?? "United Kingdom",
+              fallback_country: "United Kingdom",
+              fallback_applied: true,
             },
           });
         } catch {

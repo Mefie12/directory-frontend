@@ -1,6 +1,7 @@
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AuthProvider } from "@/context/auth-context";
 import { BookmarkProvider } from "@/context/bookmark-context";
+import { CountryProvider } from "@/context/country-context";
 
 /**
  * All app-wide context/state providers, composed in one place so the root
@@ -13,7 +14,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <NuqsAdapter>
       <AuthProvider>
-        <BookmarkProvider>{children}</BookmarkProvider>
+        <CountryProvider>
+          <BookmarkProvider>{children}</BookmarkProvider>
+        </CountryProvider>
       </AuthProvider>
     </NuqsAdapter>
   );
