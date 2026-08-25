@@ -1625,13 +1625,13 @@ export default function UniversalSlugPage({
       ? "scheduled"
       : undefined);
   const availability = resolvedType === "business" && effectiveBusinessHoursMode
-    ? getBusinessAvailability(
-        effectiveBusinessHoursMode,
-        template.hours,
-        providerData.businessTimezone,
-        availabilityNow,
-      )
-    : undefined;
+      ? getBusinessAvailability(
+          effectiveBusinessHoursMode,
+          template.hours,
+          providerData.businessTimezone,
+          availabilityNow,
+        ) ?? undefined
+      : undefined;
   const sectionLink =
     resolvedType === "event"
       ? "/events"
