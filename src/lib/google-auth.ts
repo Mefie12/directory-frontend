@@ -1,112 +1,171 @@
 /**
- * Google sign-in configuration and the token exchange.
+ * Google sign-in — server-side authorization-code flow.
  *
- * Kept as its own module rather than living in `providers/` so the auth pages
- * can read `isGoogleAuthConfigured` without pulling the whole provider tree
- * (auth context, bookmarks, country, nuqs) into their module graph to read a
- * single string.
+ * The backend owns the whole OAuth exchange. This app never talks to Google
+ * directly and never sees the client secret:
  *
- * The `NEXT_PUBLIC_` prefix is required — Next.js only inlines those into the
- * browser bundle, and this is read client-side. A hosting dashboard may flag a
- * variable named `*_CLIENT_ID` as sensitive; for Google OAuth that warning is
- * wrong. The client id is public by design: it travels in every OAuth request
- * and is visible in devtools on any site using Google sign-in. The client
- * *secret* is the confidential half, and it never leaves the backend.
+ *   1. `GET /api/auth/google/redirect` returns the Google consent URL, already
+ *      built with the backend's client id and `redirect_uri`.
+ *   2. We send the browser there.
+ *   3. Google returns the person to the backend's callback with a `code`.
+ *   4. The backend trades that code for a Google identity and issues a mefie
+ *      token, then returns the person to `/auth/google/callback` on this app.
+ *
+ * Because step 4 leaves and re-enters our origin, no React state survives the
+ * round trip — see `rememberGoogleReturnPath`.
+ *
+ * There is deliberately no `NEXT_PUBLIC_GOOGLE_CLIENT_ID` here any more. The
+ * client id is embedded in the URL the backend hands us, so the frontend has
+ * nothing left to configure and cannot fall out of sync with the backend's
+ * registered `redirect_uri`.
+ *
+ * Both calls go through this app's own BFF routes (`src/app/api/auth/google/*`)
+ * rather than straight to the backend, matching every other API call in the
+ * app: one origin, no CORS preflight, and the backend host stays out of the
+ * browser.
  */
-export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+
+/** Same-origin BFF routes — see `src/app/api/auth/google/`. */
+const GOOGLE_REDIRECT_ENDPOINT = "/api/auth/google/redirect";
+const GOOGLE_CALLBACK_ENDPOINT = "/api/auth/google/callback";
+
+/** Where this app returns after Google, and what the backend should redirect to. */
+export const GOOGLE_CALLBACK_PATH = "/auth/google/callback";
 
 /**
- * Whether Google sign-in can run at all.
+ * Reads a JSON body without letting a non-JSON error response throw.
  *
- * Callers **must** check this before mounting anything that calls
- * `useGoogleAuth`. Google's `initTokenClient` throws on an empty client id, and
- * because that happens inside an effect it takes down the whole page during
- * hydration rather than failing quietly — a server-rendered 200 followed by a
- * blank screen. Hiding the button is not enough; the hook must not run, which
- * means not mounting the component that calls it.
+ * The callback returns `{"error": "..."}` with a 500 on failure, but an
+ * upstream nginx or gateway failure returns HTML — and `.json()` on that throws
+ * a SyntaxError that would mask the real status.
  */
-export const isGoogleAuthConfigured = Boolean(GOOGLE_CLIENT_ID);
-
-/**
- * The endpoint that trades a Google credential for a mefie session.
- *
- * **Not implemented on the backend yet.** The frontend flow is complete and
- * calls this for real; until the route exists the request 404s and
- * `exchangeGoogleToken` surfaces the "not enabled yet" message below rather
- * than a raw parse error. Nothing here changes when the route lands.
- *
- * Named to match the existing `/api/login` and `/api/register` routes this app
- * already posts to.
- */
-const GOOGLE_AUTH_ENDPOINT = "/api/auth/google";
-
-export interface GoogleAuthPayload {
-  /**
-   * Send one of the two, not both. This app sends `access_token` — see
-   * `use-google-auth.ts` for why that flow was chosen over the ID-token one.
-   */
-  id_token?: string;
-  access_token?: string;
+async function readJson(response: Response): Promise<Record<string, unknown>> {
+  const raw = await response.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 /**
- * Posts the Google credential and returns the mefie bearer token.
+ * Step 1 — asks the backend for the Google consent URL.
  *
- * Reads the same spread of token keys the password login accepts
- * (`token` / `access_token` / `jwt` / `data.token`), because the backend has
- * been inconsistent about which it returns and the login page already had to
- * accommodate all four.
+ * Returned rather than navigated to here so the caller decides when to leave
+ * the page, and so a failure surfaces as an inline message instead of a
+ * half-finished navigation.
  */
-export async function exchangeGoogleToken(
-  payload: GoogleAuthPayload,
-): Promise<string> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-
-  const response = await fetch(`${apiUrl}${GOOGLE_AUTH_ENDPOINT}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
+export async function fetchGoogleAuthUrl(): Promise<string> {
+  const response = await fetch(GOOGLE_REDIRECT_ENDPOINT, {
+    method: "GET",
+    headers: { Accept: "application/json" },
   });
 
-  // A 404/405 here means the route isn't deployed rather than that the
-  // credential was rejected — worth saying plainly, since during rollout it is
-  // by far the likeliest failure and "sign-in failed" would send someone
-  // hunting their Google account for a problem that isn't there.
-  if (response.status === 404 || response.status === 405) {
+  const data = await readJson(response);
+
+  if (!response.ok) {
     throw new Error(
-      "Google sign-in isn't enabled on this account yet. Please sign in with your email and password.",
+      typeof data.message === "string"
+        ? data.message
+        : "Could not start Google sign-in. Please try again.",
     );
   }
 
-  // Errors are not guaranteed to be JSON — a proxy or gateway failure returns
-  // HTML, and calling .json() on that throws a SyntaxError that would mask the
-  // real status.
-  const raw = await response.text();
-  let data: Record<string, unknown> = {};
-  try {
-    data = raw ? JSON.parse(raw) : {};
-  } catch {
-    data = {};
+  const url = data.url;
+  if (typeof url !== "string" || !url) {
+    throw new Error("Google sign-in is misconfigured — no consent URL returned.");
   }
+
+  return url;
+}
+
+/**
+ * Fallback for when we are handed a raw `code` instead of a finished token.
+ *
+ * Only reachable if the backend's `redirect_uri` is ever pointed at this app
+ * rather than at its own callback. It is cheap to support and means the
+ * frontend does not have to change if that decision is revisited.
+ */
+
+export async function exchangeGoogleCode(
+  code: string,
+  extraParams: Record<string, string> = {},
+): Promise<string> {
+  const params = new URLSearchParams({ code, ...extraParams });
+
+  const response = await fetch(`${GOOGLE_CALLBACK_ENDPOINT}?${params}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  const data = await readJson(response);
 
   if (!response.ok) {
-    const message =
+    throw new Error(
       typeof data.message === "string"
         ? data.message
-        : "Could not sign you in with Google. Please try again.";
-    throw new Error(message);
+        : "Google sign-in could not be completed.",
+    );
   }
 
+  return readToken(data);
+}
+
+/**
+ * Pulls the session token out of a response body.
+ *
+ * Accepts the same spread of key names the password login already had to
+ * tolerate — the backend has been inconsistent about which one it returns, and
+ * guessing wrong here fails silently at the last step of a working flow.
+ */
+export function readToken(data: Record<string, unknown>): string {
   const nested = data.data as Record<string, unknown> | undefined;
   const token =
-    data.token ?? data.access_token ?? data.jwt ?? nested?.token;
+    data.token ?? data.access_token ?? data.jwt ?? nested?.token ??
+    nested?.access_token;
 
   if (typeof token !== "string" || !token) {
     throw new Error("Signed in with Google, but no session token was returned.");
   }
 
   return token;
+}
+
+/*
+  Where to land after Google sends the person back.
+
+  `sessionStorage`, not React state or a URL param: the OAuth round trip leaves
+  this origin entirely and comes back as a fresh page load, so every bit of
+  in-memory state is gone. sessionStorage is per-tab and survives that, which
+  also means two tabs signing in at once don't overwrite each other's
+  destination.
+
+  Not `localStorage` — a destination left behind by an abandoned sign-in would
+  outlive the tab and hijack a later one.
+*/
+const RETURN_PATH_KEY = "mefie:google-return-path";
+
+export function rememberGoogleReturnPath(path: string): void {
+  try {
+    // Only same-origin paths. A full URL here would turn a stored value into
+    // an open redirect, sending someone to an attacker's site after a
+    // legitimate-looking sign-in.
+    if (path.startsWith("/") && !path.startsWith("//")) {
+      sessionStorage.setItem(RETURN_PATH_KEY, path);
+    }
+  } catch {
+    // Private browsing and locked-down storage settings throw. The flow still
+    // works; it just falls back to the default destination.
+  }
+}
+
+export function consumeGoogleReturnPath(): string | null {
+  try {
+    const path = sessionStorage.getItem(RETURN_PATH_KEY);
+    sessionStorage.removeItem(RETURN_PATH_KEY);
+    return path && path.startsWith("/") && !path.startsWith("//") ? path : null;
+  } catch {
+    return null;
+  }
 }
