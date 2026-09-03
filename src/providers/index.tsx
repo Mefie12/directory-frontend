@@ -9,6 +9,10 @@ import { CountryProvider } from "@/context/country-context";
  * added. Order matters: NuqsAdapter has no dependency on auth/bookmark
  * state, but keeping it outermost means URL-state hooks are available to
  * every provider below it too, should one ever need them.
+ *
+ * Google sign-in needs no provider of its own: the backend runs the OAuth
+ * exchange, so the browser never initialises a Google SDK. The callback page
+ * reaches `login()` through AuthProvider like every other sign-in path.
  */
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (

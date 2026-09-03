@@ -11,6 +11,7 @@ import { useAuth } from "@/context/auth-context";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { AuthDivider, GoogleSignIn } from "@/components/auth/google-auth-button";
 
 // Login only checks that a password was entered — length/complexity rules
 // belong on signup and password-reset, where a new password is actually
@@ -43,6 +44,11 @@ function LoginForm() {
   });
   const [touched, setTouched] = useState({ email: false, password: false });
   const [credentialError, setCredentialError] = useState(false);
+  // Google failures get their own slot directly under the Google button rather
+  // than sharing the password form's error line at the bottom of the card —
+  // feedback belongs next to the control that produced it, and these two
+  // failures are never caused by the same thing.
+  const [googleError, setGoogleError] = useState("");
 
   const { login, isUnverified } = useAuth();
 
@@ -85,6 +91,7 @@ function LoginForm() {
     setIsLoading(true);
     setError("");
     setCredentialError(false);
+    setGoogleError("");
     setErrors({
       email: "",
       password: "",
@@ -251,6 +258,30 @@ function LoginForm() {
           </div>
         </CardHeader>
         <CardContent>
+          {/*
+            Google SSO sits above the email form, the order people are trained
+            to expect from every other sign-in screen.
+
+            `GoogleSignIn` renders the live button when a client id is
+            configured and an identical inert one when it isn't, so the button
+            is always here — it goes live on its own once the credentials and
+            the backend route land.
+          */}
+          <div className="space-y-3 mb-4">
+            <GoogleSignIn
+              label="Continue with Google"
+              redirectTo={redirectPath}
+              onError={setGoogleError}
+              disabled={isLoading}
+            />
+            {googleError && (
+              <p role="alert" className="text-red-500 text-sm">
+                {googleError}
+              </p>
+            )}
+            <AuthDivider label="or" />
+          </div>
+
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
