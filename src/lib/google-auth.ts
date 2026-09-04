@@ -74,7 +74,9 @@ export async function fetchGoogleAuthUrl(): Promise<string> {
 
   const url = data.url;
   if (typeof url !== "string" || !url) {
-    throw new Error("Google sign-in is misconfigured — no consent URL returned.");
+    throw new Error(
+      "Google sign-in is misconfigured — no consent URL returned.",
+    );
   }
 
   return url;
@@ -122,11 +124,16 @@ export async function exchangeGoogleCode(
 export function readToken(data: Record<string, unknown>): string {
   const nested = data.data as Record<string, unknown> | undefined;
   const token =
-    data.token ?? data.access_token ?? data.jwt ?? nested?.token ??
+    data.token ??
+    data.access_token ??
+    data.jwt ??
+    nested?.token ??
     nested?.access_token;
 
   if (typeof token !== "string" || !token) {
-    throw new Error("Signed in with Google, but no session token was returned.");
+    throw new Error(
+      "Signed in with Google, but no session token was returned.",
+    );
   }
 
   return token;
