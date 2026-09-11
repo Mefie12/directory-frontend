@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import CommunityCarousel from "@/components/communities/community-carousel";
 import CommunityCard from "@/components/communities/community-card";
-import { Button } from "@/components/ui/button";
+import { CtaBanner } from "@/components/ux/cta-banner";
 import { DirectoryPageShell } from "@/components/directory/directory-page-shell";
 import { useDirectoryListings } from "@/lib/directory/use-directory-listings";
 import { mapCommunity, ProcessedCommunity } from "./map-community";
@@ -66,19 +66,11 @@ export default function CommunityContent() {
         />
       )}
       renderFooterCta={() => (
-        <div className="py-12 px-4 lg:px-16">
-          <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl h-[350px] overflow-hidden">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Ready to Grow Your Business?
-            </h2>
-            <Button
-              onClick={handleCtaClick}
-              className="bg-[#93C01F] hover:bg-[#7ea919]"
-            >
-              List your business today
-            </Button>
-          </div>
-        </div>
+        <CtaBanner
+          title="Ready to Grow Your Business?"
+          actionLabel="List your business today"
+          onAction={handleCtaClick}
+        />
       )}
     />
   );

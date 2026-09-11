@@ -48,8 +48,8 @@ export function Faqs() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-12 items-start">
-      {/* Left: Title & description */}
-      <div className="col-span-1">
+      {/* Left: Title & description — sticks below the fixed navbar on desktop while the questions scroll */}
+      <div className="col-span-1 lg:sticky lg:top-28">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
           Frequently Asked Questions
           <br />

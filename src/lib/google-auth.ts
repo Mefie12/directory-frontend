@@ -6,13 +6,7 @@ const GOOGLE_CALLBACK_ENDPOINT = "/api/auth/google/callback";
 /** Where this app returns after Google, and what the backend should redirect to. */
 export const GOOGLE_CALLBACK_PATH = "/auth/google/callback";
 
-/**
- * Reads a JSON body without letting a non-JSON error response throw.
- *
- * The callback returns `{"error": "..."}` with a 500 on failure, but an
- * upstream nginx or gateway failure returns HTML — and `.json()` on that throws
- * a SyntaxError that would mask the real status.
- */
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   const raw = await response.text();
   if (!raw) return {};
@@ -122,15 +116,11 @@ const RETURN_PATH_KEY = "mefie:google-return-path";
 
 export function rememberGoogleReturnPath(path: string): void {
   try {
-    // Only same-origin paths. A full URL here would turn a stored value into
-    // an open redirect, sending someone to an attacker's site after a
-    // legitimate-looking sign-in.
     if (path.startsWith("/") && !path.startsWith("//")) {
       sessionStorage.setItem(RETURN_PATH_KEY, path);
     }
   } catch {
-    // Private browsing and locked-down storage settings throw. The flow still
-    // works; it just falls back to the default destination.
+
   }
 }
 

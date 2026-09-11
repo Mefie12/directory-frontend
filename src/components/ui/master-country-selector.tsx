@@ -6,6 +6,22 @@ import { toast } from "sonner";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
 import { useCountryContext } from "@/context/country-context";
 
+/*
+  Flag-only trigger used in the navbar on desktop and mobile.
+
+  Ghost styling so the country setting stays quieter than Login beside it: no
+  border or fill at rest, with the fill appearing on hover and staying while the
+  menu is open. `rounded-lg` and `h-10` match the navbar buttons (Sign Up,
+  Become a vendor) and the 40px mobile menu button, and the chevron flips while
+  the list is open. The focus ring only shows for keyboard focus, so it doesn't
+  linger after a mouse click.
+*/
+const COMPACT_TRIGGER =
+  "h-10 w-16 rounded-lg border-transparent bg-transparent px-2.5 text-white/70 shadow-none transition-colors " +
+  "hover:bg-white/10 hover:text-white data-[state=open]:bg-white/10 data-[state=open]:text-white " +
+  "focus:ring-0 focus-visible:ring-2 focus-visible:ring-white/40 " +
+  "[&>svg]:transition-transform [&[data-state=open]>svg]:rotate-180";
+
 export function MasterCountrySelector({ compact = false }: { compact?: boolean }) {
   const { masterCountry, effectiveCountry, loading, setMasterCountry } = useCountryContext();
   const [availableNames, setAvailableNames] = useState<string[]>([]);
@@ -61,7 +77,7 @@ export function MasterCountrySelector({ compact = false }: { compact?: boolean }
         triggerLabel={`Default country: ${masterCountry?.name || effectiveCountry || "not selected"}. Change country`}
         contentClassName={compact ? "w-[min(20rem,calc(100vw-2rem))]" : undefined}
         className={compact
-          ? "w-16 border-white/30 bg-white/10 text-white shadow-none"
+          ? COMPACT_TRIGGER
           : "border-white/25 bg-white/10 text-white shadow-none"}
       />
     </div>

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import EventSectionCarousel from "@/components/ux/event-section-carousel";
 import EventCarousel from "@/components/events/event-carousel";
 import { EventCard } from "@/components/ux/event-card";
-import { Button } from "@/components/ui/button";
+import { CtaBanner } from "@/components/ux/cta-banner";
 import { DirectoryPageShell } from "@/components/directory/directory-page-shell";
 import { useDirectoryListings } from "@/lib/directory/use-directory-listings";
 import type { ProcessedEvent } from "@/types/event";
@@ -143,19 +143,11 @@ export default function EventsContent() {
         />
       )}
       renderFooterCta={() => (
-        <div className="py-12 px-4 lg:px-16">
-          <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl h-[350px] overflow-hidden px-10">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Ready To Promote Your Event?
-            </h2>
-            <Button
-              onClick={handleCtaClick}
-              className="bg-[#93C01F] hover:bg-[#93C956]"
-            >
-              List your Event today
-            </Button>
-          </div>
-        </div>
+        <CtaBanner
+          title="Ready to Promote Your Event?"
+          actionLabel="List your event today"
+          onAction={handleCtaClick}
+        />
       )}
     />
   );

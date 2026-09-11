@@ -290,7 +290,12 @@ export default function Navbar() {
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-3">
-            <MasterCountrySelector />
+            <MasterCountrySelector compact />
+            {/*
+              Separates the country setting from the account actions, so the
+              flag reads as a site setting rather than a fourth sign-in button.
+            */}
+            <div aria-hidden="true" className="h-6 w-px bg-white/20" />
             {loading ? (
               // Show a skeleton or an empty space while checking auth
               <div className="flex items-center gap-4 px-4">
