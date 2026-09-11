@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import HeroSlider from "@/components/landing-page/hero-slider";
 // import { Sort, SortOption } from "@/components/ux/sort";
@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Faqs } from "@/components/landing-page/faqs";
 import { CtaBanner } from "@/components/ux/cta-banner";
+import { ScrollDots } from "@/components/ux/scroll-dots";
 import { BusinessCard } from "../ux/business-card";
 import { EventCard } from "@/components/ux/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,6 +115,7 @@ export default function HomeContent() {
   const router = useRouter();
   // const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const categoryTrackRef = useRef<HTMLDivElement>(null);
   const [isTopCatsLoading, setIsTopCatsLoading] = useState(true);
   const [detectedCountry, setDetectedCountry] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useQueryState(
@@ -365,11 +367,13 @@ export default function HomeContent() {
 
   // 2. Category Skeleton
   // Always two rows: extra categories add columns and the track scrolls sideways.
-  // Scrollbar hidden on mobile only, since desktop mouse users need it to reach overflow.
+  // Mobile shows exactly two columns (the first four cards); desktop columns stretch to fill
+  // the width and only fall back to 310px, and scroll, when they don't fit. ScrollDots
+  // replaces the scrollbar, including for mouse users.
   const CATEGORY_TRACK =
-    "grid gap-3 md:gap-6 -mx-4 px-4 lg:-mx-16 lg:px-16 -my-4 py-4 overflow-x-auto scroll-px-4 lg:scroll-px-16 " +
-    "max-md:snap-x max-md:snap-mandatory max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden " +
-    "[--category-col:min(60%,220px)] md:[--category-col:310px]";
+    "grid gap-3 md:gap-6 -mx-4 px-4 lg:-mx-16 lg:px-16 -my-4 py-4 overflow-x-auto scroll-px-4 lg:scroll-px-16 scrollbar-hide " +
+    "max-md:snap-x max-md:snap-mandatory " +
+    "[--category-col:calc((100%_-_0.75rem)_/_2)] md:[--category-col:minmax(310px,1fr)]";
   const CATEGORY_CARD_SIZE = "w-full aspect-[310/204] snap-start";
   const categoryColumns = (count: number) => ({
     gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(count / 2))}, var(--category-col))`,
@@ -427,33 +431,37 @@ export default function HomeContent() {
         {isTopCatsLoading ? (
           <CategorySkeleton />
         ) : topCategories.length > 0 ? (
-          <div
-            className={CATEGORY_TRACK}
-            style={categoryColumns(topCategories.length)}
-          >
-            {topCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.slug}`}
-                className={`group relative overflow-hidden rounded-2xl ${CATEGORY_CARD_SIZE} hover:shadow-xl transition-all duration-300`}
-              >
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent z-10" />
-                <Image
-                  src={category.featured_image || "/images/no-image.jpg"}
-                  alt={category.name}
-                  fill
-                  sizes="(max-width: 767px) 220px, 310px"
-                  className="object-cover group-hover:scale-110 transition-transform duration-300"
-                  unoptimized={true}
-                />
-                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-20">
-                  <h3 className="text-white font-medium text-base md:text-xl">
-                    {category.name}
-                  </h3>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <>
+            <div
+              ref={categoryTrackRef}
+              className={CATEGORY_TRACK}
+              style={categoryColumns(topCategories.length)}
+            >
+              {topCategories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/categories/${category.slug}`}
+                  className={`group relative overflow-hidden rounded-2xl ${CATEGORY_CARD_SIZE} hover:shadow-xl transition-all duration-300`}
+                >
+                  <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent z-10" />
+                  <Image
+                    src={category.featured_image || "/images/no-image.jpg"}
+                    alt={category.name}
+                    fill
+                    sizes="(max-width: 767px) 50vw, 25vw"
+                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    unoptimized={true}
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 z-20">
+                    <h3 className="text-white font-medium text-sm sm:text-base md:text-xl">
+                      {category.name}
+                    </h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <ScrollDots targetRef={categoryTrackRef} />
+          </>
         ) : (
           <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
             <p>No top categories available.</p>
