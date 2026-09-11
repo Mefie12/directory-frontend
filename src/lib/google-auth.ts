@@ -1,29 +1,3 @@
-/**
- * Google sign-in — server-side authorization-code flow.
- *
- * The backend owns the whole OAuth exchange. This app never talks to Google
- * directly and never sees the client secret:
- *
- *   1. `GET /api/auth/google/redirect` returns the Google consent URL, already
- *      built with the backend's client id and `redirect_uri`.
- *   2. We send the browser there.
- *   3. Google returns the person to the backend's callback with a `code`.
- *   4. The backend trades that code for a Google identity and issues a mefie
- *      token, then returns the person to `/auth/google/callback` on this app.
- *
- * Because step 4 leaves and re-enters our origin, no React state survives the
- * round trip — see `rememberGoogleReturnPath`.
- *
- * There is deliberately no `NEXT_PUBLIC_GOOGLE_CLIENT_ID` here any more. The
- * client id is embedded in the URL the backend hands us, so the frontend has
- * nothing left to configure and cannot fall out of sync with the backend's
- * registered `redirect_uri`.
- *
- * Both calls go through this app's own BFF routes (`src/app/api/auth/google/*`)
- * rather than straight to the backend, matching every other API call in the
- * app: one origin, no CORS preflight, and the backend host stays out of the
- * browser.
- */
 
 /** Same-origin BFF routes — see `src/app/api/auth/google/`. */
 const GOOGLE_REDIRECT_ENDPOINT = "/api/auth/google/redirect";
