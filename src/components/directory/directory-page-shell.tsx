@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableCategoryTabs from "@/components/ux/scrollable-category-tabs";
 import SearchHeader from "@/components/ux/search-header";
 import { Country } from "@/components/ui/country-dropdown";
-import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+// import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
 import type { ApiListing, CountryFallbackContext } from "@/lib/directory/types";
 import { X } from "lucide-react";
 import { useCountryContext } from "@/context/country-context";
@@ -67,7 +67,7 @@ export function DirectoryPageShell<T>({
   items,
   isLoading,
   detectedCountry,
-  fallbackContext,
+  // fallbackContext,
   mapItem,
   groupBy,
   matchesCategory,
@@ -129,7 +129,7 @@ export function DirectoryPageShell<T>({
   const [fetchedKey, setFetchedKey] = useState("");
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
   const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
-  const [categoryFallback, setCategoryFallback] = useState<{
+  const [/* categoryFallback */, setCategoryFallback] = useState<{
     key: string;
     context: CountryFallbackContext;
   } | null>(null);
@@ -356,12 +356,12 @@ export function DirectoryPageShell<T>({
   }, [headerFilteredItems, selectedCategory, matchesCategory]);
 
   const usingCategoryFetch = isCategorySelected && !!mapItem;
-  const visibleFallbackContext =
-    filterCountry
-      ? { applied: false, sourceCountry: null, fallbackCountry: null }
-      : usingCategoryFetch && categoryFallback?.key === categoryFetchKey
-      ? categoryFallback.context
-      : fallbackContext;
+  // const visibleFallbackContext =
+  //   filterCountry
+  //     ? { applied: false, sourceCountry: null, fallbackCountry: null }
+  //     : usingCategoryFetch && categoryFallback?.key === categoryFetchKey
+  //     ? categoryFallback.context
+  //     : fallbackContext;
   const emptyState = filterCountry ? (
     <div className="py-16 text-center">
       <h2 className="text-xl font-semibold text-gray-900">
@@ -417,11 +417,11 @@ export function DirectoryPageShell<T>({
         </div>
       )}
 
-      <CountryFallbackNotice
+      {/* <CountryFallbackNotice
         {...visibleFallbackContext}
         surface={context}
         className="mx-4 mb-5 lg:mx-16"
-      />
+      /> */}
 
       <div className="pb-8">
         {isCategoryLoading ? (

@@ -24,7 +24,7 @@ import {
 import {
   pickDisplayCategory,
   type ApiListing,
-  type CountryFallbackContext,
+  // type CountryFallbackContext,
 } from "@/lib/directory/types";
 import type {
   CategoryLandingListingType,
@@ -33,7 +33,7 @@ import type {
   CategoryLandingTypeView,
 } from "@/types/category-landing";
 import { useCountryContext } from "@/context/country-context";
-import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+// import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
 
 const TYPES: CategoryLandingListingType[] = ["business", "community", "event"];
 
@@ -405,11 +405,11 @@ export default function CategoryPageContent() {
     : [];
 
   const typeView: CategoryLandingTypeView | undefined = data?.type_view;
-  const fallbackContext: CountryFallbackContext = {
-    applied: !selectedCountry && data?.meta?.fallback_applied === true,
-    sourceCountry: data?.meta?.detected_country ?? null,
-    fallbackCountry: data?.meta?.fallback_country ?? null,
-  };
+  // const fallbackContext: CountryFallbackContext = {
+  //   applied: !selectedCountry && data?.meta?.fallback_applied === true,
+  //   sourceCountry: data?.meta?.detected_country ?? null,
+  //   fallbackCountry: data?.meta?.fallback_country ?? null,
+  // };
   // Use the API-supplied name when available. Fall back to slug-derived text only
   // as a loading/skeleton placeholder — it loses special chars like "&" so it is
   // never used as the final display value once data is loaded.
@@ -537,11 +537,11 @@ export default function CategoryPageContent() {
         </div>
       </section>
 
-      <CountryFallbackNotice
+      {/* <CountryFallbackNotice
         {...fallbackContext}
         surface={`category-${categorySlug}`}
         className="mx-4 mb-2 mt-4 lg:mx-16"
-      />
+      /> */}
 
       {error ? (
         <div className="px-4 py-16 text-center text-gray-500 lg:px-16">

@@ -17,7 +17,7 @@ import type { CuratedCollection } from "@/types/curated-collections";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
 import { X } from "lucide-react";
 import { useCountryContext } from "@/context/country-context";
-import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+// import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
 import type { CountryFallbackContext } from "@/lib/directory/types";
 // --- Interfaces ---
 interface ApiImage {
@@ -444,12 +444,12 @@ function DiscoverContent() {
             </span>
           </div>
         )}
-        <CountryFallbackNotice
+        {/* <CountryFallbackNotice
           {...fallbackContext}
           applied={!filterCountry && fallbackContext.applied}
           surface="discover"
           className="mx-4 mb-5 lg:mx-16"
-        />
+        /> */}
       </div>
 
       <div className="space-y-2">
