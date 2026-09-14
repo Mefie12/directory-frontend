@@ -25,7 +25,7 @@ export default function BusinessesContent() {
 
   const filterCountry = searchParams.get("country");
 
-  const { items, isLoading, detectedCountry, showingGlobalFallback } =
+  const { items, isLoading, detectedCountry, fallbackContext } =
     useDirectoryListings<ProcessedBusiness>({
       endpoint: "/api/businesses",
       mapItem: mapBusiness,
@@ -34,6 +34,8 @@ export default function BusinessesContent() {
 
   const locationLabel = filterCountry
     ? `in ${filterCountry}`
+    : fallbackContext.applied && fallbackContext.fallbackCountry
+    ? `in ${fallbackContext.fallbackCountry}`
     : detectedCountry
     ? "near you"
     : null;
@@ -64,7 +66,7 @@ export default function BusinessesContent() {
       items={sortedItems}
       isLoading={isLoading}
       detectedCountry={detectedCountry}
-      showingGlobalFallback={showingGlobalFallback}
+      fallbackContext={fallbackContext}
       mapItem={mapBusiness}
       groupBy={(b) => b.category}
       matchesCategory={(b, slug) => b.categorySlugs.includes(slug)}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { applyCountryPreference } from "@/lib/bff/country-preference";
 
 const API_BASE_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
@@ -13,8 +14,12 @@ export async function GET(request: NextRequest) {
       params.append(key, value);
     });
 
+    const backendUrl = new URL(`${API_BASE_URL.replace(/\/$/, "")}/api/search`);
+    params.forEach((value, key) => backendUrl.searchParams.set(key, value));
+    applyCountryPreference(request, backendUrl);
+
     const response = await fetch(
-      `${API_BASE_URL.replace(/\/$/, "")}/api/search?${params.toString()}`,
+      backendUrl,
       {
         method: 'GET',
         headers: {
@@ -39,7 +44,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'private, no-store',
+        'Vary': 'Cookie',
       },
     });
   } catch (error) {

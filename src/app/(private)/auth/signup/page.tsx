@@ -19,6 +19,7 @@ import "react-international-phone/style.css";
 import { z } from "zod";
 import { getPhoneValidationError, normalizePhone, normalizePhoneInput } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { AuthDivider, GoogleSignIn } from "@/components/auth/google-auth-button";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -44,6 +45,9 @@ function SignupForm() {
   const [showOtp, setShowOtp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [, setError] = useState("");
+  // Rendered directly under the Google button — see the matching note on the
+  // login page for why this isn't folded into the form's own error handling.
+  const [googleError, setGoogleError] = useState("");
 
   const redirectPath = searchParams.get("redirect") || "/";
   const verifyEmail = searchParams.get("email") || "";
@@ -302,6 +306,28 @@ function SignupForm() {
         </CardHeader>
         <CardContent>
           {!showOtp ? (
+            <>
+              {/*
+                Only on the details step — once the OTP screen is up the person
+                already has an account pending, and offering Google there would
+                start a second, unrelated sign-in.
+              */}
+              <div className="space-y-3 mb-4">
+                <GoogleSignIn
+                  label="Sign up with Google"
+                  loadingLabel="Setting up your account…"
+                  redirectTo={redirectPath}
+                  onError={setGoogleError}
+                  disabled={isLoading}
+                />
+                {googleError && (
+                  <p role="alert" className="text-red-500 text-sm">
+                    {googleError}
+                  </p>
+                )}
+                <AuthDivider label="or" />
+              </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -389,6 +415,7 @@ function SignupForm() {
                 {isLoading ? "Creating..." : "Sign Up"}
               </Button>
             </form>
+            </>
           ) : (
             <VerifyOtp
               email={formData.email}

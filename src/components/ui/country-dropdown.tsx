@@ -48,6 +48,8 @@ interface CountryDropdownProps {
   placeholder?: string;
   slim?: boolean;
   className?: string;
+  contentClassName?: string;
+  triggerLabel?: string;
 }
 
 const CountryDropdownComponent = (
@@ -62,6 +64,8 @@ const CountryDropdownComponent = (
     placeholder = "Select a country",
     slim = false,
     className,
+    contentClassName,
+    triggerLabel,
     ...props
   }: CountryDropdownProps,
   ref: React.ForwardedRef<HTMLButtonElement>,
@@ -99,7 +103,9 @@ const CountryDropdownComponent = (
 
   const triggerClasses = cn(
     "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-full border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
-    slim === true && "w-20",
+    // Flag-only: hug the flag and chevron instead of a fixed width with a gap between.
+    slim === true &&
+      "w-auto gap-1.5 px-2.5 text-gray-600 shadow-none transition-colors hover:bg-gray-50 data-[state=open]:bg-gray-50 [&>svg]:transition-transform [&[data-state=open]>svg]:rotate-180",
     className,
   );
 
@@ -109,10 +115,17 @@ const CountryDropdownComponent = (
         ref={ref}
         className={triggerClasses}
         disabled={disabled}
+        aria-label={triggerLabel}
+        title={triggerLabel}
         {...props}
       >
         {selectedCountry ? (
-          <div className="flex items-center grow w-0 gap-2 overflow-hidden">
+          <div
+            className={cn(
+              "flex items-center gap-2 overflow-hidden",
+              slim ? "shrink-0" : "grow w-0",
+            )}
+          >
             <div className="inline-flex items-center justify-center w-5 h-5 shrink-0 overflow-hidden rounded-full">
               <CircleFlag
                 countryCode={selectedCountry.alpha2.toLowerCase()}
@@ -139,7 +152,10 @@ const CountryDropdownComponent = (
       <PopoverContent
         collisionPadding={10}
         side="bottom"
-        className="min-w-[--radix-popper-anchor-width] p-0"
+        className={cn(
+          "min-w-[--radix-popper-anchor-width] p-0",
+          contentClassName,
+        )}
       >
         <Command className="w-full max-h-[200px] sm:max-h-[270px]">
           <CommandList>

@@ -9,13 +9,16 @@ import SearchHeader from "@/components/ux/search-header";
 import BusinessCardCarousel from "@/components/discover/business-card-carousel";
 import EventCardCarousel from "@/components/discover/event-card-carousel";
 import EditorialCarousel from "@/components/discover/editorial-carousel";
+import { CtaBanner } from "@/components/ux/cta-banner";
 import CommunityCarousel from "@/components/communities/community-carousel";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import type { CuratedCollection } from "@/types/curated-collections";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
+import { X } from "lucide-react";
+import { useCountryContext } from "@/context/country-context";
+// import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+import type { CountryFallbackContext } from "@/lib/directory/types";
 // --- Interfaces ---
 interface ApiImage {
   id?: number;
@@ -97,6 +100,7 @@ const classifyListing = (
 
 
 function DiscoverContent() {
+  const { masterCountry } = useCountryContext();
   const router = useRouter();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
@@ -106,6 +110,11 @@ function DiscoverContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
+  const [fallbackContext, setFallbackContext] = useState<CountryFallbackContext>({
+    applied: false,
+    sourceCountry: null,
+    fallbackCountry: null,
+  });
   // Stable ref — holds the detected country full name for geo context preservation.
   // Using a ref instead of state avoids adding it to the useEffect dependency array
   // (which would cause an infinite fetch loop: fetch → set name → re-fetch → …).
@@ -134,7 +143,10 @@ function DiscoverContent() {
     router.push("/claim");
   };
 
-  const filterCountry = searchParams.get("country");
+  const [filterCountry, setFilterCountry] = useQueryState(
+    "country",
+    parseAsString,
+  );
   const filterQuery = searchParams.get("q");
   // Backed by the same "event_start_date"/"event_end_date" URL params that
   // SearchHeader writes, so the filter survives refresh/back-forward instead
@@ -230,6 +242,11 @@ function DiscoverContent() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        setFallbackContext({
+          applied: false,
+          sourceCountry: null,
+          fallbackCountry: null,
+        });
 
         // Build the URL for each type-scoped fetch
         const makeUrl = (type: string) => {
@@ -275,10 +292,30 @@ function DiscoverContent() {
 
         if (stale) return;
 
+        const bizData: ApiListing[] = bizJson.data || bizJson.listings || [];
+        const comData: ApiListing[] = comJson.data || comJson.listings || [];
+
         // Capture geo-detected country before firing event fetches.
         // meta.detected_country is the full country name (e.g. "Ghana") returned by GeoService.
         // Both the carousel title label and the event country filter use this same value.
-        const detected = bizJson?.meta?.detected_country ?? null;
+        const detected =
+          bizJson?.meta?.detected_country ??
+          comJson?.meta?.detected_country ??
+          null;
+        const fallbackCountry =
+          bizJson?.meta?.fallback_country ??
+          comJson?.meta?.fallback_country ??
+          null;
+        const fallbackApplied =
+          !filterCountry &&
+          !!fallbackCountry &&
+          ((bizJson?.meta?.fallback_applied === true && bizData.length > 0) ||
+            (comJson?.meta?.fallback_applied === true && comData.length > 0));
+        setFallbackContext({
+          applied: fallbackApplied,
+          sourceCountry: detected,
+          fallbackCountry: fallbackApplied ? fallbackCountry : null,
+        });
         if (detected) {
           setDetectedCountry(detected);
           if (!detectedCountryRef.current) {
@@ -289,7 +326,9 @@ function DiscoverContent() {
         // Phase 2 + 3 — run in parallel after Phase 1 resolves the country
         // Phase 2: events filtered by resolved country
         // Phase 3: editorial curated collections filtered by resolved country
-        const eventCountry = filterCountry || detectedCountryRef.current || null;
+        const eventCountry = fallbackApplied
+          ? fallbackCountry
+          : filterCountry || detectedCountryRef.current || null;
         const eventParams = new URLSearchParams({ per_page: "15" });
         if (eventCountry) eventParams.set("country", eventCountry);
 
@@ -310,8 +349,6 @@ function DiscoverContent() {
 
         if (stale) return;
 
-        const bizData: ApiListing[] = bizJson.data || bizJson.listings || [];
-        const comData: ApiListing[] = comJson.data || comJson.listings || [];
         const weekData: ApiListing[] = weekJson.data || [];
         const soonData: ApiListing[] = soonJson.data || [];
 
@@ -321,7 +358,14 @@ function DiscoverContent() {
         setSoonEvents(mapListings(soonData).eventsList);
         setCollections(Array.isArray(collectionsJson.data) ? collectionsJson.data : []);
       } catch (error) {
-        if (!stale) console.error("Failed to fetch discover data", error);
+        if (!stale) {
+          setFallbackContext({
+            applied: false,
+            sourceCountry: null,
+            fallbackCountry: null,
+          });
+          console.error("Failed to fetch discover data", error);
+        }
       } finally {
         if (!stale) setIsLoading(false);
       }
@@ -329,11 +373,13 @@ function DiscoverContent() {
 
     fetchData();
     return () => { stale = true; };
-  }, [filterCountry, filterQuery]);
+  }, [filterCountry, filterQuery, masterCountry?.code]);
 
   // G-09 / G-14: Carousel titles reflect whether geo worked, a country was manually chosen, or we're in global fallback
   const locationLabel = filterCountry
     ? `in ${filterCountry}`
+    : fallbackContext.applied && fallbackContext.fallbackCountry
+    ? `in ${fallbackContext.fallbackCountry}`
     : detectedCountry
     ? "near you"
     : null;
@@ -355,6 +401,14 @@ function DiscoverContent() {
 
   const visibleWeekEvents = filterByDate(weekEvents);
   const visibleSoonEvents = filterByDate(soonEvents);
+  const hasDiscoverResults =
+    collections.length > 0 ||
+    topBusinesses.length > 0 ||
+    topCommunities.length > 0 ||
+    visibleWeekEvents.length > 0 ||
+    visibleSoonEvents.length > 0;
+  const emptyCountry =
+    filterCountry || (!fallbackContext.applied ? detectedCountry : null);
 
   const SectionSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -375,6 +429,27 @@ function DiscoverContent() {
             onDateRangeChange={(start, end) => { setDateFrom(start); setDateTo(end); }}
           />
         </Suspense>
+        {filterCountry && (
+          <div className="mx-4 mb-3 flex items-center lg:mx-16">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#9ACC23]/40 bg-[#9ACC23]/10 px-3 py-1.5 text-sm font-medium text-[#52720F]">
+              Country: {filterCountry}
+              <button
+                type="button"
+                onClick={() => setFilterCountry(null)}
+                className="rounded-full p-0.5 hover:bg-[#9ACC23]/20 focus:outline-none focus:ring-2 focus:ring-[#6D9418]"
+                aria-label={`Remove ${filterCountry} country filter`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          </div>
+        )}
+        {/* <CountryFallbackNotice
+          {...fallbackContext}
+          applied={!filterCountry && fallbackContext.applied}
+          surface="discover"
+          className="mx-4 mb-5 lg:mx-16"
+        /> */}
       </div>
 
       <div className="space-y-2">
@@ -392,8 +467,25 @@ function DiscoverContent() {
           </div>
         ) : null}
 
+        {!isLoading && !hasDiscoverResults && (
+          <div className="px-4 py-16 text-center lg:px-16">
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-14">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {emptyCountry
+                  ? `We don’t have listings in ${emptyCountry} yet.`
+                  : "No listings found yet."}
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                {emptyCountry
+                  ? "Try another country or check back soon."
+                  : "Try choosing a country or check back soon."}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Algorithmic carousels */}
-        {isLoading ? null : (
+        {isLoading || !hasDiscoverResults ? null : (
           <>
             <BusinessCardCarousel
               businesses={topBusinesses}
@@ -451,53 +543,11 @@ function DiscoverContent() {
         </div> */}
 
         {/* CTA */}
-        <div className="py-12 px-4 lg:px-16">
-          <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-            <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
-              <Image
-                src="/images/backgroundImages/bg-pattern.svg"
-                alt="background pattern left"
-                width={320}
-                height={320}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-contain h-[150px] lg:h-[400px]"
-                priority
-              />
-            </div>
-            <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
-              <Image
-                src="/images/backgroundImages/bg-pattern-1.svg"
-                alt="background pattern right"
-                width={320}
-                height={320}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-contain"
-                priority
-              />
-            </div>
-            <div className="block lg:hidden absolute bottom-16 -right-32">
-              <Image
-                src="/images/backgroundImages/mobile-pattern.svg"
-                alt="background pattern right"
-                width={320}
-                height={320}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-contain h-[120px]"
-                priority
-              />
-            </div>
-            <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
-              Ready to Grow Your Business?
-            </h2>
-            {/* <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
-              Join thousands of African businesses already listed on Mefie
-              Directory
-            </p> */}
-            <Button onClick={handleClickEvent} className="bg-[#93C01F] hover:bg-[#7ea919] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200 mt-3">
-              List your business today
-            </Button>
-          </div>
-        </div>
+        <CtaBanner
+          title="Ready to Grow Your Business?"
+          actionLabel="List your business today"
+          onAction={handleClickEvent}
+        />
       </div>
     </div>
   );

@@ -7,7 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ScrollableCategoryTabs from "@/components/ux/scrollable-category-tabs";
 import SearchHeader from "@/components/ux/search-header";
 import { Country } from "@/components/ui/country-dropdown";
-import { ApiListing } from "@/lib/directory/types";
+// import { CountryFallbackNotice } from "@/components/directory/country-fallback-notice";
+import type { ApiListing, CountryFallbackContext } from "@/lib/directory/types";
+import { X } from "lucide-react";
+import { useCountryContext } from "@/context/country-context";
 
 export interface DirectoryPageShellProps<T> {
   /** Slug passed to `<ScrollableCategoryTabs mainCategorySlug=...>`. */
@@ -18,7 +21,7 @@ export interface DirectoryPageShellProps<T> {
   items: T[];
   isLoading: boolean;
   detectedCountry: string | null;
-  showingGlobalFallback?: boolean;
+  fallbackContext: CountryFallbackContext;
   /**
    * Map a raw API listing to the page item type.
    * Required for category-pill fetches from the geolocation endpoints.
@@ -64,7 +67,7 @@ export function DirectoryPageShell<T>({
   items,
   isLoading,
   detectedCountry,
-  showingGlobalFallback = false,
+  // fallbackContext,
   mapItem,
   groupBy,
   matchesCategory,
@@ -81,6 +84,7 @@ export function DirectoryPageShell<T>({
   renderMidBanner,
   renderFooterCta,
 }: DirectoryPageShellProps<T>) {
+  const { masterCountry } = useCountryContext();
   // Store both id and slug in the URL so the backend can use whichever it supports.
   const [categoryIdParam, setCategoryIdParam] = useQueryState(
     "category_id",
@@ -120,11 +124,15 @@ export function DirectoryPageShell<T>({
   // Loading is derived from whether the current fetch key matches the last completed one —
   // no synchronous setState needed, so no cascading-render lint violation.
   const categoryFetchKey = isCategorySelected
-    ? `${context}|${categoryIdParam ?? ""}|${categorySlugParam ?? ""}|${selectedCountry}`
+    ? `${context}|${categoryIdParam ?? ""}|${categorySlugParam ?? ""}|${selectedCountry}|${masterCountry?.code ?? "auto"}`
     : "";
   const [fetchedKey, setFetchedKey] = useState("");
   const [topCategoryItems, setTopCategoryItems] = useState<T[]>([]);
   const [allCategoryItems, setAllCategoryItems] = useState<T[]>([]);
+  const [/* categoryFallback */, setCategoryFallback] = useState<{
+    key: string;
+    context: CountryFallbackContext;
+  } | null>(null);
   const isCategoryLoading = isCategorySelected && !!mapItem && categoryFetchKey !== fetchedKey;
 
   useEffect(() => {
@@ -164,25 +172,91 @@ export function DirectoryPageShell<T>({
         return r.json();
       }),
     ])
-      .then(([topJson, allJson]) => {
+      .then(async ([topJson, allJson]) => {
         if (cancelled) return;
         const mapper = mapItem;
-        const topRaw: ApiListing[] = Array.isArray(topJson.data)
+        let nextFallback: CountryFallbackContext = {
+          applied: false,
+          sourceCountry: null,
+          fallbackCountry: null,
+        };
+        let topRaw: ApiListing[] = Array.isArray(topJson.data)
           ? topJson.data
           : Array.isArray(topJson.listings)
             ? topJson.listings
             : [];
-        const allRaw: ApiListing[] = Array.isArray(allJson.data)
+        let allRaw: ApiListing[] = Array.isArray(allJson.data)
           ? allJson.data
           : Array.isArray(allJson.listings)
             ? allJson.listings
             : [];
-        setTopCategoryItems(
-          topRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
-        );
-        setAllCategoryItems(
-          allRaw.flatMap((item) => { const r = mapper(item); return r !== null ? [r] : []; }),
-        );
+
+        const responseFallbackCountry =
+          allJson.meta?.fallback_country ?? topJson.meta?.fallback_country ?? null;
+        if (
+          !hasCountry &&
+          responseFallbackCountry &&
+          (allJson.meta?.fallback_applied === true ||
+            topJson.meta?.fallback_applied === true) &&
+          (topRaw.length > 0 || allRaw.length > 0)
+        ) {
+          nextFallback = {
+            applied: true,
+            sourceCountry:
+              allJson.meta?.detected_country ??
+              topJson.meta?.detected_country ??
+              detectedCountry,
+            fallbackCountry: responseFallbackCountry,
+          };
+        }
+
+        if (!hasCountry && topRaw.length === 0 && allRaw.length === 0) {
+          const fallbackParams = new URLSearchParams(params);
+          fallbackParams.set("country", "United Kingdom");
+          const [fallbackTop, fallbackAll] = await Promise.all([
+            fetch(`/api/top_listings_by_country_and_category?${fallbackParams}`, {
+              headers: { Accept: "application/json" },
+            }),
+            fetch(`/api/all_listings_by_country_and_category?${fallbackParams}`, {
+              headers: { Accept: "application/json" },
+            }),
+          ]);
+          if (fallbackTop.ok && fallbackAll.ok) {
+            const fallbackTopJson = await fallbackTop.json();
+            const fallbackAllJson = await fallbackAll.json();
+            topRaw = Array.isArray(fallbackTopJson.data) ? fallbackTopJson.data : [];
+            allRaw = Array.isArray(fallbackAllJson.data) ? fallbackAllJson.data : [];
+            const hasFallbackResults = topRaw.length > 0 || allRaw.length > 0;
+            nextFallback = {
+              applied: hasFallbackResults,
+              sourceCountry:
+                allJson.meta?.detected_country ??
+                topJson.meta?.detected_country ??
+                detectedCountry,
+              fallbackCountry: hasFallbackResults ? "United Kingdom" : null,
+            };
+          }
+        }
+
+        if (cancelled) return;
+        const mappedTop = topRaw.flatMap((item) => {
+          const mapped = mapper(item);
+          return mapped !== null ? [mapped] : [];
+        });
+        const mappedAll = allRaw.flatMap((item) => {
+          const mapped = mapper(item);
+          return mapped !== null ? [mapped] : [];
+        });
+        if (nextFallback.applied && mappedTop.length === 0 && mappedAll.length === 0) {
+          nextFallback = {
+            applied: false,
+            sourceCountry: nextFallback.sourceCountry,
+            fallbackCountry: null,
+          };
+        }
+        setTopCategoryItems(mappedTop);
+        setAllCategoryItems(mappedAll);
+        setCategoryFallback({ key: categoryFetchKey, context: nextFallback });
       })
       .catch(() => {
         if (!cancelled) {
@@ -195,7 +269,7 @@ export function DirectoryPageShell<T>({
       });
 
     return () => { cancelled = true; };
-  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem, context]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCategorySelected, categoryIdParam, categorySlugParam, selectedCountry, mapItem, context, masterCountry?.code]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCategoryTabChange = useCallback(
     (slug: string, id: number | null) => {
@@ -282,6 +356,26 @@ export function DirectoryPageShell<T>({
   }, [headerFilteredItems, selectedCategory, matchesCategory]);
 
   const usingCategoryFetch = isCategorySelected && !!mapItem;
+  // const visibleFallbackContext =
+  //   filterCountry
+  //     ? { applied: false, sourceCountry: null, fallbackCountry: null }
+  //     : usingCategoryFetch && categoryFallback?.key === categoryFetchKey
+  //     ? categoryFallback.context
+  //     : fallbackContext;
+  const emptyState = filterCountry ? (
+    <div className="py-16 text-center">
+      <h2 className="text-xl font-semibold text-gray-900">
+        We don’t have listings in {filterCountry} yet.
+      </h2>
+      <p className="mt-2 text-sm text-gray-500">
+        Try another country or check back soon.
+      </p>
+    </div>
+  ) : (
+    <div className="py-16 text-center font-medium text-gray-500">
+      {emptyMessage}
+    </div>
+  );
 
   if (isLoading) return <DirectoryPageSkeleton />;
 
@@ -307,11 +401,27 @@ export function DirectoryPageShell<T>({
         />
       </Suspense>
 
-      {showingGlobalFallback && detectedCountry && (
-        <div className="mx-4 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-16">
-          No listings were found in {detectedCountry}. Showing results from all countries instead.
+      {filterCountry && (
+        <div className="mx-4 mb-3 flex items-center lg:mx-16">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#9ACC23]/40 bg-[#9ACC23]/10 px-3 py-1.5 text-sm font-medium text-[#52720F]">
+            Country: {filterCountry}
+            <button
+              type="button"
+              onClick={() => setFilterCountry(null)}
+              className="rounded-full p-0.5 hover:bg-[#9ACC23]/20 focus:outline-none focus:ring-2 focus:ring-[#6D9418]"
+              aria-label={`Remove ${filterCountry} country filter`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
         </div>
       )}
+
+      {/* <CountryFallbackNotice
+        {...visibleFallbackContext}
+        surface={context}
+        className="mx-4 mb-5 lg:mx-16"
+      /> */}
 
       <div className="pb-8">
         {isCategoryLoading ? (
@@ -323,13 +433,9 @@ export function DirectoryPageShell<T>({
             </div>
           </div>
         ) : usingCategoryFetch && topCategoryItems.length === 0 && allCategoryItems.length === 0 ? (
-          <div className="py-16 text-center text-gray-500 font-medium">
-            {emptyMessage}
-          </div>
+          emptyState
         ) : !usingCategoryFetch && filtered.length === 0 ? (
-          <div className="py-16 text-center text-gray-500 font-medium">
-            {emptyMessage}
-          </div>
+          emptyState
         ) : selectedCategory === "all" ? (
           <>
             {renderHero(filtered.slice(0, heroSize))}

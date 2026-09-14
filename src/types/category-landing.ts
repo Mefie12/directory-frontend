@@ -34,6 +34,7 @@ export interface CategoryLandingResponse {
     detected_country_code?: string | null;
     from_geo?: boolean;
     fallback_country?: string | null;
-    country_source?: "explicit" | "geo" | "fallback";
+    country_source?: "local" | "master" | "geo" | "fallback" | "global" | "explicit";
+    fallback_applied?: boolean;
   };
 }

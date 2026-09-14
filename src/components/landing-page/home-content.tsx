@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import HeroSlider from "@/components/landing-page/hero-slider";
 // import { Sort, SortOption } from "@/components/ux/sort";
@@ -9,6 +9,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Faqs } from "@/components/landing-page/faqs";
+import { CtaBanner } from "@/components/ux/cta-banner";
+import { ScrollDots } from "@/components/ux/scroll-dots";
 import { BusinessCard } from "../ux/business-card";
 import { EventCard } from "@/components/ux/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -113,6 +115,7 @@ export default function HomeContent() {
   const router = useRouter();
   // const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const categoryTrackRef = useRef<HTMLDivElement>(null);
   const [isTopCatsLoading, setIsTopCatsLoading] = useState(true);
   const [detectedCountry, setDetectedCountry] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useQueryState(
@@ -363,13 +366,23 @@ export default function HomeContent() {
   );
 
   // 2. Category Skeleton
+  // Always two rows: extra categories add columns and the track scrolls sideways.
+  // Mobile shows exactly two columns (the first four cards); desktop columns stretch to fill
+  // the width and only fall back to 310px, and scroll, when they don't fit. ScrollDots
+  // replaces the scrollbar, including for mouse users.
+  const CATEGORY_TRACK =
+    "grid gap-3 md:gap-6 -mx-4 px-4 lg:-mx-16 lg:px-16 -my-4 py-4 overflow-x-auto scroll-px-4 lg:scroll-px-16 scrollbar-hide " +
+    "max-md:snap-x max-md:snap-mandatory " +
+    "[--category-col:calc((100%_-_0.75rem)_/_2)] md:[--category-col:minmax(310px,1fr)]";
+  const CATEGORY_CARD_SIZE = "w-full aspect-[310/204] snap-start";
+  const categoryColumns = (count: number) => ({
+    gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(count / 2))}, var(--category-col))`,
+  });
+
   const CategorySkeleton = () => (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className="w-[173px] h-[114px] md:w-[310px] md:h-[204px] rounded-2xl mx-auto"
-        />
+    <div className={CATEGORY_TRACK} style={categoryColumns(8)}>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className={`${CATEGORY_CARD_SIZE} rounded-2xl`} />
       ))}
     </div>
   );
@@ -396,7 +409,8 @@ export default function HomeContent() {
   );
 
   return (
-    <div className="overflow-x-hidden">
+    // `clip`, not `hidden`: hidden turns this into a scroll container, which breaks the sticky FAQ column.
+    <div className="overflow-x-clip">
       <HeroSlider />
 
       {/* Explore by Category */}
@@ -417,30 +431,37 @@ export default function HomeContent() {
         {isTopCatsLoading ? (
           <CategorySkeleton />
         ) : topCategories.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {topCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.slug}`}
-                className="group relative overflow-hidden rounded-2xl w-[173px] h-[114px] md:w-[310px] md:h-[204px] aspect-4/3 hover:shadow-xl transition-all duration-300 mx-auto"
-              >
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent z-10" />
-                <Image
-                  src={category.featured_image || "/images/no-image.jpg"}
-                  alt={category.name}
-                  fill
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  className="object-cover group-hover:scale-110 transition-transform duration-300"
-                  unoptimized={true}
-                />
-                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-20">
-                  <h3 className="text-white font-medium text-base md:text-xl">
-                    {category.name}
-                  </h3>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <>
+            <div
+              ref={categoryTrackRef}
+              className={CATEGORY_TRACK}
+              style={categoryColumns(topCategories.length)}
+            >
+              {topCategories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/categories/${category.slug}`}
+                  className={`group relative overflow-hidden rounded-2xl ${CATEGORY_CARD_SIZE} hover:shadow-xl transition-all duration-300`}
+                >
+                  <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent z-10" />
+                  <Image
+                    src={category.featured_image || "/images/no-image.jpg"}
+                    alt={category.name}
+                    fill
+                    sizes="(max-width: 767px) 50vw, 25vw"
+                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    unoptimized={true}
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 z-20">
+                    <h3 className="text-white font-medium text-sm sm:text-base md:text-xl">
+                      {category.name}
+                    </h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <ScrollDots targetRef={categoryTrackRef} />
+          </>
         ) : (
           <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
             <p>No top categories available.</p>
@@ -603,61 +624,11 @@ export default function HomeContent() {
       </div>
 
       {/* CTA */}
-      <div className="py-12 px-4 lg:px-16">
-        <div className="relative flex flex-col justify-center items-center text-center bg-[#152B40] text-white rounded-3xl overflow-hidden h-[350px] shadow-sm px-20 lg:px-0">
-          {/* Background patterns */}
-          <div className="absolute -left-32 lg:-left-6 lg:-bottom-20">
-            <Image
-              src="/images/backgroundImages/bg-pattern.svg"
-              alt="background pattern left"
-              width={320}
-              height={320}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-contain h-[150px] lg:h-[400px]"
-              priority
-            />
-          </div>
-          <div className="hidden lg:block absolute bottom-20 lg:-bottom-20 -right-24 lg:right-0">
-            <Image
-              src="/images/backgroundImages/bg-pattern-1.svg"
-              alt="background pattern right"
-              width={320}
-              height={320}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-contain"
-              priority
-            />
-          </div>
-          <div className="block lg:hidden absolute bottom-16 -right-32">
-            <Image
-              src="/images/backgroundImages/mobile-pattern.svg"
-              alt="background pattern right"
-              width={320}
-              height={320}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-contain h-[120px]"
-              priority
-            />
-          </div>
-
-          {/* Text content */}
-          <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
-            Ready to Grow Your Business?
-          </h2>
-          {/* <p className="text-base md:text-lg font-normal text-gray-100 mb-6">
-            Join thousands of African businesses already listed on Mefie
-            Directory
-          </p> */}
-
-          {/* CTA button */}
-          <Button
-            onClick={handleClickEvent}
-            className="bg-[#93C01F] hover:bg-[#7ca818] text-white font-medium text-base px-4 py-2 rounded-md transition-all duration-200 mt-3"
-          >
-            List your business today
-          </Button>
-        </div>
-      </div>
+      <CtaBanner
+        title="Ready to Grow Your Business?"
+        actionLabel="List your business today"
+        onAction={handleClickEvent}
+      />
     </div>
   );
 }
