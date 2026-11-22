@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCached, setCached } from "@/lib/server-cache";
 
@@ -7,6 +8,13 @@ const API_BASE_URL = (
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk"
 ).replace(/\/$/, "");
 
+// Listing statistics are private management data. They must never be shared
+// across users, so responses are cached per caller and marked `private`.
+const PRIVATE_CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=300",
+  Vary: "Authorization",
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ listing_slug: string }> },
@@ -15,12 +23,17 @@ export async function GET(
     const { listing_slug } = await params;
     const authHeader = request.headers.get("Authorization");
 
-    const cacheKey = `listing_views:${listing_slug}`;
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
+    }
+
+    // Key by a hash of the credential (never the raw token) so one user's
+    // cached statistics can never be served to another caller.
+    const callerKey = createHash("sha256").update(authHeader).digest("hex");
+    const cacheKey = `listing_views:${listing_slug}:${callerKey}`;
     const cached = getCached(cacheKey);
     if (cached) {
-      return NextResponse.json(cached, {
-        headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
-      });
+      return NextResponse.json(cached, { headers: PRIVATE_CACHE_HEADERS });
     }
 
     const response = await fetch(
@@ -30,9 +43,9 @@ export async function GET(
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          ...(authHeader ? { Authorization: authHeader } : {}),
+          Authorization: authHeader,
         },
-        next: { revalidate: 300 },
+        cache: "no-store",
       },
     );
 
@@ -47,9 +60,7 @@ export async function GET(
     const data = await response.json();
 
     setCached(cacheKey, data, TTL);
-    return NextResponse.json(data, {
-      headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
-    });
+    return NextResponse.json(data, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     console.error("listing views proxy error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
