@@ -1,5 +1,18 @@
 // API utility functions for fetching data
 
+import type {
+  ClaimTargetChoice,
+  ClaimTargetPreview,
+  CreateOrganizationInput,
+  EligibleOrganization,
+  Organization,
+  OrganizationDetail,
+  OrganizationMember,
+  OrganizationListingsPage,
+  OrganizationMembership,
+  UpdateOrganizationInput,
+} from "@/types/organization";
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1127,6 +1140,8 @@ export interface ClaimEligibility {
   } | null;
   evidence_constraints: ClaimEvidenceConstraints;
   prior_claims: ClaimCaseSummary[];
+  /** V2: organizations the claimant may claim into. Present only when organizations are enabled. */
+  eligible_organizations?: EligibleOrganization[];
 }
 
 export interface ClaimEvidenceConstraints {
@@ -1226,6 +1241,10 @@ export interface ClaimCaseAdmin {
   };
   claimant: { id: number; name: string; email: string; role: string };
   current_owner: { id: number; name: string } | null;
+  /** V2: where approving would put the listing (preview only). Present only when organizations are enabled. */
+  target_organization?: ClaimTargetPreview | null;
+  /** V2: the listing's organization today. Present only when organizations are enabled. */
+  current_organization?: { id: number; slug: string; name: string } | null;
   case_type: ClaimCaseType;
   method: ClaimMethod;
   status: ClaimStatus;
@@ -1259,10 +1278,16 @@ export async function getClaimEligibility(listingSlug: string, token?: string): 
   return response.json();
 }
 
-export async function initiateEmailClaim(listingSlug: string, token?: string): Promise<{ message: string; claim_id: number; email_preview: string }> {
+export async function initiateEmailClaim(
+  listingSlug: string,
+  token?: string,
+  target?: ClaimTargetChoice,
+): Promise<{ message: string; claim_id: number; email_preview: string }> {
+  const targetFields = claimTargetFields(target);
   const response = await fetch(`/api/listing/${listingSlug}/claims/email`, {
     method: 'POST',
     headers: getAuthHeaders(token),
+    ...(Object.keys(targetFields).length > 0 ? { body: JSON.stringify(targetFields) } : {}),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -1306,12 +1331,13 @@ export async function submitDocumentClaim(
   listingSlug: string,
   files: File[],
   token?: string,
-  extras?: { role?: string; notes?: string },
+  extras?: { role?: string; notes?: string; target?: ClaimTargetChoice },
 ): Promise<{ message: string; claim_id: number; status: ClaimStatus; case_type: ClaimCaseType }> {
   const formData = new FormData();
   files.forEach((file) => formData.append('documents[]', file));
   if (extras?.role) formData.append('role', extras.role);
   if (extras?.notes) formData.append('notes', extras.notes);
+  Object.entries(claimTargetFields(extras?.target)).forEach(([key, value]) => formData.append(key, String(value)));
 
   const response = await fetch(`/api/listing/${listingSlug}/claims/document`, {
     method: 'POST',
@@ -2508,4 +2534,96 @@ export async function resolveAdminDuplicateAssessment(
       "Could not resolve duplicate assessment",
     );
   }
+}
+
+
+// ============================================================================
+// ORGANIZATIONS (V2 Phase 1 — md files/V2-phase1-release-1.4-api-contract.md)
+// All routes 404 while the backend has ORGANIZATIONS_ENABLED off; the UI only
+// calls them when user.features.organizations is true.
+// ============================================================================
+
+/**
+ * Error carrying Laravel's status and field errors, so forms can show
+ * validation messages next to the right input.
+ */
+export class OrganizationApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly fieldErrors: Record<string, string[]> = {},
+  ) {
+    super(message);
+    this.name = 'OrganizationApiError';
+  }
+}
+
+async function organizationRequest<T>(path: string, token: string | undefined, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: getAuthHeaders(token),
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const payload = data as { message?: string; error?: string; errors?: Record<string, string[]> };
+    throw new OrganizationApiError(
+      payload.message || payload.error || 'Something went wrong. Please try again.',
+      response.status,
+      payload.errors ?? {},
+    );
+  }
+
+  return data as T;
+}
+
+/** Claim-target choice → the request fields Laravel expects. */
+function claimTargetFields(target?: ClaimTargetChoice): Record<string, string | number> {
+  if (!target || target.mode === 'default') return {};
+  if (target.mode === 'existing') return { organization_id: target.organizationId };
+
+  return {
+    proposed_organization_name: target.name.trim(),
+    proposed_organization_country: target.country.trim(),
+  };
+}
+
+export async function getMyOrganizations(token?: string): Promise<OrganizationMembership[]> {
+  const data = await organizationRequest<{ data: OrganizationMembership[] }>('/api/organizations', token);
+  return data.data;
+}
+
+export async function createOrganization(input: CreateOrganizationInput, token?: string): Promise<Organization> {
+  const data = await organizationRequest<{ data: Organization }>('/api/organizations', token, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return data.data;
+}
+
+export async function getOrganization(slug: string, token?: string): Promise<OrganizationDetail> {
+  return organizationRequest<OrganizationDetail>(`/api/organizations/${encodeURIComponent(slug)}`, token);
+}
+
+export async function updateOrganization(slug: string, input: UpdateOrganizationInput, token?: string): Promise<Organization> {
+  const data = await organizationRequest<{ data: Organization }>(`/api/organizations/${encodeURIComponent(slug)}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  return data.data;
+}
+
+/** Same item shape and paging as GET /listing/my_listings (Laravel paginator). */
+export async function getOrganizationListings(slug: string, token?: string, params: SearchParams = {}): Promise<OrganizationListingsPage> {
+  const queryString = buildQueryString(params);
+  return organizationRequest<OrganizationListingsPage>(
+    `/api/organizations/${encodeURIComponent(slug)}/listings${queryString ? `?${queryString}` : ''}`,
+    token,
+  );
+}
+
+export async function getOrganizationMembers(slug: string, token?: string): Promise<OrganizationMember[]> {
+  const data = await organizationRequest<{ data: OrganizationMember[] }>(`/api/organizations/${encodeURIComponent(slug)}/members`, token);
+  return data.data;
 }

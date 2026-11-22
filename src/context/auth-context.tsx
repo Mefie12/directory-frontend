@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { installSessionExpiryInterceptor } from "@/lib/session";
+import type { OrganizationMembership } from "@/types/organization";
 
 interface User {
   id: string;
@@ -21,6 +22,10 @@ interface User {
   image?: string;
   avatar?: string;
   profile_photo_url?: string;
+  /** V2: backend feature switches (always present from the API; default off). */
+  features: { organizations: boolean };
+  /** V2: the user's organizations. Empty unless features.organizations. */
+  organizations: OrganizationMembership[];
 }
 
 interface AuthContextType {
@@ -93,6 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           first_name: raw?.first_name || "",
           phone: raw?.phone || "",
           country_code: raw?.country_code || "",
+          // V2 Phase 1: the backend decides whether organizations exist, so a
+          // separately deployed frontend can never disagree with it.
+          features: { organizations: raw?.features?.organizations === true },
+          organizations: Array.isArray(raw?.organizations) ? raw.organizations : [],
         };
 
         setUser(mappedUser);

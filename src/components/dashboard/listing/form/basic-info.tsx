@@ -21,6 +21,14 @@ import {
 import { cleanPhone, normalizePhoneInput, validatePhone } from "@/lib/phone";
 import { handleSessionExpired } from "@/lib/session";
 import { useAuth } from "@/context/auth-context";
+import { useSearchParams } from "next/navigation";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { createOrganization, OrganizationApiError } from "@/lib/api";
+import {
+  OrganizationChoicePicker,
+  organizationChoiceError,
+  type OrganizationChoice,
+} from "@/components/dashboard/organizations/creation-organization-picker";
 import { normalizeRole } from "@/lib/roles";
 import {
   DuplicateAssessment,
@@ -168,6 +176,68 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       useState<DuplicateAssessment | null>(null);
     const [duplicateExplanation, setDuplicateExplanation] = useState("");
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+
+    // V2 Phase 1 (spec §5, §9.7): which organization a NEW listing is created
+    // under. Only while organizations are on, never for agents (their
+    // listings stay unowned) and never when editing.
+    const searchParams = useSearchParams();
+    const {
+      enabled: organizationsEnabled,
+      creatable: creatableOrganizations,
+      refresh: refreshOrganizations,
+    } = useOrganizations();
+    const showOrganizationChoice =
+      organizationsEnabled && !listingSlug && userRole !== "listing_agent";
+    const [organizationChoice, setOrganizationChoice] = useState<OrganizationChoice | null>(null);
+    const [organizationError, setOrganizationError] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (!showOrganizationChoice || organizationChoice) return;
+      const requested = searchParams.get("organization");
+      const preferred =
+        creatableOrganizations.find((org) => org.slug === requested) ??
+        creatableOrganizations.find((org) => org.is_primary_owner) ??
+        creatableOrganizations[0];
+      setOrganizationChoice(
+        preferred
+          ? { mode: "existing", organizationId: preferred.id }
+          : { mode: "new", name: [user?.first_name, user?.last_name].filter(Boolean).join(" "), country: "" },
+      );
+    }, [showOrganizationChoice, organizationChoice, creatableOrganizations, searchParams, user?.first_name, user?.last_name]);
+
+    /**
+     * The organization id to send, creating a new organization first if the
+     * user chose one. Once created, the choice switches to it so a retry never
+     * creates a second organization. Returns null when creation must stop.
+     */
+    const resolveOrganizationId = async (): Promise<number | null> => {
+      const problem = organizationChoiceError(organizationChoice);
+      if (problem || !organizationChoice) {
+        setOrganizationError(problem);
+        toast.error(problem ?? "Choose an organization.");
+        return null;
+      }
+      setOrganizationError(null);
+      if (organizationChoice.mode === "existing") return organizationChoice.organizationId;
+
+      try {
+        const created = await createOrganization(
+          { name: organizationChoice.name.trim(), country: organizationChoice.country.trim() },
+          localStorage.getItem("authToken") ?? undefined,
+        );
+        setOrganizationChoice({ mode: "existing", organizationId: created.id });
+        await refreshOrganizations();
+        return created.id;
+      } catch (error) {
+        const message =
+          error instanceof OrganizationApiError
+            ? (Object.values(error.fieldErrors)[0]?.[0] ?? error.message)
+            : "We couldn't create the organization. Please try again.";
+        setOrganizationError(message);
+        toast.error(message);
+        return null;
+      }
+    };
 
     // --- Form ---
     const form = useForm<BusinessFormValues>({
@@ -470,6 +540,12 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           // disagrees with the canonical listing.
           if (!listingSlug) submissionData.type = listingType;
 
+          if (showOrganizationChoice) {
+            const organizationId = await resolveOrganizationId();
+            if (organizationId === null) return false;
+            submissionData.organization_id = organizationId;
+          }
+
           const endpoint = listingSlug
             ? `/api/listing/${listingSlug}/update`
             : `/api/listing/profile`;
@@ -606,6 +682,18 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
         </div>
 
         <FormErrorSummary errors={submitErrors} />
+
+        {showOrganizationChoice && (
+          <OrganizationChoicePicker
+            organizations={creatableOrganizations}
+            value={organizationChoice}
+            onChange={(choice) => {
+              setOrganizationChoice(choice);
+              setOrganizationError(null);
+            }}
+            error={organizationError}
+          />
+        )}
 
         {!listingSlug && duplicateAssessment?.requires_explanation && (
           <div

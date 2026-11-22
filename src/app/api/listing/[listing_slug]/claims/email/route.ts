@@ -11,6 +11,9 @@ export async function POST(
   try {
     const { listing_slug } = await params;
     const authHeader = request.headers.get("Authorization");
+    // V2 Phase 1: the optional claim target (organization_id, or a proposed
+    // organization name + country) travels in a JSON body.
+    const body = await request.text();
 
     const response = await fetch(
       `${API_BASE_URL}/api/listing/${listing_slug}/claims/email`,
@@ -18,8 +21,10 @@ export async function POST(
         method: "POST",
         headers: {
           Accept: "application/json",
+          ...(body ? { "Content-Type": "application/json" } : {}),
           ...(authHeader && { Authorization: authHeader }),
         },
+        ...(body ? { body } : {}),
       },
     );
 

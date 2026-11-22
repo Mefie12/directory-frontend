@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { MyListingsOrganizationBar } from "@/components/dashboard/organizations/my-listings-organization-bar";
 import { useRouter } from "next/navigation";
 import { Plus, SpinnerGap } from "@phosphor-icons/react";
 
@@ -448,6 +449,8 @@ export default function MyListingsPage() {
         <div className="mb-4">
           <h4 className="text-2xl font-semibold">My Listings</h4>
           <p className="text-sm text-gray-500 mt-1">Manage your listings</p>
+          {/* V2: which organizations these listings come from (nothing while organizations are off) */}
+          <MyListingsOrganizationBar />
         </div>
 
         <DropdownMenu>

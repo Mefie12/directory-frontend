@@ -1,0 +1,153 @@
+// V2 Phase 1 organization types (md files/V2-phase1-release-1.4-api-contract.md).
+
+export type OrgRole = "owner" | "admin" | "editor" | "viewer";
+
+export type OrgPermission =
+  | "organization.view"
+  | "organization.update"
+  | "members.view"
+  | "members.manage"
+  | "ownership.transfer"
+  | "organization.archive"
+  | "listing.view"
+  | "listing.create"
+  | "listing.update"
+  | "listing.media"
+  | "listing.submit"
+  | "listing.archive"
+  | "review.reply"
+  | "analytics.view"
+  | "claim.submit"
+  | "billing.manage";
+
+export type OrgEntityKind =
+  | "company"
+  | "sole_trader"
+  | "charity"
+  | "association"
+  | "informal_group"
+  | "other";
+
+/** One of the current user's memberships (auth payload and GET /organizations). */
+export interface OrganizationMembership {
+  id: number;
+  slug: string;
+  name: string;
+  country: string | null;
+  status: "active" | "suspended" | "archived";
+  profile_completed: boolean;
+  listings_count: number | null;
+  role: OrgRole;
+  is_primary_owner: boolean;
+  permissions: OrgPermission[];
+}
+
+/** An organization profile (GET/POST/PATCH /organizations…). */
+export interface Organization {
+  id: number;
+  slug: string;
+  name: string;
+  country: string | null;
+  type: "standard" | "agency";
+  entity_kind: OrgEntityKind | null;
+  status: "active" | "suspended" | "archived";
+  verification_status: string;
+  creation_source: "onboarding" | "claim" | "backfill" | "admin";
+  profile_completed: boolean;
+  listings_count?: number;
+  /** Only present for callers with organization.update. */
+  email?: string | null;
+  primary_phone?: string | null;
+  created_at: string;
+}
+
+export interface OrganizationDetail {
+  data: Organization;
+  membership: {
+    role: OrgRole;
+    is_primary_owner: boolean;
+    permissions: OrgPermission[];
+  };
+}
+
+export interface OrganizationMember {
+  user_id: number;
+  name: string;
+  /** Only present for callers with members.manage. */
+  email?: string;
+  role: OrgRole;
+  is_primary_owner: boolean;
+  joined_at: string;
+}
+
+export interface CreateOrganizationInput {
+  name: string;
+  country: string;
+  entity_kind?: OrgEntityKind | null;
+}
+
+export type UpdateOrganizationInput = Partial<{
+  name: string;
+  country: string;
+  entity_kind: OrgEntityKind | null;
+  email: string | null;
+  primary_phone: string | null;
+  mark_profile_complete: boolean;
+}>;
+
+/** An organization the claimant may claim into (claim_eligibility). */
+export interface EligibleOrganization {
+  id: number;
+  slug: string;
+  name: string;
+  role: OrgRole;
+}
+
+/** What the claimant chose as the claim's destination. */
+export type ClaimTargetChoice =
+  | { mode: "existing"; organizationId: number }
+  | { mode: "new"; name: string; country: string }
+  | { mode: "default" };
+
+/** Admin preview of where approving a claim puts the listing. */
+export interface ClaimTargetPreview {
+  type: "existing" | "new";
+  source: "chosen" | "proposed" | "default";
+  organization: { id: number; slug: string; name: string } | null;
+  name: string;
+  country: string | null;
+}
+
+export const ORG_ROLE_LABEL: Record<OrgRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
+export const ORG_ENTITY_KIND_LABEL: Record<OrgEntityKind, string> = {
+  company: "Company",
+  sole_trader: "Sole trader",
+  charity: "Charity",
+  association: "Association",
+  informal_group: "Informal group",
+  other: "Other",
+};
+
+/** A listing row as returned by GET /organizations/{slug}/listings (ListingResource subset used by the org hub). */
+export interface OrganizationListingItem {
+  id: number;
+  slug: string;
+  name: string;
+  type: "business" | "event" | "community";
+  status: "draft" | "pending" | "approved" | "rejected" | "suspended" | "changes_requested";
+  claim_status?: string | null;
+  images?: { original: string; thumb?: string; card?: string; webp?: string }[];
+  created_at?: string;
+}
+
+/** Laravel paginator envelope for the organization listings endpoint. */
+export interface OrganizationListingsPage {
+  data: OrganizationListingItem[];
+  meta?: { current_page: number; last_page: number; total: number; per_page: number };
+}
