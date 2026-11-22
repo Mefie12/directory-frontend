@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type UserRole } from "@/lib/roles";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings } from '@phosphor-icons/react';
+import { useOrganizations } from "@/hooks/useOrganizations";
 
 export type { UserRole };
 
@@ -14,6 +15,13 @@ export interface MenuItem {
   icon: string | Icon;
   roles: UserRole[];
   children?: MenuItem[];
+  /**
+   * V2 "browse as myself": extra roles that see this item only while
+   * organizations are on (vendors keep their customer features).
+   */
+  rolesWhenOrganizationsEnabled?: UserRole[];
+  /** V2: shown only while organizations are on and the user belongs to one. */
+  requiresOrganizations?: boolean;
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -139,6 +147,15 @@ const MENU_CONFIG: MenuItem[] = [
     roles: ["vendor"],
   },
 
+  // ─── Organizations (V2; only when organizations are on) ───
+  {
+    title: "Organizations",
+    url: "/dashboard/org",
+    icon: Buildings,
+    roles: ["vendor", "customer"],
+    requiresOrganizations: true,
+  },
+
   // ─── My Claims (Customer + Vendor) ───
   {
     title: "My Claims",
@@ -153,6 +170,7 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/bookmarks",
     icon: "/images/icons/bookmark.svg",
     roles: ["customer"],
+    rolesWhenOrganizationsEnabled: ["vendor"],
   },
 
   // ─── My Events (Customer) ───
@@ -161,6 +179,7 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/my-events",
     icon: "/images/icons/d-calendar.svg",
     roles: ["customer"],
+    rolesWhenOrganizationsEnabled: ["vendor"],
   },
 
   // ─── Reviews ───
@@ -200,17 +219,24 @@ export default function useDashboardNavigation() {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
+  const { enabled: organizationsEnabled, organizations } = useOrganizations();
 
   const isActive = (path?: string) => !!path && pathname === path;
 
+  // V2: an item is visible to its roles, plus its "when organizations are on"
+  // roles while they are; organization-only items need a membership.
+  const visibleTo = (item: MenuItem) => {
+    if (item.requiresOrganizations && (!organizationsEnabled || organizations.length === 0)) return false;
+    if (item.roles.includes(role)) return true;
+    return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
+  };
+
   // Filter items by current role, then filter each dropdown's children by role
   // too, dropping any parent left with no reachable children. URLs are absolute.
-  const items = MENU_CONFIG.filter((item) => item.roles.includes(role))
+  const items = MENU_CONFIG.filter(visibleTo)
     .map((item) => {
       if (!item.children) return item;
-      const children = item.children.filter((child) =>
-        child.roles.includes(role),
-      );
+      const children = item.children.filter(visibleTo);
       return { ...item, children };
     })
     .filter(
