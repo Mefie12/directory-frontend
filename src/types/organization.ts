@@ -9,6 +9,7 @@ export type OrgPermission =
   | "members.manage"
   | "ownership.transfer"
   | "organization.archive"
+  | "activity.view"
   | "listing.view"
   | "listing.create"
   | "listing.update"
@@ -151,3 +152,58 @@ export interface OrganizationListingsPage {
   data: OrganizationListingItem[];
   meta?: { current_page: number; last_page: number; total: number; per_page: number };
 }
+
+// ── V2 Phase 2: teams (invites, member management, activity) ────────────────
+
+export type InviteStatus = "pending" | "accepted" | "declined" | "revoked" | "expired";
+
+/** A pending invite as listed to team managers. */
+export interface OrganizationInvite {
+  id: number;
+  email: string;
+  role: OrgRole;
+  status: InviteStatus;
+  invited_by?: { id: number; name: string } | null;
+  expires_at: string;
+  last_sent_at: string | null;
+  resend_count: number;
+  created_at: string;
+}
+
+/** Public preview behind an invite link (GET /invites/{token}). */
+export interface InvitePreview {
+  organization: { name: string };
+  role: OrgRole;
+  email: string;
+  invited_by: string | null;
+  expires_at: string;
+  account_exists: boolean;
+}
+
+export interface ActivityEntry {
+  id: number;
+  action: string;
+  actor: { id: number | null; name: string } | null;
+  target: { id: number; name: string } | null;
+  details: { role?: string; from?: string; to?: string; listings_moved?: number; rejoined?: boolean };
+  created_at: string;
+}
+
+export interface ActivityPage {
+  data: ActivityEntry[];
+  current_page: number;
+  last_page: number;
+}
+
+export const ACTIVITY_LABEL: Record<string, string> = {
+  "organization.invite.sent": "sent an invitation",
+  "organization.invite.resent": "resent an invitation",
+  "organization.invite.revoked": "revoked an invitation",
+  "organization.invite.accepted": "accepted an invitation",
+  "organization.invite.declined": "declined an invitation",
+  "organization.member.added": "added a member",
+  "organization.member.role_changed": "changed a member's role",
+  "organization.member.removed": "removed a member",
+  "organization.member.left": "left the organization",
+  "organization.ownership.transferred": "transferred primary ownership",
+};

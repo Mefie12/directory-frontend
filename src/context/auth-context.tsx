@@ -23,7 +23,7 @@ interface User {
   avatar?: string;
   profile_photo_url?: string;
   /** V2: backend feature switches (always present from the API; default off). */
-  features: { organizations: boolean };
+  features: { organizations: boolean; teams: boolean };
   /** V2: the user's organizations. Empty unless features.organizations. */
   organizations: OrganizationMembership[];
 }
@@ -100,7 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           country_code: raw?.country_code || "",
           // V2 Phase 1: the backend decides whether organizations exist, so a
           // separately deployed frontend can never disagree with it.
-          features: { organizations: raw?.features?.organizations === true },
+          features: {
+            organizations: raw?.features?.organizations === true,
+            teams: raw?.features?.teams === true,
+          },
           organizations: Array.isArray(raw?.organizations) ? raw.organizations : [],
         };
 

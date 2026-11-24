@@ -3,7 +3,11 @@
 import type {
   ClaimTargetChoice,
   ClaimTargetPreview,
+  ActivityPage,
   CreateOrganizationInput,
+  InvitePreview,
+  OrganizationInvite,
+  OrgRole,
   EligibleOrganization,
   Organization,
   OrganizationDetail,
@@ -2552,6 +2556,8 @@ export class OrganizationApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly fieldErrors: Record<string, string[]> = {},
+    /** Stable backend code for team rules (e.g. invite_expired, member_limit). */
+    public readonly reason?: string,
   ) {
     super(message);
     this.name = 'OrganizationApiError';
@@ -2567,11 +2573,12 @@ async function organizationRequest<T>(path: string, token: string | undefined, i
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const payload = data as { message?: string; error?: string; errors?: Record<string, string[]> };
+    const payload = data as { message?: string; error?: string; errors?: Record<string, string[]>; reason?: string };
     throw new OrganizationApiError(
       payload.message || payload.error || 'Something went wrong. Please try again.',
       response.status,
       payload.errors ?? {},
+      payload.reason,
     );
   }
 
@@ -2626,4 +2633,72 @@ export async function getOrganizationListings(slug: string, token?: string, para
 export async function getOrganizationMembers(slug: string, token?: string): Promise<OrganizationMember[]> {
   const data = await organizationRequest<{ data: OrganizationMember[] }>(`/api/organizations/${encodeURIComponent(slug)}/members`, token);
   return data.data;
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 2: teams (invites, member management, activity). Routes 404 while
+// the backend has ORGANIZATIONS_TEAMS_ENABLED off; the UI only calls them when
+// user.features.teams is true.
+// ----------------------------------------------------------------------------
+
+const orgPath = (slug: string) => `/api/organizations/${encodeURIComponent(slug)}`;
+
+export async function getOrganizationInvites(slug: string, token?: string): Promise<OrganizationInvite[]> {
+  const data = await organizationRequest<{ data: OrganizationInvite[] }>(`${orgPath(slug)}/invites`, token);
+  return data.data;
+}
+
+export async function sendOrganizationInvite(slug: string, input: { email: string; role: OrgRole }, token?: string): Promise<OrganizationInvite> {
+  const data = await organizationRequest<{ data: OrganizationInvite }>(`${orgPath(slug)}/invites`, token, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return data.data;
+}
+
+export async function resendOrganizationInvite(slug: string, inviteId: number, token?: string): Promise<OrganizationInvite> {
+  const data = await organizationRequest<{ data: OrganizationInvite }>(`${orgPath(slug)}/invites/${inviteId}/resend`, token, { method: 'POST' });
+  return data.data;
+}
+
+export async function revokeOrganizationInvite(slug: string, inviteId: number, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/invites/${inviteId}`, token, { method: 'DELETE' });
+}
+
+export async function changeMemberRole(slug: string, userId: number, role: OrgRole, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/members/${userId}`, token, { method: 'PATCH', body: JSON.stringify({ role }) });
+}
+
+export async function removeOrganizationMember(slug: string, userId: number, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/members/${userId}`, token, { method: 'DELETE' });
+}
+
+export async function leaveOrganization(slug: string, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/leave`, token, { method: 'POST' });
+}
+
+export async function transferOrganizationOwnership(slug: string, input: { user_id: number; password: string }, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/transfer-ownership`, token, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function getOrganizationActivity(slug: string, page = 1, token?: string): Promise<ActivityPage> {
+  return organizationRequest<ActivityPage>(`${orgPath(slug)}/activity?page=${page}`, token);
+}
+
+export async function getInvitePreview(inviteToken: string): Promise<InvitePreview> {
+  const data = await organizationRequest<{ data: InvitePreview }>(`/api/invites/${encodeURIComponent(inviteToken)}`, undefined);
+  return data.data;
+}
+
+export async function acceptInvite(inviteToken: string, token?: string): Promise<{ organization: { slug: string; name: string }; role: OrgRole }> {
+  const data = await organizationRequest<{ data: { organization: { slug: string; name: string }; role: OrgRole } }>(
+    `/api/invites/${encodeURIComponent(inviteToken)}/accept`,
+    token,
+    { method: 'POST' },
+  );
+  return data.data;
+}
+
+export async function declineInvite(inviteToken: string): Promise<void> {
+  await organizationRequest<unknown>(`/api/invites/${encodeURIComponent(inviteToken)}/decline`, undefined, { method: 'POST' });
 }

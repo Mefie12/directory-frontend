@@ -13,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getOrganization,
   getOrganizationListings,
-  getOrganizationMembers,
   OrganizationApiError,
   updateOrganization,
 } from "@/lib/api";
@@ -24,9 +23,10 @@ import {
   ORG_ROLE_LABEL,
   type OrganizationDetail,
   type OrganizationListingItem,
-  type OrganizationMember,
 } from "@/types/organization";
 import { OrganizationForm } from "./organization-form";
+import { OrganizationActivity } from "./organization-activity";
+import { OrganizationMembers } from "./organization-members";
 import { ProfileCompletionBanner } from "./profile-completion-banner";
 
 const LISTING_STATUS_LABEL: Record<OrganizationListingItem["status"], string> = {
@@ -45,7 +45,7 @@ const token = () => localStorage.getItem("authToken") ?? undefined;
  * and settings. Every action is permission-driven, never role-name-driven.
  */
 export function OrganizationHub({ slug }: { slug: string }) {
-  const { active, refresh } = useOrganizations();
+  const { active, refresh, teams } = useOrganizations();
   const [detail, setDetail] = useState<OrganizationDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "not_found" | "error">("loading");
   const searchParams = useSearchParams();
@@ -156,6 +156,7 @@ export function OrganizationHub({ slug }: { slug: string }) {
         <TabsList>
           <TabsTrigger value="listings">Listings</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
+          {teams && can("activity.view") && <TabsTrigger value="activity">Activity</TabsTrigger>}
           {can("organization.update") && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
@@ -164,8 +165,19 @@ export function OrganizationHub({ slug }: { slug: string }) {
         </TabsContent>
 
         <TabsContent value="members" className="mt-4">
-          <OrganizationMembers slug={organization.slug} />
+          <OrganizationMembers
+            slug={organization.slug}
+            permissions={membership.permissions}
+            isPrimaryOwner={membership.is_primary_owner}
+            teams={teams}
+          />
         </TabsContent>
+
+ {teams && can("activity.view") && (
+          <TabsContent value="activity" className="mt-4">
+            <OrganizationActivity slug={organization.slug} />
+          </TabsContent>
+        )}
 
         {can("organization.update") && (
           <TabsContent value="settings" className="mt-4">
@@ -245,43 +257,5 @@ function OrganizationListings({ slug }: { slug: string }) {
         );
       })}
     </ul>
-  );
-}
-
-function OrganizationMembers({ slug }: { slug: string }) {
-  const [members, setMembers] = useState<OrganizationMember[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getOrganizationMembers(slug, token())
-      .then((rows) => !cancelled && setMembers(rows))
-      .catch(() => !cancelled && setFailed(true));
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  if (failed) return <p className="text-sm text-red-600">We couldn&apos;t load the members.</p>;
-  if (!members) return <Skeleton className="h-32 w-full rounded-2xl" />;
-
-  return (
-    <div className="space-y-3">
-      <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
-        {members.map((member) => (
-          <li key={member.user_id} className="flex items-center justify-between gap-4 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-[#1F3A4C]">{member.name || "Unnamed member"}</p>
-              {member.email && <p className="truncate text-xs text-gray-500">{member.email}</p>}
-            </div>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              {member.is_primary_owner && <Crown className="h-3 w-3" />}
-              {member.is_primary_owner ? "Primary owner" : ORG_ROLE_LABEL[member.role]}
-            </Badge>
-          </li>
-        ))}
-      </ul>
-      <p className="text-xs text-gray-500">Inviting team members is coming soon.</p>
-    </div>
   );
 }
