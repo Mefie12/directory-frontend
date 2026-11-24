@@ -23,7 +23,7 @@ interface User {
   avatar?: string;
   profile_photo_url?: string;
   /** V2: backend feature switches (always present from the API; default off). */
-  features: { organizations: boolean; teams: boolean };
+  features: { organizations: boolean; teams: boolean; lifecycle: boolean };
   /** V2: the user's organizations. Empty unless features.organizations. */
   organizations: OrganizationMembership[];
 }
@@ -103,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           features: {
             organizations: raw?.features?.organizations === true,
             teams: raw?.features?.teams === true,
+            lifecycle: raw?.features?.lifecycle === true,
           },
           organizations: Array.isArray(raw?.organizations) ? raw.organizations : [],
         };

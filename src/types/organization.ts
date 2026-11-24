@@ -36,6 +36,8 @@ export interface OrganizationMembership {
   name: string;
   country: string | null;
   status: "active" | "suspended" | "archived";
+  /** Present while archived or suspended. */
+  status_reason?: string | null;
   profile_completed: boolean;
   listings_count: number | null;
   role: OrgRole;
@@ -52,6 +54,7 @@ export interface Organization {
   type: "standard" | "agency";
   entity_kind: OrgEntityKind | null;
   status: "active" | "suspended" | "archived";
+  status_reason?: string | null;
   verification_status: string;
   creation_source: "onboarding" | "claim" | "backfill" | "admin";
   profile_completed: boolean;
@@ -185,7 +188,7 @@ export interface ActivityEntry {
   action: string;
   actor: { id: number | null; name: string } | null;
   target: { id: number; name: string } | null;
-  details: { role?: string; from?: string; to?: string; listings_moved?: number; rejoined?: boolean };
+  details: { role?: string; from?: string; to?: string; listings_moved?: number; rejoined?: boolean; reason?: string; listings_suspended?: number; listings_restored?: number };
   created_at: string;
 }
 
@@ -206,4 +209,34 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   "organization.member.removed": "removed a member",
   "organization.member.left": "left the organization",
   "organization.ownership.transferred": "transferred primary ownership",
+  "organization.archived": "archived the organization",
+  "organization.restored": "restored the organization",
+  "organization.suspended": "suspended the organization",
+  "organization.unsuspended": "restored the organization",
+  "organization.listings.restored": "returned suspended listings to review",
 };
+
+// ── V2 Phase 2.4: lifecycle ────────────────────────────────────────────────
+
+/** A listing that blocks archiving (HTTP 409, reason archive_blocked). */
+export interface ArchiveBlockingListing {
+  id: number;
+  slug: string;
+  name: string;
+}
+
+/** Admin list/detail shapes (GET /admin/organizations…). */
+export interface AdminOrganizationRow extends Organization {
+  active_memberships_count?: number;
+}
+
+export interface AdminOrganizationDetail {
+  data: Organization;
+  members: (OrganizationMember & { status: string })[];
+  listings: { id: number; slug: string; name: string; type: string; status: string; archived: boolean }[];
+}
+
+export interface AdminOrganizationPage {
+  data: AdminOrganizationRow[];
+  meta?: { current_page: number; last_page: number; total: number };
+}

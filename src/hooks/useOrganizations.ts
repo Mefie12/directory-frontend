@@ -25,6 +25,8 @@ export function useOrganizations() {
     const enabled = user?.features?.organizations === true;
     // V2 Phase 2: teams (invites, member management, activity) follow their own backend flag.
     const teams = enabled && user?.features?.teams === true;
+    // V2 Phase 2.4: archive / restore / suspend follow their own backend flag.
+    const lifecycle = enabled && user?.features?.lifecycle === true;
     const organizations: OrganizationMembership[] = enabled ? (user?.organizations ?? []) : [];
     const activeSlug = typeof params?.orgSlug === "string" ? params.orgSlug : null;
     const active = activeSlug ? (organizations.find((org) => org.slug === activeSlug) ?? null) : null;
@@ -37,6 +39,7 @@ export function useOrganizations() {
     return {
       enabled,
       teams,
+      lifecycle,
       organizations,
       active,
       activeSlug,
