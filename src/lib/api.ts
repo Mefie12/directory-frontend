@@ -171,8 +171,16 @@ export interface ListingBillingSummary {
   contact_email: string | null;
 }
 
+/** What a listing may hold right now. Laravel decides; the form only reflects it. */
+export interface ListingMediaLimits {
+  max_total: number;
+  max_gallery: number;
+  max_gallery_videos: number;
+}
+
 export interface ListingManagementData extends EditableListingData {
   billing?: ListingBillingSummary | null;
+  media_limits?: ListingMediaLimits;
   id: number;
   claim_status?: string | null;
   rating?: number;
