@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
@@ -14,6 +14,7 @@ import {
   MediaSlotInput,
   saveListingMediaAtomic,
 } from "@/lib/media-revision";
+import { getListingManagement } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -27,15 +28,26 @@ const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_DURATION_SECONDS = 30;
-const MAX_GALLERY_IMAGES = 3;
+// Used until the listing's real limits load (or if they cannot be loaded). These are
+// today's limits, so the form never offers more than the server accepts by default.
+const DEFAULT_MAX_GALLERY = 3;
+const DEFAULT_MAX_GALLERY_VIDEOS = 1;
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/webp", "image/png"];
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
 
-const gallerySchema = z
+function videoLimitMessage(maxVideos: number): string {
+  if (maxVideos <= 0) return "Your plan doesn't include gallery video.";
+  if (maxVideos === 1) return "Only one gallery video is allowed.";
+  return `At most ${maxVideos} gallery videos are allowed.`;
+}
+
+// The limits come from Laravel per listing (tier, overrides and what is already held);
+// the server re-checks everything, so this only gives early, friendly feedback.
+const buildGallerySchema = (maxGallery: number, maxVideos: number) => z
   .array(z.any())
-  .max(MAX_GALLERY_IMAGES, {
-    message: `You can only upload a maximum of ${MAX_GALLERY_IMAGES} gallery items.`,
+  .max(maxGallery, {
+    message: `You can only upload a maximum of ${maxGallery} gallery items.`,
   })
   .refine(
     (files) =>
@@ -55,8 +67,8 @@ const gallerySchema = z
   .refine(
     (files) => files.filter((file) =>
       file instanceof File ? file.type.startsWith("video/") : file?.kind === "video",
-    ).length <= 1,
-    { message: "Only one gallery video is allowed." },
+    ).length <= maxVideos,
+    { message: videoLimitMessage(maxVideos) },
   );
 
 // Dimension policy (mirrors config/listing-media.php):
@@ -269,6 +281,11 @@ const MediaSaveToast = ({
 export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
   ({ listingSlug }, ref) => {
     const { media, setMedia } = useListing();
+    const [limits, setLimits] = useState({ maxGallery: DEFAULT_MAX_GALLERY, maxVideos: DEFAULT_MAX_GALLERY_VIDEOS });
+    const gallerySchema = useMemo(
+      () => buildGallerySchema(limits.maxGallery, limits.maxVideos),
+      [limits.maxGallery, limits.maxVideos],
+    );
     const [isUploading, setIsUploading] = useState(false);
     const activeSave = useRef<AbortController | null>(null);
     // Last percent actually pushed to the toast. XHR upload events fire far
@@ -282,6 +299,25 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     // for as long as the file is selected, unlike a transient toast.
     const [qualityNotes, setQualityNotes] = useState<Record<string, string>>({});
     const persistedCoverId = useRef<number | null>(getExistingId(media.coverPhoto));
+
+    // Load what this listing may hold (its plan and what it already has). Falls back
+    // to today's limits if the request fails, so the form always stays usable.
+    useEffect(() => {
+      let cancelled = false;
+      const token = localStorage.getItem("authToken") ?? undefined;
+      getListingManagement(listingSlug, token)
+        .then((data) => {
+          if (cancelled || !data.media_limits) return;
+          setLimits({
+            maxGallery: data.media_limits.max_gallery,
+            maxVideos: data.media_limits.max_gallery_videos,
+          });
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [listingSlug]);
 
     const mediaKey = (item: any): string => {
       if (item instanceof File) return `file:${item.name}:${item.size}:${item.lastModified}`;
@@ -472,7 +508,11 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
           <h2 className="text-xl font-semibold mb-1">Media Upload</h2>
           <p className="text-sm text-muted-foreground">
             The cover must be an image. Gallery media supports images up to 5MB
-            and one MP4 or MOV video up to 20MB and 30 seconds.
+            {limits.maxVideos === 0
+              ? "."
+              : limits.maxVideos === 1
+                ? " and one MP4 or MOV video up to 20MB and 30 seconds."
+                : ` and up to ${limits.maxVideos} MP4 or MOV videos, each up to 20MB and 30 seconds.`}
           </p>
         </div>
 
@@ -546,7 +586,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
             <h3 className="font-medium text-gray-900 mb-2">
               Gallery Media{" "}
               <span className="text-gray-400 font-normal text-sm">
-                (optional, up to {MAX_GALLERY_IMAGES})
+                (optional, up to {limits.maxGallery})
               </span>
             </h3>
             <FileUploader
@@ -557,10 +597,10 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 const result = gallerySchema.safeParse(files);
                 if (!result.success) {
                   toast.error(result.error.issues[0].message);
-                  if (files.length > MAX_GALLERY_IMAGES) {
+                  if (files.length > limits.maxGallery) {
                     setMedia({
                       ...media,
-                      images: files.slice(0, MAX_GALLERY_IMAGES),
+                      images: files.slice(0, limits.maxGallery),
                     });
                   }
                   return;
@@ -606,7 +646,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                 .map((item) => qualityNotes[mediaKey(item)])
                 .filter((message): message is string => Boolean(message))}
             />
-            {media.images.length >= MAX_GALLERY_IMAGES && (
+            {media.images.length >= limits.maxGallery && (
               <p className="mt-2 text-sm text-amber-700" role="status">
                 Gallery full. Mark an existing item for removal before adding another.
               </p>
@@ -644,7 +684,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
                   isUploading ? "animate-pulse text-blue-600" : "text-gray-600"
                 }
               >
-                {[media.coverPhoto, ...media.images].filter(Boolean).length}/4
+                {[media.coverPhoto, ...media.images].filter(Boolean).length}/{1 + limits.maxGallery}
                 {isUploading ? " Saving…" : " Ready"}
               </span>
             </div>
