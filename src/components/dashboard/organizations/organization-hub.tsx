@@ -27,6 +27,7 @@ import {
 import { OrganizationForm } from "./organization-form";
 import { ArchiveOrganizationSection } from "./archive-organization-section";
 import { OrganizationActivity } from "./organization-activity";
+import { OrganizationBilling } from "./organization-billing";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { OrganizationMembers } from "./organization-members";
 import { ProfileCompletionBanner } from "./profile-completion-banner";
@@ -47,7 +48,7 @@ const token = () => localStorage.getItem("authToken") ?? undefined;
  * and settings. Every action is permission-driven, never role-name-driven.
  */
 export function OrganizationHub({ slug }: { slug: string }) {
-  const { active, refresh, teams, lifecycle } = useOrganizations();
+  const { active, refresh, teams, lifecycle, orgBilling } = useOrganizations();
   const [detail, setDetail] = useState<OrganizationDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "not_found" | "error">("loading");
   const searchParams = useSearchParams();
@@ -172,6 +173,7 @@ export function OrganizationHub({ slug }: { slug: string }) {
           <TabsTrigger value="listings">Listings</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           {teams && (membership.permissions as string[]).includes("activity.view") && <TabsTrigger value="activity">Activity</TabsTrigger>}
+          {orgBilling && (membership.permissions as string[]).includes("billing.manage") && <TabsTrigger value="billing">Billing</TabsTrigger>}
           {can("organization.update") && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
@@ -191,6 +193,12 @@ export function OrganizationHub({ slug }: { slug: string }) {
  {teams && (membership.permissions as string[]).includes("activity.view") && (
           <TabsContent value="activity" className="mt-4">
             <OrganizationActivity slug={organization.slug} />
+          </TabsContent>
+        )}
+
+        {orgBilling && (membership.permissions as string[]).includes("billing.manage") && (
+          <TabsContent value="billing" className="mt-4">
+            <OrganizationBilling slug={organization.slug} />
           </TabsContent>
         )}
 

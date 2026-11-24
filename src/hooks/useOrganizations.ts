@@ -29,6 +29,8 @@ export function useOrganizations() {
     const lifecycle = enabled && user?.features?.lifecycle === true;
     // V2 Phase 2.6: held review of sensitive edits on live organization listings.
     const sensitiveReview = enabled && user?.features?.sensitive_review === true;
+    // V2 Phase 3a.3: the organization Billing tab for billing holders.
+    const orgBilling = enabled && user?.features?.org_billing === true;
     const organizations: OrganizationMembership[] = enabled ? (user?.organizations ?? []) : [];
     const activeSlug = typeof params?.orgSlug === "string" ? params.orgSlug : null;
     const active = activeSlug ? (organizations.find((org) => org.slug === activeSlug) ?? null) : null;
@@ -43,6 +45,7 @@ export function useOrganizations() {
       teams,
       lifecycle,
       sensitiveReview,
+      orgBilling,
       organizations,
       active,
       activeSlug,

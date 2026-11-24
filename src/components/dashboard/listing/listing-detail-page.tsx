@@ -68,6 +68,7 @@ import {
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingImageGallery } from "@/components/dashboard/listing/listing-image-gallery";
 import { TicketTypeEditor } from "@/components/dashboard/listing/form/ticket-type-editor";
+import { VendorBillingCard } from "@/components/dashboard/manual-plans/vendor-billing-card";
 import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
 
 // --- Types ---
@@ -404,6 +405,9 @@ export default function ListingDetailPage({ params }: PageProps) {
   const highlightReviewSlug = searchParams.get("review");
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
+  // A manually billed plan has its own card; the generic row would only contradict it.
+  const [hasManualPlan, setHasManualPlan] = useState(false);
+  const handleBillingLoaded = useCallback((billing: unknown) => setHasManualPlan(billing != null), []);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -1546,11 +1550,17 @@ export default function ListingDetailPage({ params }: PageProps) {
       <h3 className="font-semibold text-gray-900 text-sm mb-1">
         Listing Details
       </h3>
-      <InfoRow icon={Diamond} label="Subscription">
-        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-          {listing.plan || "Basic"} plan
-        </span>
-      </InfoRow>
+      {!hasManualPlan && (
+        <InfoRow icon={Diamond} label="Subscription">
+          <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
+            {listing.plan || "Basic"} plan
+          </span>
+        </InfoRow>
+      )}
+      {/* Read-only "managed by Mefie" summary; renders nothing unless the plan is invoiced manually. */}
+      <div className="mt-3 empty:hidden">
+        <VendorBillingCard slug={slug} onLoaded={handleBillingLoaded} />
+      </div>
 
       {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
         <InfoRow icon={Calendar} label="Date">
