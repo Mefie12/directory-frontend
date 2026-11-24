@@ -24,6 +24,8 @@ export interface MenuItem {
   requiresOrganizations?: boolean;
   /** V2 Phase 2.4: platform-level organization admin; shown only while the lifecycle flag is on. */
   requiresLifecycle?: boolean;
+  /** V2 Phase 2.6: the admin review queue; shown only while sensitive-edit review is on. */
+  requiresSensitiveReview?: boolean;
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -82,6 +84,14 @@ const MENU_CONFIG: MenuItem[] = [
     icon: Buildings,
     roles: ["admin"],
     requiresLifecycle: true,
+  },
+
+  {
+    title: "Edit Reviews",
+    url: "/dashboard/sensitive-reviews",
+    icon: Files,
+    roles: ["admin"],
+    requiresSensitiveReview: true,
   },
 
   // ─── Claims (Admin) ───
@@ -230,7 +240,7 @@ export default function useDashboardNavigation() {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
-  const { enabled: organizationsEnabled, organizations, lifecycle } = useOrganizations();
+  const { enabled: organizationsEnabled, organizations, lifecycle, sensitiveReview } = useOrganizations();
 
   const isActive = (path?: string) => !!path && pathname === path;
 
@@ -239,6 +249,7 @@ export default function useDashboardNavigation() {
   const visibleTo = (item: MenuItem) => {
     if (item.requiresOrganizations && (!organizationsEnabled || organizations.length === 0)) return false;
     if (item.requiresLifecycle && !lifecycle) return false;
+    if (item.requiresSensitiveReview && !sensitiveReview) return false;
     if (item.roles.includes(role)) return true;
     return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
   };

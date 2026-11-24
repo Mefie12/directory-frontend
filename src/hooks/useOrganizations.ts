@@ -27,6 +27,8 @@ export function useOrganizations() {
     const teams = enabled && user?.features?.teams === true;
     // V2 Phase 2.4: archive / restore / suspend follow their own backend flag.
     const lifecycle = enabled && user?.features?.lifecycle === true;
+    // V2 Phase 2.6: held review of sensitive edits on live organization listings.
+    const sensitiveReview = enabled && user?.features?.sensitive_review === true;
     const organizations: OrganizationMembership[] = enabled ? (user?.organizations ?? []) : [];
     const activeSlug = typeof params?.orgSlug === "string" ? params.orgSlug : null;
     const active = activeSlug ? (organizations.find((org) => org.slug === activeSlug) ?? null) : null;
@@ -40,6 +42,7 @@ export function useOrganizations() {
       enabled,
       teams,
       lifecycle,
+      sensitiveReview,
       organizations,
       active,
       activeSlug,
