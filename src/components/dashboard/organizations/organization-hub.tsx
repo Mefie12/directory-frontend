@@ -25,7 +25,9 @@ import {
   type OrganizationListingItem,
 } from "@/types/organization";
 import { OrganizationForm } from "./organization-form";
+import { ArchiveOrganizationSection } from "./archive-organization-section";
 import { OrganizationActivity } from "./organization-activity";
+import { OrganizationStatusBanner } from "./organization-status-banner";
 import { OrganizationMembers } from "./organization-members";
 import { ProfileCompletionBanner } from "./profile-completion-banner";
 
@@ -45,7 +47,7 @@ const token = () => localStorage.getItem("authToken") ?? undefined;
  * and settings. Every action is permission-driven, never role-name-driven.
  */
 export function OrganizationHub({ slug }: { slug: string }) {
-  const { active, refresh, teams } = useOrganizations();
+  const { active, refresh, teams, lifecycle } = useOrganizations();
   const [detail, setDetail] = useState<OrganizationDetail | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "not_found" | "error">("loading");
   const searchParams = useSearchParams();
@@ -107,11 +109,24 @@ export function OrganizationHub({ slug }: { slug: string }) {
   }
 
   const { data: organization, membership } = detail;
-  const can = (permission: string) => (membership.permissions as string[]).includes(permission);
+  const readOnly = organization.status !== "active";
+  // An archived or suspended organization is read-only whatever the role: the backend refuses writes too.
+  const can = (permission: string) => !readOnly && (membership.permissions as string[]).includes(permission);
 
   return (
     <div className="space-y-6 p-4 lg:p-8">
-      {active && (
+      <OrganizationStatusBanner
+        slug={organization.slug}
+        status={organization.status}
+        reason={organization.status_reason}
+        canRestore={(membership.permissions as string[]).includes("organization.archive")}
+        onRestored={async () => {
+          await refresh();
+          await load();
+        }}
+      />
+
+      {active && !readOnly && (
         <ProfileCompletionBanner
           organization={active}
           onCompleteProfile={() => setTab("settings")}
@@ -156,7 +171,7 @@ export function OrganizationHub({ slug }: { slug: string }) {
         <TabsList>
           <TabsTrigger value="listings">Listings</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
-          {teams && can("activity.view") && <TabsTrigger value="activity">Activity</TabsTrigger>}
+          {teams && (membership.permissions as string[]).includes("activity.view") && <TabsTrigger value="activity">Activity</TabsTrigger>}
           {can("organization.update") && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
@@ -169,11 +184,11 @@ export function OrganizationHub({ slug }: { slug: string }) {
             slug={organization.slug}
             permissions={membership.permissions}
             isPrimaryOwner={membership.is_primary_owner}
-            teams={teams}
+            teams={teams && !readOnly}
           />
         </TabsContent>
 
- {teams && can("activity.view") && (
+ {teams && (membership.permissions as string[]).includes("activity.view") && (
           <TabsContent value="activity" className="mt-4">
             <OrganizationActivity slug={organization.slug} />
           </TabsContent>
@@ -210,6 +225,18 @@ export function OrganizationHub({ slug }: { slug: string }) {
                 }}
               />
             </div>
+            {lifecycle && can("organization.archive") && (
+              <div className="mt-4">
+                <ArchiveOrganizationSection
+                  slug={organization.slug}
+                  name={organization.name}
+                  onArchived={async () => {
+                    await refresh();
+                    await load();
+                  }}
+                />
+              </div>
+            )}
           </TabsContent>
         )}
       </Tabs>

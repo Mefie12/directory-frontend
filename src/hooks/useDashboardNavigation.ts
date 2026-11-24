@@ -22,6 +22,8 @@ export interface MenuItem {
   rolesWhenOrganizationsEnabled?: UserRole[];
   /** V2: shown only while organizations are on and the user belongs to one. */
   requiresOrganizations?: boolean;
+  /** V2 Phase 2.4: platform-level organization admin; shown only while the lifecycle flag is on. */
+  requiresLifecycle?: boolean;
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -71,6 +73,15 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/users",
     icon: "/images/icons/users.svg",
     roles: ["admin"],
+  },
+
+  // ─── Organizations (Admin, V2 lifecycle) ───
+  {
+    title: "Organizations",
+    url: "/dashboard/admin-organizations",
+    icon: Buildings,
+    roles: ["admin"],
+    requiresLifecycle: true,
   },
 
   // ─── Claims (Admin) ───
@@ -219,7 +230,7 @@ export default function useDashboardNavigation() {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
-  const { enabled: organizationsEnabled, organizations } = useOrganizations();
+  const { enabled: organizationsEnabled, organizations, lifecycle } = useOrganizations();
 
   const isActive = (path?: string) => !!path && pathname === path;
 
@@ -227,6 +238,7 @@ export default function useDashboardNavigation() {
   // roles while they are; organization-only items need a membership.
   const visibleTo = (item: MenuItem) => {
     if (item.requiresOrganizations && (!organizationsEnabled || organizations.length === 0)) return false;
+    if (item.requiresLifecycle && !lifecycle) return false;
     if (item.roles.includes(role)) return true;
     return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
   };

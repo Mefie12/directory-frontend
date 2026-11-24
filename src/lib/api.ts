@@ -4,6 +4,9 @@ import type {
   ClaimTargetChoice,
   ClaimTargetPreview,
   ActivityPage,
+  AdminOrganizationDetail,
+  AdminOrganizationPage,
+  ArchiveBlockingListing,
   CreateOrganizationInput,
   InvitePreview,
   OrganizationInvite,
@@ -2701,4 +2704,72 @@ export async function acceptInvite(inviteToken: string, token?: string): Promise
 
 export async function declineInvite(inviteToken: string): Promise<void> {
   await organizationRequest<unknown>(`/api/invites/${encodeURIComponent(inviteToken)}/decline`, undefined, { method: 'POST' });
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 2.4: lifecycle (archive / restore by owners; suspend / restore by admins).
+// Routes 404 while the backend has ORGANIZATIONS_LIFECYCLE_ENABLED off.
+// ----------------------------------------------------------------------------
+
+/** Thrown with the blocking listings when archiving is refused (reason archive_blocked). */
+export class ArchiveBlockedError extends OrganizationApiError {
+  constructor(message: string, public readonly listings: ArchiveBlockingListing[]) {
+    super(message, 409, {}, 'archive_blocked');
+    this.name = 'ArchiveBlockedError';
+  }
+}
+
+export async function archiveOrganization(slug: string, input: { password: string; reason?: string }, token?: string): Promise<void> {
+  const response = await fetch(`${orgPath(slug)}/archive`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.ok) return;
+
+  const payload = data as { message?: string; errors?: Record<string, string[]>; reason?: string; listings?: ArchiveBlockingListing[] };
+  if (payload.reason === 'archive_blocked') {
+    throw new ArchiveBlockedError(payload.message ?? 'This organization still has published listings.', payload.listings ?? []);
+  }
+  throw new OrganizationApiError(payload.message ?? 'Something went wrong. Please try again.', response.status, payload.errors ?? {}, payload.reason);
+}
+
+export async function restoreOrganization(slug: string, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`${orgPath(slug)}/restore`, token, { method: 'POST' });
+}
+
+export async function getAdminOrganizations(params: { search?: string; status?: string; page?: number }, token?: string): Promise<AdminOrganizationPage> {
+  const query = new URLSearchParams();
+  if (params.search) query.set('search', params.search);
+  if (params.status) query.set('status', params.status);
+  if (params.page) query.set('page', String(params.page));
+  return organizationRequest<AdminOrganizationPage>(`/api/admin/organizations${query.size ? `?${query}` : ''}`, token);
+}
+
+export async function getAdminOrganization(slug: string, token?: string): Promise<AdminOrganizationDetail> {
+  return organizationRequest<AdminOrganizationDetail>(`/api/admin/organizations/${encodeURIComponent(slug)}`, token);
+}
+
+export async function suspendOrganization(slug: string, reason: string, token?: string): Promise<{ listings_suspended: number }> {
+  return organizationRequest<{ listings_suspended: number }>(`/api/admin/organizations/${encodeURIComponent(slug)}/suspend`, token, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function unsuspendOrganization(slug: string, reason: string | undefined, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`/api/admin/organizations/${encodeURIComponent(slug)}/restore`, token, {
+    method: 'POST',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export async function restoreOrganizationListings(slug: string, token?: string): Promise<{ listings_restored: number }> {
+  return organizationRequest<{ listings_restored: number }>(`/api/admin/organizations/${encodeURIComponent(slug)}/restore-listings`, token, { method: 'POST' });
+}
+
+export async function getAdminOrganizationActivity(slug: string, page = 1, token?: string): Promise<ActivityPage> {
+  return organizationRequest<ActivityPage>(`/api/admin/organizations/${encodeURIComponent(slug)}/activity?page=${page}`, token);
 }

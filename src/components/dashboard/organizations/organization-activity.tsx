@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { getOrganizationActivity } from "@/lib/api";
-import { ACTIVITY_LABEL, ORG_ROLE_LABEL, type ActivityEntry, type OrgRole } from "@/types/organization";
+import { ACTIVITY_LABEL, ORG_ROLE_LABEL, type ActivityEntry, type ActivityPage, type OrgRole } from "@/types/organization";
 
 const token = () => localStorage.getItem("authToken") ?? undefined;
 
@@ -12,18 +12,21 @@ function describe(entry: ActivityEntry): string {
   const actor = entry.actor?.name ?? "Someone";
   const verb = ACTIVITY_LABEL[entry.action] ?? entry.action;
   const target = entry.target ? ` (${entry.target.name})` : "";
-  const { from, to, role } = entry.details;
+  const { from, to, role, reason } = entry.details;
   const roleNote =
     from && to
       ? `: ${ORG_ROLE_LABEL[from as OrgRole] ?? from} to ${ORG_ROLE_LABEL[to as OrgRole] ?? to}`
       : role
         ? ` as ${ORG_ROLE_LABEL[role as OrgRole] ?? role}`
         : "";
-  return `${actor} ${verb}${target}${roleNote}`;
+  return `${actor} ${verb}${target}${roleNote}${reason ? `. Reason: ${reason}` : ""}`;
 }
 
-/** Owner-only audit trail (permission activity.view). */
-export function OrganizationActivity({ slug }: { slug: string }) {
+/**
+ * Audit trail. Owners use the default loader (permission activity.view);
+ * platform admins pass their own `loader` for the admin endpoint.
+ */
+export function OrganizationActivity({ slug, loader }: { slug: string; loader?: (page: number) => Promise<ActivityPage> }) {
   const [entries, setEntries] = useState<ActivityEntry[] | null>(null);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -31,7 +34,7 @@ export function OrganizationActivity({ slug }: { slug: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    getOrganizationActivity(slug, page, token())
+    (loader ? loader(page) : getOrganizationActivity(slug, page, token()))
       .then((result) => {
         if (cancelled) return;
         setEntries((previous) => (page === 1 ? result.data : [...(previous ?? []), ...result.data]));
@@ -41,7 +44,7 @@ export function OrganizationActivity({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [slug, page]);
+  }, [slug, page, loader]);
 
   if (failed) return <p className="text-sm text-red-600">We couldn&apos;t load the activity.</p>;
   if (!entries) return <Skeleton className="h-40 w-full rounded-2xl" />;
