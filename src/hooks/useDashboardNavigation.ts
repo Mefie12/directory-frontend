@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type UserRole } from "@/lib/roles";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt } from '@phosphor-icons/react';
 import { useOrganizations } from "@/hooks/useOrganizations";
 
 export type { UserRole };
@@ -26,6 +26,10 @@ export interface MenuItem {
   requiresLifecycle?: boolean;
   /** V2 Phase 2.6: the admin review queue; shown only while sensitive-edit review is on. */
   requiresSensitiveReview?: boolean;
+  /** Extra capability the user must hold. UI convenience only: the API enforces it. */
+  permission?: "manage_billing";
+  /** V2 Phase 3a.2: shown only while the backend has the manual-plans admin API on. */
+  requiresBillingAdmin?: boolean;
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -92,6 +96,16 @@ const MENU_CONFIG: MenuItem[] = [
     icon: Files,
     roles: ["admin"],
     requiresSensitiveReview: true,
+  },
+
+  // ─── Manually billed plans (Admin with the billing permission) ───
+  {
+    title: "Manual Plans",
+    url: "/dashboard/monetization/manual-plans",
+    icon: Receipt,
+    roles: ["admin"],
+    permission: "manage_billing",
+    requiresBillingAdmin: true,
   },
 
   // ─── Claims (Admin) ───
@@ -253,6 +267,8 @@ export default function useDashboardNavigation() {
     if (item.requiresOrganizations && (!organizationsEnabled || (organizations.length === 0 && !lifecycle))) return false;
     if (item.requiresLifecycle && !lifecycle) return false;
     if (item.requiresSensitiveReview && !sensitiveReview) return false;
+    if (item.requiresBillingAdmin && user?.features?.billing_admin !== true) return false;
+    if (item.permission && user?.permissions?.[item.permission] !== true) return false;
     if (item.roles.includes(role)) return true;
     return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
   };

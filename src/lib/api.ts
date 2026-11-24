@@ -2803,3 +2803,325 @@ export async function decideSensitiveReview(
     body: JSON.stringify(input),
   });
 }
+
+// ============================================================================
+// MANUALLY BILLED PLANS (admin; needs the `manage_billing` permission)
+// ============================================================================
+// Offline-invoiced Pro/Advance plans recorded by billing holders. Laravel is the
+// only authority: every rule here is repeated and enforced on the server.
+
+export type ManualPlanTier = "pro" | "advance";
+export type ManualPlanState = "scheduled" | "active" | "grace" | "expired" | "revoked";
+export type ManualPlanCadence = "monthly" | "quarterly" | "annual" | "one_off" | "custom";
+export type ManualPlanOverrides = Record<string, number | boolean | null>;
+
+export interface ManualPlan {
+  id: number;
+  listing: { id?: number; name: string; slug?: string; status?: string };
+  customer: { id: number; name: string; email: string } | null;
+  /** The organization that was invoiced (snapshot taken when the plan was granted). */
+  organization?: { id: number; name: string; slug: string } | null;
+  contracted_plan: ManualPlanTier;
+  effective_plan: string | null;
+  inactive_reason: string | null;
+  state: ManualPlanState;
+  starts_at: string;
+  ends_at: string;
+  ends_at_label: string;
+  grace_days: number;
+  grace_ends_at: string;
+  grace_ends_at_label: string;
+  price_amount: string | null;
+  currency: string | null;
+  billing_cadence: ManualPlanCadence | null;
+  invoice_reference: string | null;
+  contract_url: string | null;
+  notes: string | null;
+  entitlement_overrides: ManualPlanOverrides | null;
+  renews_plan_id: number | null;
+  needs_review: boolean;
+  needs_review_reason: string | null;
+  revoked_at: string | null;
+  revoke_reason: string | null;
+  version: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ManualPlanEvent {
+  id: number;
+  action: string;
+  source: string;
+  from_plan: string | null;
+  to_plan: string | null;
+  reason: string | null;
+  changes: Record<string, unknown> | null;
+  manual_plan_id: number | null;
+  actor: { id: number; name: string } | null;
+  occurred_at: string;
+}
+
+export interface ManualPlanSummary {
+  in_force_count: number;
+  unannualised_count: number;
+  annualised_by_currency: Record<string, string>;
+}
+
+export interface ManualPlanListResponse extends PaginatedOperationsResponse<ManualPlan> {
+  summary: ManualPlanSummary;
+}
+
+export interface ListingManualPlanDetail {
+  listing: {
+    id: number;
+    name: string;
+    slug: string;
+    status: string;
+    plan: string;
+    effective_plan: string;
+  };
+  /** Whether a plan can be assigned now and, if not, the reason in plain words. */
+  eligibility: {
+    can_assign: boolean;
+    code: string | null;
+    message: string | null;
+  };
+  current: ManualPlan | null;
+  history: ManualPlan[];
+  events: ManualPlanEvent[];
+}
+
+export interface ManualPlanQuery {
+  status?: ManualPlanState | "";
+  plan?: ManualPlanTier | "";
+  currency?: string;
+  q?: string;
+  needsReview?: boolean;
+  expiringWithin?: number;
+  page?: number;
+  perPage?: number;
+}
+
+export interface ManualPlanCommercialInput {
+  price_amount?: string | null;
+  currency?: string | null;
+  billing_cadence?: ManualPlanCadence | null;
+  invoice_reference?: string | null;
+  contract_url?: string | null;
+  notes?: string | null;
+  entitlement_overrides?: ManualPlanOverrides | null;
+}
+
+export type GrantManualPlanInput = ManualPlanCommercialInput & {
+  plan: ManualPlanTier;
+  starts_at?: string | null;
+  ends_at: string;
+  grace_days?: number | null;
+  reason: string;
+  password: string;
+};
+
+export type ExtendManualPlanInput = ManualPlanCommercialInput & {
+  version: number;
+  ends_at: string;
+  grace_days?: number | null;
+  reason: string;
+  password: string;
+};
+
+export type ReplaceManualPlanInput = ManualPlanCommercialInput & {
+  version: number;
+  plan: ManualPlanTier;
+  ends_at: string;
+  grace_days?: number | null;
+  reason: string;
+  password: string;
+};
+
+export type EditManualPlanInput = ManualPlanCommercialInput & {
+  version: number;
+  reason: string;
+  password?: string;
+};
+
+export interface RevokeManualPlanInput {
+  version: number;
+  reason: string;
+  password: string;
+}
+
+export interface ReviewManualPlanInput {
+  version: number;
+  decision: "keep" | "revoke";
+  reason: string;
+  password?: string;
+}
+
+/** An ApiRequestError that also carries Laravel's per-field validation messages. */
+export class ManualPlanApiError extends ApiRequestError {
+  constructor(
+    message: string,
+    status: number,
+    readonly fieldErrors: Record<string, string[]>,
+  ) {
+    super(message, status);
+    this.name = "ManualPlanApiError";
+  }
+}
+
+async function manualPlanError(response: Response, fallback: string): Promise<ManualPlanApiError> {
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    message?: string;
+    errors?: Record<string, string[]>;
+  };
+  return new ManualPlanApiError(
+    payload.error || payload.message || fallback,
+    response.status,
+    payload.errors ?? {},
+  );
+}
+
+async function manualPlanRequest<T>(
+  url: string,
+  method: "GET" | "POST" | "PATCH",
+  fallback: string,
+  token?: string,
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(url, {
+    method,
+    headers: agentAuthHeaders(token),
+    cache: "no-store",
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  if (!response.ok) {
+    throw await manualPlanError(response, fallback);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function getManualPlans(
+  token?: string,
+  query: ManualPlanQuery = {},
+): Promise<ManualPlanListResponse> {
+  const params = new URLSearchParams({
+    page: String(query.page ?? 1),
+    per_page: String(query.perPage ?? 25),
+  });
+  if (query.status) params.set("status", query.status);
+  if (query.plan) params.set("plan", query.plan);
+  if (query.currency?.trim()) params.set("currency", query.currency.trim());
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.needsReview) params.set("needs_review", "1");
+  if (query.expiringWithin) params.set("expiring_within", String(query.expiringWithin));
+  return manualPlanRequest<ManualPlanListResponse>(
+    `/api/admin/manual-plans?${params}`,
+    "GET",
+    "Could not load manual plans",
+    token,
+  );
+}
+
+export async function getListingManualPlan(
+  slug: string,
+  token?: string,
+): Promise<ListingManualPlanDetail> {
+  const payload = await manualPlanRequest<{ data: ListingManualPlanDetail }>(
+    `/api/admin/listings/${encodeURIComponent(slug)}/manual-plan`,
+    "GET",
+    "Could not load this listing's plan",
+    token,
+  );
+  return payload.data;
+}
+
+export async function grantManualPlan(
+  slug: string,
+  input: GrantManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/listings/${encodeURIComponent(slug)}/manual-plan`,
+    "POST",
+    "Could not assign the plan",
+    token,
+    input,
+  );
+  return payload.data;
+}
+
+export async function editManualPlan(
+  id: number,
+  input: EditManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/manual-plans/${id}`,
+    "PATCH",
+    "Could not save the changes",
+    token,
+    input,
+  );
+  return payload.data;
+}
+
+export async function extendManualPlan(
+  id: number,
+  input: ExtendManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/manual-plans/${id}/extend`,
+    "POST",
+    "Could not renew the plan",
+    token,
+    input,
+  );
+  return payload.data;
+}
+
+export async function replaceManualPlan(
+  id: number,
+  input: ReplaceManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/manual-plans/${id}/replace`,
+    "POST",
+    "Could not change the plan",
+    token,
+    input,
+  );
+  return payload.data;
+}
+
+export async function revokeManualPlan(
+  id: number,
+  input: RevokeManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/manual-plans/${id}/revoke`,
+    "POST",
+    "Could not end the plan",
+    token,
+    input,
+  );
+  return payload.data;
+}
+
+export async function reviewManualPlan(
+  id: number,
+  input: ReviewManualPlanInput,
+  token?: string,
+): Promise<ManualPlan> {
+  const payload = await manualPlanRequest<{ data: ManualPlan }>(
+    `/api/admin/manual-plans/${id}/review`,
+    "POST",
+    "Could not record the review",
+    token,
+    input,
+  );
+  return payload.data;
+}
