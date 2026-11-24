@@ -23,7 +23,7 @@ interface User {
   avatar?: string;
   profile_photo_url?: string;
   /** V2: backend feature switches (always present from the API; default off). */
-  features: { organizations: boolean; teams: boolean; lifecycle: boolean; sensitive_review: boolean; billing_admin: boolean };
+  features: { organizations: boolean; teams: boolean; lifecycle: boolean; sensitive_review: boolean; billing_admin: boolean; org_billing: boolean };
   // The signed-in user's own capabilities. UI hint only: Laravel enforces them.
   permissions?: {
     manage_billing: boolean;
@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             lifecycle: raw?.features?.lifecycle === true,
             sensitive_review: raw?.features?.sensitive_review === true,
             billing_admin: raw?.features?.billing_admin === true,
+            org_billing: raw?.features?.org_billing === true,
           },
           organizations: Array.isArray(raw?.organizations) ? raw.organizations : [],
           permissions: {

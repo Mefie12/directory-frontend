@@ -158,7 +158,21 @@ export interface ListingManagementCapabilities {
   can_reply_to_reviews: boolean;
 }
 
+/**
+ * What a member may see about a manually billed plan: tier, state, renewal date
+ * and who to contact. The backend never sends price, notes or invoice details here.
+ */
+export interface ListingBillingSummary {
+  mode: "manual";
+  plan: string;
+  status: "active" | "grace" | "ended" | string | null;
+  renews_on: string | null;
+  access_until: string | null;
+  contact_email: string | null;
+}
+
 export interface ListingManagementData extends EditableListingData {
+  billing?: ListingBillingSummary | null;
   id: number;
   claim_status?: string | null;
   rating?: number;
@@ -3124,4 +3138,33 @@ export async function reviewManualPlan(
     input,
   );
   return payload.data;
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 3a.3: organization billing view (billing holders). Route 404s while
+// ORGANIZATIONS_BILLING_ENABLED is off.
+// ----------------------------------------------------------------------------
+
+/** A plan invoiced to an organization, as its billing holders see it (no staff data). */
+export interface OrganizationPlan {
+  id: number;
+  listing: { id?: number; name: string; slug?: string };
+  plan: string;
+  effective_plan: string | null;
+  state: "scheduled" | "active" | "grace" | "expired" | "revoked" | string;
+  starts_at: string;
+  ends_at: string;
+  ends_at_label: string;
+  access_until: string;
+  price_amount: string | null;
+  currency: string | null;
+  billing_cadence: string | null;
+  invoice_reference: string | null;
+}
+
+export async function getOrganizationBilling(slug: string, token?: string): Promise<{ data: OrganizationPlan[]; meta_extra?: { contact_email: string | null } }> {
+  return organizationRequest<{ data: OrganizationPlan[]; meta_extra?: { contact_email: string | null } }>(
+    `/api/organizations/${encodeURIComponent(slug)}/billing`,
+    token,
+  );
 }
