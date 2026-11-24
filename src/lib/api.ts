@@ -4,6 +4,8 @@ import type {
   ClaimTargetChoice,
   ClaimTargetPreview,
   ActivityPage,
+  PendingReview,
+  SensitiveReviewPage,
   AdminOrganizationDetail,
   AdminOrganizationPage,
   ArchiveBlockingListing,
@@ -2772,4 +2774,32 @@ export async function restoreOrganizationListings(slug: string, token?: string):
 
 export async function getAdminOrganizationActivity(slug: string, page = 1, token?: string): Promise<ActivityPage> {
   return organizationRequest<ActivityPage>(`/api/admin/organizations/${encodeURIComponent(slug)}/activity?page=${page}`, token);
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 2.6: sensitive-field review. Routes 404 while SENSITIVE_EDIT_REVIEW is off.
+// ----------------------------------------------------------------------------
+
+export async function getPendingReview(listingSlug: string, token?: string): Promise<PendingReview | null> {
+  const data = await organizationRequest<{ data: PendingReview | null }>(`/api/listing/${encodeURIComponent(listingSlug)}/pending_review`, token);
+  return data.data;
+}
+
+export async function withdrawPendingReview(listingSlug: string, token?: string): Promise<void> {
+  await organizationRequest<unknown>(`/api/listing/${encodeURIComponent(listingSlug)}/pending_review/withdraw`, token, { method: 'POST' });
+}
+
+export async function getSensitiveReviews(status: string, page = 1, token?: string): Promise<SensitiveReviewPage> {
+  return organizationRequest<SensitiveReviewPage>(`/api/admin/sensitive_revisions?status=${encodeURIComponent(status)}&page=${page}`, token);
+}
+
+export async function decideSensitiveReview(
+  revisionId: number,
+  input: { decision: 'approve' | 'reject' | 'changes_requested'; reason?: string; expected_revision_version: number },
+  token?: string,
+): Promise<void> {
+  await organizationRequest<unknown>(`/api/admin/sensitive_revisions/${revisionId}/decision`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }

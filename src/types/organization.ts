@@ -240,3 +240,61 @@ export interface AdminOrganizationPage {
   data: AdminOrganizationRow[];
   meta?: { current_page: number; last_page: number; total: number };
 }
+
+// ── V2 Phase 2.6: sensitive-field review ───────────────────────────────────
+
+/** One held field of a live listing: the live value and the proposed one. */
+export interface PendingReviewField {
+  field: string;
+  current: unknown;
+  proposed: unknown;
+  /** Category names, present for field category_ids. */
+  current_labels?: string[];
+  proposed_labels?: string[];
+}
+
+/** A held change (GET /listing/{slug}/pending_review, and in save responses). */
+export interface PendingReview {
+  revision_id: number;
+  status: "pending" | "changes_requested";
+  moderation_reason: string | null;
+  submitted_at: string | null;
+  fields: PendingReviewField[];
+}
+
+export interface SensitiveReviewItem {
+  id: number;
+  status: string;
+  revision_version: number;
+  submitted_at: string | null;
+  author: { id: number; name: string } | null;
+  listing: {
+    id: number;
+    slug: string;
+    name: string;
+    status: string;
+    organization: { id: number; name: string; status: string } | null;
+  };
+  review: PendingReview | null;
+}
+
+export interface SensitiveReviewPage {
+  data: SensitiveReviewItem[];
+  current_page: number;
+  last_page: number;
+}
+
+export const SENSITIVE_FIELD_LABEL: Record<string, string> = {
+  name: "Name",
+  email: "Contact email",
+  category_ids: "Categories",
+  country: "Country",
+  city: "City",
+  address: "Address",
+  google_plus_code: "Plus code",
+  latitude: "Latitude",
+  longitude: "Longitude",
+  event_venue_address: "Venue address",
+  event_city: "Event city",
+  event_country: "Event country",
+};
