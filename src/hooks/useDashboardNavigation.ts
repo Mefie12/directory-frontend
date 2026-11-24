@@ -247,7 +247,10 @@ export default function useDashboardNavigation() {
   // V2: an item is visible to its roles, plus its "when organizations are on"
   // roles while they are; organization-only items need a membership.
   const visibleTo = (item: MenuItem) => {
-    if (item.requiresOrganizations && (!organizationsEnabled || organizations.length === 0)) return false;
+    // With lifecycle on, an archived or suspended organization is not in the auth payload
+    // (which lists active ones only), so keep the entry reachable for everyone: its list page
+    // shows inactive organizations and explains why they are read-only.
+    if (item.requiresOrganizations && (!organizationsEnabled || (organizations.length === 0 && !lifecycle))) return false;
     if (item.requiresLifecycle && !lifecycle) return false;
     if (item.requiresSensitiveReview && !sensitiveReview) return false;
     if (item.roles.includes(role)) return true;

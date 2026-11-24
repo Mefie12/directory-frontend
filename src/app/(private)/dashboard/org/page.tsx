@@ -1,17 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Building2, ChevronRight, Crown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrganizationsGate } from "@/components/dashboard/organizations/organizations-gate";
 import { useAuth } from "@/context/auth-context";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { getMyOrganizations } from "@/lib/api";
 import { normalizeRole } from "@/lib/roles";
-import { ORG_ROLE_LABEL } from "@/types/organization";
+import { ORG_ROLE_LABEL, type OrganizationMembership } from "@/types/organization";
 
 export default function OrganizationsPage() {
   const { user } = useAuth();
-  const { organizations } = useOrganizations();
+  const { organizations: activeOrganizations, lifecycle } = useOrganizations();
+  // With lifecycle on, also list archived and suspended organizations (the auth payload only
+  // carries active ones), so owners can still reach them to see why or to restore them.
+  const [withInactive, setWithInactive] = useState<OrganizationMembership[] | null>(null);
+  const organizations = lifecycle && withInactive ? withInactive : activeOrganizations;
+
+  useEffect(() => {
+    if (!lifecycle) return;
+    let cancelled = false;
+    getMyOrganizations(localStorage.getItem("authToken") ?? undefined)
+      .then((rows) => !cancelled && setWithInactive(rows))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [lifecycle]);
+
   const canCreate = normalizeRole(user?.role ?? "customer") !== "listing_agent";
 
   return (
@@ -49,7 +67,8 @@ export default function OrganizationsPage() {
                       {organization.is_primary_owner && <Crown className="h-3 w-3" />}
                       {ORG_ROLE_LABEL[organization.role]}
                       {organization.listings_count !== null && ` · ${organization.listings_count} listing${organization.listings_count === 1 ? "" : "s"}`}
-                      {!organization.profile_completed && " · Profile incomplete"}
+                      {organization.status !== "active" && ` · ${organization.status === "archived" ? "Archived" : "Suspended"}`}
+                      {organization.status === "active" && !organization.profile_completed && " · Profile incomplete"}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
