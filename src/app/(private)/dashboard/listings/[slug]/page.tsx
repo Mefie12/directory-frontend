@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+import { ManualPlanCard } from "@/components/dashboard/manual-plans/manual-plan-card";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -31,7 +32,6 @@ import {
   Users,
   MapPin,
   Tag,
-  Gem,
   Phone,
   Mail,
   Globe,
@@ -921,11 +921,7 @@ export default function ListingDetailsPage() {
             <h3 className="font-semibold text-gray-900 text-sm mb-1">
               Listing Details
             </h3>
-            <InfoRow icon={Gem} label="Subscription">
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#548235]/10 text-[#548235]">
-                {listing.plan || "Basic"} plan
-              </span>
-            </InfoRow>
+            <ManualPlanCard slug={listing.slug} listingName={listing.name} fallbackPlan={listing.plan} />
 
             {listing.type === "event" && ev && (ev.start_date || ev.end_date) && (
               <InfoRow icon={Calendar} label="Date">
