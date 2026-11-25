@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type PlatformPermission, type UserRole } from "@/lib/roles";
 import { usePlatformAccess } from "@/hooks/usePlatformAccess";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree, SealCheck } from '@phosphor-icons/react';
 import { useOrganizations } from "@/hooks/useOrganizations";
 
 export type { UserRole };
@@ -23,6 +23,8 @@ export interface MenuItem {
   rolesWhenOrganizationsEnabled?: UserRole[];
   /** V2: shown only while organizations are on and the user belongs to one. */
   requiresOrganizations?: boolean;
+  /** V2 Phase 4.2: shown whenever organizations are on (no membership or lifecycle needed). */
+  requiresOrganizationsEnabled?: boolean;
   /** V2 Phase 2.4: platform-level organization admin; shown only while the lifecycle flag is on. */
   requiresLifecycle?: boolean;
   /** V2 Phase 2.6: the admin review queue; shown only while sensitive-edit review is on. */
@@ -103,6 +105,16 @@ const MENU_CONFIG: MenuItem[] = [
     roles: ["admin"],
     platformPermission: "platform.organizations.manage",
     requiresLifecycle: true,
+  },
+
+  // ─── Organization verification queue (Admin, V2 Phase 4.2) ───
+  {
+    title: "Verifications",
+    url: "/dashboard/admin-verifications",
+    icon: SealCheck,
+    roles: ["admin"],
+    platformPermission: "platform.organizations.verify",
+    requiresOrganizationsEnabled: true,
   },
 
   {
@@ -282,6 +294,7 @@ export default function useDashboardNavigation() {
     // (which lists active ones only), so keep the entry reachable for everyone: its list page
     // shows inactive organizations and explains why they are read-only.
     if (item.requiresOrganizations && (!organizationsEnabled || (organizations.length === 0 && !lifecycle))) return false;
+    if (item.requiresOrganizationsEnabled && !organizationsEnabled) return false;
     if (item.requiresLifecycle && !lifecycle) return false;
     if (item.requiresSensitiveReview && !sensitiveReview) return false;
     if (item.requiresBillingAdmin && user?.features?.billing_admin !== true) return false;
