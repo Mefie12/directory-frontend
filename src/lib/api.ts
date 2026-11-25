@@ -3248,3 +3248,107 @@ export async function setSuperAdmin(
     input,
   );
 }
+
+// ── Organization verification (V2 Phase 4.2) ────────────────────────────────
+
+export type OrgVerificationStatus = "unverified" | "pending" | "verified" | "rejected" | "revoked";
+
+export interface OrgVerificationEvidenceItem {
+  id: number;
+  filename: string;
+  mime_type: string | null;
+  file_size: number | null;
+}
+
+export interface OrgVerificationRequest {
+  id: number;
+  status: "pending" | "approved" | "rejected" | "withdrawn";
+  note: string | null;
+  decision_reason: string | null;
+  decided_at: string | null;
+  created_at: string;
+  organization?: { id: number; slug: string; name: string; country: string | null; verification_status: OrgVerificationStatus };
+  requested_by?: { id: number; name: string; email: string } | null;
+  evidence?: OrgVerificationEvidenceItem[];
+}
+
+export interface OrgVerificationOverview {
+  verification_status: OrgVerificationStatus;
+  latest_request: OrgVerificationRequest | null;
+  history: { from_status: string; to_status: string; reason: string | null; created_at: string }[];
+}
+
+async function verificationRequest<T>(
+  url: string,
+  method: "GET" | "POST" | "DELETE",
+  fallback: string,
+  token?: string,
+  body?: unknown,
+): Promise<T> {
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      ...(isForm || body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+    ...(body === undefined ? {} : { body: isForm ? (body as FormData) : JSON.stringify(body) }),
+  });
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { message?: string; error?: string; errors?: Record<string, string[]> };
+    const first = data.errors ? Object.values(data.errors)[0]?.[0] : undefined;
+    throw new ApiRequestError(first || data.message || data.error || fallback, response.status);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function getOrgVerification(slug: string, token?: string): Promise<OrgVerificationOverview> {
+  const result = await verificationRequest<{ data: OrgVerificationOverview }>(
+    `/api/organizations/${encodeURIComponent(slug)}/verification`, "GET", "Could not load verification", token,
+  );
+  return result.data;
+}
+
+export async function requestOrgVerification(slug: string, input: { note?: string; documents: File[] }, token?: string): Promise<OrgVerificationRequest> {
+  const form = new FormData();
+  if (input.note?.trim()) form.append("note", input.note.trim());
+  input.documents.forEach((file) => form.append("documents[]", file));
+  const result = await verificationRequest<{ data: OrgVerificationRequest }>(
+    `/api/organizations/${encodeURIComponent(slug)}/verification`, "POST", "Could not submit the request", token, form,
+  );
+  return result.data;
+}
+
+export async function withdrawOrgVerification(slug: string, token?: string): Promise<void> {
+  await verificationRequest<unknown>(
+    `/api/organizations/${encodeURIComponent(slug)}/verification`, "DELETE", "Could not withdraw the request", token,
+  );
+}
+
+export async function listVerificationRequests(status: string, token?: string): Promise<OrgVerificationRequest[]> {
+  const result = await verificationRequest<{ data: OrgVerificationRequest[] }>(
+    `/api/admin/organization-verifications?status=${encodeURIComponent(status)}`, "GET", "Could not load requests", token,
+  );
+  return result.data;
+}
+
+export async function getVerificationEvidenceUrl(requestId: number, evidenceId: number, token?: string): Promise<string> {
+  const result = await verificationRequest<{ url: string }>(
+    `/api/admin/organization-verifications/${requestId}/evidence/${evidenceId}/url`, "GET", "Could not open the document", token,
+  );
+  return result.url;
+}
+
+export async function decideVerification(requestId: number, decision: "approve" | "reject", reason: string | undefined, token?: string): Promise<void> {
+  await verificationRequest<unknown>(
+    `/api/admin/organization-verifications/${requestId}/${decision}`, "POST", "Could not save the decision", token, { reason },
+  );
+}
+
+export async function revokeOrgVerification(orgSlug: string, reason: string, token?: string): Promise<void> {
+  await verificationRequest<unknown>(
+    `/api/admin/organizations/${encodeURIComponent(orgSlug)}/revoke-verification`, "POST", "Could not revoke verification", token, { reason },
+  );
+}

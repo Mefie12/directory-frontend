@@ -51,6 +51,7 @@ export type PlatformPermission =
   | "platform.users.suspend"
   | "platform.users.roles"
   | "platform.organizations.manage"
+  | "platform.organizations.verify"
   | "platform.billing.manage"
   | "platform.audit.view"
   | "platform.diagnostics.view"

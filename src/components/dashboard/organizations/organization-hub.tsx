@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OrganizationVerification } from "@/components/dashboard/organizations/organization-verification";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getOrganization,
@@ -232,6 +233,9 @@ export function OrganizationHub({ slug }: { slug: string }) {
                   await load();
                 }}
               />
+            </div>
+            <div className="mt-4">
+              <OrganizationVerification slug={organization.slug} canRequest={can("organization.verify")} />
             </div>
             {lifecycle && can("organization.archive") && (
               <div className="mt-4">
