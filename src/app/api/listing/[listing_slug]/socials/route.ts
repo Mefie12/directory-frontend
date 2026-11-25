@@ -73,7 +73,7 @@ export async function POST(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.message || 'Failed to create socials' },
+        { ...errorData, error: errorData.message || 'Failed to create socials' },
         { status: response.status }
       );
     }
