@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Bookmark } from "lucide-react";
+import { Star, Bookmark, BadgeCheck } from "lucide-react";
+import type { PublicOrganization } from "@/types/organization";
 import { useBookmark } from "@/context/bookmark-context";
 import { cn, stripHtml } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
@@ -19,6 +20,8 @@ export type Business = {
   slug: string;
   discount?: string;
   reachBadge?: string | null;
+  /** V2 Phase 4.3: verified organization by-line. */
+  organization?: PublicOrganization | null;
 };
 
 type BusinessCardProps = {
@@ -128,6 +131,13 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
         <h3 className="font-semibold text-base line-clamp-2 group-hover:text-[#275782] transition-colors">
           {business.name}
         </h3>
+
+        {business.organization?.verified && (
+          <p className="flex items-center gap-1 text-xs text-gray-500">
+            by <span className="font-medium text-gray-700">{business.organization.name}</span>
+            <BadgeCheck className="h-3.5 w-3.5 text-sky-600" aria-label="Verified organization" />
+          </p>
+        )}
 
         {business.description && (
           <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">

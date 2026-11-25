@@ -18,7 +18,9 @@ import {
   TiktokLogo,
   WhatsappLogo,
   CaretRight, // Added for link-style appearance
+  SealCheck,
 } from "@phosphor-icons/react";
+import type { PublicOrganization } from "@/types/organization";
 
 import { cn } from "@/lib/utils";
 // import { Button } from "@/components/ui/button";
@@ -202,6 +204,7 @@ interface ApiListingData {
   reviews_count?: number | string;
   listing_verified?: boolean;
   is_verified?: boolean;
+  organization?: PublicOrganization | null;
   claim_status?: string;
   images?: (ApiImage | string)[];
   cover?: ApiImage | null;
@@ -244,6 +247,7 @@ interface Provider {
   location?: string;
   country?: string;
   verified?: boolean;
+  organization?: PublicOrganization | null;
   claim_status?: string;
   reviews?: number | string;
   rating: number | string;
@@ -473,6 +477,14 @@ function ProviderHeader({
           )}
           {availability && <AvailabilityBadge availability={availability} />}
         </div>
+        {provider.organization?.verified && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+            by <span className="font-medium text-gray-800">{provider.organization.name}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700" title="This organization has been verified">
+              <SealCheck className="h-3.5 w-3.5" weight="fill" /> Verified organization
+            </span>
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
           <span className="flex items-center gap-1">
             <MapPin className="h-4 w-4" />
@@ -1462,6 +1474,7 @@ export default function UniversalSlugPage({
             verified: !!(
               listingData.listing_verified ?? listingData.is_verified
             ),
+            organization: listingData.organization ?? null,
             claim_status: listingData.claim_status,
             reviews: listingData.reviews_count
               ? listingData.reviews_count.toString()

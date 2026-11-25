@@ -150,6 +150,7 @@ function ListingCard({ item }: { item: ApiListing }) {
         verified,
         slug: item.slug,
         reachBadge: item.reach_badge,
+        organization: item.organization ?? null,
       }}
     />
   );

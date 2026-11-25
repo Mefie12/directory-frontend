@@ -1,5 +1,12 @@
 // V2 Phase 1 organization types (md files/V2-phase1-release-1.4-api-contract.md).
 
+/** V2 Phase 4.3: the public "by <Organization>" summary. Sent only for verified organizations while the backend flag is on. */
+export interface PublicOrganization {
+  name: string;
+  slug: string;
+  verified: boolean;
+}
+
 export type OrgRole = "owner" | "admin" | "editor" | "viewer";
 
 export type OrgPermission =
