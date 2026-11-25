@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authCookieEnabled } from '@/lib/auth-cookie';
+import { clearSessionCookies } from '@/lib/bff/session-cookie';
 
 const API_BASE_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
@@ -18,10 +20,13 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
+      const failure = NextResponse.json(
         { error: errorData.message || 'Failed to fetch user' },
         { status: response.status }
       );
+      // V2 Phase 5.2: an expired or revoked token must not leave a dead cookie behind.
+      if (response.status === 401 && authCookieEnabled()) clearSessionCookies(failure, request);
+      return failure;
     }
 
     const data = await response.json();
