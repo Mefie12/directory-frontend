@@ -61,6 +61,8 @@ export interface ApiListing {
   description?: string;
   created_at?: string;
   listing_verified?: boolean;
+  /** V2 Phase 4.3: present only for a verified organization while the backend flag is on. */
+  organization?: import("@/types/organization").PublicOrganization | null;
   is_verified?: boolean;
   verified?: boolean;
   isVerified?: boolean;
