@@ -55,6 +55,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { usePlatformAccess } from "@/hooks/usePlatformAccess";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -98,6 +99,14 @@ const ROLE_ACTION_TARGETS = {
 export default function Users() {
   const router = useRouter();
   const { user: authUser, loading: authLoading } = useAuth();
+  const { can: canPlatform } = usePlatformAccess();
+
+  // Making an admin, or demoting one, is super-admin-only; the other changes need users.roles.
+  // UI convenience: Laravel enforces both.
+  const canChangeRole = (target: User, action: User["role_transition"]["allowed_actions"][number]) =>
+    action === "make_admin" || target.role === "admin"
+      ? canPlatform("platform.admins.manage")
+      : canPlatform("platform.users.roles");
 
   const [activeTab, setActiveTab] = useQueryState(
     "tab",
@@ -638,7 +647,7 @@ export default function Users() {
                               Suspended
                             </Badge>
                           )}
-                          {u.role_transition?.allowed_actions.length > 0 ? (
+                          {u.role_transition?.allowed_actions.filter((action) => canChangeRole(u, action)).length > 0 ? (
                           <Select
                             disabled={isActionLoading}
                             value=""
@@ -648,7 +657,7 @@ export default function Users() {
                               <span>{roleLabel(u.role)}</span>
                             </SelectTrigger>
                             <SelectContent>
-                              {u.role_transition.allowed_actions.map((action) => (
+                              {u.role_transition.allowed_actions.filter((action) => canChangeRole(u, action)).map((action) => (
                                 <SelectItem
                                   key={action}
                                   value={ROLE_ACTION_TARGETS[action].role}

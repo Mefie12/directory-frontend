@@ -3176,3 +3176,75 @@ export async function getOrganizationBilling(slug: string, token?: string): Prom
     token,
   );
 }
+
+// ============================================================================
+// ADMIN TEAM (V2 Phase 3b.6; super admin changes need `platform.admins.manage`)
+// ============================================================================
+
+export interface PlatformTeamMember {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "listing_agent";
+  platform_role: "super_admin" | "admin" | "listing_agent";
+  is_super_admin: boolean;
+  is_suspended: boolean;
+}
+
+export interface PlatformTeam {
+  members: PlatformTeamMember[];
+  active_super_admins: number;
+  /** True while fewer than two active super admins exist (a warning, never a block). */
+  below_floor: boolean;
+}
+
+async function platformTeamRequest<T>(
+  url: string,
+  method: "GET" | "POST" | "DELETE",
+  fallback: string,
+  token?: string,
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(url, {
+    method,
+    headers: agentAuthHeaders(token),
+    cache: "no-store",
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+      errors?: Record<string, string[]>;
+    };
+    const first = data.errors ? Object.values(data.errors)[0]?.[0] : undefined;
+    throw new ApiRequestError(first || data.message || data.error || fallback, response.status);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function getPlatformTeam(token?: string): Promise<PlatformTeam> {
+  const result = await platformTeamRequest<{ data: PlatformTeam }>(
+    "/api/admin/team",
+    "GET",
+    "Could not load the admin team",
+    token,
+  );
+  return result.data;
+}
+
+/** Grant or revoke super admin. Needs the acting user's own password and a reason. */
+export async function setSuperAdmin(
+  userId: number,
+  grant: boolean,
+  input: { reason: string; password: string },
+  token?: string,
+): Promise<void> {
+  await platformTeamRequest<unknown>(
+    `/api/admin/team/${userId}/superadmin`,
+    grant ? "POST" : "DELETE",
+    grant ? "Could not grant super admin" : "Could not remove super admin",
+    token,
+    input,
+  );
+}

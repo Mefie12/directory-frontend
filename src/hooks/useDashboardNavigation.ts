@@ -2,8 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { normalizeRole, ROLE_BASE_PATH, type UserRole } from "@/lib/roles";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt } from '@phosphor-icons/react';
+import { normalizeRole, ROLE_BASE_PATH, type PlatformPermission, type UserRole } from "@/lib/roles";
+import { usePlatformAccess } from "@/hooks/usePlatformAccess";
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree } from '@phosphor-icons/react';
 import { useOrganizations } from "@/hooks/useOrganizations";
 
 export type { UserRole };
@@ -28,6 +29,8 @@ export interface MenuItem {
   requiresSensitiveReview?: boolean;
   /** Extra capability the user must hold. UI convenience only: the API enforces it. */
   permission?: "manage_billing";
+  /** V2 Phase 3b.6: platform permission the user must hold (from user.platform). UI convenience only. */
+  platformPermission?: PlatformPermission;
   /** V2 Phase 3a.2: shown only while the backend has the manual-plans admin API on. */
   requiresBillingAdmin?: boolean;
 }
@@ -71,6 +74,7 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/listings",
     icon: "/images/icons/listings.svg",
     roles: ["admin"],
+    platformPermission: "platform.listings.moderate",
   },
 
   // ─── Users (Admin) ───
@@ -79,6 +83,16 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/users",
     icon: "/images/icons/users.svg",
     roles: ["admin"],
+    platformPermission: "platform.users.view",
+  },
+
+  // ─── Admin team (Admin, V2 Phase 3b.6) ───
+  {
+    title: "Admin Team",
+    url: "/dashboard/admin-team",
+    icon: UsersThree,
+    roles: ["admin"],
+    platformPermission: "platform.users.view",
   },
 
   // ─── Organizations (Admin, V2 lifecycle) ───
@@ -87,6 +101,7 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/admin-organizations",
     icon: Buildings,
     roles: ["admin"],
+    platformPermission: "platform.organizations.manage",
     requiresLifecycle: true,
   },
 
@@ -114,6 +129,7 @@ const MENU_CONFIG: MenuItem[] = [
     url: "/dashboard/claim",
     icon: Files,
     roles: ["admin"],
+    platformPermission: "platform.claims.review",
   },
   {
     title: "Agent Operations",
@@ -255,6 +271,7 @@ export default function useDashboardNavigation() {
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
   const { enabled: organizationsEnabled, organizations, lifecycle, sensitiveReview } = useOrganizations();
+  const { can: canPlatform } = usePlatformAccess();
 
   const isActive = (path?: string) => !!path && pathname === path;
 
@@ -269,6 +286,7 @@ export default function useDashboardNavigation() {
     if (item.requiresSensitiveReview && !sensitiveReview) return false;
     if (item.requiresBillingAdmin && user?.features?.billing_admin !== true) return false;
     if (item.permission && user?.permissions?.[item.permission] !== true) return false;
+    if (item.platformPermission && !canPlatform(item.platformPermission)) return false;
     if (item.roles.includes(role)) return true;
     return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
   };

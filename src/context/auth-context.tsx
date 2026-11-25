@@ -9,6 +9,7 @@ import {
 } from "react";
 import { installSessionExpiryInterceptor } from "@/lib/session";
 import type { OrganizationMembership } from "@/types/organization";
+import type { PlatformInfo, PlatformPermission } from "@/lib/roles";
 
 interface User {
   id: string;
@@ -28,6 +29,8 @@ interface User {
   permissions?: {
     manage_billing: boolean;
   };
+  /** V2 Phase 3b.6: platform role and the permissions the backend grants right now. Absent from an older backend. */
+  platform?: PlatformInfo;
   /** V2: the user's organizations. Empty unless features.organizations. */
   organizations: OrganizationMembership[];
 }
@@ -116,6 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permissions: {
             manage_billing: raw?.permissions?.manage_billing === true,
           },
+          platform: raw?.platform && Array.isArray(raw.platform.permissions)
+            ? {
+                role: raw.platform.role,
+                permissions: raw.platform.permissions as PlatformPermission[],
+              }
+            : undefined,
         };
 
         setUser(mappedUser);
