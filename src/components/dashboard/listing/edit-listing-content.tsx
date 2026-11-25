@@ -9,8 +9,6 @@ import { StepHeader } from "@/components/dashboard/listing/step-header";
 import { StepNavigation } from "@/components/dashboard/listing/step-navigation";
 import { Button } from "@/components/ui/button";
 import { useListing } from "@/context/listing-form-context";
-import { useOrganizations } from "@/hooks/useOrganizations";
-import { PendingReviewBanner } from "@/components/dashboard/listing/pending-review-banner";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
 import { useRolePath } from "@/hooks/useRolePath";
 import { LISTING_JOURNEYS, ListingType } from "@/lib/listing-form-v2";
@@ -45,7 +43,6 @@ export default function EditListingContent() {
   const { myListings } = useRolePath();
 
   const context = useListing();
-  const { sensitiveReview } = useOrganizations();
   const {
     listingType,
     currentStep,
@@ -503,12 +500,9 @@ export default function EditListingContent() {
     <>
       {listingStatus === "approved" && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-950">
-          {sensitiveReview
-            ? "This listing is published. Most changes go live immediately; changes to the name, category, location or contact email are reviewed first."
-            : "This listing is published. Changes saved here are published immediately."}
+          This listing is published. Changes saved here are published immediately.
         </div>
       )}
-      {sensitiveReview && <PendingReviewBanner listingSlug={listingSlug} isSaving={isSaving} currentStep={currentStep} />}
       <StepHeader
         currentStep={currentStep}
         totalSteps={totalSteps}

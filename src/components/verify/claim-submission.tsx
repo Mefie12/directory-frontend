@@ -24,13 +24,6 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ClaimEligibility, initiateEmailClaim, submitDocumentClaim } from "@/lib/api";
-import { useAuth } from "@/context/auth-context";
-import type { ClaimTargetChoice } from "@/types/organization";
-import {
-  OrganizationChoicePicker,
-  organizationChoiceError,
-  type OrganizationChoice,
-} from "@/components/dashboard/organizations/creation-organization-picker";
 import { ClaimEvidencePicker } from "@/components/claims/claim-evidence-picker";
 
 const getImageUrl = (imageEntry: any): string => {
@@ -67,27 +60,6 @@ export default function ClaimSubmission({
   const [role, setRole] = useState("Owner");
   const [notes, setNotes] = useState("");
 
-  // V2 Phase 1 (spec §6.1, §9.8): which organization an approved claim goes
-  // to. eligible_organizations is only present while organizations are on.
-  const { user } = useAuth();
-  const eligibleOrganizations = eligibility.eligible_organizations;
-  const showTargetChoice = Array.isArray(eligibleOrganizations);
-  const [targetChoice, setTargetChoice] = useState<OrganizationChoice | null>(() =>
-    !eligibleOrganizations
-      ? null
-      : eligibleOrganizations[0]
-        ? { mode: "existing", organizationId: eligibleOrganizations[0].id }
-        : { mode: "new", name: [user?.first_name, user?.last_name].filter(Boolean).join(" "), country: "" },
-  );
-  const [targetError, setTargetError] = useState<string | null>(null);
-
-  const claimTarget = (): ClaimTargetChoice | undefined => {
-    if (!showTargetChoice || !targetChoice) return undefined;
-    return targetChoice.mode === "existing"
-      ? { mode: "existing", organizationId: targetChoice.organizationId }
-      : { mode: "new", name: targetChoice.name, country: targetChoice.country };
-  };
-
   const isRectification = eligibility.claim_type === "rectification";
   const previousEvidence = useMemo(
     () => (eligibility.prior_claims ?? []).flatMap((claim) =>
@@ -104,26 +76,16 @@ export default function ClaimSubmission({
       return;
     }
 
-    if (showTargetChoice) {
-      const problem = organizationChoiceError(targetChoice);
-      setTargetError(problem);
-      if (problem) {
-        toast.error(problem);
-        return;
-      }
-    }
-
     setIsLoading(true);
     try {
       if (method === "email") {
-        await initiateEmailClaim(listingSlug, token, claimTarget());
+        await initiateEmailClaim(listingSlug, token);
         toast.success("Verification code sent!");
         onNext("otp");
       } else {
         await submitDocumentClaim(listingSlug, files, token, {
           role: isRectification ? undefined : role,
           notes: notes || undefined,
-          target: claimTarget(),
         });
         toast.success("Evidence submitted for review.");
         onNext("success");
@@ -301,22 +263,6 @@ export default function ClaimSubmission({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full min-h-[88px] rounded-xl p-4 text-sm focus-visible:ring-[#93C01F] resize-none border-gray-200 placeholder:text-gray-300"
-            />
-          </div>
-        )}
-
-        {/* V2: the organization an approved claim goes to (only while organizations are on) */}
-        {showTargetChoice && eligibleOrganizations && (
-          <div className="mt-6">
-            <OrganizationChoicePicker
-              purpose="claim"
-              organizations={eligibleOrganizations}
-              value={targetChoice}
-              onChange={(choice) => {
-                setTargetChoice(choice);
-                setTargetError(null);
-              }}
-              error={targetError}
             />
           </div>
         )}

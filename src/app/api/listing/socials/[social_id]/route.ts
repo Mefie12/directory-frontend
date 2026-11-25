@@ -27,7 +27,7 @@ export async function PUT(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { ...errorData, error: errorData.message || 'Failed to update socials' },
+        { error: errorData.message || 'Failed to update socials' },
         { status: response.status }
       );
     }

@@ -417,25 +417,6 @@ export default function AdminClaimsPage() {
                   claimants notified. This cannot be undone from this screen.
                 </DialogDescription>
               </DialogHeader>
-              {/* V2: where approval puts the listing (preview; present only while organizations are on) */}
-              {dialog.claim.target_organization && (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                  The listing will be added to{" "}
-                  <span className="font-semibold text-[#1F3A4C]">{dialog.claim.target_organization.name}</span>
-                  {dialog.claim.target_organization.type === "new"
-                    ? " (a new organization, created on approval)"
-                    : ", an existing organization"}
-                  {dialog.claim.target_organization.source === "default" && (
-                    <span className="text-gray-500">. The claimant didn&apos;t choose one, so their default is used</span>
-                  )}
-                  .
-                  {dialog.claim.current_organization && (
-                    <span className="block text-gray-500">
-                      It currently belongs to {dialog.claim.current_organization.name}.
-                    </span>
-                  )}
-                </div>
-              )}
               <DialogFooter>
                 <Button
                   variant="outline"
