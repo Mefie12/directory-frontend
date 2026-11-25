@@ -8,9 +8,6 @@ import {
   ReactNode,
 } from "react";
 import { installSessionExpiryInterceptor } from "@/lib/session";
-import type { OrganizationMembership } from "@/types/organization";
-import { deriveDisplayRole } from "@/lib/roles";
-import type { PlatformInfo, PlatformPermission } from "@/lib/roles";
 
 interface User {
   id: string;
@@ -20,26 +17,10 @@ interface User {
   first_name: string;
   email: string;
   name: string;
-  /**
-   * Display role. V2 Phase 3c: the backend sends the platform role ('user' | 'admin' | 'listing_agent')
-   * and a derived `is_vendor`; this field is 'vendor' for a derived vendor so existing role checks keep working.
-   */
   role: string;
-  /** V2 Phase 3c: derived by the backend from listing ownership / membership. */
-  isVendor: boolean;
   image?: string;
   avatar?: string;
   profile_photo_url?: string;
-  /** V2: backend feature switches (always present from the API; default off). */
-  features: { organizations: boolean; teams: boolean; lifecycle: boolean; sensitive_review: boolean; billing_admin: boolean; org_billing: boolean };
-  // The signed-in user's own capabilities. UI hint only: Laravel enforces them.
-  permissions?: {
-    manage_billing: boolean;
-  };
-  /** V2 Phase 3b.6: platform role and the permissions the backend grants right now. Absent from an older backend. */
-  platform?: PlatformInfo;
-  /** V2: the user's organizations. Empty unless features.organizations. */
-  organizations: OrganizationMembership[];
 }
 
 interface AuthContextType {
@@ -105,34 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUser: User = {
           id: raw?.id || "",
           name: raw?.name || raw?.username || `${raw?.first_name ?? ""} ${raw?.last_name ?? ""}`.trim() || raw?.email?.split("@")[0] || "User",
-          role: deriveDisplayRole(raw?.role || raw?.user_type || "User", raw?.is_vendor === true),
-          isVendor: raw?.is_vendor === true || String(raw?.role ?? "").toLowerCase() === "vendor",
+          role: raw?.role || raw?.user_type || "User",
           image: raw?.image || raw?.avatar || raw?.profile_picture || undefined,
           email: raw?.email || "",
           last_name: raw?.last_name || "",
           first_name: raw?.first_name || "",
           phone: raw?.phone || "",
           country_code: raw?.country_code || "",
-          // V2 Phase 1: the backend decides whether organizations exist, so a
-          // separately deployed frontend can never disagree with it.
-          features: {
-            organizations: raw?.features?.organizations === true,
-            teams: raw?.features?.teams === true,
-            lifecycle: raw?.features?.lifecycle === true,
-            sensitive_review: raw?.features?.sensitive_review === true,
-            billing_admin: raw?.features?.billing_admin === true,
-            org_billing: raw?.features?.org_billing === true,
-          },
-          organizations: Array.isArray(raw?.organizations) ? raw.organizations : [],
-          permissions: {
-            manage_billing: raw?.permissions?.manage_billing === true,
-          },
-          platform: raw?.platform && Array.isArray(raw.platform.permissions)
-            ? {
-                role: raw.platform.role,
-                permissions: raw.platform.permissions as PlatformPermission[],
-              }
-            : undefined,
         };
 
         setUser(mappedUser);

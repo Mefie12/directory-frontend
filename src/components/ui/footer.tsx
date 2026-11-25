@@ -191,7 +191,8 @@ export default function Footer() {
               <li className="flex items-center gap-2">
                 <TiktokLogoIcon className="w-7 h-7" />
                 <Link
-                  href="https://www.tiktok.com/@mefieno1?_r=1&_t=ZN-959ZByDdA2Q"
+                  href="https://www.tiktok.com/@mefieno1?_r=1&_t=ZN-959ZByDdA2Q
+"
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#A3D65C]"

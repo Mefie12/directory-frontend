@@ -5,7 +5,6 @@ import { normalizeRole, ROLE_HOME } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
-import { OrganizationProfilePrompt } from "@/components/dashboard/organizations/organization-profile-prompt";
 
 const VendorHome = dynamic(() => import("@/components/dashboard/home/vendor-home"));
 const CustomerHome = dynamic(() => import("@/components/dashboard/home/customer-home"));
@@ -31,15 +30,7 @@ export default function DashboardHome() {
     );
   }
 
-  if (role === "vendor") {
-    return (
-      <>
-        {/* V2: renders nothing while organizations are off */}
-        <OrganizationProfilePrompt />
-        <VendorHome />
-      </>
-    );
-  }
+  if (role === "vendor") return <VendorHome />;
   if (role === "admin") return <AdminHome />;
   if (role === "customer") return <CustomerHome />;
 
