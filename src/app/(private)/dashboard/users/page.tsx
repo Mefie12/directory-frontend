@@ -72,6 +72,8 @@ interface User {
   phone?: string;
   listings_count: string;
   role: UserRole;
+  /** V2 Phase 3c: derived by the backend from listing ownership / membership. */
+  is_vendor?: boolean;
   plan?: "Basic" | "Premium" | "Pro" | "Enterprise";
   last_active: string;
   status: "Active" | "Pending" | "Suspended" | "Inactive";
@@ -402,8 +404,10 @@ export default function Users() {
       const suspended = isUserSuspended(u);
 
       // 1. Tab Logic
-      if (activeTab === "vendors" && role !== "vendor") return false;
-      if (activeTab === "customers" && !["customer", "user"].includes(role))
+      // V2 Phase 3c: vendor is derived (is_vendor); a legacy stored "vendor" counts only while it owns something.
+      const isVendorRow = typeof u.is_vendor === "boolean" ? u.is_vendor : role === "vendor";
+      if (activeTab === "vendors" && !(isVendorRow && ["customer", "user", "vendor"].includes(role))) return false;
+      if (activeTab === "customers" && (!["customer", "user", "vendor"].includes(role) || isVendorRow))
         return false;
       if (activeTab === "admins" && role !== "admin") return false;
 
@@ -484,6 +488,8 @@ export default function Users() {
   const roleChangeIsAgentRemoval =
     pendingRoleChange?.user.role === "listing_agent";
   const roleChangeRequiresReason = pendingRoleChange !== null;
+  const userRoleLabel = (u: User) =>
+    u.is_vendor && !["admin", "listing_agent"].includes(u.role) ? "Vendor" : roleLabel(u.role);
   const roleLabel = (role: UserRole) =>
     (role === "user" || role === "customer" ? "Customer" : role.replace("_", " "))
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -654,7 +660,7 @@ export default function Users() {
                             onValueChange={(val) => openRoleChangeDialog(u, val)}
                           >
                             <SelectTrigger className="h-8 w-[150px] rounded-full border-gray-300 text-xs shadow-none focus:ring-0">
-                              <span>{roleLabel(u.role)}</span>
+                              <span>{userRoleLabel(u)}</span>
                             </SelectTrigger>
                             <SelectContent>
                               {u.role_transition.allowed_actions.filter((action) => canChangeRole(u, action)).map((action) => (
@@ -668,7 +674,7 @@ export default function Users() {
                             </SelectContent>
                           </Select>
                           ) : (
-                            <Badge variant="outline">{roleLabel(u.role)}</Badge>
+                            <Badge variant="outline">{userRoleLabel(u)}</Badge>
                           )}
                           {u.role_transition?.blockers.map((blocker) => (
                             <p key={blocker} className="max-w-56 text-[10px] leading-4 text-slate-500">

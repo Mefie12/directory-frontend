@@ -19,6 +19,15 @@ export function normalizeRole(role: string): UserRole {
   return "customer";
 }
 
+/**
+ * V2 Phase 3c: "vendor" is derived by the backend (`is_vendor`), not stored. A plain
+ * user who is a vendor gets the vendor view; staff roles are never overridden.
+ * Also keeps working against an older backend that still sends role "vendor".
+ */
+export function deriveDisplayRole(role: string, isVendor: boolean): string {
+  return isVendor && normalizeRole(role) === "customer" ? "vendor" : role;
+}
+
 // ── Platform permissions (V2 Phase 3b.6) ────────────────────────────────────
 // The backend sends the permissions the signed-in user holds right now
 // (user.platform.permissions). Components ask for a permission through

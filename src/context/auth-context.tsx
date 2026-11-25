@@ -9,6 +9,7 @@ import {
 } from "react";
 import { installSessionExpiryInterceptor } from "@/lib/session";
 import type { OrganizationMembership } from "@/types/organization";
+import { deriveDisplayRole } from "@/lib/roles";
 import type { PlatformInfo, PlatformPermission } from "@/lib/roles";
 
 interface User {
@@ -19,7 +20,13 @@ interface User {
   first_name: string;
   email: string;
   name: string;
+  /**
+   * Display role. V2 Phase 3c: the backend sends the platform role ('user' | 'admin' | 'listing_agent')
+   * and a derived `is_vendor`; this field is 'vendor' for a derived vendor so existing role checks keep working.
+   */
   role: string;
+  /** V2 Phase 3c: derived by the backend from listing ownership / membership. */
+  isVendor: boolean;
   image?: string;
   avatar?: string;
   profile_photo_url?: string;
@@ -98,7 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUser: User = {
           id: raw?.id || "",
           name: raw?.name || raw?.username || `${raw?.first_name ?? ""} ${raw?.last_name ?? ""}`.trim() || raw?.email?.split("@")[0] || "User",
-          role: raw?.role || raw?.user_type || "User",
+          role: deriveDisplayRole(raw?.role || raw?.user_type || "User", raw?.is_vendor === true),
+          isVendor: raw?.is_vendor === true || String(raw?.role ?? "").toLowerCase() === "vendor",
           image: raw?.image || raw?.avatar || raw?.profile_picture || undefined,
           email: raw?.email || "",
           last_name: raw?.last_name || "",
