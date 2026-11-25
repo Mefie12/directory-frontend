@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
+import { OrganizationSwitcher } from "@/components/dashboard/organizations/organization-switcher";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -213,6 +214,9 @@ export default function Header() {
               </Badge>
             )}
           </div> */}
+
+          {/* V2: organization switcher (renders nothing while organizations are off) */}
+          <OrganizationSwitcher />
 
           {/* Notifications Dropdown */}
           <div className="flex items-center rounded-full bg-[#E9F0F6] p-2 cursor-pointer relative">
