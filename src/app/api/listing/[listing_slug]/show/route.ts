@@ -11,7 +11,9 @@ export async function GET(
     const authHeader = request.headers.get('Authorization');
 
     const response = await fetch(
-      `${API_BASE_URL}/api/listing/${listing_slug}/show`,
+      // V2 Phase 5.1b: this proxy route only serves the dashboard and listing wizard (the public
+      // page calls Laravel directly), so its requests are managers working, never audience.
+      `${API_BASE_URL}/api/listing/${listing_slug}/show?track=0`,
       {
         method: 'GET',
         headers: {
