@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // V2 Phase 5.4a: the end-to-end runner builds into its own folder so it never clobbers a dev server's .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: {
     root: path.resolve(__dirname),
   },

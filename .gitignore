@@ -15,6 +15,12 @@
 
 # next.js
 /.next/
+/.next-e2e/
+
+# playwright (V2 Phase 5.4a)
+/test-results/
+/playwright-report/
+/e2e/.env.e2e
 /out/
 
 # production
