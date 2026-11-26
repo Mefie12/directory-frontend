@@ -1,54 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { proxyPublicGet } from '@/lib/bff/public-cache';
 
 const API_BASE_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
-// Category taxonomy is governed by Laravel's own versioned CategoryCache
-// service (immediate consistency after a committed mutation) — this BFF
-// layer must never add its own caching on top of that. See
-// md files/V1-category-taxonomy-lifecycle-cache-PRD.md §15.4.
+// Public category taxonomy. V2 Phase 5.3c (owner decision 2026-11-26): anonymous requests may be shared on
+// Vercel's CDN for 60 seconds (+ stale-while-revalidate), which overrides the no-store rule of
+// md files/V1-category-taxonomy-lifecycle-cache-PRD.md §15.4 for this PUBLIC READ route only. Laravel's
+// versioned CategoryCache still gives immediate consistency at the origin, signed-in callers and errors are never
+// shared, and the admin category screens read uncached admin endpoints.
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const authHeader = request.headers.get('Authorization');
-
-    const params = new URLSearchParams();
-    searchParams.forEach((value, key) => params.append(key, value));
-    const queryString = params.toString();
-
-    const response = await fetch(
-      `${API_BASE_URL.replace(/\/$/, "")}/api/categories${queryString ? `?${queryString}` : ""}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(authHeader && { Authorization: authHeader }),
-        },
-        cache: 'no-store',
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: errorData.message || 'Failed to fetch categories' },
-        { status: response.status, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-
-    const data = await response.json();
-
-    return NextResponse.json(data, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store' },
-    });
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch categories' },
-      { status: 500 }
-    );
-  }
+  return proxyPublicGet(request, { path: "categories" });
 }
 
 export async function POST(request: NextRequest) {
