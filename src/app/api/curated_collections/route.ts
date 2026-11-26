@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { proxyPublicGet } from '@/lib/bff/public-cache';
 
 const API_BASE_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://me-fie.co.uk').replace(/\/$/, '');
 
-// Public GET — returns published collections filtered by country
+// Public GET: published collections filtered by country. V2 Phase 5.3c: shared on Vercel's CDN for anonymous
+// requests that name a country (lib/bff/public-cache.ts).
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const backendUrl = new URL(`${API_BASE_URL}/api/curated_collections`);
-    searchParams.forEach((value, key) => backendUrl.searchParams.set(key, value));
-
-    const response = await fetch(backendUrl.toString(), {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-
-    const data = await response.json().catch(() => ({}));
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('curated_collections GET error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+  return proxyPublicGet(request, { path: "curated_collections", countrySensitive: true });
 }
 
-// Admin POST — create a new collection
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
