@@ -85,6 +85,30 @@ check("CSRF: a malformed Origin is rejected", () => {
   assert.equal(lib.csrfAllowed({ ...base, method: "POST", origin: "not a url", referer: null }), false);
 });
 
+// Regression guard (found in 5.3c testing): a file that imports getAuthToken from client-auth must not also
+// declare its own getAuthToken, because the local one shadows the import and recurses forever.
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+function walkSrc(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) walkSrc(path, out);
+    else if (/\.(ts|tsx)$/.test(name)) out.push(path);
+  }
+  return out;
+}
+check("no file shadows the imported getAuthToken with a local definition", () => {
+  const offenders = [];
+  for (const file of walkSrc("src")) {
+    const text = readFileSync(file, "utf8");
+    if (/import\s*\{[^}]*\bgetAuthToken\b(?!\s+as)[^}]*\}\s*from\s*["']@\/lib\/client-auth["']/.test(text)
+      && /\b(const|let|var|function)\s+getAuthToken\b/.test(text)) {
+      offenders.push(file);
+    }
+  }
+  assert.deepEqual(offenders, [], `local getAuthToken shadows the import in: ${offenders.join(", ")}`);
+});
+
 let failed = 0;
 for (const [name, fn] of checks) {
   try {

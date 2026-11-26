@@ -17,7 +17,7 @@ import { Separator } from "./separator";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { MasterCountrySelector } from "./master-country-selector";
-import { getAuthToken } from "@/lib/client-auth";
+import { getAuthToken as readAuthToken } from "@/lib/client-auth";
 
 // --- Interfaces ---
 interface Notification {
@@ -103,7 +103,7 @@ export default function Navbar() {
 
   const getAuthToken = () => {
     if (typeof window !== "undefined") {
-      return getAuthToken();
+      return readAuthToken();
     }
     return null;
   };

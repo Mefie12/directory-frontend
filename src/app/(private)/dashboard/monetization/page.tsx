@@ -57,7 +57,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { getAuthToken } from "@/lib/client-auth";
+import { getAuthToken as readAuthToken } from "@/lib/client-auth";
 
 // --- INTERFACES (Frontend) ---
 
@@ -210,7 +210,7 @@ export default function Monetization() {
 
   // --- Helper: Auth Token ---
   const getAuthToken = useCallback(() => {
-    if (typeof window !== "undefined") return getAuthToken();
+    if (typeof window !== "undefined") return readAuthToken();
     return null;
   }, []);
 
