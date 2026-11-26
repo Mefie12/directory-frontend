@@ -30,6 +30,7 @@ import useDashboardNavigation, {
   type MenuItem,
 } from "@/hooks/useDashboardNavigation";
 import { normalizeRole, ROLE_HOME, type UserRole } from "@/lib/roles";
+import { WorkspaceSwitcher } from "@/components/dashboard/organizations/workspace-switcher";
 
 interface AppSidebarProps {
   role: UserRole;
@@ -130,6 +131,10 @@ export function AppSidebar({ role: initialRole }: AppSidebarProps) {
         </SidebarHeader>
 
         <SidebarContent className="bg-[#1C3C59] -mt-12">
+          {/* V2 workspaces: Personal / organization switcher (renders nothing unless it applies) */}
+          <div className="px-2 pt-2">
+            <WorkspaceSwitcher onNavigate={closeOnMobile} />
+          </div>
           <SidebarGroup className="bg-[#1C3C59]">
             <SidebarGroupContent className="bg-[#1C3C59]">
               <SidebarMenu className="pt-4 space-y-2">

@@ -6,6 +6,9 @@ import { normalizeRole, ROLE_BASE_PATH, type PlatformPermission, type UserRole }
 import { usePlatformAccess } from "@/hooks/usePlatformAccess";
 import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree, SealCheck } from '@phosphor-icons/react';
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { organizationPath } from "@/lib/workspace";
+import type { OrganizationMembership } from "@/types/organization";
 
 export type { UserRole };
 
@@ -35,6 +38,8 @@ export interface MenuItem {
   platformPermission?: PlatformPermission;
   /** V2 Phase 3a.2: shown only while the backend has the manual-plans admin API on. */
   requiresBillingAdmin?: boolean;
+  /** Also highlight the item on its sub pages (e.g. Listings → a listing's detail page). */
+  matchPrefix?: boolean;
 }
 
 const MENU_CONFIG: MenuItem[] = [
@@ -278,12 +283,55 @@ const MENU_CONFIG: MenuItem[] = [
   },
 ];
 
+// ─── V2 workspaces (organizations on, vendor or customer) ───────────────────
+// The sidebar shows one workspace at a time; the URL decides which (lib/workspace.ts).
+
+const PERSONAL_MENU: MenuItem[] = [
+  { title: "Home", url: "/dashboard", icon: "/images/icons/home.svg", roles: ["vendor", "customer"] },
+  { title: "Bookmarks", url: "/dashboard/bookmarks", icon: "/images/icons/bookmark.svg", roles: ["vendor", "customer"] },
+  { title: "My Events", url: "/dashboard/my-events", icon: "/images/icons/d-calendar.svg", roles: ["vendor", "customer"] },
+  { title: "Reviews I wrote", url: "/dashboard/reviews", icon: "/images/icons/review.svg", roles: ["vendor", "customer"] },
+  { title: "My Claims", url: "/dashboard/my-claims", icon: Files, roles: ["vendor", "customer"] },
+  { title: "Organizations", url: "/dashboard/org", icon: Buildings, roles: ["vendor", "customer"] },
+  { title: "Account settings", url: "/dashboard/settings", icon: "/images/icons/setting.svg", roles: ["vendor", "customer"] },
+];
+
+interface OrganizationMenuOptions {
+  slug: string;
+  /** The membership from the auth payload; null for an archived/suspended organization (not in the payload). */
+  membership: OrganizationMembership | null;
+  teams: boolean;
+  orgBilling: boolean;
+}
+
+function organizationMenu({ slug, membership, teams, orgBilling }: OrganizationMenuOptions): MenuItem[] {
+  const holds = (permission: string) => (membership?.permissions as string[] | undefined)?.includes(permission) ?? false;
+  const roles: UserRole[] = ["vendor", "customer"];
+  const items: MenuItem[] = [
+    { title: "Overview", url: organizationPath(slug), icon: "/images/icons/home.svg", roles },
+    { title: "Listings", url: organizationPath(slug, "listings"), icon: "/images/icons/listings.svg", roles, matchPrefix: true },
+    { title: "Reviews", url: organizationPath(slug, "reviews"), icon: "/images/icons/review.svg", roles },
+    { title: "Members", url: organizationPath(slug, "members"), icon: UsersThree, roles },
+  ];
+  if (teams && holds("activity.view")) {
+    items.push({ title: "Activity", url: organizationPath(slug, "activity"), icon: "/images/icons/chart.svg", roles });
+  }
+  if (orgBilling && holds("billing.manage")) {
+    items.push({ title: "Billing", url: organizationPath(slug, "billing"), icon: Receipt, roles });
+  }
+  if (holds("organization.update")) {
+    items.push({ title: "Organization settings", url: organizationPath(slug, "settings"), icon: "/images/icons/setting.svg", roles });
+  }
+  return items;
+}
+
 export default function useDashboardNavigation() {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = normalizeRole(user?.role ?? "customer");
-  const { enabled: organizationsEnabled, organizations, lifecycle, sensitiveReview } = useOrganizations();
+  const { enabled: organizationsEnabled, organizations, lifecycle, sensitiveReview, teams, orgBilling } = useOrganizations();
   const { can: canPlatform } = usePlatformAccess();
+  const { enabled: workspacesEnabled, workspace, organization } = useWorkspace();
 
   const isActive = (path?: string) => !!path && pathname === path;
 
@@ -304,9 +352,15 @@ export default function useDashboardNavigation() {
     return organizationsEnabled && (item.rolesWhenOrganizationsEnabled ?? []).includes(role);
   };
 
+  const workspaceMenu = !workspacesEnabled
+    ? null
+    : workspace.kind === "organization"
+      ? organizationMenu({ slug: workspace.slug, membership: organization, teams, orgBilling })
+      : PERSONAL_MENU;
+
   // Filter items by current role, then filter each dropdown's children by role
   // too, dropping any parent left with no reachable children. URLs are absolute.
-  const items = MENU_CONFIG.filter(visibleTo)
+  const items = (workspaceMenu ?? MENU_CONFIG.filter(visibleTo))
     .map((item) => {
       if (!item.children) return item;
       const children = item.children.filter(visibleTo);
@@ -344,7 +398,11 @@ export default function useDashboardNavigation() {
     items,
     role,
     basePath: ROLE_BASE_PATH,
-    isActive,
+    isActive: (path?: string) => {
+      if (isActive(path)) return true;
+      const item = items.find((candidate) => candidate.url === path);
+      return !!(item?.matchPrefix && path && pathname?.startsWith(`${path}/`));
+    },
     handleCloseSidebar,
   };
 }

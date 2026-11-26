@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getOrganizationBilling, type OrganizationPlan } from "@/lib/api";
 import { formatMoney, formatUtcDate, tierLabel } from "@/components/dashboard/manual-plans/manual-plan-utils";
 import { getAuthToken } from "@/lib/client-auth";
+import { organizationPath } from "@/lib/workspace";
 
 const token = () => getAuthToken() ?? undefined;
 
@@ -74,7 +75,7 @@ export function OrganizationBilling({ slug }: { slug: string }) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
                     {plan.listing.slug ? (
-                      <Link href={`/dashboard/my-listing/${plan.listing.slug}`} className="font-medium text-[#1F3A4C] hover:underline">
+                      <Link href={`${organizationPath(slug, "listings")}/${plan.listing.slug}`} className="font-medium text-[#1F3A4C] hover:underline">
                         {plan.listing.name}
                       </Link>
                     ) : (

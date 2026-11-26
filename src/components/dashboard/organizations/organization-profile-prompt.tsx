@@ -25,7 +25,7 @@ export function OrganizationProfilePrompt() {
     <div className="px-1 pt-3 lg:px-8">
       <ProfileCompletionBanner
         organization={incomplete}
-        onCompleteProfile={() => router.push(`/dashboard/org/${incomplete.slug}?tab=settings`)}
+        onCompleteProfile={() => router.push(`/dashboard/org/${incomplete.slug}/settings`)}
         onDismissed={refresh}
       />
     </div>

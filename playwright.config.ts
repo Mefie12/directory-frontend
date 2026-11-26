@@ -49,5 +49,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], channel, baseURL: COOKIE_URL },
       metadata: { authMode: "cookie" },
     },
+    {
+      name: "workspaces",
+      testMatch: /workspaces\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], channel, baseURL: LEGACY_URL },
+    },
   ],
 });
