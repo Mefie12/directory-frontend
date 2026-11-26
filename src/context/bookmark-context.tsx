@@ -42,7 +42,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/my_bookmarks`, {
+      const response = await fetch(`/api/my_bookmarks`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -156,7 +156,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     try {
       // API: POST /api/listings/{slug}/bookmark/toggle
       const response = await fetch(
-        `${getApiUrl()}/api/listings/${actualSlug}/bookmark/toggle`,
+        `/api/listings/${actualSlug}/bookmark/toggle`,
         {
           method: "POST",
           headers: {
@@ -208,7 +208,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await fetch(
-        `${getApiUrl()}/api/bookmark/${bookmarkId}`,
+        `/api/bookmark/${bookmarkId}`,
         {
           method: "DELETE",
           headers: {

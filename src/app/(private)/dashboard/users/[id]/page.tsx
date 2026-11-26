@@ -369,9 +369,8 @@ export default function UserDetailsPage() {
 
         if (!id) throw new Error("Invalid User ID in URL");
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-        const response = await fetch(`${API_URL}/api/users/${id}`, {
+        const response = await fetch(`/api/users/${id}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,

@@ -1379,7 +1379,8 @@ export default function UniversalSlugPage({
 
       try {
         const listingResponse = await fetch(
-          `${API_URL}/api/listing/${slug}/show`,
+          // V2 Phase 5.1b: the wizard's "Preview as visitor" must not count as a view.
+          `${API_URL}/api/listing/${slug}/show${previewMode ? "?track=0" : ""}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -1615,7 +1616,7 @@ export default function UniversalSlugPage({
     };
 
     fetchData();
-  }, [slug]);
+  }, [slug, previewMode]);
 
   if (loading) {
     return (

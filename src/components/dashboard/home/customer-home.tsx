@@ -223,7 +223,7 @@ export default function CustomerHome() {
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
         const [bookmarksRes, eventsRes] = await Promise.all([
-          fetch(`${API_URL}/api/my_bookmarks`, {
+          fetch(`/api/my_bookmarks`, {
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
