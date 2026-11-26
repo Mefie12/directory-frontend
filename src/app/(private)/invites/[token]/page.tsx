@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/auth-context";
 import { acceptInvite, declineInvite, getInvitePreview, OrganizationApiError } from "@/lib/api";
 import { ORG_ROLE_LABEL, type InvitePreview } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 type View =
   | { kind: "loading" }
@@ -60,7 +61,7 @@ export default function InvitePage() {
   const accept = async () => {
     setBusy(true);
     try {
-      const result = await acceptInvite(token, localStorage.getItem("authToken") ?? undefined);
+      const result = await acceptInvite(token, getAuthToken() ?? undefined);
       toast.success(`You joined ${result.organization.name}.`);
       await refreshUser();
       router.push(`/dashboard/org/${result.organization.slug}`);

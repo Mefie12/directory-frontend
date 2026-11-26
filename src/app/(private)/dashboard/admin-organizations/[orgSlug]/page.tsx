@@ -23,8 +23,9 @@ import {
   unsuspendOrganization,
 } from "@/lib/api";
 import { ORG_ROLE_LABEL, type AdminOrganizationDetail } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 const errorText = (error: unknown) => (error instanceof OrganizationApiError ? error.message : "Something went wrong. Please try again.");
 
 function AdminOrganizationDetailView({ slug }: { slug: string }) {

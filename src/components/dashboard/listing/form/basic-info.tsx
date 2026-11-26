@@ -43,6 +43,7 @@ import {
   PhoneInput,
 } from "react-international-phone";
 import "react-international-phone/style.css";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Validation Schema ---
 export const businessFormSchema = z.object({
@@ -223,7 +224,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       try {
         const created = await createOrganization(
           { name: organizationChoice.name.trim(), country: organizationChoice.country.trim() },
-          localStorage.getItem("authToken") ?? undefined,
+          getAuthToken() ?? undefined,
         );
         setOrganizationChoice({ mode: "existing", organizationId: created.id });
         await refreshOrganizations();
@@ -300,7 +301,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
           setLoading(true);
           setError(null);
 
-          const token = localStorage.getItem("authToken");
+          const token = getAuthToken();
 
           const response = await fetch(`/api/categories`, {
             headers: {
@@ -495,7 +496,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
             : {}),
         };
 
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
 
         try {
           if (!listingSlug && userRole === "listing_agent") {
@@ -606,7 +607,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
       const loadExistingData = async () => {
         if (!listingSlug) return;
         try {
-          const token = localStorage.getItem("authToken");
+          const token = getAuthToken();
           const res = await fetch(`/api/listing/${listingSlug}/show`, {
             headers: {
               Authorization: `Bearer ${token}`,

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { getAuthToken } from "@/lib/client-auth";
 
 type View = "submission" | "otp" | "success";
 
@@ -34,7 +35,7 @@ export default function VerifyBusinessPage() {
 
   useEffect(() => {
     const initializePage = async () => {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!token) { router.push("/auth/login"); return; }
       if (!listingSlug) { toast.error("Invalid listing"); router.push("/claim"); return; }
 

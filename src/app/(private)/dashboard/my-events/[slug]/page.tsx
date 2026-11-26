@@ -36,6 +36,7 @@ import { useAuth } from "@/context/auth-context";
 import { MediaGallery } from "@/components/ux/media-gallery";
 import { HeroCarousel } from "@/components/ux/hero-slide";
 import { ReviewsSection } from "@/components/ux/review-button";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Type Definitions ---
 
@@ -379,7 +380,7 @@ export default function EventSlugPage({ params }: PageProps) {
 
       try {
         // 2. Get Token from LocalStorage
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         const headers: HeadersInit = {
           Accept: "application/json",
           "Content-Type": "application/json",

@@ -5,6 +5,7 @@ import { Archive, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OrganizationApiError, restoreOrganization } from "@/lib/api";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   slug: string;
@@ -26,7 +27,7 @@ export function OrganizationStatusBanner({ slug, status, reason, canRestore, onR
   const restore = async () => {
     setBusy(true);
     try {
-      await restoreOrganization(slug, localStorage.getItem("authToken") ?? undefined);
+      await restoreOrganization(slug, getAuthToken() ?? undefined);
       toast.success("Organization restored.");
       await onRestored();
     } catch (error) {

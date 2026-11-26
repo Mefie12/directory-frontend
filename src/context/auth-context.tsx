@@ -8,6 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { installSessionExpiryInterceptor } from "@/lib/session";
+import { endCookieSession, getAuthToken, isCookieMode, sessionRequest } from "@/lib/client-auth";
+import { COOKIE_SESSION_SENTINEL } from "@/lib/auth-cookie";
 import type { OrganizationMembership } from "@/types/organization";
 import { deriveDisplayRole } from "@/lib/roles";
 import type { PlatformInfo, PlatformPermission } from "@/lib/roles";
@@ -47,8 +49,9 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isUnverified: boolean;
-  login: (token: string) => Promise<void>;
-  logout: () => void;
+  /** Pass the token in legacy mode; call with no argument after a cookie session was started. */
+  login: (token?: string) => Promise<void>;
+  logout: () => void | Promise<void>;
   refetchUser: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -154,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     if (token) {
       await fetchUserProfile(token);
     }
@@ -168,31 +171,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing token on mount
   useEffect(() => {
-    // console.log("🔍 AuthProvider mounting, checking for token...");
-    const token = localStorage.getItem("authToken");
-    // console.log("🔑 Token found:", token ? "yes" : "no");
+    let cancelled = false;
 
-    if (token) {
-      fetchUserProfile(token);
-    } else {
-      // console.log("🔑 No token found, setting loading to false");
-      setLoading(false);
-      setIsAuthenticated(false);
-      setIsUnverified(false);
-    }
+    const bootstrap = async () => {
+      // V2 Phase 5.2c: once the server is in cookie mode, a token left in localStorage by the
+      // old sign-in is dropped, so everyone signs in once more and ends up on the cookie.
+      if (await isCookieMode()) {
+        localStorage.removeItem("authToken");
+      }
+      if (cancelled) return;
+
+      const token = getAuthToken();
+      if (token) {
+        fetchUserProfile(token);
+      } else {
+        setLoading(false);
+        setIsAuthenticated(false);
+        setIsUnverified(false);
+      }
+    };
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const login = async (token: string) => {
-    // console.log("🔑 Login called with token:", token ? "exists" : "missing");
-    localStorage.setItem("authToken", token);
-    // console.log("💾 Token saved to localStorage");
+  const login = async (token?: string) => {
+    if (token && token !== COOKIE_SESSION_SENTINEL) {
+      if (await isCookieMode()) {
+        // A finished token handed to the browser (e.g. the Google redirect) goes into the cookie, never localStorage.
+        const result = await sessionRequest("token", { token });
+        if (result.mode === "cookie" && !result.ok) throw new Error("Could not start your session. Please sign in again.");
+      } else {
+        localStorage.setItem("authToken", token);
+      }
+    }
     setIsAuthenticated(false);
     setIsUnverified(false);
-    await fetchUserProfile(token);
+    const current = getAuthToken();
+    if (current) await fetchUserProfile(current);
   };
 
-  const logout = () => {
-    // console.log("🚪 Logout called");
+  const logout = async () => {
+    if (await isCookieMode()) await endCookieSession();
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
     setUser(null);
@@ -202,8 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refetchUser = () => {
-    // console.log("🔄 refetchUser called");
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     if (token) {
       fetchUserProfile(token);
     } else {

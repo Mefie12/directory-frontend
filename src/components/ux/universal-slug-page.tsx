@@ -50,6 +50,7 @@ import {
   BusinessHoursMode,
   getBusinessAvailability,
 } from "@/lib/directory/business-availability";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- API Interfaces ---
 interface ApiImage {
@@ -885,7 +886,7 @@ function SidebarInfo({
     if (previewMode || !user || !provider.slug) return;
 
     let cancelled = false;
-    const token = localStorage.getItem("authToken") || undefined;
+    const token = getAuthToken() || undefined;
     getClaimEligibility(provider.slug, token)
       .then((data) => {
         if (!cancelled) setEligibility(data);
@@ -1424,7 +1425,7 @@ export default function UniversalSlugPage({
           }
 
           try {
-            const token = localStorage.getItem("authToken");
+            const token = getAuthToken();
             const socialsHeaders: Record<string, string> = {
               Accept: "application/json",
             };

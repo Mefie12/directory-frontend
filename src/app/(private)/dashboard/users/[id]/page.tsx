@@ -52,6 +52,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 interface ActivityItem {
@@ -364,7 +365,7 @@ export default function UserDetailsPage() {
       setError(null);
 
       try {
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         const id = params.id;
 
         if (!id) throw new Error("Invalid User ID in URL");
@@ -418,7 +419,7 @@ export default function UserDetailsPage() {
     setIsDeleting(true);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const response = await fetch(`${API_URL}/api/users/${user.id}`, {

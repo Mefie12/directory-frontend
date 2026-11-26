@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOrganizationBilling, type OrganizationPlan } from "@/lib/api";
 import { formatMoney, formatUtcDate, tierLabel } from "@/components/dashboard/manual-plans/manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 
 const STATE_STYLE: Record<string, { label: string; className: string }> = {
   scheduled: { label: "Starts soon", className: "bg-blue-50 text-blue-700 border-blue-200" },

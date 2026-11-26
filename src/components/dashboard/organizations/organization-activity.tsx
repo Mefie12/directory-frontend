@@ -5,8 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { getOrganizationActivity } from "@/lib/api";
 import { ACTIVITY_LABEL, ORG_ROLE_LABEL, type ActivityEntry, type ActivityPage, type OrgRole } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 
 function describe(entry: ActivityEntry): string {
   const actor = entry.actor?.name ?? "Someone";

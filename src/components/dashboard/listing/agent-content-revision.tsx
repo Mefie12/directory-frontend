@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface AgentContentRevisionProps {
   slug: string;
@@ -70,7 +71,7 @@ export default function AgentContentRevision({
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
     setLoading(true);
     setError(null);
     try {
@@ -117,7 +118,7 @@ export default function AgentContentRevision({
       const updated = await updateListingContentRevision(
         revision,
         proposedChanges,
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       setRevision(updated);
       setForm(formFromRevision(updated));
@@ -139,7 +140,7 @@ export default function AgentContentRevision({
     try {
       const updated = await submitListingContentRevision(
         revision,
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       setRevision(updated);
       toast.success("Revision submitted for moderation.");

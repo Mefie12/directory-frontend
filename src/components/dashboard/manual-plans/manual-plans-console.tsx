@@ -49,6 +49,7 @@ import {
   formatMoney,
   tierLabel,
 } from "./manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 const ALL = "all";
 
@@ -90,7 +91,7 @@ function ConsoleBody() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       setResult(
         await getManualPlans(token, {
           status: status === ALL ? "" : (status as ManualPlanState),

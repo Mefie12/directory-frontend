@@ -54,6 +54,7 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 interface OpeningHour {
@@ -457,7 +458,7 @@ export default function ListingDetailsPage() {
     if (authLoading) return;
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/admin/listings/${slug}`, {
         headers: {
           Accept: "application/json",
@@ -489,7 +490,7 @@ export default function ListingDetailsPage() {
     if (!listing) return;
     setIsUpdatingStatus(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/listing/${listing.slug}/update_status`, {
         method: "PATCH",
         headers: {
@@ -544,7 +545,7 @@ export default function ListingDetailsPage() {
     if (!listing) return;
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/listing/${listing.slug}`, {
         method: "DELETE",
         headers: {
@@ -571,7 +572,7 @@ export default function ListingDetailsPage() {
     if (!listing || !archiveReason.trim()) return;
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const response = await fetch(`/api/admin/listings/${listing.slug}/restore`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
@@ -597,7 +598,7 @@ export default function ListingDetailsPage() {
     setIsVerifying(true);
     setIsVerified(value);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/listing/${listing.slug}/verify_listing`, {
         method: "PUT",
         headers: {

@@ -13,6 +13,7 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { getAdminOrganizations } from "@/lib/api";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { AdminOrganizationPage } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-green-100 text-green-800",
@@ -34,7 +35,7 @@ function AdminOrganizationsList() {
     let cancelled = false;
     getAdminOrganizations(
       { search: debounced || undefined, status: status === "all" ? undefined : status, page },
-      localStorage.getItem("authToken") ?? undefined,
+      getAuthToken() ?? undefined,
     )
       .then((data) => {
         if (cancelled) return;

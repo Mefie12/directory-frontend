@@ -70,6 +70,7 @@ import { ListingImageGallery } from "@/components/dashboard/listing/listing-imag
 import { TicketTypeEditor } from "@/components/dashboard/listing/form/ticket-type-editor";
 import { VendorBillingCard } from "@/components/dashboard/manual-plans/vendor-billing-card";
 import { formatEventDateRange, formatEventTimeRange } from "@/lib/directory/event-formatting";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 
@@ -446,7 +447,7 @@ export default function ListingDetailPage({ params }: PageProps) {
   const fetchListing = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const res = await fetch(`/api/listing/${slug}/show`, {
         headers: {
@@ -642,7 +643,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
     setIsSubmittingReply(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/rating/${ratingSlug}/reply`, {
         method: "POST",
         headers: {
@@ -684,7 +685,7 @@ export default function ListingDetailPage({ params }: PageProps) {
 
   const fetchServices = useCallback(async () => {
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const res = await fetch(`/api/listings/${slug}/services`, {
         headers: {
@@ -735,7 +736,7 @@ export default function ListingDetailPage({ params }: PageProps) {
   // Uploads a File to S3 via the presigned-URL flow and returns the S3 key.
   const uploadServiceImage = useCallback(
     async (file: File): Promise<string | null> => {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const presignRes = await fetch(`/api/listings/${slug}/services/presign`, {
         method: "POST",
         headers: {
@@ -806,7 +807,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
     setIsSubmittingServices(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       for (const row of validRows) {
         const imageKey = row.imageFile
           ? await uploadServiceImage(row.imageFile)
@@ -867,7 +868,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     }
     setIsSavingEdit(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const payload: Record<string, unknown> = {
         name: editData.name.trim(),
         description: editData.description,
@@ -909,7 +910,7 @@ export default function ListingDetailPage({ params }: PageProps) {
     setDeletingServiceSlug(serviceSlug);
     setIsDeletingService(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/services/${serviceSlug}`, {
         method: "DELETE",
         headers: {
@@ -933,7 +934,7 @@ export default function ListingDetailPage({ params }: PageProps) {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const res = await fetch(`/api/listing/${slug}`, {
         method: "DELETE",

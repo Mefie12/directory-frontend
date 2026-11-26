@@ -40,9 +40,10 @@ import {
   type OrgPermission,
   type OrgRole,
 } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 const ROLES: OrgRole[] = ["owner", "admin", "editor", "viewer"];
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 const message = (error: unknown) => (error instanceof OrganizationApiError ? error.message : "Something went wrong. Please try again.");
 
 interface Props {

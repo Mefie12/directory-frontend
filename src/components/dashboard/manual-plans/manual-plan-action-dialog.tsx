@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { STATE_META, tierLabel } from "./manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 type ActionMode = "revoke" | "review";
 
@@ -74,7 +75,7 @@ export function ManualPlanActionDialog({ mode, plan, open, onOpenChange, onDone 
       return;
     }
 
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
     setSubmitting(true);
     setServerError(null);
 

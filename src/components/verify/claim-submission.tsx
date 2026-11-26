@@ -32,6 +32,7 @@ import {
   type OrganizationChoice,
 } from "@/components/dashboard/organizations/creation-organization-picker";
 import { ClaimEvidencePicker } from "@/components/claims/claim-evidence-picker";
+import { getAuthToken } from "@/lib/client-auth";
 
 const getImageUrl = (imageEntry: any): string => {
   if (!imageEntry) return "/images/no-image.jpg";
@@ -97,7 +98,7 @@ export default function ClaimSubmission({
   );
 
   const handleSubmit = async () => {
-    const token = localStorage.getItem("authToken") || undefined;
+    const token = getAuthToken() || undefined;
 
     if (method === "document" && files.length === 0) {
       toast.error("Please upload at least one document to proceed.");

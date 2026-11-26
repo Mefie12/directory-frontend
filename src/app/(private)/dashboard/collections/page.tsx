@@ -50,6 +50,7 @@ import type {
   CuratedCollectionItem,
   ListingSearchResult,
 } from "@/types/curated-collections";
+import { getAuthToken } from "@/lib/client-auth";
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ const EMPTY_FORM: CollectionFormData = {
 
 export default function CollectionsPage() {
   const { user } = useAuth();
-  const token = typeof window !== "undefined" ? localStorage.getItem("authToken") ?? "" : "";
+  const token = typeof window !== "undefined" ? getAuthToken() ?? "" : "";
 
   const [collections, setCollections] = useState<CuratedCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -260,7 +261,7 @@ export default function CollectionsPage() {
   // ─── Toggle published ───────────────────────────────────────────────────
 
   async function handleTogglePublished(collection: CuratedCollection) {
-    const token = localStorage.getItem("authToken") ?? "";
+    const token = getAuthToken() ?? "";
     try {
       const res = await fetch(`/api/curated_collections/${collection.id}`, {
         method: "PUT",

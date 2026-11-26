@@ -8,6 +8,7 @@ import TestimonialCard from "./testimonial";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 
@@ -141,7 +142,7 @@ export default function TestimonialCarousel() {
     const fetchRatings = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 

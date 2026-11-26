@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getAuthToken } from "@/lib/client-auth";
 
 const STATUS_COPY: Record<OrgVerificationStatus, { label: string; help: string }> = {
   unverified: { label: "Not verified", help: "Send a registration document or similar proof and our team will review it." },
@@ -43,7 +44,7 @@ export function OrganizationVerification({ slug, canRequest }: Props) {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const token = () => localStorage.getItem("authToken") ?? undefined;
+  const token = () => getAuthToken() ?? undefined;
 
   const load = useCallback(async () => {
     setLoading(true);

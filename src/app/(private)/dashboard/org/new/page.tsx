@@ -6,6 +6,7 @@ import { OrganizationsGate } from "@/components/dashboard/organizations/organiza
 import { OrganizationForm } from "@/components/dashboard/organizations/organization-form";
 import { createOrganization } from "@/lib/api";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { getAuthToken } from "@/lib/client-auth";
 
 export default function NewOrganizationPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function NewOrganizationPage() {
             submitLabel="Create organization"
             onCancel={() => router.back()}
             onSubmit={async (values) => {
-              const token = localStorage.getItem("authToken") ?? undefined;
+              const token = getAuthToken() ?? undefined;
               const organization = await createOrganization(
                 { name: values.name, country: values.country, entity_kind: values.entity_kind },
                 token,

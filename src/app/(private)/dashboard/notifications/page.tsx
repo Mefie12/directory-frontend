@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface NotificationItem { id: string; title: string; message: string; link: string | null; read_at: string | null; created_at: string; }
 
@@ -11,7 +12,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const token = () => localStorage.getItem("authToken");
+  const token = () => getAuthToken();
 
   useEffect(() => {
     fetch("/api/notifications", { headers: { Accept: "application/json", Authorization: `Bearer ${token()}` }, cache: "no-store" })

@@ -36,6 +36,7 @@ import {
 } from "@/lib/api";
 import { parseMapboxAddress } from "@/lib/directory/utils";
 import { detectedTimezone, timezoneOptions } from "@/lib/directory/timezones";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -114,7 +115,7 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
 
     useEffect(() => {
       if (!listingSlug) return;
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       fetch(`/api/listing/${listingSlug}/show`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -296,7 +297,7 @@ export const ListingExperienceForm = forwardRef<ListingFormHandle, Props>(
                   latitude: showLocation ? coordinates.lat : null,
                   longitude: showLocation ? coordinates.lng : null,
                 },
-            localStorage.getItem("authToken") ?? undefined,
+            getAuthToken() ?? undefined,
           );
           setErrors({});
           toast.success("Step saved");

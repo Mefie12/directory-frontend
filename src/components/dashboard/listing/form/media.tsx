@@ -18,6 +18,7 @@ import { getListingManagement } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   listingType: "business" | "event" | "community";
@@ -304,7 +305,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
     // to today's limits if the request fails, so the form always stays usable.
     useEffect(() => {
       let cancelled = false;
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       getListingManagement(listingSlug, token)
         .then((data) => {
           if (cancelled || !data.media_limits) return;
@@ -374,7 +375,7 @@ export const MediaUploadStep = forwardRef<ListingFormHandle, Props>(
         activeSave.current = controller;
         setIsUploading(true);
         lastRenderedPercent.current = -1;
-        const token = localStorage.getItem("authToken") || undefined;
+        const token = getAuthToken() || undefined;
 
         const showSaveToast = (progress: MediaSaveProgress | null) =>
           toast(

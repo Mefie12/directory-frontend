@@ -47,6 +47,7 @@ import { useAuth } from "@/context/auth-context";
 import { RoleGuard } from "@/components/dashboard/role-guard";
 import { toast } from "sonner";
 import type { AdminCategory } from "@/types/category";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface CategoryFormData {
   name: string;
@@ -72,7 +73,7 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
 // --- API ---
 const categoryApi = {
   list: async (): Promise<AdminCategory[]> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch("/api/admin/categories", {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       cache: "no-store",
@@ -83,7 +84,7 @@ const categoryApi = {
   },
 
   create: async (formData: CategoryFormData, type: "mainCategory" | "subCategory"): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const body = new FormData();
     body.append("name", formData.name);
     body.append("type", type);
@@ -100,7 +101,7 @@ const categoryApi = {
   },
 
   update: async (slug: string, formData: CategoryFormData, isMainCategory: boolean): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const body = new FormData();
     body.append("name", formData.name);
     if (formData.description) body.append("description", formData.description);
@@ -115,7 +116,7 @@ const categoryApi = {
   },
 
   delete: async (slug: string): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/categories/${slug}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -124,7 +125,7 @@ const categoryApi = {
   },
 
   archive: async (slug: string): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/categories/${slug}/archive`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
@@ -133,7 +134,7 @@ const categoryApi = {
   },
 
   merge: async (slug: string, replacementCategoryId: number): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/categories/${slug}/merge`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

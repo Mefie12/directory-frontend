@@ -15,6 +15,7 @@ import {
 import StatCard from "@/components/dashboard/stat-cards";
 import { Chart } from "@/components/dashboard/bar-chart";
 import { useAuth } from "@/context/auth-context";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface ApiListing {
   slug: string;
@@ -36,7 +37,7 @@ export default function Analytics() {
   const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!token) return;
 
 

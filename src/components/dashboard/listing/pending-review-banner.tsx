@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getPendingReview, OrganizationApiError, withdrawPendingReview } from "@/lib/api";
 import { SENSITIVE_FIELD_LABEL, type PendingReview, type PendingReviewField } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 function show(field: PendingReviewField, side: "current" | "proposed"): string {
   const labels = side === "current" ? field.current_labels : field.proposed_labels;
@@ -33,7 +34,7 @@ export function PendingReviewBanner({ listingSlug, isSaving, currentStep }: Prop
   useEffect(() => {
     if (!listingSlug || isSaving) return;
     let cancelled = false;
-    getPendingReview(listingSlug, localStorage.getItem("authToken") ?? undefined)
+    getPendingReview(listingSlug, getAuthToken() ?? undefined)
       .then((result) => !cancelled && setReview(result))
       .catch(() => !cancelled && setReview(null));
     return () => {
@@ -48,7 +49,7 @@ export function PendingReviewBanner({ listingSlug, isSaving, currentStep }: Prop
   const withdraw = async () => {
     setBusy(true);
     try {
-      await withdrawPendingReview(listingSlug, localStorage.getItem("authToken") ?? undefined);
+      await withdrawPendingReview(listingSlug, getAuthToken() ?? undefined);
       setReview(null);
       toast.success("Your pending change was withdrawn.");
     } catch (error) {

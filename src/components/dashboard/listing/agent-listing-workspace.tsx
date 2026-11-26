@@ -34,6 +34,7 @@ import {
   presignListingServiceImage,
   updateListingService,
 } from "@/lib/api";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface AgentListingWorkspaceProps { slug: string }
 type WorkspaceTab = "details" | "services" | "reviews" | "operations";
@@ -76,7 +77,7 @@ export default function AgentListingWorkspace({ slug }: AgentListingWorkspacePro
   const loadListing = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      setListing(await getListingManagement(slug, localStorage.getItem("authToken") ?? undefined));
+      setListing(await getListingManagement(slug, getAuthToken() ?? undefined));
     } catch (loadError) {
       setError(message(loadError, "Could not load listing workspace"));
     } finally { setLoading(false); }
@@ -208,7 +209,7 @@ function ServicesPanel({ listing }: { listing: ListingManagementData }) {
   const [services, setServices] = useState<ListingService[]>(listing.services ?? []);
   const [open, setOpen] = useState(false); const [editing, setEditing] = useState<ListingService | null>(null);
   const [name, setName] = useState(""); const [description, setDescription] = useState(""); const [image, setImage] = useState<File | null>(null); const [saving, setSaving] = useState(false);
-  const token = () => localStorage.getItem("authToken") ?? undefined;
+  const token = () => getAuthToken() ?? undefined;
   function begin(service?: ListingService) { setEditing(service ?? null); setName(service?.name ?? ""); setDescription(service?.description ?? ""); setImage(null); setOpen(true); }
   async function save(event: FormEvent) { event.preventDefault(); setSaving(true); try { const imageKey = image ? await presignListingServiceImage(listing.slug, image, token()) : undefined; const data = { name: name.trim(), description: description.trim() || undefined, image_key: imageKey }; const saved = editing ? await updateListingService(editing.slug, data, token()) : await createListingService(listing.slug, data, token()); setServices((current) => editing ? current.map((item) => item.slug === saved.slug ? saved : item) : [...current, saved]); setOpen(false); toast.success(editing ? "Service updated" : "Service added"); } catch (saveError) { toast.error(message(saveError, "Could not save service")); } finally { setSaving(false); } }
   async function remove(service: ListingService) { if (!window.confirm(`Delete ${service.name}?`)) return; try { await deleteListingService(service.slug, token()); setServices((current) => current.filter((item) => item.slug !== service.slug)); toast.success("Service deleted"); } catch (deleteError) { toast.error(message(deleteError, "Could not delete service")); } }
@@ -228,7 +229,7 @@ function ReviewsPanel({ slug }: { slug: string }) {
 function OperationsPanel({ slug, canEdit }: { slug: string; canEdit: boolean }) {
   const [sources, setSources] = useState<ListingSource[]>([]); const [notes, setNotes] = useState<ListingInternalNote[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
   const [sourceUrl, setSourceUrl] = useState(""); const [sourceType, setSourceType] = useState<ListingSource["source_type"]>("official_website"); const [sourcePrimary, setSourcePrimary] = useState(false); const [noteBody, setNoteBody] = useState(""); const [saving, setSaving] = useState(false);
-  const token = () => localStorage.getItem("authToken") ?? undefined;
+  const token = () => getAuthToken() ?? undefined;
   const load = useCallback(async () => { setLoading(true); setError(null); try { const [sourceData, noteData] = await Promise.all([getListingSources(slug, token()), getListingInternalNotes(slug, token())]); setSources(sourceData); setNotes(noteData); } catch (loadError) { setError(message(loadError, "Could not load private operations")); } finally { setLoading(false); } }, [slug]);
   useEffect(() => { void load(); }, [load]);
   async function submitSource(event: FormEvent) { event.preventDefault(); setSaving(true); try { const source = await createListingSource(slug, { url: sourceUrl, source_type: sourceType, is_primary: sourcePrimary }, token()); setSources((current) => [...current, source]); setSourceUrl(""); setSourcePrimary(false); toast.success("Source added"); } catch (saveError) { toast.error(message(saveError, "Could not add source")); } finally { setSaving(false); } }

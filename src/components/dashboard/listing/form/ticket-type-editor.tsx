@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash, Plus } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface TicketType {
   id: number;
@@ -35,7 +36,7 @@ export interface TicketTypeEditorHandle {
 const EMPTY_ROW = { name: "", description: "", price: "" };
 
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("authToken");
+  const token = getAuthToken();
   return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" };
 }
 

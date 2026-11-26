@@ -32,6 +32,7 @@ import {
   ListingDirtyGuard,
   useBeforeUnloadWhenDirty,
 } from "@/components/dashboard/listing/listing-dirty-guard";
+import { getAuthToken } from "@/lib/client-auth";
 
 const EDIT_STORAGE_KEY = "listing-edit-step";
 
@@ -103,7 +104,7 @@ export default function EditListingContent() {
       try {
         setIsFetching(true);
         setLoadError(null);
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         const data = await getEditableListing(slug, token ?? undefined);
         const canonicalType: ListingType = data.type;
         setListingType(canonicalType);
@@ -324,7 +325,7 @@ export default function EditListingContent() {
             listingSlug,
             step.key,
             "complete",
-            localStorage.getItem("authToken") ?? undefined,
+            getAuthToken() ?? undefined,
           ).catch(() => undefined);
         }
         setCurrentStep(currentStep + 1);
@@ -369,7 +370,7 @@ export default function EditListingContent() {
         listingSlug,
         step.key,
         "optional",
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       setCurrentStep(currentStep + 1);
     } catch {
@@ -630,7 +631,7 @@ export default function EditListingContent() {
                 listingSlug,
                 step.key,
                 "optional",
-                localStorage.getItem("authToken") ?? undefined,
+                getAuthToken() ?? undefined,
               );
               if (next !== null) setCurrentStep(next);
             } catch {

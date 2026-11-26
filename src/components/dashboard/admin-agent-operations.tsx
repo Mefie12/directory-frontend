@@ -50,6 +50,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { getAuthToken } from "@/lib/client-auth";
 
 export type AgentOperationsView = "stewardship" | "revisions" | "duplicates";
 
@@ -148,7 +149,7 @@ export default function AdminAgentOperations({ view }: Props) {
   }, [query, replaceQuery, searchInput]);
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
     setLoading(true);
     setError(null);
     try {
@@ -227,7 +228,7 @@ export default function AdminAgentOperations({ view }: Props) {
         pending.listingSlug,
         pending.agent.id,
         pending.operation === "reassign",
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       toast.success(
         pending.operation === "reassign"
@@ -263,7 +264,7 @@ export default function AdminAgentOperations({ view }: Props) {
         revision,
         decision,
         reason,
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       toast.success("Revision decision recorded.");
       await load();
@@ -289,7 +290,7 @@ export default function AdminAgentOperations({ view }: Props) {
         assessment.assessment_id,
         resolution,
         reason,
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       toast.success("Duplicate assessment resolved.");
       await load();

@@ -60,6 +60,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { getAuthToken } from "@/lib/client-auth";
 
 type UserRole = "vendor" | "customer" | "user" | "admin" | "listing_agent";
 
@@ -162,7 +163,7 @@ export default function Users() {
 
   const getAuthToken = useCallback((): string | null => {
     return typeof window !== "undefined"
-      ? localStorage.getItem("authToken")
+      ? getAuthToken()
       : null;
   }, []);
 

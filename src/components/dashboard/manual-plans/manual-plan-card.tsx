@@ -21,6 +21,7 @@ import {
   isLivePlan,
   tierLabel,
 } from "./manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   slug: string;
@@ -53,7 +54,7 @@ export function ManualPlanCard({ slug, listingName, fallbackPlan }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       setDetail(await getListingManualPlan(slug, token));
     } catch (e) {
       setError(e instanceof ApiRequestError ? e.message : "Could not load this listing's plan.");

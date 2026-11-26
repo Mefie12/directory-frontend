@@ -20,6 +20,7 @@ import { z } from "zod";
 import { getPhoneValidationError, normalizePhone, normalizePhoneInput } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { AuthDivider, GoogleSignIn } from "@/components/auth/google-auth-button";
+import { getAuthToken, sessionRequest } from "@/lib/client-auth";
 
 const signupSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -145,22 +146,29 @@ function SignupForm() {
     };
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const response = await fetch(`${API_URL}/api/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      // V2 Phase 5.2c: cookie mode registers through the proxy and starts the httpOnly session.
+      const session = await sessionRequest("register", payload);
+      if (session.mode === "cookie") {
+        if (!session.ok) throw new Error((session.data.message as string) || "Registration failed.");
+        if (session.data.session === "cookie") await login();
+      } else {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+        const response = await fetch(`${API_URL}/api/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Registration failed.");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Registration failed.");
 
-      const token = data.token || data.access_token || data.data?.token;
-      if (token) {
-        await login(token);
+        const token = data.token || data.access_token || data.data?.token;
+        if (token) {
+          await login(token);
+        }
       }
 
       toast.success("Registration Successful!", {
@@ -180,25 +188,36 @@ function SignupForm() {
     setIsLoading(true);
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const storedToken = localStorage.getItem("authToken");
+      const storedToken = getAuthToken();
 
-      const res = await fetch(`${API_URL}/api/verify_email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(storedToken && { Authorization: `Bearer ${storedToken}` }),
-        },
-        body: JSON.stringify({ email: formData.email, otp }),
-      });
+      const session = await sessionRequest("verify", { email: formData.email, otp });
+      let data: Record<string, any>;
+      let newToken: string | undefined;
+      let cookieSession = false;
 
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Invalid OTP code provided.");
+      if (session.mode === "cookie") {
+        if (!session.ok) throw new Error((session.data.message as string) || "Invalid OTP code provided.");
+        data = session.data;
+        cookieSession = data.session === "cookie";
+      } else {
+        const res = await fetch(`${API_URL}/api/verify_email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...(storedToken && { Authorization: `Bearer ${storedToken}` }),
+          },
+          body: JSON.stringify({ email: formData.email, otp }),
+        });
 
-      const newToken = data.token || data.access_token || data.data?.token;
+        data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "Invalid OTP code provided.");
 
-      if (newToken) {
+        newToken = data.token || data.access_token || data.data?.token;
+      }
+
+      if (newToken || cookieSession) {
         await login(newToken);
 
         // Redirect to the original page user was trying to access, or dashboard bookmarks for customers

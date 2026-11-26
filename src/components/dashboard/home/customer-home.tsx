@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { InviteFriendModal } from "@/components/dashboard/invite-friend-modal";
 import { ListingCoverMedia } from "@/components/directory/listing-cover-media";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 interface ListingItem {
@@ -216,7 +217,7 @@ export default function CustomerHome() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         if (!token) return;
 
         const API_URL =

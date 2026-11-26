@@ -42,6 +42,7 @@ import { toast } from "sonner";
 // Components from your library
 import { HeroCarousel } from "@/components/ux/hero-slide";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 interface ApiImage {
@@ -160,7 +161,7 @@ export default function ClaimListingDetailPage() {
       try {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
 
         const response = await fetch(
           `${API_URL}/api/listing/${listingId}/show`,
