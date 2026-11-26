@@ -43,6 +43,7 @@ import {
 // Phone Input Imports
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Components (TabNav, Cards, Inputs, Buttons) ---
 
@@ -323,7 +324,7 @@ export default function Settings() {
   const handleUpdateProfile = async () => {
     setIsUpdatingProfile(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const body = new FormData();
       body.append("first_name", firstName);
@@ -369,7 +370,7 @@ export default function Settings() {
 
     setIsChangingPassword(true);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       await changePassword(
         {
           currentPassword: passwordData.currentPassword,
@@ -405,7 +406,7 @@ export default function Settings() {
   //   setIsJoiningVendor(true);
   //   try {
   //     const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-  //     const token = localStorage.getItem("authToken");
+  //     const token = getAuthToken();
 
   //     const headers = {
   //       "Content-Type": "application/json",
@@ -444,7 +445,7 @@ export default function Settings() {
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const headers = {
         "Content-Type": "application/json",

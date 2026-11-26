@@ -13,8 +13,9 @@ import { OrganizationsGate } from "@/components/dashboard/organizations/organiza
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { decideSensitiveReview, getSensitiveReviews, OrganizationApiError } from "@/lib/api";
 import { SENSITIVE_FIELD_LABEL, type PendingReviewField, type SensitiveReviewItem, type SensitiveReviewPage } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 
 function show(field: PendingReviewField, side: "current" | "proposed"): string {
   const labels = side === "current" ? field.current_labels : field.proposed_labels;

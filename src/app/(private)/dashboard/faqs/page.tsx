@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/client-auth";
 
 // ── Types ──
 interface FAQ {
@@ -83,7 +84,7 @@ const EMPTY_ROW: FAQRow = { question: "", answer: "", order: "" };
 // ── API ──
 const faqApi = {
   getFaqs: async (): Promise<FAQ[]> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/admin/faqs?limit=100`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -98,7 +99,7 @@ const faqApi = {
   createFaq: async (
     body: FAQFormData & { sort_order?: number },
   ): Promise<FAQ> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch("/api/admin/faqs", {
       method: "POST",
       headers: {
@@ -121,7 +122,7 @@ const faqApi = {
     key: string,
     body: FAQFormData & { sort_order?: number },
   ): Promise<FAQ> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/admin/faqs/${key}`, {
       method: "PUT",
       headers: {
@@ -141,7 +142,7 @@ const faqApi = {
 
   // Dedicated endpoint that flips visibility server-side (no body).
   toggleStatus: async (key: string): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/admin/faqs/${key}/toggle-status`, {
       method: "PATCH",
       headers: {
@@ -157,7 +158,7 @@ const faqApi = {
   },
 
   deleteFaq: async (key: string): Promise<void> => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const response = await fetch(`/api/admin/faqs/${key}`, {
       method: "DELETE",
       headers: {

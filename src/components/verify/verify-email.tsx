@@ -6,6 +6,7 @@ import { Mail, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/client-auth";
 
 export default function VerifyEmail({ business, onNext }: any) {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +16,7 @@ export default function VerifyEmail({ business, onNext }: any) {
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const response = await fetch(`${API_URL}/api/verify_user`, {
         method: "POST",

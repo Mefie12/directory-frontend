@@ -30,6 +30,7 @@ import {
   ListingDirtyGuard,
   useBeforeUnloadWhenDirty,
 } from "@/components/dashboard/listing/listing-dirty-guard";
+import { getAuthToken } from "@/lib/client-auth";
 
 const STORAGE_KEY = "listing-form-draft";
 
@@ -100,7 +101,7 @@ export default function ListingContent() {
       } catch {
         /* ignore parse errors */
       }
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       fetch(`/api/listing/${slug}/show`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -180,7 +181,7 @@ export default function ListingContent() {
             effectiveSlug,
             step.key,
             "complete",
-            localStorage.getItem("authToken") ?? undefined,
+            getAuthToken() ?? undefined,
           ).catch(() => undefined);
           setStepStates((states) => ({ ...states, [step.key]: "complete" }));
         }
@@ -215,7 +216,7 @@ export default function ListingContent() {
             listingSlug,
             step.key,
             "complete",
-            localStorage.getItem("authToken") ?? undefined,
+            getAuthToken() ?? undefined,
           ).catch(() => undefined);
         setDirty(false);
         toast.success("Draft saved");
@@ -250,7 +251,7 @@ export default function ListingContent() {
         listingSlug,
         step.key,
         "optional",
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
       );
       setStepStates((states) => ({ ...states, [step.key]: "optional" }));
       setCurrentStep(currentStep + 1);
@@ -478,7 +479,7 @@ export default function ListingContent() {
                 listingSlug,
                 step.key,
                 "optional",
-                localStorage.getItem("authToken") ?? undefined,
+                getAuthToken() ?? undefined,
               );
               setStepStates((states) => ({
                 ...states,

@@ -62,6 +62,7 @@ import { useAuth } from "@/context/auth-context";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { RichTextDisplay } from "@/components/ui/rich-text-editor";
 import { ListingReadiness } from "@/lib/listing-form-v2";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 type TabType = "all" | "approved" | "pending" | "draft" | "suspended" | "rejected" | "archived";
@@ -400,7 +401,7 @@ export default function Listings() {
     setError(null);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -562,7 +563,7 @@ export default function Listings() {
   const openPreview = async (item: Listing) => {
     setSelectedListing(item);
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const res = await fetch(`/api/listing/${item.slug}/show`, {
         headers: {
           Accept: "application/json",

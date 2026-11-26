@@ -11,6 +11,7 @@ import {
 import { RoleGuard } from "@/components/dashboard/role-guard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getAuthToken } from "@/lib/client-auth";
 
 export default function AgentOwnedListings() {
   const [listings, setListings] = useState<GrandfatheredOwnedListing[]>([]);
@@ -21,7 +22,7 @@ export default function AgentOwnedListings() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       const response = await getGrandfatheredOwnedListings(token);
       setListings(response.data);
     } catch (loadError) {

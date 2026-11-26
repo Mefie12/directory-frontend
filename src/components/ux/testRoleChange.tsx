@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { getAuthToken } from "@/lib/client-auth";
 
 export function TestRoleChange() {
   const { user, refetchUser } = useAuth();
@@ -17,7 +18,7 @@ export function TestRoleChange() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({ role: newRole }),
       });

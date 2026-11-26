@@ -37,6 +37,7 @@ import {
   Area,
 } from "recharts";
 import { useAuth } from "@/context/auth-context";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- FRONTEND INTERFACES ---
 
@@ -125,7 +126,7 @@ export default function AdminHome() {
 
   // --- Helper: Auth Token ---
   const getAuthToken = useCallback(() => {
-    if (typeof window !== "undefined") return localStorage.getItem("authToken");
+    if (typeof window !== "undefined") return getAuthToken();
     return null;
   }, []);
 

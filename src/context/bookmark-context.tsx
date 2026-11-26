@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
+import { getAuthToken } from "@/lib/client-auth";
 
 export type BookmarkItemType = "business" | "event" | "community";
 
@@ -35,7 +36,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
   // --- 1. Define refreshBookmarks FIRST (wrapped in useCallback) ---
   const refreshBookmarks = useCallback(async () => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     if (!token) {
       setIsLoading(false);
       return;
@@ -102,7 +103,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
 
   // --- Toggle Bookmark ---
   const toggleBookmark = async (slugOrId: string) => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
 
     if (!token) {
       toast.error("Authentication required", {
@@ -203,7 +204,7 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteBookmarkById = async (bookmarkId: string | number) => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     if (!token) return;
 
     try {

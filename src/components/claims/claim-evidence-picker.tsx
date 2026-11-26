@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/client-auth";
 
 const FALLBACK_CONSTRAINTS: ClaimEvidenceConstraints = {
   max_files_per_submission: 5,
@@ -38,7 +39,7 @@ export function ClaimEvidencePreviewButton({ item }: { item: PreviousClaimEviden
   const open = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("authToken") || undefined;
+      const token = getAuthToken() || undefined;
       const result = await getClaimEvidenceSignedUrl(item.claimId, item.evidence.id, token);
       setPreview({ name: item.evidence.original_filename, mimeType: item.evidence.mime_type, url: result.url });
     } catch (error) {

@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { COOKIE_SESSION_SENTINEL, hasSignedInMarker } from "@/lib/auth-cookie";
 
 // Guards against firing more than once when several requests 401 together
 // (e.g. Promise.all'd calls) or when both the global interceptor and a
@@ -18,6 +19,10 @@ export function handleSessionExpired(status: number): boolean {
   sessionExpiredHandled = true;
 
   localStorage.removeItem("authToken");
+  // V2 Phase 5.2c: also end a cookie session. keepalive lets the request outlive the redirect below.
+  if (hasSignedInMarker(document.cookie)) {
+    void fetch("/api/session/logout", { method: "POST", keepalive: true }).catch(() => undefined);
+  }
   toast.error("Your session has expired. Please sign in again.");
 
   const redirect = encodeURIComponent(
@@ -75,11 +80,24 @@ export function installSessionExpiryInterceptor(): void {
     const response = await originalFetch(...args);
 
     if (response.status === 401) {
+      const input = args[0];
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const sameOriginApi = url.startsWith("/api/") || url.startsWith(`${window.location.origin}/api/`);
       const init = args[1];
       const requestToken = getBearerToken(init);
       const storedToken = localStorage.getItem("authToken");
 
-      if (requestToken && storedToken && requestToken === storedToken) {
+      // A failed sign-in is a 401 too; it must never count as an expired session.
+      const isSessionRoute = url.includes("/api/session/");
+
+      const legacyMatch = !!requestToken && !!storedToken && requestToken === storedToken;
+      const cookieMatch =
+        sameOriginApi &&
+        !isSessionRoute &&
+        hasSignedInMarker(document.cookie) &&
+        (!requestToken || requestToken === COOKIE_SESSION_SENTINEL);
+
+      if (legacyMatch || cookieMatch) {
         handleSessionExpired(401);
       }
     }

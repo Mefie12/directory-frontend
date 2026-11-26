@@ -24,6 +24,7 @@ import { EventCard } from "@/components/ux/event-card";
 import type { Event } from "@/components/ux/event-card";
 import CommunityCard from "@/components/communities/community-card";
 import type { CommunityCard as CommunityCardType } from "@/lib/data";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- API shape ---
 interface ApiImage {
@@ -216,7 +217,7 @@ export default function Bookmarks() {
     const fetchBookmarks = async () => {
       if (authLoading) return;
 
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!user || !token) {
         setIsLoading(false);
         return;

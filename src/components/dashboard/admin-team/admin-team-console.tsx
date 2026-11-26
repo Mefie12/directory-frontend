@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getAuthToken } from "@/lib/client-auth";
 
 const ROLE_LABEL: Record<PlatformTeamMember["platform_role"], string> = {
   super_admin: "Super admin",
@@ -54,7 +55,7 @@ function ConsoleBody() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       setTeam(await getPlatformTeam(token));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the admin team");
@@ -89,7 +90,7 @@ function ConsoleBody() {
     setFormError(null);
     const grant = !target.is_super_admin;
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       await setSuperAdmin(target.id, grant, { reason: reason.trim(), password }, token);
       toast.success(grant ? `${target.name} is now a super admin.` : `${target.name} is no longer a super admin.`);
       close();

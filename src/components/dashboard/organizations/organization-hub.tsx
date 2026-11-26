@@ -32,6 +32,7 @@ import { OrganizationBilling } from "./organization-billing";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { OrganizationMembers } from "./organization-members";
 import { ProfileCompletionBanner } from "./profile-completion-banner";
+import { getAuthToken } from "@/lib/client-auth";
 
 const LISTING_STATUS_LABEL: Record<OrganizationListingItem["status"], string> = {
   draft: "Draft",
@@ -42,7 +43,7 @@ const LISTING_STATUS_LABEL: Record<OrganizationListingItem["status"], string> = 
   changes_requested: "Changes requested",
 };
 
-const token = () => localStorage.getItem("authToken") ?? undefined;
+const token = () => getAuthToken() ?? undefined;
 
 /**
  * Organization hub (V2 Phase 1 release 1.4b): profile, its listings, members

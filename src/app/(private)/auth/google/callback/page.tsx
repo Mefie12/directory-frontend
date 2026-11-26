@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/context/auth-context";
+import { isCookieMode, sessionRequest } from "@/lib/client-auth";
 import {
   consumeGoogleReturnPath,
   exchangeGoogleCode,
@@ -76,11 +77,26 @@ function GoogleCallback() {
       }
 
       try {
-        const sessionToken = token ?? (await exchangeGoogleCode(code as string));
-
-        // Same handoff as the password form — stores the token and fetches the
-        // profile, so the role lookup below reads a populated value.
-        await login(sessionToken);
+        // V2 Phase 5.2c. A finished token in the URL goes straight into the httpOnly cookie
+        // (login() does that in cookie mode) and the URL is cleaned so it cannot linger in
+        // history. A raw code is exchanged server-side in cookie mode.
+        if (token) {
+          window.history.replaceState(null, "", window.location.pathname);
+          await login(token);
+        } else if (await isCookieMode()) {
+          const params: Record<string, string> = { code: code as string };
+          for (const key of ["state", "scope"]) {
+            const value = searchParams.get(key);
+            if (value) params[key] = value;
+          }
+          const result = await sessionRequest("google", params);
+          if (result.mode === "cookie" && !result.ok) {
+            throw new Error((result.data.message as string) || "Google sign-in could not be completed.");
+          }
+          await login();
+        } else {
+          await login(await exchangeGoogleCode(code as string));
+        }
 
         // Restored from sessionStorage, since the OAuth round trip left this
         // origin and took every bit of in-memory state with it.

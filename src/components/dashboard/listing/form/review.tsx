@@ -27,6 +27,7 @@ import { getImageUrl } from "@/lib/directory/image-utils";
 import { stripHtml } from "@/lib/utils";
 import { LISTING_JOURNEYS, ListingReadiness, ListingType } from "@/lib/listing-form-v2";
 import { ListingPreviewDialog } from "@/components/dashboard/listing/listing-preview-dialog";
+import { getAuthToken } from "@/lib/client-auth";
 
 /**
  * Resolve the cover image src from either the API `primary_image` field or
@@ -108,7 +109,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
     useEffect(() => {
       if (!listingSlug) return;
 
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const headers = {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
@@ -169,7 +170,7 @@ export const ReviewSubmitStep = forwardRef<ListingFormHandle, Props>(
             });
             return false;
           }
-          const token = localStorage.getItem("authToken");
+          const token = getAuthToken();
           const response = await fetch(
             listingData?.status === "rejected"
               ? `/api/listing/${listingSlug}/resubmit`

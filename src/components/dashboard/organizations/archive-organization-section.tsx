@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArchiveBlockedError, archiveOrganization, OrganizationApiError } from "@/lib/api";
 import type { ArchiveBlockingListing } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   slug: string;
@@ -49,7 +50,7 @@ export function ArchiveOrganizationSection({ slug, name, onArchived }: Props) {
     setError(null);
     setBlocking([]);
     try {
-      await archiveOrganization(slug, { password, reason: reason.trim() || undefined }, localStorage.getItem("authToken") ?? undefined);
+      await archiveOrganization(slug, { password, reason: reason.trim() || undefined }, getAuthToken() ?? undefined);
       toast.success("Organization archived.");
       close(false);
       await onArchived();

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RoleGuard } from "@/components/dashboard/role-guard";
 import { AgentCreateListingDialog } from "@/components/dashboard/listing/agent-create-listing-dialog";
+import { getAuthToken } from "@/lib/client-auth";
 
 function formatPercent(value: number | null): string {
   return value === null ? "—" : `${Math.round(value * 100)}%`;
@@ -56,7 +57,7 @@ export default function AgentHome() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
     setLoading(true);
     setError(null);
     try {

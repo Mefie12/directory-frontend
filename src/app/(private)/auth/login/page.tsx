@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Suspense, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { sessionRequest } from "@/lib/client-auth";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -103,28 +104,47 @@ function LoginForm() {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
+      // V2 Phase 5.2c: in cookie mode the proxy sets the httpOnly session and the token never
+      // reaches the browser. A 404 means the server is in legacy mode: sign in directly as before.
+      const session = await sessionRequest("login", formData);
+      let data: Record<string, unknown>;
+      let token: string | undefined;
+      let cookieSession = false;
 
-      const response = await fetch(`${API_URL}/api/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      if (session.mode === "cookie") {
+        if (!session.ok) {
+          throw new Error(
+            (session.data.message as string) || "Invalid email and password.",
+          );
+        }
+        data = session.data;
+        cookieSession = true;
+      } else {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      const data = await response.json();
+        const response = await fetch(`${API_URL}/api/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
 
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Invalid email and password.",
-        );
+        data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            (data.message as string) || "Invalid email and password.",
+          );
+        }
+
+        token = (data.token ||
+          data.access_token ||
+          data.jwt ||
+          (data.data as { token?: string } | undefined)?.token) as string | undefined;
       }
 
-      const token =
-        data.token || data.access_token || data.jwt || data.data?.token;
-
-      if (token) {
+      if (token || cookieSession) {
         // Try to login and check if user is verified
         await login(token);
 

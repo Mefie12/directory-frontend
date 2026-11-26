@@ -20,6 +20,7 @@ import { useListing } from "@/context/listing-form-context";
 import { isValidUrl, normalizeUrl, normalizeWhatsApp } from "@/lib/directory/utils";
 import { handleSessionExpired } from "@/lib/session";
 import { validatePhoneInternational } from "@/lib/phone";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Platform-specific URL validators ---
 const isPlatformUrl = (url: string, patterns: RegExp[]): boolean => {
@@ -226,7 +227,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
 
       const loadSocials = async () => {
         try {
-          const token = localStorage.getItem("authToken");
+          const token = getAuthToken();
           const res = await fetch(`/api/listing/${listingSlug}/socials`, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -283,7 +284,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
       try {
         if (!listingSlug) throw new Error("Listing ID is missing.");
 
-        const token = localStorage.getItem("authToken");
+        const token = getAuthToken();
         if (!token) throw new Error("Authentication required");
 
         // Normalize URLs — send empty string explicitly so backend clears the field

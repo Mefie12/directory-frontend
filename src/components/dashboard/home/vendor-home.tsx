@@ -33,6 +33,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRolePath } from "@/hooks/useRolePath";
 import { toast } from "sonner";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface ListingImage {
   id: number;
@@ -151,7 +152,7 @@ export default function VendorHome() {
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!token) throw new Error("Authentication required");
 
       const response = await fetch(`/api/listing/my_listings`, {
@@ -334,7 +335,7 @@ export default function VendorHome() {
     setIsDeleting(true);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
       const listingToDelete = listings.find((l) => l.id === deleteListingId);
 

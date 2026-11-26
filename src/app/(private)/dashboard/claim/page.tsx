@@ -49,6 +49,7 @@ import {
   adminRejectClaim,
   adminRequestMoreEvidence,
 } from "@/lib/api";
+import { getAuthToken } from "@/lib/client-auth";
 
 const STATUS_LABEL: Record<ClaimStatus, string> = {
   awaiting_email_verification: "Awaiting Email",
@@ -92,7 +93,7 @@ export default function AdminClaimsPage() {
   const [recommendationInput, setRecommendationInput] = useState("");
   const [instructionsInput, setInstructionsInput] = useState("");
 
-  const getToken = () => localStorage.getItem("authToken") || undefined;
+  const getToken = () => getAuthToken() || undefined;
 
   const fetchClaims = useCallback(async () => {
     setIsLoading(true);

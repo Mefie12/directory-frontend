@@ -17,6 +17,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
+import { getAuthToken } from "@/lib/client-auth";
 
 export type ReviewReply = {
   id: number;
@@ -76,7 +77,7 @@ function ReviewItem({
     setIsSubmittingReply(true);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!token) {
         toast.error("You must be logged in to reply");
         return;
@@ -272,7 +273,7 @@ export function ReviewsSection({ reviews, listingSlug, isOwner = false, readOnly
       return;
     }
 
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     if (!token) {
       toast.error("You must be logged in to leave a review");
       return;

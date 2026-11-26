@@ -26,6 +26,7 @@ import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { ClaimCaseEvent, ClaimCaseSummary, ClaimStatus, addClaimEvidence, getMyClaims, withdrawClaim } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 const STATUS_LABEL: Record<ClaimStatus, string> = {
   awaiting_email_verification: "Awaiting email verification",
@@ -103,7 +104,7 @@ function ClaimThread({ claims, onChanged }: { claims: ClaimCaseSummary[]; onChan
       .sort((left, right) => new Date(left.at).getTime() - new Date(right.at).getTime());
   }, [claims]);
 
-  const token = () => localStorage.getItem("authToken") || undefined;
+  const token = () => getAuthToken() || undefined;
 
   const submitEvidence = async () => {
     if (pendingFiles.length === 0) return;
@@ -272,7 +273,7 @@ export default function MyClaimsPage() {
   const fetchClaims = useCallback(async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("authToken") || undefined;
+      const token = getAuthToken() || undefined;
       const data = await getMyClaims(token, { history: true });
       setClaims((data as unknown as { data: ClaimCaseSummary[] }).data || []);
     } catch {

@@ -18,6 +18,7 @@ import { useAuth } from "@/context/auth-context";
 import { OrganizationSwitcher } from "@/components/dashboard/organizations/organization-switcher";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Interfaces ---
 
@@ -79,7 +80,7 @@ export default function Header() {
 
   const getAuthToken = () => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("authToken");
+      return getAuthToken();
     }
     return null;
   };

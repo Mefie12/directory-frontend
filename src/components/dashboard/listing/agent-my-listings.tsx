@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getAuthToken } from "@/lib/client-auth";
 
 type WorkFilter = "all" | AgentListingState | AgentClaimState;
 
@@ -156,7 +157,7 @@ export default function AgentMyListings() {
     setError(null);
     try {
       const data = await getAgentWork(
-        localStorage.getItem("authToken") ?? undefined,
+        getAuthToken() ?? undefined,
         {
           state: state === "all" ? undefined : state,
           q: query || undefined,

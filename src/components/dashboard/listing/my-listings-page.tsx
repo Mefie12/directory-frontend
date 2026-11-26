@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useRolePath } from "@/hooks/useRolePath";
 import { Input } from "@/components/ui/input";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Interfaces ---
 
@@ -240,7 +241,7 @@ export default function MyListingsPage() {
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!token) throw new Error("Authentication required");
 
       const params = new URLSearchParams({
@@ -395,7 +396,7 @@ export default function MyListingsPage() {
     setIsDeleting(true);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       const listingToDelete = listings.find((l) => l.id === deleteListingId);
 
       if (!listingToDelete) {

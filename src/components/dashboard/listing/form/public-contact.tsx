@@ -11,6 +11,7 @@ import { normalizeUrl, parseLaravel422Errors } from "@/lib/directory/utils";
 import { validatePhoneInternational } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { handleSessionExpired } from "@/lib/session";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props { listingSlug: string; }
 type ContactField = "email" | "primary_phone" | "secondary_phone" | "website";
@@ -27,7 +28,7 @@ export const PublicContactForm = forwardRef<ListingFormHandle, Props>(({ listing
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     fetch(`/api/listing/${listingSlug}/show`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
@@ -60,7 +61,7 @@ export const PublicContactForm = forwardRef<ListingFormHandle, Props>(({ listing
       return false;
     }
 
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     try {
       const response = await fetch(`/api/listing/${listingSlug}/update`, {
         method: "PATCH",

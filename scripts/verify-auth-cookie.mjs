@@ -51,6 +51,17 @@ check("a null or empty bearer counts as no header", () => {
   assert.equal(lib.hasUsableAuthorization("Bearer "), false);
   assert.equal(lib.hasUsableAuthorization("Bearer 12|abcdef"), true);
 });
+check("the cookie-session sentinel counts as no header", () => {
+  assert.equal(lib.COOKIE_SESSION_SENTINEL, "cookie-session");
+  assert.equal(lib.hasUsableAuthorization("Bearer cookie-session"), false);
+});
+check("the signed-in marker is found only as an exact cookie", () => {
+  assert.equal(lib.hasSignedInMarker("a=1; mefie_signed_in=1; b=2"), true);
+  assert.equal(lib.hasSignedInMarker("mefie_signed_in=1"), true);
+  assert.equal(lib.hasSignedInMarker("xmefie_signed_in=1"), false);
+  assert.equal(lib.hasSignedInMarker("mefie_signed_in=0"), false);
+  assert.equal(lib.hasSignedInMarker(""), false);
+});
 check("CSRF: safe methods always pass", () => {
   assert.equal(lib.csrfAllowed({ ...base, method: "GET", origin: null, referer: null }), true);
 });

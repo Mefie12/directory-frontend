@@ -47,6 +47,7 @@ import {
   useConfirmAddress,
 } from "@mapbox/search-js-react";
 import type { Feature, Point, GeoJsonProperties } from "geojson";
+import { getAuthToken } from "@/lib/client-auth";
 
 export const DetailsFormSchema = z
   .object({
@@ -343,7 +344,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
         const effectiveSlug = listingSlug || searchParams.get("slug");
         if (!effectiveSlug) return;
         try {
-          const token = localStorage.getItem("authToken");
+          const token = getAuthToken();
           const res = await fetch(`/api/listing/${effectiveSlug}/show`, {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -517,7 +518,7 @@ export const BusinessDetailsForm = forwardRef<ListingFormHandle, Props>(
       if (!effectiveSlug) {
         return false;
       }
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
 
       try {
         const data = form.getValues();

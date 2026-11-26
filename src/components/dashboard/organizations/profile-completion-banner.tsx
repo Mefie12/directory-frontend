@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { updateOrganization } from "@/lib/api";
 import type { OrganizationMembership } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   organization: OrganizationMembership;
@@ -28,7 +29,7 @@ export function ProfileCompletionBanner({ organization, onCompleteProfile, onDis
   const dismiss = async () => {
     setDismissing(true);
     try {
-      const token = localStorage.getItem("authToken") ?? undefined;
+      const token = getAuthToken() ?? undefined;
       await updateOrganization(organization.slug, { mark_profile_complete: true }, token);
       await onDismissed();
     } catch (error) {

@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getAuthToken } from "@/lib/client-auth";
 
 const FILTERS = [
   { value: "pending", label: "Pending" },
@@ -56,7 +57,7 @@ function QueueBody() {
   const [reason, setReason] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
-  const token = () => localStorage.getItem("authToken") ?? undefined;
+  const token = () => getAuthToken() ?? undefined;
 
   const load = useCallback(async () => {
     setLoading(true);

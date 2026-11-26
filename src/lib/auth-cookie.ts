@@ -6,6 +6,18 @@
 /** Matches the Sanctum token lifetime (720 minutes). */
 export const SESSION_MAX_AGE_SECONDS = 720 * 60;
 
+/**
+ * What client code sees as its "token" while the real one lives in the httpOnly cookie
+ * (V2 Phase 5.2c). Truthy, so existing `if (!token)` guards keep working; the proxy treats
+ * it as "no header" and substitutes the real token from the cookie.
+ */
+export const COOKIE_SESSION_SENTINEL = "cookie-session";
+
+/** True when the readable signed-in marker cookie is present in a `document.cookie` string. */
+export function hasSignedInMarker(cookieString: string): boolean {
+  return cookieString.split(";").some((part) => part.trim() === `${MARKER_COOKIE}=1`);
+}
+
 /** Non-secret, JS-readable marker so client code knows a session exists without reading the token. */
 export const MARKER_COOKIE = "mefie_signed_in";
 
@@ -62,7 +74,7 @@ export function readSessionToken(get: (name: string) => string | undefined): str
 export function hasUsableAuthorization(value: string | null): boolean {
   if (!value) return false;
   const token = value.replace(/^Bearer\s+/i, "").trim();
-  return token !== "" && token !== "null" && token !== "undefined";
+  return token !== "" && token !== "null" && token !== "undefined" && token !== COOKIE_SESSION_SENTINEL;
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

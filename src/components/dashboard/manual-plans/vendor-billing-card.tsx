@@ -6,6 +6,7 @@ import { Gem } from "lucide-react";
 import { ListingBillingSummary, getListingManagement } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { formatUtcDate, tierLabel } from "./manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 interface Props {
   slug: string;
@@ -30,7 +31,7 @@ export function VendorBillingCard({ slug, onLoaded }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
 
     getListingManagement(slug, token)
       .then((data) => {

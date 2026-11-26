@@ -42,6 +42,7 @@ import {
   isSameWeek,
 } from "date-fns";
 import { useAuth } from "@/context/auth-context";
+import { getAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 interface EventItem {
@@ -86,7 +87,7 @@ export default function MyEvents() {
     const fetchEvents = async () => {
       if (authLoading) return;
 
-      const token = localStorage.getItem("authToken");
+      const token = getAuthToken();
       if (!user || !token) {
         setIsLoading(false);
         return;

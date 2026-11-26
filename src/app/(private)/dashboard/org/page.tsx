@@ -10,6 +10,7 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { getMyOrganizations } from "@/lib/api";
 import { normalizeRole } from "@/lib/roles";
 import { ORG_ROLE_LABEL, type OrganizationMembership } from "@/types/organization";
+import { getAuthToken } from "@/lib/client-auth";
 
 export default function OrganizationsPage() {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function OrganizationsPage() {
   useEffect(() => {
     if (!lifecycle) return;
     let cancelled = false;
-    getMyOrganizations(localStorage.getItem("authToken") ?? undefined)
+    getMyOrganizations(getAuthToken() ?? undefined)
       .then((rows) => !cancelled && setWithInactive(rows))
       .catch(() => undefined);
     return () => {

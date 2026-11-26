@@ -6,6 +6,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { resendEmailClaimOtp, verifyEmailClaimOtp } from "@/lib/api";
+import { getAuthToken } from "@/lib/client-auth";
 
 const OTP_EXPIRY_SECONDS = 15 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -62,7 +63,7 @@ export default function VerifyOtp({
 
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("authToken") || undefined;
+      const token = getAuthToken() || undefined;
       await verifyEmailClaimOtp(listingSlug, otpValue, token);
       toast.success("Email verified — your case is now under admin review.");
       onNext();
@@ -78,7 +79,7 @@ export default function VerifyOtp({
 
     setIsResending(true);
     try {
-      const token = localStorage.getItem("authToken") || undefined;
+      const token = getAuthToken() || undefined;
       await resendEmailClaimOtp(listingSlug, token);
       setExpiresIn(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);

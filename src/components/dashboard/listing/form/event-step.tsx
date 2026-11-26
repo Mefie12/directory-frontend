@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { convertToHHmm, parseMapboxAddress } from "@/lib/directory/utils";
 import { cn } from "@/lib/utils";
 import { detectedTimezone, timezoneOptions } from "@/lib/directory/timezones";
+import { getAuthToken } from "@/lib/client-auth";
 
 type Section = "schedule" | "access" | "tickets";
 type EventFormat = "in_person" | "online" | "hybrid";
@@ -182,7 +183,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
 
   useEffect(() => {
     if (!listingSlug) return;
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     fetch(`/api/listing/${listingSlug}/show`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
@@ -335,7 +336,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
       };
     }
 
-    const token = localStorage.getItem("authToken");
+    const token = getAuthToken();
     const endpoint = draft.slug ? `/api/listing/${listingSlug}/event/${draft.slug}/update` : `/api/listing/${listingSlug}/eventDetails`;
     try {
       const response = await fetch(endpoint, {

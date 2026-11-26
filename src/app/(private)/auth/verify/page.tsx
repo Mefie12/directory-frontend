@@ -10,6 +10,7 @@ import VerifyOtp from "../signup/_component/verify-otp";
 import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { getAuthToken, sessionRequest } from "@/lib/client-auth";
 
 function VerifyForm() {
     
@@ -71,31 +72,43 @@ function VerifyForm() {
       try {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const storedToken = localStorage.getItem("authToken");
+        const storedToken = getAuthToken();
 
         // console.log("📧 Verifying OTP for:", email);
 
-        const res = await fetch(`${API_URL}/api/verify_email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(storedToken && { Authorization: `Bearer ${storedToken}` }),
-          },
-          body: JSON.stringify({ email, otp }),
-        });
+        // V2 Phase 5.2c: cookie mode verifies through the proxy, which swaps the session cookie.
+        const session = await sessionRequest("verify", { email, otp });
+        let data: Record<string, any>;
+        let newToken: string | undefined;
+        let cookieSession = false;
 
-        const data = await res.json();
+        if (session.mode === "cookie") {
+          if (!session.ok) {
+            throw new Error((session.data.message as string) || "Invalid OTP code provided.");
+          }
+          data = session.data;
+          cookieSession = data.session === "cookie";
+        } else {
+          const res = await fetch(`${API_URL}/api/verify_email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...(storedToken && { Authorization: `Bearer ${storedToken}` }),
+            },
+            body: JSON.stringify({ email, otp }),
+          });
 
-        if (!res.ok) {
-          throw new Error(data.message || "Invalid OTP code provided.");
+          data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message || "Invalid OTP code provided.");
+          }
+
+          newToken = data.token || data.access_token || data.data?.token;
         }
 
-        // console.log("✅ Verification successful, response:", data);
-
-        const newToken = data.token || data.access_token || data.data?.token;
-
-        if (newToken) {
+        if (newToken || cookieSession) {
           // Login with the token (this will refresh user profile)
           await login(newToken);
 

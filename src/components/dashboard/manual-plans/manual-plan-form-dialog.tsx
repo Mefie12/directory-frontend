@@ -53,6 +53,7 @@ import {
   tierLabel,
   todayUtcDateInput,
 } from "./manual-plan-utils";
+import { getAuthToken } from "@/lib/client-auth";
 
 export type ManualPlanFormMode = "grant" | "extend" | "replace" | "edit";
 
@@ -289,7 +290,7 @@ export function ManualPlanFormDialog({
 
   const confirm = async () => {
     const v = getValues();
-    const token = localStorage.getItem("authToken") ?? undefined;
+    const token = getAuthToken() ?? undefined;
     const commercial = buildCommercial(v);
     const graceDays = v.grace_days === "" ? undefined : Number(v.grace_days);
     setSubmitting(true);
