@@ -54,6 +54,17 @@ export function readSessionToken(get: (name: string) => string | undefined): str
   return get(SECURE_NAME) || get(PLAIN_NAME) || null;
 }
 
+/**
+ * Existing client code builds `Authorization: Bearer ${token}` even when it has no token,
+ * which sends the literal "Bearer null". Treat that, and an empty value, as "no header" so
+ * the cookie can take over without editing every caller.
+ */
+export function hasUsableAuthorization(value: string | null): boolean {
+  if (!value) return false;
+  const token = value.replace(/^Bearer\s+/i, "").trim();
+  return token !== "" && token !== "null" && token !== "undefined";
+}
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export function isUnsafeMethod(method: string): boolean {

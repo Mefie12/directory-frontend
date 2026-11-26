@@ -40,7 +40,7 @@ export default function VerifyBusinessPage() {
 
       try {
         const [listingRes, eligibilityData] = await Promise.all([
-          fetch(`${API_URL}/api/listing/${listingSlug}/show`, {
+          fetch(`/api/listing/${listingSlug}/show`, {
             method: "GET",
             headers: {
               "Content-Type": "application/json",

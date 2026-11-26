@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   authCookieEnabled,
   csrfAllowed,
+  hasUsableAuthorization,
   readSessionToken,
 } from "@/lib/auth-cookie";
 
@@ -19,7 +20,7 @@ export function proxy(request: NextRequest) {
 
   const isSessionRoute = request.nextUrl.pathname.startsWith("/api/session/");
   const cookieToken = readSessionToken((name) => request.cookies.get(name)?.value);
-  const hasHeader = request.headers.has("authorization");
+  const hasHeader = hasUsableAuthorization(request.headers.get("authorization"));
   const usesCookie = !hasHeader && cookieToken !== null;
 
   const allowed = csrfAllowed({

@@ -175,7 +175,7 @@ export default function TestimonialCarousel() {
             if (item.user_id && (!item.user || Object.keys(item.user).length === 0)) {
               try {
                 const userRes = await fetch(
-                  `${API_URL}/api/users/${item.user_id}`,
+                  `/api/users/${item.user_id}`,
                   {
                     headers: {
                       Accept: "application/json",

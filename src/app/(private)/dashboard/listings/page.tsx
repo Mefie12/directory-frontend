@@ -401,7 +401,6 @@ export default function Listings() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -427,7 +426,7 @@ export default function Listings() {
       if (activeTab === "approved") params.set("status", "approved");
 
       const response = await fetch(
-        `${API_URL}/api/${endpoint}?${params.toString()}`,
+        `/api/${endpoint}?${params.toString()}`,
         {
           method: "GET",
           headers: {

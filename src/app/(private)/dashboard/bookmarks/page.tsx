@@ -224,8 +224,7 @@ export default function Bookmarks() {
 
       setIsLoading(true);
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
-        const response = await fetch(`${API_URL}/api/my_bookmarks`, {
+        const response = await fetch(`/api/my_bookmarks`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",

@@ -66,9 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsUnverified(false); // Reset unverified state
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://me-fie.co.uk";
 
-      const res = await fetch(`${API_URL}/api/user`, {
+      const res = await fetch(`/api/user`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

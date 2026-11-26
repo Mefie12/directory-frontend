@@ -43,6 +43,14 @@ check("readSessionToken reads either cookie name", () => {
   assert.equal(lib.readSessionToken(() => undefined), null);
 });
 const base = { host: "site.test", usesCookie: true, isSessionRoute: false };
+check("a null or empty bearer counts as no header", () => {
+  assert.equal(lib.hasUsableAuthorization(null), false);
+  assert.equal(lib.hasUsableAuthorization(""), false);
+  assert.equal(lib.hasUsableAuthorization("Bearer null"), false);
+  assert.equal(lib.hasUsableAuthorization("Bearer undefined"), false);
+  assert.equal(lib.hasUsableAuthorization("Bearer "), false);
+  assert.equal(lib.hasUsableAuthorization("Bearer 12|abcdef"), true);
+});
 check("CSRF: safe methods always pass", () => {
   assert.equal(lib.csrfAllowed({ ...base, method: "GET", origin: null, referer: null }), true);
 });
