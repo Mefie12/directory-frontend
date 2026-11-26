@@ -58,7 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getAuthToken } from "@/lib/client-auth";
+import { getAuthToken as readAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 
@@ -194,7 +194,7 @@ export default function ReviewsPage() {
   // --- Helper: Auth Token ---
   const getAuthToken = useCallback((): string | null => {
     if (typeof window !== "undefined") {
-      return getAuthToken();
+      return readAuthToken();
     }
     return null;
   }, []);

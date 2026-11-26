@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
-import { getAuthToken } from "@/lib/client-auth";
+import { getAuthToken as readAuthToken } from "@/lib/client-auth";
 
 // --- Types ---
 
@@ -72,7 +72,7 @@ export default function ReviewDetailsPage({
 
   const getAuthToken = (): string | null => {
     if (typeof window !== "undefined") {
-      return getAuthToken();
+      return readAuthToken();
     }
     return null;
   };
