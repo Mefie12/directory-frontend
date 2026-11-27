@@ -201,15 +201,34 @@ export interface ListingManagementData extends EditableListingData {
   link_checks?: ListingLinkCheck[];
 }
 
-/** V2 Phase 6.1: one free link (website / WhatsApp) and whether it is shown publicly. */
+/**
+ * V2 Phase 6.1: one outbound link and whether it is shown publicly.
+ * 6.2 adds an event's `tickets`, `registration` and `online` links, and where the link
+ * really leads (`resolution`, from the destination resolver).
+ */
 export interface ListingLinkCheck {
-  field: "website" | "whatsapp";
+  field: ListingLinkField;
   value: string | null;
   url: string | null;
   host: string | null;
   status: "none" | "ok" | "invalid" | "blocked" | "disabled_by_admin";
   reason: string | null;
   message: string | null;
+  resolution?: ListingLinkResolution | null;
+}
+
+export type ListingLinkField = "website" | "whatsapp" | "tickets" | "registration" | "online";
+
+/** V2 Phase 6.2: the destination resolver's latest result for a link's current value. */
+export interface ListingLinkResolution {
+  outcome: "ok" | "blocked" | "unsafe" | "unreachable" | "too_many_redirects";
+  reason: string | null;
+  final_host: string | null;
+  final_url: string | null;
+  http_status: number | null;
+  /** Every host the link passed through, in order. */
+  hosts: string[];
+  checked_at: string | null;
 }
 
 export interface ListingService {

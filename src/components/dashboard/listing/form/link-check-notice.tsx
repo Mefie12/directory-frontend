@@ -5,7 +5,7 @@ import { WarningCircle } from "@phosphor-icons/react";
 import { getListingManagement, type ListingLinkCheck } from "@/lib/api";
 import { getAuthToken } from "@/lib/client-auth";
 
-/** One request per listing while the editor is open; both link fields share it. */
+/** One request per listing while the editor is open; every link field shares it. */
 const cache = new Map<string, Promise<ListingLinkCheck[]>>();
 
 function linkChecks(slug: string): Promise<ListingLinkCheck[]> {
@@ -24,7 +24,8 @@ function linkChecks(slug: string): Promise<ListingLinkCheck[]> {
 /**
  * V2 Phase 6.1 (decision C-9): a saved website or WhatsApp link that fails the link
  * policy is hidden from the public page without a notification. This notice is how
- * the business finds out, next to the field, with what to fix.
+ * the business finds out, next to the field, with what to fix. 6.2 adds the event
+ * links and links hidden because they redirect through a blocked or unsafe site.
  */
 export function LinkCheckNotice({ listingSlug, field }: { listingSlug?: string; field: ListingLinkCheck["field"] }) {
   const [check, setCheck] = useState<ListingLinkCheck | null>(null);

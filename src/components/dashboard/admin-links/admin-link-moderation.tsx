@@ -52,9 +52,36 @@ const STATUS_BADGE: Record<ListingLinkCheck["status"], { label: string; classNam
   disabled_by_admin: { label: "Taken down", className: "bg-red-50 text-red-700" },
 };
 
+const FIELD_LABEL: Record<ListingLinkCheck["field"], string> = {
+  website: "Website",
+  whatsapp: "WhatsApp",
+  tickets: "Tickets",
+  registration: "Registration",
+  online: "Online event",
+};
+
+/** What the destination resolver found, in one line for the admin; null when there's nothing to add. */
+function resolutionNote(link: ListingLinkCheck): string | null {
+  const resolution = link.resolution;
+  if (!resolution) return null;
+  const route = resolution.hosts.filter((host, index, hosts) => host !== hosts[index - 1]).join(" → ");
+  switch (resolution.outcome) {
+    case "ok":
+      return resolution.final_host && resolution.final_host !== link.host ? `Redirects: ${route}` : null;
+    case "blocked":
+    case "unsafe":
+      return `Redirects: ${route}`;
+    case "unreachable":
+      return "Couldn't be reached on the last check (still shown).";
+    case "too_many_redirects":
+      return `Too many redirects (still shown): ${route}`;
+  }
+}
+
 /**
  * V2 Phase 6.1 admin screen: every listing's website / WhatsApp link with its policy
  * status, take-down and restore, and the domain blocklist (spec §4.3 step 5).
+ * 6.2: event links too, and where each link really leads (destination resolver).
  * Platform permission: platform.listings.moderate (enforced by Laravel).
  */
 export default function AdminLinkModeration() {
@@ -143,8 +170,8 @@ function LinksPanel() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search listing name or link"
-            aria-label="Search listing name or link"
+            placeholder="Search listing, link or domain"
+            aria-label="Search listing, link or domain"
             className="pl-9"
           />
         </div>
@@ -202,12 +229,17 @@ function LinksPanel() {
                   const key = `${row.listing.id}-${link.field}`;
                   return (
                     <div key={link.field} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center">
-                      <span className="w-20 shrink-0 text-xs font-semibold uppercase text-gray-500">{link.field}</span>
+                      <span className="w-24 shrink-0 text-xs font-semibold uppercase text-gray-500">{FIELD_LABEL[link.field] ?? link.field}</span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-sm text-gray-800" title={link.value ?? ""}>
                           {link.value}
                         </p>
                         {link.message && <p className="text-xs text-gray-500">{link.message}</p>}
+                        {resolutionNote(link) && (
+                          <p className="truncate text-xs text-gray-500" title={resolutionNote(link) ?? ""}>
+                            {resolutionNote(link)}
+                          </p>
+                        )}
                       </div>
                       <Badge className={badge.className} variant="secondary">
                         {badge.label}

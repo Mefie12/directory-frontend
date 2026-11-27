@@ -7,6 +7,7 @@ import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { countries } from "country-data-list";
 import { ListingFormHandle } from "@/components/dashboard/listing/types";
+import { LinkCheckNotice } from "@/components/dashboard/listing/form/link-check-notice";
 import { TicketTypeEditor, TicketTypeEditorHandle } from "@/components/dashboard/listing/form/ticket-type-editor";
 import { Country, CountryDropdown } from "@/components/ui/country-dropdown";
 import { Input } from "@/components/ui/input";
@@ -460,7 +461,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
       </div>}
       {(draft.event_location === "online" || draft.event_location === "hybrid") && <div className="space-y-4 rounded-xl border p-4">
         <Field label="Online access plan" error={errors.online_access_policy} warning={warningFor("online_access_policy", draft, hasContactMethod)}><Select value={draft.online_access_policy} onValueChange={(value) => selectField("online_access_policy", value as AccessPolicy)}><SelectTrigger data-event-field="online_access_policy" aria-invalid={!!errors.online_access_policy} className={cn("w-full", errors.online_access_policy && "border-red-500")}><SelectValue placeholder="Choose access plan" /></SelectTrigger><SelectContent><SelectItem value="public_link">Public link</SelectItem><SelectItem value="sent_after_registration">Sent after registration</SelectItem><SelectItem value="shared_later">Shared later</SelectItem></SelectContent></Select></Field>
-        {draft.online_access_policy === "public_link" && <Field label="Public online URL" error={errors.event_online_url} hint="Use a complete HTTPS link."><Input data-event-field="event_online_url" type="url" maxLength={2048} aria-invalid={!!errors.event_online_url} className={cn(errors.event_online_url && "border-red-500")} value={draft.event_online_url} onBlur={() => touch("event_online_url")} onChange={(event) => update("event_online_url", event.target.value)} placeholder="https://…" /></Field>}
+        {draft.online_access_policy === "public_link" && <Field label="Public online URL" error={errors.event_online_url} hint="Use a complete HTTPS link."><Input data-event-field="event_online_url" type="url" maxLength={2048} aria-invalid={!!errors.event_online_url} className={cn(errors.event_online_url && "border-red-500")} value={draft.event_online_url} onBlur={() => touch("event_online_url")} onChange={(event) => update("event_online_url", event.target.value)} placeholder="https://…" /><LinkCheckNotice listingSlug={listingSlug} field="online" /></Field>}
         <Field label="Access instructions (optional)"><textarea className="min-h-24 w-full rounded-md border p-3 text-sm" value={draft.online_access_instructions} onChange={(event) => update("online_access_instructions", event.target.value)} /></Field>
       </div>}
     </>}
@@ -478,7 +479,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
         </Field>
       </div>
 
-      {draft.attendance_type === "free_registration_required" && <Field label="Registration URL" error={errors.registration_url} hint="Use a complete HTTPS registration link."><Input data-event-field="registration_url" type="url" maxLength={2048} aria-invalid={!!errors.registration_url} className={cn(errors.registration_url && "border-red-500")} value={draft.registration_url} onBlur={() => touch("registration_url")} onChange={(event) => update("registration_url", event.target.value)} placeholder="https://…" /></Field>}
+      {draft.attendance_type === "free_registration_required" && <Field label="Registration URL" error={errors.registration_url} hint="Use a complete HTTPS registration link."><Input data-event-field="registration_url" type="url" maxLength={2048} aria-invalid={!!errors.registration_url} className={cn(errors.registration_url && "border-red-500")} value={draft.registration_url} onBlur={() => touch("registration_url")} onChange={(event) => update("registration_url", event.target.value)} placeholder="https://…" /><LinkCheckNotice listingSlug={listingSlug} field="registration" /></Field>}
 
       {draft.attendance_type === "paid" && <div className="space-y-4">
         <Field label="Pricing mode" error={errors.pricing_mode}>
@@ -540,7 +541,7 @@ export const EventStepForm = forwardRef<ListingFormHandle, Props>(({ listingSlug
         </Field>
 
         {draft.purchase_method === "external_url" && <>
-          <Field label="Ticket URL" error={errors.event_ticket_url} hint="Link directly to a public HTTPS event, ticket, or checkout page."><Input data-event-field="event_ticket_url" type="url" maxLength={2048} aria-invalid={!!errors.event_ticket_url} className={cn(errors.event_ticket_url && "border-red-500")} value={draft.event_ticket_url} onBlur={() => touch("event_ticket_url")} onChange={(event) => update("event_ticket_url", event.target.value)} placeholder="https://…" /></Field>
+          <Field label="Ticket URL" error={errors.event_ticket_url} hint="Link directly to a public HTTPS event, ticket, or checkout page."><Input data-event-field="event_ticket_url" type="url" maxLength={2048} aria-invalid={!!errors.event_ticket_url} className={cn(errors.event_ticket_url && "border-red-500")} value={draft.event_ticket_url} onBlur={() => touch("event_ticket_url")} onChange={(event) => update("event_ticket_url", event.target.value)} placeholder="https://…" /><LinkCheckNotice listingSlug={listingSlug} field="tickets" /></Field>
           <Field label="Ticket provider (optional)"><Input value={draft.ticket_provider} onChange={(event) => update("ticket_provider", event.target.value)} /></Field>
         </>}
 

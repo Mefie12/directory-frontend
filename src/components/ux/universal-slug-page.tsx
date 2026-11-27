@@ -201,8 +201,18 @@ interface ApiListingData {
   secondary_phone?: string;
   email?: string;
   website?: string;
-  /** V2 Phase 6.1: only the outbound links that pass the link policy (null = hidden). */
-  links?: { website: string | null; whatsapp: string | null };
+  /**
+   * V2 Phase 6.1: only the outbound links that pass the link policy (null = hidden).
+   * 6.2: event listings add `tickets`, `registration` and `online`; a link that redirects
+   * through a blocked domain or somewhere unsafe is null too.
+   */
+  links?: {
+    website: string | null;
+    whatsapp: string | null;
+    tickets?: string | null;
+    registration?: string | null;
+    online?: string | null;
+  };
   google_plus_code?: string;
   latitude?: number;
   longitude?: number;
@@ -629,6 +639,21 @@ function SidebarLocation({ provider }: { provider: Provider }) {
     longitude={provider.longitude}
     physicalLocation={provider.eventData?.event_location_type !== "online"}
   />;
+}
+
+/**
+ * V2 Phase 6.2: replace an event's ticket, registration and online links with the
+ * policy-checked ones from `links`, so a hidden link is never rendered. Backends that
+ * don't send them (6.1 and older) keep the raw values.
+ */
+function withCheckedEventLinks(event: ApiEventData | undefined, links: ApiListingData["links"]): ApiEventData | undefined {
+  if (!event || !links) return event;
+  return {
+    ...event,
+    ...("tickets" in links ? { event_ticket_url: links.tickets ?? undefined } : {}),
+    ...("registration" in links ? { registration_url: links.registration ?? undefined } : {}),
+    ...("online" in links ? { event_online_url: links.online ?? undefined } : {}),
+  };
 }
 
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
@@ -1523,7 +1548,7 @@ export default function UniversalSlugPage({
             latitude: listingData.latitude,
             longitude: listingData.longitude,
             eventData:
-              listingData.type === "event" ? listingData.event : undefined,
+              listingData.type === "event" ? withCheckedEventLinks(listingData.event, listingData.links) : undefined,
             businessHoursMode: listingData.business_hours_mode,
             businessTimezone: listingData.business_timezone,
           };
