@@ -37,6 +37,7 @@ import {
 } from "@phosphor-icons/react";
 import { useAuth } from "@/context/auth-context";
 import { useRolePath } from "@/hooks/useRolePath";
+import { ListingActionsCard } from "@/components/dashboard/listing/listing-actions-card";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1811,6 +1812,7 @@ export default function ListingDetailPage({ params, capabilities }: PageProps) {
         {descriptionBlock}
         {titleBlock}
         {statsBlock}
+        <ListingActionsCard listingSlug={slug} />
         {listingDetailsBlock}
         {socialLinksBlock}
         {openingHoursBlock}
@@ -1834,6 +1836,7 @@ export default function ListingDetailPage({ params, capabilities }: PageProps) {
         <div className="lg:col-span-2 space-y-5">
           {titleBlock}
           {statsBlock}
+          <ListingActionsCard listingSlug={slug} />
           {listingDetailsBlock}
           {socialLinksBlock}
           {openingHoursBlock}

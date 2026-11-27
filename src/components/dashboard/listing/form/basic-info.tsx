@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkCheckNotice } from "@/components/dashboard/listing/form/link-check-notice";
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1009,6 +1010,7 @@ export const BasicInformationForm = forwardRef<ListingFormHandle, Props>(
                 {errors.website.message}
               </p>
             )}
+            <LinkCheckNotice listingSlug={listingSlug} field="website" />
           </div>
 
           {listingType === "business" && (

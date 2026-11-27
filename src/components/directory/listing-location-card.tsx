@@ -8,6 +8,8 @@ import { MapPin, Navigation } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useTrackListingAction } from "@/components/directory/listing-tracking";
+import { buildDirectionsUrl, cleanLocationPart, directionsDestination, hasCoordinates as coordinatesKnown, locationParts as buildLocationParts } from "@/lib/directory/directions";
 
 interface ListingLocationCardProps {
   name: string;
@@ -17,12 +19,6 @@ interface ListingLocationCardProps {
   longitude?: number | null;
   physicalLocation?: boolean;
   className?: string;
-}
-
-function cleanLocationPart(value?: string | null): string | null {
-  const part = value?.trim();
-  if (!part || /^(?:https?:\/\/|www\.)/i.test(part)) return null;
-  return part;
 }
 
 export function ListingLocationCard({
@@ -36,29 +32,17 @@ export function ListingLocationCard({
 }: ListingLocationCardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const trackMap = useTrackListingAction("map");
   const [mapState, setMapState] = useState<"loading" | "ready" | "error">("loading");
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
-  const cleanCountry = cleanLocationPart(country);
-  const locationParts = useMemo(() => {
-    const seen = new Set<string>();
-    return [...addressParts, cleanCountry]
-      .map(cleanLocationPart)
-      .filter((part): part is string => {
-        if (!part) return false;
-        const key = part.toLocaleLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-  }, [addressParts, cleanCountry]);
+  const locationParts = useMemo(() => buildLocationParts(addressParts, country), [addressParts, country]);
   const locationLabel = locationParts.join(", ");
-  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+  const hasCoordinates = coordinatesKnown(latitude, longitude);
   const hasSpecificLocation = addressParts.some((part) => cleanLocationPart(part));
   const showMap = physicalLocation && (hasCoordinates || hasSpecificLocation);
-  const directionsDestination = hasCoordinates
-    ? `${latitude},${longitude}`
-    : [name, locationLabel].filter(Boolean).join(" ");
-  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(directionsDestination)}`;
+  // Shared with the listing action bar (lib/directory/directions.ts).
+  const destination = directionsDestination({ name, addressParts, country, latitude, longitude });
+  const directionsUrl = buildDirectionsUrl({ name, addressParts, country, latitude, longitude }) ?? "";
 
   useEffect(() => {
     if (!showMap || !token || !mapContainer.current) return;
@@ -121,8 +105,8 @@ export function ListingLocationCard({
         <p className="mt-3 text-sm text-gray-600">
           {locationLabel || (physicalLocation ? "Location details unavailable" : "Online")}
         </p>
-        {showMap && directionsDestination && (
-          <a href={directionsUrl} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#93C01F] py-3 text-sm font-bold text-[#6f9414] transition-colors hover:bg-[#93C01F] hover:text-white">
+        {showMap && destination && (
+          <a href={directionsUrl} target="_blank" rel="noreferrer" onClick={() => trackMap("directions")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#93C01F] py-3 text-sm font-bold text-[#6f9414] transition-colors hover:bg-[#93C01F] hover:text-white">
             <Navigation className="h-4 w-4" /> Get Directions
           </a>
         )}

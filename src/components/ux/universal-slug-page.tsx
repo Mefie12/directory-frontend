@@ -45,6 +45,10 @@ import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 import { ListingLocationCard } from "@/components/directory/listing-location-card";
+import { GetInTouchCard, ListingActionBar, StickyListingActions } from "@/components/directory/listing-actions";
+import { buildDirectionsUrl } from "@/lib/directory/directions";
+import { buildListingActions, isListingActionBarEnabled, type ListingAction } from "@/lib/directory/listing-actions";
+import { ListingTrackingProvider, useTrackListingAction } from "@/components/directory/listing-tracking";
 import {
   BusinessAvailability,
   BusinessHoursMode,
@@ -198,6 +202,18 @@ interface ApiListingData {
   secondary_phone?: string;
   email?: string;
   website?: string;
+  /**
+   * V2 Phase 6.1: only the outbound links that pass the link policy (null = hidden).
+   * 6.2: event listings add `tickets`, `registration` and `online`; a link that redirects
+   * through a blocked domain or somewhere unsafe is null too.
+   */
+  links?: {
+    website: string | null;
+    whatsapp: string | null;
+    tickets?: string | null;
+    registration?: string | null;
+    online?: string | null;
+  };
   google_plus_code?: string;
   latitude?: number;
   longitude?: number;
@@ -402,16 +418,19 @@ const SocialIcon = ({
   icon: Icon,
   brandColor,
   name,
+  onClick,
 }: {
   href: string;
   icon: React.ElementType;
   brandColor: string;
   name: string;
+  onClick?: () => void;
 }) => (
   <Link
     href={href}
     target="_blank"
     rel="noreferrer"
+    onClick={onClick}
     className="group flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 transition-all hover:shadow-sm"
   >
     <div className="flex items-center gap-3">
@@ -439,12 +458,20 @@ function ProviderHeader({
   provider,
   rating,
   availability,
+  actions = [],
+  actionsDisabled = false,
+  actionAnchorRef,
   // type,
 }: {
   provider: Provider;
   rating: number;
   availability?: BusinessAvailability;
   type?: string;
+  /** V2 Phase 6.1 action bar; empty while the flag is off. */
+  actions?: ListingAction[];
+  actionsDisabled?: boolean;
+  /** The mobile action row; the sticky bar appears once it scrolls away. */
+  actionAnchorRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isClamped, setIsClamped] = useState(false);
@@ -508,6 +535,11 @@ function ProviderHeader({
             </span>
           )}
         </div>
+        {actions.length > 0 && (
+          <div ref={actionAnchorRef} className="mt-4 md:hidden">
+            <ListingActionBar actions={actions} disabled={actionsDisabled} fill />
+          </div>
+        )}
         <div className="mt-3 max-w-2xl">
           <div
             className="overflow-hidden transition-all duration-500 ease-linear"
@@ -532,6 +564,13 @@ function ProviderHeader({
           )}
         </div>
       </div>
+      {actions.length > 0 && (
+        <ListingActionBar
+          actions={actions}
+          disabled={actionsDisabled}
+          className="hidden shrink-0 md:flex md:max-w-[22rem] md:justify-end"
+        />
+      )}
     </div>
   );
 }
@@ -606,7 +645,23 @@ function SidebarLocation({ provider }: { provider: Provider }) {
   />;
 }
 
+/**
+ * V2 Phase 6.2: replace an event's ticket, registration and online links with the
+ * policy-checked ones from `links`, so a hidden link is never rendered. Backends that
+ * don't send them (6.1 and older) keep the raw values.
+ */
+function withCheckedEventLinks(event: ApiEventData | undefined, links: ApiListingData["links"]): ApiEventData | undefined {
+  if (!event || !links) return event;
+  return {
+    ...event,
+    ...("tickets" in links ? { event_ticket_url: links.tickets ?? undefined } : {}),
+    ...("registration" in links ? { registration_url: links.registration ?? undefined } : {}),
+    ...("online" in links ? { event_online_url: links.online ?? undefined } : {}),
+  };
+}
+
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
+  const trackEvent = useTrackListingAction("event");
   const locationType = eventData.event_location_type;
   const locationLabel =
     locationType === "in_person"
@@ -769,6 +824,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
             {eventData.attendance_type === "free_registration_required" && eventData.registration_url && (
               <Link
                 href={eventData.registration_url}
+                onClick={() => trackEvent("register")}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
@@ -781,6 +837,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
               <div className="space-y-1">
                 <Link
                   href={eventData.event_ticket_url}
+                  onClick={() => trackEvent("tickets")}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
@@ -819,6 +876,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
             {eventData.online_access_policy === "public_link" && eventData.event_online_url && (
               <Link
                 href={eventData.event_online_url}
+                onClick={() => trackEvent("online")}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
@@ -862,6 +920,7 @@ function SidebarInfo({
   previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
+  const trackSidebar = useTrackListingAction("sidebar");
   const hasContact = !!(
     provider.phone ||
     provider.email ||
@@ -993,6 +1052,7 @@ function SidebarInfo({
                   </h6>
                   <Link
                     href={`tel:${provider.phone}`}
+                    onClick={() => trackSidebar("call")}
                     className="font-medium text-gray-900 hover:underline focus:underline outline-none"
                   >
                     {provider.phone}
@@ -1006,6 +1066,7 @@ function SidebarInfo({
                   </h6>
                   <Link
                     href={`mailto:${provider.email}`}
+                    onClick={() => trackSidebar("email")}
                     className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
                   >
                     {provider.email}
@@ -1026,6 +1087,7 @@ function SidebarInfo({
                           icon={WhatsappLogo}
                           brandColor="#25D366"
                           name="WhatsApp"
+                          onClick={() => trackSidebar("whatsapp")}
                         />
                       )}
                       {socialLinks.facebook && (
@@ -1083,6 +1145,7 @@ function SidebarInfo({
               <h6 className="text-base font-medium text-gray-900">Website</h6>
               <Link
                 href={provider.website}
+                onClick={() => trackSidebar("website")}
                 target="_blank"
                 rel="noreferrer"
                 className="text-emerald-600 hover:underline text-sm truncate"
@@ -1349,6 +1412,8 @@ export default function UniversalSlugPage({
   const previewMode = useSearchParams().get("preview") === "1";
 
   const [loading, setLoading] = useState(true);
+  // V2 Phase 6.1: the header's mobile action row, watched by the sticky action bar.
+  const actionAnchorRef = useRef<HTMLDivElement>(null);
   const [providerData, setProviderData] = useState<Provider | null>(null);
   const [template, setTemplate] = useState<TemplateContent | null>(null);
   const [availabilityNow, setAvailabilityNow] = useState(() => new Date());
@@ -1451,6 +1516,13 @@ export default function UniversalSlugPage({
             }
           } catch {}
 
+          // V2 Phase 6.1: a website or WhatsApp link that fails the link policy (or was taken
+          // down by an admin) is null in `links`, so it is not rendered anywhere on the page.
+          // Older backends don't send `links`; keep their raw values then.
+          if (listingData.links) {
+            socialLinks.whatsapp = listingData.links.whatsapp ?? undefined;
+          }
+
           const provider: Provider = {
             id: listingData.id,
             name: listingData.name,
@@ -1484,12 +1556,12 @@ export default function UniversalSlugPage({
             rating: listingData.rating || 0,
             phone: listingData.primary_phone,
             email: listingData.email,
-            website: listingData.website,
+            website: listingData.links ? (listingData.links.website ?? undefined) : listingData.website,
             socials: socialLinks,
             latitude: listingData.latitude,
             longitude: listingData.longitude,
             eventData:
-              listingData.type === "event" ? listingData.event : undefined,
+              listingData.type === "event" ? withCheckedEventLinks(listingData.event, listingData.links) : undefined,
             businessHoursMode: listingData.business_hours_mode,
             businessTimezone: listingData.business_timezone,
           };
@@ -1634,6 +1706,28 @@ export default function UniversalSlugPage({
   const rating = Number(providerData.rating) || 0;
 
   const resolvedType = providerData.listingType || type;
+
+  // V2 Phase 6.1: the free action bar (spec §4.1), behind NEXT_PUBLIC_LISTING_ACTION_BAR.
+  const physicalLocation = providerData.eventData?.event_location_type !== "online";
+  const listingActions: ListingAction[] = isListingActionBarEnabled()
+    ? buildListingActions({
+        type: resolvedType,
+        phone: providerData.phone,
+        email: providerData.email,
+        website: providerData.website,
+        whatsapp: providerData.socials?.whatsapp,
+        directionsUrl: physicalLocation
+          ? buildDirectionsUrl({
+              name: providerData.name,
+              addressParts: [providerData.location],
+              country: providerData.country,
+              latitude: providerData.latitude,
+              longitude: providerData.longitude,
+            })
+          : null,
+        event: providerData.eventData,
+      })
+    : [];
   const effectiveBusinessHoursMode =
     providerData.businessHoursMode ??
     (resolvedType === "business" && template.hours.length > 0
@@ -1671,6 +1765,8 @@ export default function UniversalSlugPage({
       .join(" ");
 
   return (
+    // V2 Phase 6.3: count visitors' contact actions on this listing (never in preview mode).
+    <ListingTrackingProvider slug={previewMode ? null : providerData.slug}>
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
       <div className="mx-auto w-full max-w-7xl px-4 lg:px-0">
         <Breadcrumb className="mb-6">
@@ -1719,6 +1815,9 @@ export default function UniversalSlugPage({
               rating={rating}
               type={type}
               availability={availability}
+              actions={listingActions}
+              actionsDisabled={previewMode}
+              actionAnchorRef={actionAnchorRef}
             />
 
             <ProviderTabs
@@ -1757,6 +1856,9 @@ export default function UniversalSlugPage({
               </CardContent>
             </Card>
           )}
+
+          {/* V2 Phase 6.1: closing "Get in touch" card on every listing (decision C-6) */}
+          <GetInTouchCard name={providerData.name} actions={listingActions} disabled={previewMode} />
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
@@ -1774,6 +1876,9 @@ export default function UniversalSlugPage({
           />
         </aside>
       </div>
+
+      <StickyListingActions actions={listingActions} anchorRef={actionAnchorRef} disabled={previewMode} />
     </div>
+    </ListingTrackingProvider>
   );
 }

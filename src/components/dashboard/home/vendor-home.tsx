@@ -12,6 +12,7 @@ import {
   Bell,
   TrendingUp,
   Mail,
+  MousePointerClick,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -34,6 +35,7 @@ import { useRolePath } from "@/hooks/useRolePath";
 import { toast } from "sonner";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
 import { getAuthToken } from "@/lib/client-auth";
+import { getOrganizationInteractionSummary, type OrganizationInteractionSummary } from "@/lib/api";
 
 interface ListingImage {
   id: number;
@@ -147,6 +149,23 @@ export default function VendorHome({ organizationSlug }: VendorHomeProps = {}) {
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [totalBookmarks, setTotalBookmarks] = useState<number | null>(null);
   const [viewsChartData, setViewsChartData] = useState<Record<string, string | number>[] | null>(null);
+  // V2 Phase 6.3: contact actions this month across the organization's listings (null = hidden).
+  const [actionsSummary, setActionsSummary] = useState<OrganizationInteractionSummary | null>(null);
+
+  useEffect(() => {
+    if (!organizationSlug) return;
+    let cancelled = false;
+    getOrganizationInteractionSummary(organizationSlug, getAuthToken() ?? undefined)
+      .then((summary) => {
+        if (!cancelled) setActionsSummary(summary);
+      })
+      .catch(() => {
+        // Supplementary: the tile falls back to the inquiries placeholder.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationSlug]);
 
   // --- Action States ---
   const [deleteListingId, setDeleteListingId] = useState<string | null>(null);
@@ -438,14 +457,29 @@ export default function VendorHome({ organizationSlug }: VendorHomeProps = {}) {
           trendIconDown={TrendingDown}
         />
 
-        <StatCard
-          title="Inquiries Received"
-          icon={Mail}
-          statValue={null}
-          trend={null}
-          trendIconUp={TrendingUp}
-          trendIconDown={TrendingDown}
-        />
+        {actionsSummary ? (
+          <StatCard
+            title="Contact actions this month"
+            icon={MousePointerClick}
+            statValue={actionsSummary.total}
+            trend={
+              actionsSummary.previous_total > 0
+                ? Math.round(((actionsSummary.total - actionsSummary.previous_total) / actionsSummary.previous_total) * 100)
+                : null
+            }
+            trendIconUp={TrendingUp}
+            trendIconDown={TrendingDown}
+          />
+        ) : (
+          <StatCard
+            title="Inquiries Received"
+            icon={Mail}
+            statValue={null}
+            trend={null}
+            trendIconUp={TrendingUp}
+            trendIconDown={TrendingDown}
+          />
+        )}
         <StatCard
           title="Average Rating"
           icon={Bell}

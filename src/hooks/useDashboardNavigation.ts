@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { normalizeRole, ROLE_BASE_PATH, type PlatformPermission, type UserRole } from "@/lib/roles";
 import { usePlatformAccess } from "@/hooks/usePlatformAccess";
-import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree, SealCheck } from '@phosphor-icons/react';
+import { Newspaper, Icon, SquaresFourIcon, Files, BookmarkSimple, QuestionMarkIcon, LifebuoyIcon, Buildings, Receipt, UsersThree, SealCheck, LinkSimple } from '@phosphor-icons/react';
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { organizationPath } from "@/lib/workspace";
@@ -110,6 +110,15 @@ const MENU_CONFIG: MenuItem[] = [
     roles: ["admin"],
     platformPermission: "platform.organizations.manage",
     requiresLifecycle: true,
+  },
+
+  // ─── Outbound link moderation (Admin, V2 Phase 6.1) ───
+  {
+    title: "Listing Links",
+    url: "/dashboard/admin-links",
+    icon: LinkSimple,
+    roles: ["admin"],
+    platformPermission: "platform.listings.moderate",
   },
 
   // ─── Organization verification queue (Admin, V2 Phase 4.2) ───

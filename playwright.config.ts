@@ -50,6 +50,16 @@ export default defineConfig({
       metadata: { authMode: "cookie" },
     },
     {
+      name: "listing-actions-desktop",
+      testMatch: /listing-actions\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], channel, baseURL: LEGACY_URL },
+    },
+    {
+      name: "listing-actions-mobile",
+      testMatch: /listing-actions\.spec\.ts/,
+      use: { ...devices["Pixel 7"], channel, baseURL: LEGACY_URL },
+    },
+    {
       name: "workspaces",
       testMatch: /workspaces\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], channel, baseURL: LEGACY_URL },

@@ -197,6 +197,38 @@ export interface ListingManagementData extends EditableListingData {
   capabilities: ListingManagementCapabilities;
   /** V2: the owning organization. Present only while organizations are enabled. */
   organization?: { id: number; slug: string; name: string } | null;
+  /** V2 Phase 6.1: each free link's status against the outbound-link policy. */
+  link_checks?: ListingLinkCheck[];
+}
+
+/**
+ * V2 Phase 6.1: one outbound link and whether it is shown publicly.
+ * 6.2 adds an event's `tickets`, `registration` and `online` links, and where the link
+ * really leads (`resolution`, from the destination resolver).
+ */
+export interface ListingLinkCheck {
+  field: ListingLinkField;
+  value: string | null;
+  url: string | null;
+  host: string | null;
+  status: "none" | "ok" | "invalid" | "blocked" | "disabled_by_admin";
+  reason: string | null;
+  message: string | null;
+  resolution?: ListingLinkResolution | null;
+}
+
+export type ListingLinkField = "website" | "whatsapp" | "tickets" | "registration" | "online";
+
+/** V2 Phase 6.2: the destination resolver's latest result for a link's current value. */
+export interface ListingLinkResolution {
+  outcome: "ok" | "blocked" | "unsafe" | "unreachable" | "too_many_redirects";
+  reason: string | null;
+  final_host: string | null;
+  final_url: string | null;
+  http_status: number | null;
+  /** Every host the link passed through, in order. */
+  hosts: string[];
+  checked_at: string | null;
 }
 
 export interface ListingService {
@@ -3353,4 +3385,159 @@ export async function revokeOrgVerification(orgSlug: string, reason: string, tok
   await verificationRequest<unknown>(
     `/api/admin/organizations/${encodeURIComponent(orgSlug)}/revoke-verification`, "POST", "Could not revoke verification", token, { reason },
   );
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 6.1: outbound-link moderation (admin). md files/V2-phase6-listing-actions-cta-spec.md §4.3
+// ----------------------------------------------------------------------------
+
+export interface BlockedLinkDomain {
+  id: number;
+  domain: string;
+  include_subdomains: boolean;
+  reason: string;
+  created_by?: { id: number; name: string } | null;
+  created_at: string | null;
+}
+
+export interface AdminListingLinksRow {
+  listing: {
+    id: number;
+    slug: string;
+    name: string;
+    type: string;
+    status: string;
+    organization: { id: number; name: string } | null;
+  };
+  links: ListingLinkCheck[];
+}
+
+export interface LaravelPage<T> {
+  data: T[];
+  meta?: { current_page: number; last_page: number; total: number; per_page: number };
+}
+
+async function linkAdminRequest<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: { ...getAuthHeaders(token), Accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    message?: string;
+    error?: string;
+    errors?: Record<string, string[]>;
+  };
+  if (!response.ok) {
+    const firstError = payload.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
+    throw new ApiRequestError(firstError || payload.message || payload.error || "Request failed", response.status);
+  }
+  return payload as T;
+}
+
+export function getBlockedLinkDomains(token?: string, params: { q?: string; page?: number } = {}): Promise<LaravelPage<BlockedLinkDomain>> {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.page) query.set("page", String(params.page));
+  return linkAdminRequest(`/api/admin/blocked-link-domains${query.size ? `?${query}` : ""}`, token);
+}
+
+export function blockLinkDomain(
+  input: { domain: string; reason: string; include_subdomains: boolean },
+  token?: string,
+): Promise<{ data: BlockedLinkDomain; affected_listings: number }> {
+  return linkAdminRequest("/api/admin/blocked-link-domains", token, { method: "POST", body: JSON.stringify(input) });
+}
+
+export function unblockLinkDomain(id: number, token?: string): Promise<{ message: string }> {
+  return linkAdminRequest(`/api/admin/blocked-link-domains/${id}`, token, { method: "DELETE" });
+}
+
+export function getAdminListingLinks(
+  token?: string,
+  params: { q?: string; status?: string; page?: number } = {},
+): Promise<LaravelPage<AdminListingLinksRow>> {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.status) query.set("status", params.status);
+  if (params.page) query.set("page", String(params.page));
+  return linkAdminRequest(`/api/admin/listing-links${query.size ? `?${query}` : ""}`, token);
+}
+
+export function disableListingLink(
+  listingSlug: string,
+  field: ListingLinkCheck["field"],
+  input: { reason: string; block_domain: boolean },
+  token?: string,
+): Promise<{ data: AdminListingLinksRow }> {
+  return linkAdminRequest(`/api/admin/listing-links/${encodeURIComponent(listingSlug)}/${field}/disable`, token, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function restoreListingLink(listingSlug: string, field: ListingLinkCheck["field"], token?: string): Promise<{ data: AdminListingLinksRow }> {
+  return linkAdminRequest(`/api/admin/listing-links/${encodeURIComponent(listingSlug)}/${field}/restore`, token, { method: "POST" });
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 6.3: contact-action counts (Call, WhatsApp, Website, Directions, ...).
+// The routes 404 while the backend has LISTING_INTERACTIONS_ENABLED off; the
+// fetchers return null then (and on 403), so the dashboard simply hides them.
+// ----------------------------------------------------------------------------
+
+export type ListingInteractionAction =
+  | "call"
+  | "whatsapp"
+  | "website"
+  | "directions"
+  | "email"
+  | "tickets"
+  | "register"
+  | "online";
+
+interface InteractionTotals {
+  /** YYYY-MM */
+  month: string;
+  from: string;
+  to: string;
+  total: number;
+  previous_total: number;
+  by_action: Partial<Record<ListingInteractionAction, number>>;
+}
+
+export interface ListingInteractionStats extends InteractionTotals {
+  /** Null when the listing's plan doesn't include insights. */
+  insights: {
+    daily: { date: string; total: number }[];
+    by_placement: Record<string, number>;
+    by_device: Record<string, number>;
+    views: number | null;
+    /** Percent; null while page views aren't deduplicated. */
+    click_through_rate: number | null;
+  } | null;
+  insights_available: boolean;
+  /** The plan that unlocks insights, when this one doesn't. */
+  required_plan: string | null;
+}
+
+export interface OrganizationInteractionSummary extends InteractionTotals {
+  top_listings: { id: number; slug: string | null; name: string | null; total: number }[];
+}
+
+async function interactionRequest<T>(path: string, token?: string): Promise<T | null> {
+  const response = await fetch(path, { headers: getAuthHeaders(token), cache: "no-store" });
+  if (response.status === 404 || response.status === 403) return null;
+  if (!response.ok) throw new Error("Couldn't load the contact-action counts.");
+  const json = (await response.json()) as { data: T };
+  return json.data;
+}
+
+export function getListingInteractionStats(slug: string, token?: string, month?: string): Promise<ListingInteractionStats | null> {
+  const query = month ? `?month=${encodeURIComponent(month)}` : "";
+  return interactionRequest(`/api/listing/${encodeURIComponent(slug)}/interactions/stats${query}`, token);
+}
+
+export function getOrganizationInteractionSummary(slug: string, token?: string): Promise<OrganizationInteractionSummary | null> {
+  return interactionRequest(`/api/organizations/${encodeURIComponent(slug)}/interactions`, token);
 }
