@@ -247,10 +247,17 @@ export default function ClaimListingDetailPage() {
   const rating = Number(listing.rating) || 0;
   const reviewsCount = Number(listing.reviews_count) || 0;
   const socials = listing.socials?.[0] || ({} as ApiSocialItem);
-  // Explicit status comparison — claim_status is always a non-empty string
-  // ("unclaimed", "claimed", ...), so truthiness alone would always read as claimed.
-  const isClaimed = listing.claim_status === "claimed";
   const isClaimable = eligibility?.claimable === true;
+  // Whether the listing has a manager comes from the eligibility contract, which
+  // the backend decides from actual ownership: claim_type "rectification" means
+  // the listing is owned, "ordinary" means it is not. The raw listing.claim_status
+  // column can lag ownership (e.g. a listing that lost its owner), so it is only
+  // a fallback when the caller isn't eligible and no claim_type is returned.
+  // Explicit comparison: claim_status is always a non-empty string, so truthiness
+  // alone would always read as claimed.
+  const isClaimed = isClaimable
+    ? eligibility?.claim_type === "rectification"
+    : listing.claim_status === "claimed";
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20 pt-24">
