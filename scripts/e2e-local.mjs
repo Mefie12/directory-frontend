@@ -70,6 +70,8 @@ const backendEnv = {
   ORGANIZATIONS_LIFECYCLE_ENABLED: "true",
   ORG_VERIFICATION_PUBLIC: "true",
   VIEW_DEDUPE_ENABLED: "true",
+  // V2 Phase 6.3: contact-action counts.
+  LISTING_INTERACTIONS_ENABLED: "true",
 };
 
 const frontendBase = {

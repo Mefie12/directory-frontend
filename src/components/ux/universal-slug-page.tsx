@@ -48,6 +48,7 @@ import { ListingLocationCard } from "@/components/directory/listing-location-car
 import { GetInTouchCard, ListingActionBar, StickyListingActions } from "@/components/directory/listing-actions";
 import { buildDirectionsUrl } from "@/lib/directory/directions";
 import { buildListingActions, isListingActionBarEnabled, type ListingAction } from "@/lib/directory/listing-actions";
+import { ListingTrackingProvider, useTrackListingAction } from "@/components/directory/listing-tracking";
 import {
   BusinessAvailability,
   BusinessHoursMode,
@@ -417,16 +418,19 @@ const SocialIcon = ({
   icon: Icon,
   brandColor,
   name,
+  onClick,
 }: {
   href: string;
   icon: React.ElementType;
   brandColor: string;
   name: string;
+  onClick?: () => void;
 }) => (
   <Link
     href={href}
     target="_blank"
     rel="noreferrer"
+    onClick={onClick}
     className="group flex items-center justify-between p-2.5 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:border-gray-200 transition-all hover:shadow-sm"
   >
     <div className="flex items-center gap-3">
@@ -657,6 +661,7 @@ function withCheckedEventLinks(event: ApiEventData | undefined, links: ApiListin
 }
 
 function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
+  const trackEvent = useTrackListingAction("event");
   const locationType = eventData.event_location_type;
   const locationLabel =
     locationType === "in_person"
@@ -819,6 +824,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
             {eventData.attendance_type === "free_registration_required" && eventData.registration_url && (
               <Link
                 href={eventData.registration_url}
+                onClick={() => trackEvent("register")}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
@@ -831,6 +837,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
               <div className="space-y-1">
                 <Link
                   href={eventData.event_ticket_url}
+                  onClick={() => trackEvent("tickets")}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#93C01F] text-white text-sm font-bold hover:bg-[#82ab1b] transition-colors"
@@ -869,6 +876,7 @@ function SidebarEventDetails({ eventData }: { eventData: ApiEventData }) {
             {eventData.online_access_policy === "public_link" && eventData.event_online_url && (
               <Link
                 href={eventData.event_online_url}
+                onClick={() => trackEvent("online")}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors"
@@ -912,6 +920,7 @@ function SidebarInfo({
   previewMode?: boolean;
 }) {
   const socialLinks = provider.socials || {};
+  const trackSidebar = useTrackListingAction("sidebar");
   const hasContact = !!(
     provider.phone ||
     provider.email ||
@@ -1043,6 +1052,7 @@ function SidebarInfo({
                   </h6>
                   <Link
                     href={`tel:${provider.phone}`}
+                    onClick={() => trackSidebar("call")}
                     className="font-medium text-gray-900 hover:underline focus:underline outline-none"
                   >
                     {provider.phone}
@@ -1056,6 +1066,7 @@ function SidebarInfo({
                   </h6>
                   <Link
                     href={`mailto:${provider.email}`}
+                    onClick={() => trackSidebar("email")}
                     className="font-medium text-gray-900 truncate hover:underline focus:underline outline-none"
                   >
                     {provider.email}
@@ -1076,6 +1087,7 @@ function SidebarInfo({
                           icon={WhatsappLogo}
                           brandColor="#25D366"
                           name="WhatsApp"
+                          onClick={() => trackSidebar("whatsapp")}
                         />
                       )}
                       {socialLinks.facebook && (
@@ -1133,6 +1145,7 @@ function SidebarInfo({
               <h6 className="text-base font-medium text-gray-900">Website</h6>
               <Link
                 href={provider.website}
+                onClick={() => trackSidebar("website")}
                 target="_blank"
                 rel="noreferrer"
                 className="text-emerald-600 hover:underline text-sm truncate"
@@ -1752,6 +1765,8 @@ export default function UniversalSlugPage({
       .join(" ");
 
   return (
+    // V2 Phase 6.3: count visitors' contact actions on this listing (never in preview mode).
+    <ListingTrackingProvider slug={previewMode ? null : providerData.slug}>
     <div className="min-h-screen pb-24 pt-24 bg-gray-50/30">
       <div className="mx-auto w-full max-w-7xl px-4 lg:px-0">
         <Breadcrumb className="mb-6">
@@ -1864,5 +1879,6 @@ export default function UniversalSlugPage({
 
       <StickyListingActions actions={listingActions} anchorRef={actionAnchorRef} disabled={previewMode} />
     </div>
+    </ListingTrackingProvider>
   );
 }

@@ -8,6 +8,7 @@ import { MapPin, Navigation } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useTrackListingAction } from "@/components/directory/listing-tracking";
 import { buildDirectionsUrl, cleanLocationPart, directionsDestination, hasCoordinates as coordinatesKnown, locationParts as buildLocationParts } from "@/lib/directory/directions";
 
 interface ListingLocationCardProps {
@@ -31,6 +32,7 @@ export function ListingLocationCard({
 }: ListingLocationCardProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const trackMap = useTrackListingAction("map");
   const [mapState, setMapState] = useState<"loading" | "ready" | "error">("loading");
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
   const locationParts = useMemo(() => buildLocationParts(addressParts, country), [addressParts, country]);
@@ -104,7 +106,7 @@ export function ListingLocationCard({
           {locationLabel || (physicalLocation ? "Location details unavailable" : "Online")}
         </p>
         {showMap && destination && (
-          <a href={directionsUrl} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#93C01F] py-3 text-sm font-bold text-[#6f9414] transition-colors hover:bg-[#93C01F] hover:text-white">
+          <a href={directionsUrl} target="_blank" rel="noreferrer" onClick={() => trackMap("directions")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#93C01F] py-3 text-sm font-bold text-[#6f9414] transition-colors hover:bg-[#93C01F] hover:text-white">
             <Navigation className="h-4 w-4" /> Get Directions
           </a>
         )}

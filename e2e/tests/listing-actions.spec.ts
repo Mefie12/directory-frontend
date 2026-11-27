@@ -59,3 +59,38 @@ test.describe("listing action bar", () => {
     await expect(bar.getByText("Call", { exact: true })).toHaveCount(0);
   });
 });
+
+/**
+ * V2 Phase 6.3: a visitor's tap is counted and shows on the listing team's dashboard.
+ * Counting dedupes a visitor (IP + user agent) for 30 minutes, and the e2e cache outlives
+ * a run, so this test uses a user agent of its own each run.
+ */
+test.describe("contact-action counts", () => {
+  test.use({
+    userAgent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36 run-${Date.now()}`,
+  });
+
+  test("a visitor's tap shows in the listing team's dashboard", async ({ page, isMobile, guard }) => {
+    test.skip(isMobile, "One project is enough; the phone bar is covered above.");
+    // This project runs against the legacy-auth stack, where the login page probes the session routes (404 by design).
+    guard.allow(404, /\/api\/session\//);
+
+    await page.goto(BUSINESS);
+    const bar = page.getByRole("group", { name: "Get in touch" }).filter({ visible: true }).first();
+    const reported = page.waitForResponse(
+      (response) => response.url().includes("/interactions") && response.request().method() === "POST",
+    );
+    await bar.getByRole("button", { name: /Call/ }).click();
+    expect((await reported).status()).toBe(204);
+
+    await signIn(page, "vendor");
+    await expect(page).toHaveURL(/\/dashboard\/org\/[^/?#]+$/);
+    await page.goto(`${page.url()}/listings/accra-sourdough`);
+
+    const card = page.getByTestId("listing-actions-card").filter({ visible: true });
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("heading", { name: "Actions this month" })).toBeVisible();
+    await expect(card.getByTestId("listing-actions-total")).not.toHaveText("0");
+    await expect(card.getByText("Call", { exact: true })).toBeVisible();
+  });
+});

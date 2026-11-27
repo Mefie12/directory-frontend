@@ -3479,3 +3479,65 @@ export function disableListingLink(
 export function restoreListingLink(listingSlug: string, field: ListingLinkCheck["field"], token?: string): Promise<{ data: AdminListingLinksRow }> {
   return linkAdminRequest(`/api/admin/listing-links/${encodeURIComponent(listingSlug)}/${field}/restore`, token, { method: "POST" });
 }
+
+// ----------------------------------------------------------------------------
+// V2 Phase 6.3: contact-action counts (Call, WhatsApp, Website, Directions, ...).
+// The routes 404 while the backend has LISTING_INTERACTIONS_ENABLED off; the
+// fetchers return null then (and on 403), so the dashboard simply hides them.
+// ----------------------------------------------------------------------------
+
+export type ListingInteractionAction =
+  | "call"
+  | "whatsapp"
+  | "website"
+  | "directions"
+  | "email"
+  | "tickets"
+  | "register"
+  | "online";
+
+interface InteractionTotals {
+  /** YYYY-MM */
+  month: string;
+  from: string;
+  to: string;
+  total: number;
+  previous_total: number;
+  by_action: Partial<Record<ListingInteractionAction, number>>;
+}
+
+export interface ListingInteractionStats extends InteractionTotals {
+  /** Null when the listing's plan doesn't include insights. */
+  insights: {
+    daily: { date: string; total: number }[];
+    by_placement: Record<string, number>;
+    by_device: Record<string, number>;
+    views: number | null;
+    /** Percent; null while page views aren't deduplicated. */
+    click_through_rate: number | null;
+  } | null;
+  insights_available: boolean;
+  /** The plan that unlocks insights, when this one doesn't. */
+  required_plan: string | null;
+}
+
+export interface OrganizationInteractionSummary extends InteractionTotals {
+  top_listings: { id: number; slug: string | null; name: string | null; total: number }[];
+}
+
+async function interactionRequest<T>(path: string, token?: string): Promise<T | null> {
+  const response = await fetch(path, { headers: getAuthHeaders(token), cache: "no-store" });
+  if (response.status === 404 || response.status === 403) return null;
+  if (!response.ok) throw new Error("Couldn't load the contact-action counts.");
+  const json = (await response.json()) as { data: T };
+  return json.data;
+}
+
+export function getListingInteractionStats(slug: string, token?: string, month?: string): Promise<ListingInteractionStats | null> {
+  const query = month ? `?month=${encodeURIComponent(month)}` : "";
+  return interactionRequest(`/api/listing/${encodeURIComponent(slug)}/interactions/stats${query}`, token);
+}
+
+export function getOrganizationInteractionSummary(slug: string, token?: string): Promise<OrganizationInteractionSummary | null> {
+  return interactionRequest(`/api/organizations/${encodeURIComponent(slug)}/interactions`, token);
+}

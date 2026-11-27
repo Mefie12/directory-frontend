@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { actionRel, type ListingAction, type ListingActionKind } from "@/lib/directory/listing-actions";
 import { setStickyActionBarVisible } from "@/lib/directory/sticky-action-bar";
+import type { ListingInteractionPlacement } from "@/lib/directory/listing-interactions";
+import { useTrackListingAction } from "@/components/directory/listing-tracking";
 
 const ICONS: Record<ListingActionKind, Icon> = {
   call: Phone,
@@ -68,7 +70,7 @@ function ActionContent({ action }: { action: ListingAction }) {
 }
 
 /** Desktop "Call": show the number with a copy button instead of a tel: link that can't dial. */
-function CallReveal({ action, className }: { action: ListingAction; className: string }) {
+function CallReveal({ action, className, onReveal }: { action: ListingAction; className: string; onReveal: () => void }) {
   const [copied, setCopied] = useState(false);
   const number = action.phone ?? action.href.replace(/^tel:/, "");
 
@@ -83,7 +85,8 @@ function CallReveal({ action, className }: { action: ListingAction; className: s
   };
 
   return (
-    <Popover>
+    // Showing the number counts as a call (decision E): it is the desktop's way to call.
+    <Popover onOpenChange={(open) => open && onReveal()}>
       <PopoverTrigger asChild>
         <button type="button" className={className}>
           <ActionContent action={action} />
@@ -114,12 +117,14 @@ function ActionButton({
   disabled,
   canDial,
   className,
+  onUse,
 }: {
   action: ListingAction;
   primary: boolean;
   disabled: boolean;
   canDial: boolean;
   className?: string;
+  onUse: (action: ListingAction["kind"]) => void;
 }) {
   const classes = cn(BASE, primary ? PRIMARY : SECONDARY, className);
 
@@ -132,7 +137,7 @@ function ActionButton({
     );
   }
 
-  if (action.kind === "call" && !canDial) return <CallReveal action={action} className={classes} />;
+  if (action.kind === "call" && !canDial) return <CallReveal action={action} className={classes} onReveal={() => onUse("call")} />;
 
   return (
     <a
@@ -140,6 +145,7 @@ function ActionButton({
       className={classes}
       target={action.external ? "_blank" : undefined}
       rel={actionRel(action)}
+      onClick={() => onUse(action.kind)}
     >
       <ActionContent action={action} />
     </a>
@@ -147,7 +153,15 @@ function ActionButton({
 }
 
 /** Overflow menu. "Call" shows the number in its label, so it also works where tel: can't dial. */
-function MoreActions({ actions, disabled }: { actions: ListingAction[]; disabled: boolean }) {
+function MoreActions({
+  actions,
+  disabled,
+  onUse,
+}: {
+  actions: ListingAction[];
+  disabled: boolean;
+  onUse: (action: ListingAction["kind"]) => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -165,6 +179,7 @@ function MoreActions({ actions, disabled }: { actions: ListingAction[]; disabled
                 href={disabled ? undefined : action.href}
                 target={action.external ? "_blank" : undefined}
                 rel={actionRel(action)}
+                onClick={disabled ? undefined : () => onUse(action.kind)}
                 className="flex cursor-pointer items-center gap-2 py-2"
               >
                 <IconComponent className="h-4 w-4 text-gray-500" weight="fill" aria-hidden="true" />
@@ -189,6 +204,7 @@ export function ListingActionBar({
   disabled = false,
   className,
   fill = false,
+  placement = "bar",
 }: {
   actions: ListingAction[];
   max?: number;
@@ -196,8 +212,11 @@ export function ListingActionBar({
   className?: string;
   /** Stretch buttons to share the row (mobile rows and the sticky bar). */
   fill?: boolean;
+  /** Where the row sits, for the contact-action counts (V2 Phase 6.3). */
+  placement?: ListingInteractionPlacement;
 }) {
   const canDial = useCanDial();
+  const track = useTrackListingAction(placement);
   if (actions.length === 0) return null;
 
   const visible = actions.length > max ? actions.slice(0, max - 1) : actions;
@@ -213,9 +232,10 @@ export function ListingActionBar({
           disabled={disabled}
           canDial={canDial}
           className={fill ? "flex-1 basis-0" : undefined}
+          onUse={track}
         />
       ))}
-      {overflow.length > 0 && <MoreActions actions={overflow} disabled={disabled} />}
+      {overflow.length > 0 && <MoreActions actions={overflow} disabled={disabled} onUse={track} />}
     </div>
   );
 }
@@ -274,7 +294,7 @@ export function StickyListingActions({
       inert={!show}
       data-testid="sticky-listing-actions"
     >
-      <ListingActionBar actions={actions} max={2} disabled={disabled} fill />
+      <ListingActionBar actions={actions} max={2} disabled={disabled} fill placement="sticky" />
     </div>
   );
 }
@@ -299,7 +319,7 @@ export function GetInTouchCard({
       </h2>
       <p className="mt-1 text-sm text-gray-500">Contact {name} directly.</p>
       {children}
-      <ListingActionBar actions={actions} max={4} disabled={disabled} className="mt-4" />
+      <ListingActionBar actions={actions} max={4} disabled={disabled} className="mt-4" placement="card" />
     </section>
   );
 }
