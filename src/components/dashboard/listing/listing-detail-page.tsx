@@ -1,5 +1,6 @@
 "use client";
 
+import type { ListingManagementCapabilities } from "@/lib/api";
 import { use, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -76,6 +77,11 @@ import { getAuthToken } from "@/lib/client-auth";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  /**
+   * V2 workspaces: what the signed-in member may do to this listing (from
+   * GET /listing/{slug}/management). Omitted → every action shows, as before.
+   */
+  capabilities?: ListingManagementCapabilities;
 };
 
 interface ListingImage {
@@ -396,8 +402,11 @@ function SocialLink({
 
 // --- Main Component ---
 
-export default function ListingDetailPage({ params }: PageProps) {
+export default function ListingDetailPage({ params, capabilities }: PageProps) {
   const { slug } = use(params);
+  const canEdit = capabilities?.can_edit ?? true;
+  const canManageServices = capabilities?.can_manage_services ?? true;
+  const canReply = capabilities?.can_reply_to_reviews ?? true;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { loading: authLoading } = useAuth();
@@ -1157,14 +1166,16 @@ export default function ListingDetailPage({ params }: PageProps) {
         <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
           <Briefcase className="w-4 h-4 text-[#93C01F]" /> Services
         </h3>
-        <Button
-          size="sm"
-          className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
-          onClick={openAddServices}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Service
-        </Button>
+        {canManageServices && (
+          <Button
+            size="sm"
+            className="bg-[#93C01F] hover:bg-[#82ab1b] gap-1.5 h-8"
+            onClick={openAddServices}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Service
+          </Button>
+        )}
       </div>
 
       {services.length > 0 ? (
@@ -1368,7 +1379,7 @@ export default function ListingDetailPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {!alreadyReplied && !isReplying && (
+                {canReply && !alreadyReplied && !isReplying && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1475,24 +1486,28 @@ export default function ListingDetailPage({ params }: PageProps) {
             <Copy className="w-4 h-4" />
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => router.push(listingEdit(listing.type, listing.slug))}
-          title="Edit listing"
-        >
-          <PencilSimple className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-          onClick={() => setShowDeleteDialog(true)}
-          title="Delete listing"
-        >
-          <Trash className="w-4 h-4" />
-        </Button>
+        {canEdit && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => router.push(listingEdit(listing.type, listing.slug))}
+              title="Edit listing"
+            >
+              <PencilSimple className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setShowDeleteDialog(true)}
+              title="Delete listing"
+            >
+              <Trash className="w-4 h-4" />
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

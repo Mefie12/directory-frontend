@@ -195,6 +195,8 @@ export interface ListingManagementData extends EditableListingData {
   community_location_scope?: string | null;
   community_participation_method?: string | null;
   capabilities: ListingManagementCapabilities;
+  /** V2: the owning organization. Present only while organizations are enabled. */
+  organization?: { id: number; slug: string; name: string } | null;
 }
 
 export interface ListingService {

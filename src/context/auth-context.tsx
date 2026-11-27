@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isUnverified, setIsUnverified] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const fetchUserProfile = async (token: string) => {
     setLoading(true);
@@ -213,14 +214,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (current) await fetchUserProfile(current);
   };
 
+  /**
+   * Sign out and go to the public site.
+   *
+   * React state is deliberately left alone: clearing `user` here made the
+   * dashboard's signed-out guard jump to /auth/login before the redirect landed.
+   * The full page load below resets every in-memory state anyway, and replace()
+   * keeps the dashboard out of the Back history.
+   */
   const logout = async () => {
-    if (await isCookieMode()) await endCookieSession();
+    if (signingOut) return;
+    setSigningOut(true);
+
+    const storedToken = localStorage.getItem("authToken");
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
-    setUser(null);
-    setIsAuthenticated(false);
-    setIsUnverified(false);
-    window.location.href = "/discover";
+
+    if (storedToken) {
+      // Legacy mode: revoke the Laravel token without making the person wait.
+      // keepalive lets the request finish after this page unloads.
+      void fetch("/api/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${storedToken}`, Accept: "application/json" },
+        keepalive: true,
+        cache: "no-store",
+      }).catch(() => undefined);
+    } else if (await isCookieMode()) {
+      // Cookie mode: only the server's response can clear the httpOnly session cookie, so wait for it.
+      await endCookieSession();
+    }
+
+    window.location.replace("/discover");
   };
 
   const refetchUser = () => {
@@ -247,6 +271,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {signingOut && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-3 text-sm font-medium text-[#1F3A4C]">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#93C01F] border-t-transparent" />
+            Signing you out…
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 }

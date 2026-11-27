@@ -29,6 +29,7 @@ import { useRolePath } from "@/hooks/useRolePath";
 import { Input } from "@/components/ui/input";
 import { processImages, resolveCoverUrl } from "@/lib/directory/image-utils";
 import { getAuthToken } from "@/lib/client-auth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 // --- Interfaces ---
 
@@ -219,10 +220,18 @@ const formatListingLocation = (listing: ApiListing): string =>
     : "") ||
   "Country not set";
 
-export default function MyListingsPage() {
+interface MyListingsPageProps {
+  /** Inside an organization workspace: list only that organization's listings. */
+  organizationSlug?: string;
+}
+
+export default function MyListingsPage({ organizationSlug }: MyListingsPageProps = {}) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { listingCreate, listingEdit, listingDetail } = useRolePath();
+  const { organization } = useWorkspace();
+  // In an organization, only members allowed to create listings see "Add new listing".
+  const canCreate = !organizationSlug || (organization?.permissions.includes("listing.create") ?? false);
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,7 +260,10 @@ export default function MyListingsPage() {
 
       if (cursor) params.set("cursor", cursor);
 
-      const response = await fetch(`/api/listing/my_listings?${params}`, {
+      const listingsUrl = organizationSlug
+        ? `/api/organizations/${encodeURIComponent(organizationSlug)}/listings?${params}`
+        : `/api/listing/my_listings?${params}`;
+      const response = await fetch(listingsUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -360,7 +372,7 @@ export default function MyListingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [organizationSlug]);
 
   useEffect(() => {
     if (!authLoading && user) fetchListings(currentPage, currentCursor);
@@ -448,12 +460,15 @@ export default function MyListingsPage() {
     <div className="px-1 lg:px-8 py-3 space-y-6">
       <div className="flex flex-col md:flex-row lg:items-center justify-between">
         <div className="mb-4">
-          <h4 className="text-2xl font-semibold">My Listings</h4>
-          <p className="text-sm text-gray-500 mt-1">Manage your listings</p>
+          <h4 className="text-2xl font-semibold">{organizationSlug ? "Listings" : "My Listings"}</h4>
+          <p className="text-sm text-gray-500 mt-1">
+            {organizationSlug && organization ? `Listings of ${organization.name}` : "Manage your listings"}
+          </p>
           {/* V2: which organizations these listings come from (nothing while organizations are off) */}
-          <MyListingsOrganizationBar />
+          {!organizationSlug && <MyListingsOrganizationBar />}
         </div>
 
+        {canCreate && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button className="bg-[#93C01F] hover:bg-[#93C01F]/80 gap-2">
@@ -475,6 +490,7 @@ export default function MyListingsPage() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
 
       {listings.length > 0 ? (

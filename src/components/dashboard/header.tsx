@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Globe } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
-import { OrganizationSwitcher } from "@/components/dashboard/organizations/organization-switcher";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { getAuthToken as readAuthToken } from "@/lib/client-auth";
@@ -216,8 +215,6 @@ export default function Header() {
             )}
           </div> */}
 
-          {/* V2: organization switcher (renders nothing while organizations are off) */}
-          <OrganizationSwitcher />
 
           {/* Notifications Dropdown */}
           <div className="flex items-center rounded-full bg-[#E9F0F6] p-2 cursor-pointer relative">
@@ -390,6 +387,17 @@ export default function Header() {
               </div>
 
               <Separator className="mb-2" />
+
+              {/* Context switch: dashboard -> public website (mirrors "Dashboard" in the site navbar) */}
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 cursor-pointer py-2.5"
+                >
+                  <Globe className="h-4 w-4 text-gray-900 opacity-70" aria-hidden="true" />
+                  Visit website
+                </Link>
+              </DropdownMenuItem>
 
               <DropdownMenuItem asChild>
                 <Link

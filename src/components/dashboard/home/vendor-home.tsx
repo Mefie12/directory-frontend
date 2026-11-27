@@ -98,7 +98,12 @@ interface ListingsTableItem {
   description?: string;
 }
 
-export default function VendorHome() {
+interface VendorHomeProps {
+  /** Inside an organization workspace: show only that organization's listings. */
+  organizationSlug?: string;
+}
+
+export default function VendorHome({ organizationSlug }: VendorHomeProps = {}) {
   const router = useRouter();
 
   // const recentActivity = [
@@ -132,7 +137,7 @@ export default function VendorHome() {
   // ];
 
   const { user, loading: authLoading } = useAuth();
-  const { listingDetail } = useRolePath();
+  const { listingDetail, listingEdit, myListings } = useRolePath();
 
   const [listings, setListings] = useState<ListingsTableItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +160,10 @@ export default function VendorHome() {
       const token = getAuthToken();
       if (!token) throw new Error("Authentication required");
 
-      const response = await fetch(`/api/listing/my_listings`, {
+      const listingsUrl = organizationSlug
+        ? `/api/organizations/${encodeURIComponent(organizationSlug)}/listings`
+        : `/api/listing/my_listings`;
+      const response = await fetch(listingsUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -272,7 +280,7 @@ export default function VendorHome() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [organizationSlug]);
 
   const fetchListingViews = async (apiListings: ApiListing[], token: string) => {
     try {
@@ -325,9 +333,7 @@ export default function VendorHome() {
   }, [user, authLoading, fetchListings]);
 
   const handleEdit = (listing: ListingsTableItem) => {
-    router.push(
-      `/dashboard/my-listing/edit?type=${listing.type}&slug=${listing.slug}`,
-    );
+    router.push(listingEdit(listing.type, listing.slug));
   };
 
   const handleDelete = async () => {
@@ -487,12 +493,12 @@ export default function VendorHome() {
         <div className="w-full rounded-2xl border border-[#E3E8EF] bg-white p-6 shadow-xs">
           <div className="flex justify-between">
             <h2 className="text-xl font-semibold text-[#0F1A2A] mb-10">
-              My Listings
+              {organizationSlug ? "Listings" : "My Listings"}
             </h2>
             <div className="text-sm pr-3 cursor-pointer">
               <Button
                 variant="link"
-                onClick={() => router.push("/dashboard/my-listing")}
+                onClick={() => router.push(myListings)}
                 className="text-[#93C01F] cursor-pointer hover:no-underline"
               >
                 View all{" "}

@@ -17,6 +17,7 @@ import {
 import { ArchiveBlockedError, archiveOrganization, OrganizationApiError } from "@/lib/api";
 import type { ArchiveBlockingListing } from "@/types/organization";
 import { getAuthToken } from "@/lib/client-auth";
+import { organizationPath } from "@/lib/workspace";
 
 interface Props {
   slug: string;
@@ -97,7 +98,7 @@ export function ArchiveOrganizationSection({ slug, name, onArchived }: Props) {
               <ul className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
                 {blocking.map((listing) => (
                   <li key={listing.id}>
-                    <Link href={`/dashboard/my-listing/${listing.slug}`} className="text-[#1F3A4C] underline">
+                    <Link href={`${organizationPath(slug, "listings")}/${listing.slug}`} className="text-[#1F3A4C] underline">
                       {listing.name}
                     </Link>
                   </li>
