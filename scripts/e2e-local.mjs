@@ -78,6 +78,8 @@ const frontendBase = {
   NEXT_PUBLIC_API_URL: API_URL,
   API_URL,
   NEXT_TELEMETRY_DISABLED: "1",
+  // V2 Phase 6.1: the listing action bar is tested switched on.
+  NEXT_PUBLIC_LISTING_ACTION_BAR: "true",
 };
 
 const children = [];

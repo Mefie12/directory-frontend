@@ -197,6 +197,19 @@ export interface ListingManagementData extends EditableListingData {
   capabilities: ListingManagementCapabilities;
   /** V2: the owning organization. Present only while organizations are enabled. */
   organization?: { id: number; slug: string; name: string } | null;
+  /** V2 Phase 6.1: each free link's status against the outbound-link policy. */
+  link_checks?: ListingLinkCheck[];
+}
+
+/** V2 Phase 6.1: one free link (website / WhatsApp) and whether it is shown publicly. */
+export interface ListingLinkCheck {
+  field: "website" | "whatsapp";
+  value: string | null;
+  url: string | null;
+  host: string | null;
+  status: "none" | "ok" | "invalid" | "blocked" | "disabled_by_admin";
+  reason: string | null;
+  message: string | null;
 }
 
 export interface ListingService {
@@ -3353,4 +3366,97 @@ export async function revokeOrgVerification(orgSlug: string, reason: string, tok
   await verificationRequest<unknown>(
     `/api/admin/organizations/${encodeURIComponent(orgSlug)}/revoke-verification`, "POST", "Could not revoke verification", token, { reason },
   );
+}
+
+// ----------------------------------------------------------------------------
+// V2 Phase 6.1: outbound-link moderation (admin). md files/V2-phase6-listing-actions-cta-spec.md §4.3
+// ----------------------------------------------------------------------------
+
+export interface BlockedLinkDomain {
+  id: number;
+  domain: string;
+  include_subdomains: boolean;
+  reason: string;
+  created_by?: { id: number; name: string } | null;
+  created_at: string | null;
+}
+
+export interface AdminListingLinksRow {
+  listing: {
+    id: number;
+    slug: string;
+    name: string;
+    type: string;
+    status: string;
+    organization: { id: number; name: string } | null;
+  };
+  links: ListingLinkCheck[];
+}
+
+export interface LaravelPage<T> {
+  data: T[];
+  meta?: { current_page: number; last_page: number; total: number; per_page: number };
+}
+
+async function linkAdminRequest<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: { ...getAuthHeaders(token), Accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    message?: string;
+    error?: string;
+    errors?: Record<string, string[]>;
+  };
+  if (!response.ok) {
+    const firstError = payload.errors ? Object.values(payload.errors)[0]?.[0] : undefined;
+    throw new ApiRequestError(firstError || payload.message || payload.error || "Request failed", response.status);
+  }
+  return payload as T;
+}
+
+export function getBlockedLinkDomains(token?: string, params: { q?: string; page?: number } = {}): Promise<LaravelPage<BlockedLinkDomain>> {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.page) query.set("page", String(params.page));
+  return linkAdminRequest(`/api/admin/blocked-link-domains${query.size ? `?${query}` : ""}`, token);
+}
+
+export function blockLinkDomain(
+  input: { domain: string; reason: string; include_subdomains: boolean },
+  token?: string,
+): Promise<{ data: BlockedLinkDomain; affected_listings: number }> {
+  return linkAdminRequest("/api/admin/blocked-link-domains", token, { method: "POST", body: JSON.stringify(input) });
+}
+
+export function unblockLinkDomain(id: number, token?: string): Promise<{ message: string }> {
+  return linkAdminRequest(`/api/admin/blocked-link-domains/${id}`, token, { method: "DELETE" });
+}
+
+export function getAdminListingLinks(
+  token?: string,
+  params: { q?: string; status?: string; page?: number } = {},
+): Promise<LaravelPage<AdminListingLinksRow>> {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.status) query.set("status", params.status);
+  if (params.page) query.set("page", String(params.page));
+  return linkAdminRequest(`/api/admin/listing-links${query.size ? `?${query}` : ""}`, token);
+}
+
+export function disableListingLink(
+  listingSlug: string,
+  field: ListingLinkCheck["field"],
+  input: { reason: string; block_domain: boolean },
+  token?: string,
+): Promise<{ data: AdminListingLinksRow }> {
+  return linkAdminRequest(`/api/admin/listing-links/${encodeURIComponent(listingSlug)}/${field}/disable`, token, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function restoreListingLink(listingSlug: string, field: ListingLinkCheck["field"], token?: string): Promise<{ data: AdminListingLinksRow }> {
+  return linkAdminRequest(`/api/admin/listing-links/${encodeURIComponent(listingSlug)}/${field}/restore`, token, { method: "POST" });
 }

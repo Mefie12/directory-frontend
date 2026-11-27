@@ -5,6 +5,7 @@ import { WhatsappLogo, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { usePathname } from "next/navigation";
+import { useStickyActionBarVisible } from "@/lib/directory/sticky-action-bar";
 
 const STORAGE_KEY = "whatsapp_floater_open";
 
@@ -13,6 +14,8 @@ const HIDDEN_PATHS = ["/dashboard", "/claim/manual"];
 export function WhatsAppFloater() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  // V2 Phase 6.1: a listing's sticky action bar takes this corner on mobile.
+  const stickyActionBar = useStickyActionBarVisible();
   // Read persisted state once; default open if nothing stored yet.
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -32,6 +35,7 @@ export function WhatsAppFloater() {
   // Not yet hydrated, not authenticated, or on a form page
   if (loading || !user) return null;
   if (HIDDEN_PATHS.some((p) => pathname?.startsWith(p))) return null;
+  if (stickyActionBar) return null;
 
   if (!open) {
     return (

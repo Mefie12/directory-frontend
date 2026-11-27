@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkCheckNotice } from "@/components/dashboard/listing/form/link-check-notice";
 import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -408,6 +409,7 @@ export const SocialMediaForm = forwardRef<ListingFormHandle, Props>(
                       }
                     </p>
                   )}
+                  {platform.id === "whatsapp" && <LinkCheckNotice listingSlug={listingSlug} field="whatsapp" />}
                 </div>
               );
             })}

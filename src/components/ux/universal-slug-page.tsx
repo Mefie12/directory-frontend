@@ -45,6 +45,9 @@ import { useAuth } from "@/context/auth-context";
 import { ClaimEligibility, getClaimEligibility } from "@/lib/api";
 import { format12Hour, formatEventDateRange, formatEventTimeRange, formatShortDate } from "@/lib/directory/event-formatting";
 import { ListingLocationCard } from "@/components/directory/listing-location-card";
+import { GetInTouchCard, ListingActionBar, StickyListingActions } from "@/components/directory/listing-actions";
+import { buildDirectionsUrl } from "@/lib/directory/directions";
+import { buildListingActions, isListingActionBarEnabled, type ListingAction } from "@/lib/directory/listing-actions";
 import {
   BusinessAvailability,
   BusinessHoursMode,
@@ -198,6 +201,8 @@ interface ApiListingData {
   secondary_phone?: string;
   email?: string;
   website?: string;
+  /** V2 Phase 6.1: only the outbound links that pass the link policy (null = hidden). */
+  links?: { website: string | null; whatsapp: string | null };
   google_plus_code?: string;
   latitude?: number;
   longitude?: number;
@@ -439,12 +444,20 @@ function ProviderHeader({
   provider,
   rating,
   availability,
+  actions = [],
+  actionsDisabled = false,
+  actionAnchorRef,
   // type,
 }: {
   provider: Provider;
   rating: number;
   availability?: BusinessAvailability;
   type?: string;
+  /** V2 Phase 6.1 action bar; empty while the flag is off. */
+  actions?: ListingAction[];
+  actionsDisabled?: boolean;
+  /** The mobile action row; the sticky bar appears once it scrolls away. */
+  actionAnchorRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [isClamped, setIsClamped] = useState(false);
@@ -508,6 +521,11 @@ function ProviderHeader({
             </span>
           )}
         </div>
+        {actions.length > 0 && (
+          <div ref={actionAnchorRef} className="mt-4 md:hidden">
+            <ListingActionBar actions={actions} disabled={actionsDisabled} fill />
+          </div>
+        )}
         <div className="mt-3 max-w-2xl">
           <div
             className="overflow-hidden transition-all duration-500 ease-linear"
@@ -532,6 +550,13 @@ function ProviderHeader({
           )}
         </div>
       </div>
+      {actions.length > 0 && (
+        <ListingActionBar
+          actions={actions}
+          disabled={actionsDisabled}
+          className="hidden shrink-0 md:flex md:max-w-[22rem] md:justify-end"
+        />
+      )}
     </div>
   );
 }
@@ -1349,6 +1374,8 @@ export default function UniversalSlugPage({
   const previewMode = useSearchParams().get("preview") === "1";
 
   const [loading, setLoading] = useState(true);
+  // V2 Phase 6.1: the header's mobile action row, watched by the sticky action bar.
+  const actionAnchorRef = useRef<HTMLDivElement>(null);
   const [providerData, setProviderData] = useState<Provider | null>(null);
   const [template, setTemplate] = useState<TemplateContent | null>(null);
   const [availabilityNow, setAvailabilityNow] = useState(() => new Date());
@@ -1451,6 +1478,13 @@ export default function UniversalSlugPage({
             }
           } catch {}
 
+          // V2 Phase 6.1: a website or WhatsApp link that fails the link policy (or was taken
+          // down by an admin) is null in `links`, so it is not rendered anywhere on the page.
+          // Older backends don't send `links`; keep their raw values then.
+          if (listingData.links) {
+            socialLinks.whatsapp = listingData.links.whatsapp ?? undefined;
+          }
+
           const provider: Provider = {
             id: listingData.id,
             name: listingData.name,
@@ -1484,7 +1518,7 @@ export default function UniversalSlugPage({
             rating: listingData.rating || 0,
             phone: listingData.primary_phone,
             email: listingData.email,
-            website: listingData.website,
+            website: listingData.links ? (listingData.links.website ?? undefined) : listingData.website,
             socials: socialLinks,
             latitude: listingData.latitude,
             longitude: listingData.longitude,
@@ -1634,6 +1668,28 @@ export default function UniversalSlugPage({
   const rating = Number(providerData.rating) || 0;
 
   const resolvedType = providerData.listingType || type;
+
+  // V2 Phase 6.1: the free action bar (spec §4.1), behind NEXT_PUBLIC_LISTING_ACTION_BAR.
+  const physicalLocation = providerData.eventData?.event_location_type !== "online";
+  const listingActions: ListingAction[] = isListingActionBarEnabled()
+    ? buildListingActions({
+        type: resolvedType,
+        phone: providerData.phone,
+        email: providerData.email,
+        website: providerData.website,
+        whatsapp: providerData.socials?.whatsapp,
+        directionsUrl: physicalLocation
+          ? buildDirectionsUrl({
+              name: providerData.name,
+              addressParts: [providerData.location],
+              country: providerData.country,
+              latitude: providerData.latitude,
+              longitude: providerData.longitude,
+            })
+          : null,
+        event: providerData.eventData,
+      })
+    : [];
   const effectiveBusinessHoursMode =
     providerData.businessHoursMode ??
     (resolvedType === "business" && template.hours.length > 0
@@ -1719,6 +1775,9 @@ export default function UniversalSlugPage({
               rating={rating}
               type={type}
               availability={availability}
+              actions={listingActions}
+              actionsDisabled={previewMode}
+              actionAnchorRef={actionAnchorRef}
             />
 
             <ProviderTabs
@@ -1757,6 +1816,9 @@ export default function UniversalSlugPage({
               </CardContent>
             </Card>
           )}
+
+          {/* V2 Phase 6.1: closing "Get in touch" card on every listing (decision C-6) */}
+          <GetInTouchCard name={providerData.name} actions={listingActions} disabled={previewMode} />
         </main>
 
         <aside className="lg:col-span-4 space-y-6">
@@ -1774,6 +1836,8 @@ export default function UniversalSlugPage({
           />
         </aside>
       </div>
+
+      <StickyListingActions actions={listingActions} anchorRef={actionAnchorRef} disabled={previewMode} />
     </div>
   );
 }
